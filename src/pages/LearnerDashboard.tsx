@@ -255,7 +255,7 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
             )}>
               <CardContent className="p-2.5 text-center">
                 <div className={`p-2 rounded-lg ${action.gradient} inline-flex mb-1 ${action.blocked ? 'grayscale' : ''}`}>
-                  <action.icon className="h-4 w-4 text-white" />
+                  <action.icon className="h-4 w-4 text-text-on-gradient" />
                 </div>
                 <h3 className="font-medium text-[10px] leading-tight">{action.label}</h3>
               </CardContent>

@@ -1,20 +1,18 @@
 /**
- * A11y smoke for 5 core public routes using @axe-core/playwright.
+ * A11y smoke for all public routes registered in `tests/e2e/a11y-routes.ts`
+ * using @axe-core/playwright.
  *
  * Runs against BASE_URL (preview / staging). Fails on serious/critical
  * violations only — moderate/minor are surfaced as warnings to keep the
  * gate practical. Each route gets its own test so failures are attributable.
+ *
+ * To add a new route: edit `tests/e2e/a11y-routes.ts` (single source of truth).
  */
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { PUBLIC_A11Y_SMOKE_ROUTES } from "./a11y-routes";
 
-const ROUTES: Array<{ name: string; path: string }> = [
-  { name: "home", path: "/" },
-  { name: "kurse", path: "/kurse" },
-  { name: "trainer-start", path: "/trainer-start" },
-  { name: "dashboard", path: "/dashboard" },
-  { name: "lead-quiz", path: "/quiz" },
-];
+const ROUTES = PUBLIC_A11Y_SMOKE_ROUTES;
 
 for (const route of ROUTES) {
   test(`a11y smoke: ${route.name} (${route.path})`, async ({ page }) => {

@@ -37,7 +37,7 @@ function HeatCell({ cell }: { cell: HeatmapCell }) {
             </div>
             <p className="text-xs font-medium leading-tight line-clamp-2">{cell.learning_field_title}</p>
             <div className="mt-2 flex items-center gap-1.5">
-              <div className="flex-1 h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+              <div className="flex-1 h-1.5 rounded-full bg-track-subtle/10 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-current opacity-60 transition-all"
                   style={{ width: `${cell.accuracy}%` }}

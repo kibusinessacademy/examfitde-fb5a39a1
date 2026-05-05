@@ -28,7 +28,7 @@ export default function SEOLayout() {
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-                <span className="text-white font-bold text-lg">E</span>
+                <span className="text-text-on-gradient font-bold text-lg">E</span>
               </div>
               <span className="font-display font-bold text-xl">ExamFit</span>
             </Link>
@@ -136,7 +136,7 @@ export default function SEOLayout() {
             <div>
               <Link to="/" className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">E</span>
+                  <span className="text-text-on-gradient font-bold text-lg">E</span>
                 </div>
                 <span className="font-display font-bold text-xl">ExamFit</span>
               </Link>

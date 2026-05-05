@@ -195,7 +195,7 @@ export default function CoursesPage() {
                   {/* Status Badges */}
                   <div className="absolute top-3 left-3 flex gap-2">
                     {isCompleted(course.id) && (
-                      <Badge className="bg-green-500/90 text-white">
+                      <Badge className="bg-success/90 text-success-foreground">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Abgeschlossen
                       </Badge>
