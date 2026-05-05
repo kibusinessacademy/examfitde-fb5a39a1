@@ -7,7 +7,10 @@ on:
   schedule:
     - cron: "0 */6 * * *"
 
-permissions: read-all
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
   guard:
@@ -18,8 +21,37 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - name: Run auto_heal_log canonical schema guard
+
+      - name: Run guard (annotate + json)
+        id: guard
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node scripts/guards/auto-heal-log-canonical-schema-guard.mjs --annotate
+        run: |
+          node scripts/guards/auto-heal-log-canonical-schema-guard.mjs --annotate --json > /tmp/guard.json
+          # Re-emit annotations to logs (json mode swallows them); rerun without --json for annotations only:
+          node scripts/guards/auto-heal-log-canonical-schema-guard.mjs --annotate || true
+
+      - name: Generate migration runbook
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node scripts/ops/migration-runbook-generator.mjs --out=/tmp/runbook.md || echo "_(runbook unavailable — no live RPC access)_" > /tmp/runbook.md
+
+      - name: Post PR review comment
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GUARD_JSON_PATH: /tmp/guard.json
+          RUNBOOK_PATH: /tmp/runbook.md
+        run: node scripts/ci/auto-heal-log-pr-comment.mjs
+
+      - name: Fail if guard failed
+        if: steps.guard.outcome == 'failure'
+        run: |
+          echo "❌ auto_heal_log canonical schema guard failed."
+          exit 1

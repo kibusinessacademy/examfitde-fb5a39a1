@@ -31,6 +31,9 @@ const args = Object.fromEntries(
 );
 
 const REPORT = !!args.report;
+const SQL_MODE = args.sql === true || typeof args.sql === "string"; // --sql or --sql=update
+const SQL_KIND = typeof args.sql === "string" ? args.sql : "insert"; // 'insert' | 'update'
+const SQL_ID_COL = args.id || "id"; // column for UPDATE WHERE
 
 function readInput() {
   if (args.in) return readFileSync(args.in, "utf8");
@@ -102,7 +105,51 @@ const report = {
   rows_missing_action_type: migrated.filter((m) => m.missing_required.length).length,
 };
 
-if (REPORT) {
+// ─── SQL serialization ───────────────────────────────────────────────────────
+function sqlLiteral(v) {
+  if (v === null || v === undefined) return "NULL";
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
+  // JSON for objects/arrays → jsonb cast, escape single quotes
+  if (typeof v === "object") {
+    const json = JSON.stringify(v).replace(/'/g, "''");
+    return `'${json}'::jsonb`;
+  }
+  const s = String(v).replace(/'/g, "''");
+  // UUID literal stays as text — Postgres casts implicitly on uuid columns
+  return `'${s}'`;
+}
+
+const CANONICAL_COLS = ["action_type", "trigger_source", "target_type", "target_id", "result_status", "metadata"];
+
+function rowToInsert(row) {
+  const cols = CANONICAL_COLS.filter((c) => row[c] !== undefined);
+  const vals = cols.map((c) => sqlLiteral(c === "metadata" ? (row[c] ?? {}) : row[c]));
+  return `INSERT INTO public.auto_heal_log (${cols.join(", ")}) VALUES (${vals.join(", ")});`;
+}
+
+function rowToUpdate(row) {
+  const id = row[SQL_ID_COL];
+  if (id === undefined) return `-- SKIP: missing ${SQL_ID_COL} for UPDATE`;
+  const cols = CANONICAL_COLS.filter((c) => row[c] !== undefined);
+  const sets = cols.map((c) => `${c} = ${sqlLiteral(c === "metadata" ? (row[c] ?? {}) : row[c])}`);
+  return `UPDATE public.auto_heal_log SET ${sets.join(", ")} WHERE ${SQL_ID_COL} = ${sqlLiteral(id)};`;
+}
+
+if (SQL_MODE) {
+  const lines = [
+    `-- auto_heal_log canonical migration (${SQL_KIND.toUpperCase()})`,
+    `-- Generated: ${new Date().toISOString()} · rows=${rows.length}`,
+    `BEGIN;`,
+    ...rows.map((r) => (SQL_KIND === "update" ? rowToUpdate(r) : rowToInsert(r))),
+    `COMMIT;`,
+    "",
+  ];
+  const out = lines.join("\n");
+  if (args.out) writeFileSync(args.out, out);
+  else process.stdout.write(out);
+  if (REPORT) console.error(`✅ Emitted ${rows.length} ${SQL_KIND.toUpperCase()} statements.`);
+} else if (REPORT) {
   writeOutput({ rows, report });
   console.error(`✅ Migrated ${report.total} rows. Filled:`, report.filled_field_counts);
   if (report.rows_missing_action_type) {
