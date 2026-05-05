@@ -1,0 +1,21 @@
+name: a11y-learner-regression
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/lesson/**'
+      - 'src/components/course/**'
+      - 'src/test/a11y/**'
+      - '.github/workflows/a11y-learner-regression.yml'
+  push:
+    branches: [main]
+
+jobs:
+  axe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with: { bun-version: latest }
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/a11y/learner-components.a11y.test.tsx
