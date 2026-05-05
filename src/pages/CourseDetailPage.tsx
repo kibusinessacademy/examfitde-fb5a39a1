@@ -159,7 +159,7 @@ export default function CourseDetailPage() {
       return;
     }
 
-    setCourse(courseData as Course);
+    setCourse(courseData as unknown as Course);
 
     // Fetch modules
     const { data: modulesData } = await supabase
