@@ -109062,6 +109062,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: undefined
       }
+      admin_force_publish_course: {
+        Args: { _course_id: string; _reason: string }
+        Returns: Json
+      }
       admin_force_publish_course_for_test: {
         Args: { _course_id: string }
         Returns: Json
@@ -109693,6 +109697,21 @@ export type Database = {
           oldest_sec: number
         }[]
       }
+      admin_get_publish_blocked_attempts: {
+        Args: { _limit?: number }
+        Returns: {
+          course_id: string
+          course_status: string
+          course_title: string
+          created_at: string
+          curriculum_id: string
+          lessons: number
+          log_id: string
+          modules: number
+          result_status: string
+          source: string
+        }[]
+      }
       admin_get_qc_step_drift_detail: {
         Args: { p_cluster: string; p_limit?: number }
         Returns: {
@@ -109851,6 +109870,16 @@ export type Database = {
       admin_get_run_integrity_runbook: {
         Args: { _package_id: string }
         Returns: Json
+      }
+      admin_get_skeleton_backfill_jobs_summary: {
+        Args: never
+        Returns: {
+          job_count: number
+          job_type: string
+          latest: string
+          oldest: string
+          status: string
+        }[]
       }
       admin_get_ssot_dashboard: { Args: never; Returns: Json }
       admin_get_ssot_payload_violations: {
