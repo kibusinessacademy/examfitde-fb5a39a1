@@ -115302,6 +115302,10 @@ export type Database = {
         Args: { p_older_than_days?: number; p_statuses?: string[] }
         Returns: Json
       }
+      qa_pins_validate: {
+        Args: { _course_id: string; _lesson_id?: string; _qa_email?: string }
+        Returns: Json
+      }
       qa_severity_rank: {
         Args: { p: Database["public"]["Enums"]["qa_severity"] }
         Returns: number
