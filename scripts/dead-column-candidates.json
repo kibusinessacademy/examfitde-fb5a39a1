@@ -1,0 +1,13 @@
+[
+  { "table": "auto_heal_log", "column": "followup_action" },
+  { "table": "auto_heal_log", "column": "followup_at" },
+  { "table": "auto_heal_log", "column": "followup_status" },
+  { "table": "course_packages", "column": "legacy_exempt_at" },
+  { "table": "course_packages", "column": "legacy_exempt_reason" },
+  { "table": "course_packages", "column": "legacy_quality_score" },
+  { "table": "package_steps", "column": "legacy_step_attempts" },
+  { "table": "package_steps", "column": "legacy_skip_reason" },
+  { "table": "exam_questions", "column": "legacy_source_id" },
+  { "table": "job_queue", "column": "fallback_count" },
+  { "table": "job_queue", "column": "original_provider" }
+]

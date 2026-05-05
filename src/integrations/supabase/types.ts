@@ -2801,6 +2801,66 @@ export type Database = {
           },
         ]
       }
+      audit_dead_columns_snapshot: {
+        Row: {
+          column_name: string
+          id: string
+          notes: string | null
+          ref_count_db: number
+          ref_count_edge: number
+          ref_count_ui: number
+          safe_to_drop: boolean | null
+          snapshot_at: string
+          table_name: string
+        }
+        Insert: {
+          column_name: string
+          id?: string
+          notes?: string | null
+          ref_count_db?: number
+          ref_count_edge?: number
+          ref_count_ui?: number
+          safe_to_drop?: boolean | null
+          snapshot_at?: string
+          table_name: string
+        }
+        Update: {
+          column_name?: string
+          id?: string
+          notes?: string | null
+          ref_count_db?: number
+          ref_count_edge?: number
+          ref_count_ui?: number
+          safe_to_drop?: boolean | null
+          snapshot_at?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
+      audit_orphan_functions_snapshot: {
+        Row: {
+          function_name: string
+          id: string
+          notes: string | null
+          ref_count: number
+          snapshot_at: string
+        }
+        Insert: {
+          function_name: string
+          id?: string
+          notes?: string | null
+          ref_count?: number
+          snapshot_at?: string
+        }
+        Update: {
+          function_name?: string
+          id?: string
+          notes?: string | null
+          ref_count?: number
+          snapshot_at?: string
+        }
+        Relationships: []
+      }
       audit_remediation_actions: {
         Row: {
           action_key: string
@@ -93379,6 +93439,15 @@ export type Database = {
         }
         Relationships: []
       }
+      v_audit_coupling_legacy_producers: {
+        Row: {
+          args: string | null
+          issue: string | null
+          proname: unknown
+          schema_name: unknown
+        }
+        Relationships: []
+      }
       v_audit_finding_trends: {
         Row: {
           all_healed: boolean | null
@@ -93430,6 +93499,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_audit_orphan_jobs: {
+        Row: {
+          created_at: string | null
+          job_id: string | null
+          job_type: string | null
+          last_error: string | null
+          package_id: string | null
+          status: string | null
+        }
+        Relationships: []
       }
       v_auto_heal_log_identity_health: {
         Row: {
@@ -107655,6 +107735,10 @@ export type Database = {
               out_step_key: string
             }[]
           }
+      admin_continuation_cap_override: {
+        Args: { p_disable: boolean }
+        Returns: boolean
+      }
       admin_count_hard_blocks_24h: { Args: never; Returns: number }
       admin_create_permanent_fix_task: {
         Args: { p_priority?: string; p_recommendation_id: string }
@@ -107824,6 +107908,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_get_audit_reports_summary: { Args: never; Returns: Json }
       admin_get_blocked_packages_detail: {
         Args: never
         Returns: {
@@ -109057,6 +109142,21 @@ export type Database = {
           step_key: string
         }[]
       }
+      admin_record_dead_column: {
+        Args: {
+          p_column: string
+          p_notes?: string
+          p_ref_db: number
+          p_ref_edge: number
+          p_ref_ui: number
+          p_table: string
+        }
+        Returns: string
+      }
+      admin_record_orphan_function: {
+        Args: { p_function_name: string; p_notes?: string; p_ref_count: number }
+        Returns: string
+      }
       admin_recover_single_job: { Args: { p_job_id: string }; Returns: Json }
       admin_refresh_integrity_check_with_diff: {
         Args: { p_package_id: string }
@@ -109387,6 +109487,7 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      admin_test_auto_heal_log_schema_guard: { Args: never; Returns: Json }
       admin_test_hard_block_building_to_queued: {
         Args: never
         Returns: {
