@@ -4,6 +4,7 @@
  * SSOT: job_queue.status='completed' (NICHT 'done'). Erkennt Worker-Stillstände
  * (Lane mit Pending > 0, aber completed_6h = 0) → kritisch markiert.
  */
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -40,7 +41,12 @@ function fmtSec(s: number | null): string {
 
 interface WorkerHB { any_alive_5m: boolean; pipeline_alive_5m: number; pipeline_latest: string | null; }
 
+// SSOT-Soll-Lanes — werden auch dann gerendert, wenn aktuell idle (0 jobs).
+// Quelle: derive_job_lane + ops_job_type_registry + tatsächlich beobachtete Lanes der letzten 24h.
+const EXPECTED_LANES = ["control", "content", "research", "tutor", "finalize", "generation", "recovery", "marketing"] as const;
+
 export function LaneHealthCard() {
+  const [showAll, setShowAll] = useState(true);
   const q = useQuery({
     queryKey: ["admin-lane-health"],
     queryFn: async () => {
@@ -62,31 +68,54 @@ export function LaneHealthCard() {
     },
     refetchInterval: 30_000,
   });
-  // Echte Worker-Heartbeat-Quelle (ops_worker_heartbeats / pipeline-runner)
   const workersAlive = hbQ.data?.any_alive_5m ?? true;
+
+  // Merge: live rows + Soll-Lanes (idle als Platzhalter)
+  const merged: LaneRow[] = (() => {
+    const live = q.data ?? [];
+    const seen = new Set(live.map((r) => r.lane));
+    const placeholders: LaneRow[] = EXPECTED_LANES.filter((l) => !seen.has(l)).map((lane) => ({
+      lane,
+      pending_cnt: 0,
+      processing_cnt: 0,
+      queued_cnt: 0,
+      last_completed_at: null,
+      completed_6h: 0,
+      oldest_pending_sec: null,
+    }));
+    return [...live, ...placeholders];
+  })();
+
+  const visible = showAll ? merged : merged.filter((r) => r.pending_cnt + r.processing_cnt + r.queued_cnt > 0);
 
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <Activity className="h-4 w-4" /> Lane-Health
+          <span className="text-[10px] text-muted-foreground font-normal">
+            ({visible.length}/{merged.length})
+          </span>
         </h3>
-        <Badge variant="outline" className="text-[10px]">live · 30s</Badge>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+          >
+            {showAll ? "nur aktive" : "alle anzeigen"}
+          </button>
+          <Badge variant="outline" className="text-[10px]">live · 30s</Badge>
+        </div>
       </div>
 
       {q.isLoading ? (
         <Skeleton className="h-32 w-full" />
       ) : (
         <div className="space-y-2">
-          {(q.data ?? [])
+          {visible
             .sort((a, b) => (b.pending_cnt + b.processing_cnt) - (a.pending_cnt + a.processing_cnt))
             .map((row) => {
-              // Differenziertes Stillstand-Signal:
-              // - workerStalled: pending > 0, NICHTS processing, 0 completed in 6h
-              //   → echter Worker-Pickup-Ausfall
-              // - dagBacklog: pending > 0, processing > 0 (Worker leben), aber 0 completed
-              //   → Jobs werden vom Claim-RPC ausgefiltert (DAG-Prereqs nicht erfüllt)
-              // workerStalled NUR wenn echte Heartbeat-Quelle 0 alive_5m UND keine completions
+              const isIdle = row.pending_cnt + row.processing_cnt + row.queued_cnt === 0;
               const noCompletions = row.pending_cnt > 0 && row.completed_6h === 0;
               const workerStalled = noCompletions && row.processing_cnt === 0 && !workersAlive;
               const dagBacklog = noCompletions && (row.processing_cnt > 0 || workersAlive);
@@ -99,18 +128,22 @@ export function LaneHealthCard() {
                     "rounded-md border p-3 text-xs",
                     critical && "border-destructive/50 bg-destructive/5",
                     !critical && slow && "border-warning/50 bg-warning/5",
+                    isIdle && "opacity-50",
                   )}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1 flex-wrap gap-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-semibold">{row.lane}</span>
+                      {isIdle && (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">idle</Badge>
+                      )}
                       {workerStalled && (
                         <Badge variant="destructive" className="text-[10px]">
                           <AlertTriangle className="h-3 w-3 mr-1" /> Worker-Stillstand
                         </Badge>
                       )}
                       {dagBacklog && (
-                        <Badge variant="destructive" className="text-[10px]" title="Jobs werden vom Claim-RPC ausgefiltert: DAG-Prereqs nicht erfüllt (vorgelagerte Tail-Steps queued/failed). Heal via Stuck-Patterns Bulk-Promote oder Per-Step-Retry.">
+                        <Badge variant="destructive" className="text-[10px]" title="DAG-Prereqs nicht erfüllt — Heal via Stuck-Patterns / Per-Step-Retry.">
                           <AlertTriangle className="h-3 w-3 mr-1" /> DAG-Backlog
                         </Badge>
                       )}
@@ -133,7 +166,7 @@ export function LaneHealthCard() {
                 </div>
               );
             })}
-          {(q.data ?? []).length === 0 && (
+          {visible.length === 0 && (
             <p className="text-xs text-muted-foreground py-4 text-center">Keine aktiven Lanes.</p>
           )}
         </div>

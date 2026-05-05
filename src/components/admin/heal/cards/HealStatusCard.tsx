@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Activity, AlertTriangle, CheckCircle2, Clock, PauseCircle, Play, RefreshCw, RotateCw } from "lucide-react";
 import { toast } from "sonner";
+import { CopyButton } from "@/components/admin/shared/CopyButton";
+import { PackageActionsMenu } from "@/components/admin/shared/PackageActionsMenu";
 
 type TrackRow = {
   track: string;
@@ -322,7 +324,10 @@ export function HealStatusCard() {
                       {badge.label}
                     </Badge>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{p.package_title ?? p.package_id}</div>
+                      <div className="font-medium truncate flex items-center gap-1">
+                        {p.package_title ?? p.package_id}
+                        <CopyButton value={p.package_id} toastLabel="package_id kopiert" />
+                      </div>
                       <div className="text-[10px] text-muted-foreground">
                         {p.track ?? "—"} · Status {p.package_status} · Jobs {p.active_jobs}
                       </div>
@@ -331,6 +336,11 @@ export function HealStatusCard() {
                       <div>✓ {p.heals_success} · ⏭ {p.heals_skipped} · ✗ {p.heals_failed}</div>
                       <div>letztes: {fmt(p.last_heal_at)}</div>
                     </div>
+                    <PackageActionsMenu
+                      packageId={p.package_id}
+                      defaultRetryStep={p.failed_step_keys[0] ?? "quality_council"}
+                      bronzeLocked={(p.last_reason ?? "").toLowerCase().includes("bronze")}
+                    />
                   </div>
                   {p.last_reason && (
                     <div
