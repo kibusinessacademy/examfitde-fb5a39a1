@@ -1,0 +1,48 @@
+name: learner-progress-persistence
+
+on:
+  pull_request:
+    paths:
+      - 'src/pages/LessonPlayer.tsx'
+      - 'src/pages/CourseDetailPage.tsx'
+      - 'src/components/lesson/**'
+      - 'src/components/course/**'
+      - 'src/hooks/useCourseProgress.ts'
+      - 'tests/e2e/learner-progress-persistence.spec.ts'
+      - 'tests/e2e/helpers/auth.ts'
+      - '.github/workflows/learner-progress-persistence.yml'
+  schedule:
+    # Nightly: re-verify the "save & reload" promise even when no PRs land.
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  progress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE_URL: ${{ secrets.STAGING_URL || 'https://examfitde.lovable.app' }}
+      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      E2E_QA_ALLACCESS_EMAIL: ${{ secrets.E2E_QA_ALLACCESS_EMAIL }}
+      E2E_QA_ALLACCESS_PASSWORD: ${{ secrets.E2E_QA_ALLACCESS_PASSWORD }}
+      E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with: { bun-version: latest }
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bunx playwright test tests/e2e/learner-progress-persistence.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: learner-progress-persistence
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
