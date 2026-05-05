@@ -134,8 +134,8 @@ export default function CourseDetailPage() {
       );
 
     // Load from publishable view (filters out phantom courses with 0 modules/lessons)
-    let query = supabase.from("v_courses_publishable" as any).select("*");
-    query = isUuid ? query.eq("id", slug!) : query.eq("id", slug!); // slug column not present on courses; UUID-only for now
+    let query: any = (supabase.from as any)("v_courses_publishable").select("*");
+    query = query.eq("id", slug!);
     const { data: courseData, error: courseError } = await query.maybeSingle();
 
     if (courseError || !courseData) {
