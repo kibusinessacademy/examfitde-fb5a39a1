@@ -431,7 +431,7 @@ Deno.serve(async (req) => {
         // is the SSOT helper that prevents the cancel-storm loop.
         const safeIds: string[] = [];
         for (const id of revertableIds) {
-          const { data: prot } = await sb.rpc("fn_package_demote_protected", { p_package_id: id });
+          // Canonical pre-check (replaces direct fn_package_demote_protected call below)
           // Canonical pre-check via fn_can_demote_package_status (same source as RPC)
           const { data: dec } = await sb.rpc("fn_can_demote_package_status" as never, {
             p_package_id: id,
