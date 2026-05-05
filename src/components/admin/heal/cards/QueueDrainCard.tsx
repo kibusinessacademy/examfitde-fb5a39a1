@@ -97,7 +97,7 @@ export function QueueDrainCard() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {/* Drain Queue Backlog */}
-      <Card className="p-4 border-warning/40 bg-warning/5" data-testid="queue-drain-card">
+      <Card className="p-4 border-warning/40 bg-warning-bg-subtle" data-testid="queue-drain-card">
         <div className="flex items-center gap-2 mb-1">
           <Hourglass className="h-4 w-4 text-warning" />
           <h3 className="text-sm font-semibold">Queue-Backlog auflösen</h3>
@@ -175,7 +175,7 @@ export function QueueDrainCard() {
       </Card>
 
       {/* Release Stale Locks */}
-      <Card className="p-4 border-destructive/40 bg-destructive/5" data-testid="stale-locks-card">
+      <Card className="p-4 border-destructive/40 bg-destructive-bg-subtle" data-testid="stale-locks-card">
         <div className="flex items-center gap-2 mb-1">
           <Unlock className="h-4 w-4 text-destructive" />
           <h3 className="text-sm font-semibold">Stale-Locks freigeben</h3>

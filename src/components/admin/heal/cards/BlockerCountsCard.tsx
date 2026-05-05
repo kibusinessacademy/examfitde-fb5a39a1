@@ -18,7 +18,7 @@ export const BLOCKER_META: Record<BlockerKey, { label: string; icon: any; tone: 
   INTEGRITY_NEVER_CHECKED: { label: "Never Checked", icon: Clock, tone: "bg-muted text-muted-foreground" },
   INTEGRITY_DEFERRED: { label: "Deferred", icon: Pause, tone: "bg-secondary text-secondary-foreground" },
   QUALITY_COUNCIL_PENDING: { label: "Council Pending", icon: Clock, tone: "bg-secondary text-secondary-foreground" },
-  EXAM_POOL_TOO_SMALL: { label: "Exam Pool Too Small", icon: AlertTriangle, tone: "bg-destructive/15 text-destructive" },
+  EXAM_POOL_TOO_SMALL: { label: "Exam Pool Too Small", icon: AlertTriangle, tone: "bg-destructive-bg-subtle text-destructive" },
 };
 
 export interface DashboardRow {

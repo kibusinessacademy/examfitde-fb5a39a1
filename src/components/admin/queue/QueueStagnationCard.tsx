@@ -276,7 +276,7 @@ export function QueueStagnationCard({ filters = {} }: { filters?: QueueStagnatio
                 key={`${h.kind}::${h.job_id}`}
                 className={`flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5 text-xs ${
                   h.severity === "high"
-                    ? "border-destructive/40 bg-destructive/5"
+                    ? "border-destructive/40 bg-destructive-bg-subtle"
                     : "border-amber-500/40 bg-amber-500/5"
                 }`}
               >
@@ -317,7 +317,7 @@ function Stat({
   const cls = disabled
     ? "bg-muted/40 text-muted-foreground/60 line-through"
     : tone === "destructive"
-    ? "bg-destructive/10 text-destructive"
+    ? "bg-destructive-bg-subtle text-destructive"
     : "bg-muted text-muted-foreground";
   return (
     <div className={`flex items-center gap-2 rounded-md p-2 ${cls}`}>

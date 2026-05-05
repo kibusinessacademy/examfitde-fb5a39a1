@@ -51,9 +51,9 @@ interface NextAction {
 }
 
 const RISK_BADGE: Record<Risk, string> = {
-  low: "bg-success/10 text-success border-success/30",
-  med: "bg-warning/10 text-warning border-warning/30",
-  high: "bg-destructive/10 text-destructive border-destructive/30",
+  low: "bg-success-bg-subtle text-success border-success/30",
+  med: "bg-warning-bg-subtle text-warning border-warning/30",
+  high: "bg-destructive-bg-subtle text-destructive border-destructive/30",
 };
 
 const RISK_LABEL: Record<Risk, string> = {
@@ -94,7 +94,7 @@ export function SmartNextBestAction() {
         impact: `~+${(readyToPublish.length * 1200).toLocaleString("de-DE")} mtl. organische Visits (geschätzt)`,
         risk: "low",
         icon: Rocket,
-        toneClass: "border-success/30 bg-success/5",
+        toneClass: "border-success/30 bg-success-bg-subtle",
         cta: "Publish-Workflow öffnen",
         href: "/admin/queue?tab=heal",
       });
@@ -110,7 +110,7 @@ export function SmartNextBestAction() {
         impact: stuck.length > 3 ? `Entlastet Pipeline + ${stuck.length} Pakete weiter` : "Pipeline-Hygiene",
         risk: stuck.length > 5 ? "med" : "low",
         icon: Wrench,
-        toneClass: "border-warning/30 bg-warning/5",
+        toneClass: "border-warning/30 bg-warning-bg-subtle",
         cta: "Heal-Worklist öffnen",
         href: "/admin/queue?tab=heal",
       });
@@ -126,7 +126,7 @@ export function SmartNextBestAction() {
         impact: "Befreit Worker-Slots, beschleunigt Queue-Durchsatz",
         risk: "low",
         icon: Skull,
-        toneClass: "border-destructive/30 bg-destructive/5",
+        toneClass: "border-destructive/30 bg-destructive-bg-subtle",
         cta: "Live-Queue öffnen",
         href: "/admin/queue?tab=live",
       });
@@ -144,7 +144,7 @@ export function SmartNextBestAction() {
         impact: "Beschleunigt Pipeline-Throughput",
         risk: "med",
         icon: RefreshCcw,
-        toneClass: "border-warning/30 bg-warning/5",
+        toneClass: "border-warning/30 bg-warning-bg-subtle",
         cta: "Live-Queue öffnen",
         href: "/admin/queue?tab=live",
       });
@@ -188,7 +188,7 @@ export function SmartNextBestAction() {
 
   if (actions.length === 0) {
     return (
-      <Card className="p-4 border-success/30 bg-success/5">
+      <Card className="p-4 border-success/30 bg-success-bg-subtle">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-success" />
           <span className="text-sm font-medium text-foreground">

@@ -134,7 +134,7 @@ export function RealtimePulse() {
               className={cn(
                 "text-[9px] h-4 px-1.5",
                 connected
-                  ? "bg-success/10 text-success border-success/30"
+                  ? "bg-success-bg-subtle text-success border-success/30"
                   : "bg-muted text-muted-foreground",
               )}
             >
@@ -174,9 +174,9 @@ export function RealtimePulse() {
                     className={cn(
                       "text-[9px] h-4 px-1.5 shrink-0",
                       e.newStatus === "completed" &&
-                        "bg-success/10 text-success border-success/30",
+                        "bg-success-bg-subtle text-success border-success/30",
                       e.newStatus === "failed" &&
-                        "bg-destructive/10 text-destructive border-destructive/30",
+                        "bg-destructive-bg-subtle text-destructive border-destructive/30",
                       e.newStatus === "processing" &&
                         "bg-primary/10 text-primary border-primary/30",
                     )}
@@ -211,7 +211,7 @@ export function RealtimePulse() {
               <Link
                 key={p.pkgId}
                 to={`/admin/studio/${p.pkgId}`}
-                className="flex items-start gap-2 rounded-lg border border-warning/20 bg-warning/5 p-2 hover:bg-warning/10 transition-colors"
+                className="flex items-start gap-2 rounded-lg border border-warning/20 bg-warning-bg-subtle p-2 hover:bg-warning-bg-subtle transition-colors"
               >
                 <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">

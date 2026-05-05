@@ -58,7 +58,7 @@ export function BlockedReasonDetailCard() {
                 <span className="font-mono">{r.last_step ?? "—"}</span>
               </div>
               {r.last_error && (
-                <div className="text-destructive font-mono text-[10px] line-clamp-2 bg-destructive/5 p-1 rounded">
+                <div className="text-destructive font-mono text-[10px] line-clamp-2 bg-destructive-bg-subtle p-1 rounded">
                   {r.last_error}
                 </div>
               )}

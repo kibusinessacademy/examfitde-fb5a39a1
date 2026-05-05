@@ -304,7 +304,7 @@ export function TargetedJobHealPanel({ packageId }: Props) {
                       r?.ok
                         ? "border-emerald-500/40 bg-emerald-500/5"
                         : r && !r.ok
-                        ? "border-destructive/50 bg-destructive/5"
+                        ? "border-destructive/50 bg-destructive-bg-subtle"
                         : isHealable
                         ? "border-amber-500/40 bg-amber-500/5"
                         : "border-border bg-card"

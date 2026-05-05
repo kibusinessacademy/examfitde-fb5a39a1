@@ -166,7 +166,7 @@ export function TriageCards() {
         </Card>
 
         {/* Hollow-Published */}
-        <Card className={cn("p-4", (hollow.data?.length ?? 0) > 0 && "border-destructive/40 bg-destructive/5")}>
+        <Card className={cn("p-4", (hollow.data?.length ?? 0) > 0 && "border-destructive/40 bg-destructive-bg-subtle")}>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold">Hollow-Published Forensik</h3>
             <Badge
@@ -210,7 +210,7 @@ export function TriageCards() {
       </div>
 
       {/* Track-Normalize */}
-      <Card className="p-4 border-warning/40 bg-warning/5">
+      <Card className="p-4 border-warning/40 bg-warning-bg-subtle">
         <div className="flex items-center justify-between mb-2">
           <div>
             <h3 className="text-sm font-semibold">Track-Normalisierung (statt Einzel-Heal)</h3>

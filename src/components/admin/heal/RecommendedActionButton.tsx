@@ -57,7 +57,7 @@ export function ActionabilityBadge({ value }: { value: ActionabilityClass }) {
       : value === "modal"
         ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
         : value === "confirm"
-          ? "bg-destructive/10 text-destructive border-destructive/20"
+          ? "bg-destructive-bg-subtle text-destructive border-destructive/20"
           : "bg-muted text-muted-foreground border-border";
   return (
     <Badge variant="outline" className={`text-[10px] ${tone}`}>

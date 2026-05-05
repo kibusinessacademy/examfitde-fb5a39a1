@@ -108,7 +108,7 @@ export function WhyBlockedModal({ packageId, open, onOpenChange }: WhyBlockedMod
                   </h3>
                   <div className="space-y-1">
                     {data.meta_ok_drift.map((s) => (
-                      <div key={s.step_key} className="text-xs bg-warning/10 p-2 rounded">
+                      <div key={s.step_key} className="text-xs bg-warning-bg-subtle p-2 rounded">
                         <code>{s.step_key}</code> · meta.ok=<code>{s.meta_ok}</code>
                         {' · '}executed=<code>{s.meta_executed}</code>
                       </div>

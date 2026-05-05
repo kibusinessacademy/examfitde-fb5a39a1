@@ -31,8 +31,8 @@ interface HealthcheckResponse {
 }
 
 const SEVERITY_CLS: Record<string, string> = {
-  high: "border-destructive/40 bg-destructive/10 text-destructive",
-  medium: "border-warning/40 bg-warning/10 text-warning",
+  high: "border-destructive/40 bg-destructive-bg-subtle text-destructive",
+  medium: "border-warning/40 bg-warning-bg-subtle text-warning",
   info: "border-border bg-muted/30 text-foreground",
 };
 
@@ -60,8 +60,8 @@ export function QueueHealthcheckBanner() {
 
   const isFail = data.status === "fail";
   const wrapperCls = isFail
-    ? "border-destructive/40 bg-destructive/5"
-    : "border-warning/40 bg-warning/5";
+    ? "border-destructive/40 bg-destructive-bg-subtle"
+    : "border-warning/40 bg-warning-bg-subtle";
   const Icon = isFail ? AlertOctagon : ShieldAlert;
   const iconCls = isFail ? "text-destructive" : "text-warning";
 

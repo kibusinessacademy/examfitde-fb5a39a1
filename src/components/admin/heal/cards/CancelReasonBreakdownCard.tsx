@@ -84,8 +84,8 @@ export function CancelReasonBreakdownCard() {
                 key={i}
                 className={cn(
                   "flex items-center justify-between text-xs px-2 py-1.5 rounded border",
-                  isPhantom && "border-destructive/40 bg-destructive/5",
-                  isUnknown && "border-warning/40 bg-warning/5",
+                  isPhantom && "border-destructive/40 bg-destructive-bg-subtle",
+                  isUnknown && "border-warning/40 bg-warning-bg-subtle",
                 )}
               >
                 <div className="flex-1 min-w-0">

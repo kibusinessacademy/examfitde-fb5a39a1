@@ -220,7 +220,7 @@ export function RepairToolboxActions({
             size={size}
             variant="outline"
             disabled={busy}
-            className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10"
+            className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
           >
             {gapMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <OctagonAlert className="h-3.5 w-3.5" />}
             content_gap
@@ -262,7 +262,7 @@ export function RepairToolboxActions({
               size={size}
               variant="outline"
               disabled={busy}
-              className="gap-1.5 border-warning/30 text-warning hover:bg-warning/10"
+              className="gap-1.5 border-warning/30 text-warning hover:bg-warning-bg-subtle"
             >
               {rebuildMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Hammer className="h-3.5 w-3.5" />}
               Hard Rebuild

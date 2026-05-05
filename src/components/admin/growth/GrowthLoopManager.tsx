@@ -14,7 +14,7 @@ const statusColors: Record<string, string> = {
   generating: 'bg-purple-500/10 text-purple-600',
   validating: 'bg-amber-500/10 text-amber-600',
   done: 'bg-green-500/10 text-green-600',
-  failed: 'bg-destructive/10 text-destructive',
+  failed: 'bg-destructive-bg-subtle text-destructive',
 };
 
 export default function GrowthLoopManager() {

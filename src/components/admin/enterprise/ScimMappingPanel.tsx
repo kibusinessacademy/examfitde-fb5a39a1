@@ -224,7 +224,7 @@ export default function ScimMappingPanel() {
                 <Badge variant={evt.method === 'DELETE' ? 'destructive' : 'outline'} className="text-[10px] font-mono">{evt.method}</Badge>
                 <code className="text-muted-foreground">{evt.path}</code>
                 <span className="flex-1 truncate">{evt.detail}</span>
-                <Badge className="bg-success/10 text-success border-success/30 text-[10px]">{evt.status}</Badge>
+                <Badge className="bg-success-bg-subtle text-success border-success/30 text-[10px]">{evt.status}</Badge>
                 <span className="text-muted-foreground shrink-0">{evt.time}</span>
               </div>
             ))}

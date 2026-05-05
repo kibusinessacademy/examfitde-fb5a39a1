@@ -107,8 +107,8 @@ function relTime(iso: string): string {
 }
 
 function severityClass(sev: string): string {
-  if (sev === 'critical') return 'bg-destructive/10 text-destructive border-destructive/30';
-  if (sev === 'high') return 'bg-warning/10 text-warning border-warning/30';
+  if (sev === 'critical') return 'bg-destructive-bg-subtle text-destructive border-destructive/30';
+  if (sev === 'high') return 'bg-warning-bg-subtle text-warning border-warning/30';
   return 'bg-muted text-muted-foreground border-border';
 }
 
@@ -414,7 +414,7 @@ export function QueueHealthDashboard() {
   return (
     <div className="space-y-3">
       {openAlerts.length > 0 && (
-        <Card className="border-destructive/40 bg-destructive/5">
+        <Card className="border-destructive/40 bg-destructive-bg-subtle">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
               <Bell className="h-4 w-4 text-destructive" />
@@ -575,10 +575,10 @@ export function QueueHealthDashboard() {
                       className="mt-0.5 h-3.5 w-3.5" />
                     <span className="shrink-0 font-mono text-muted-foreground">{relTime(t.created_at)}</span>
                     <span className={cn('shrink-0 rounded px-1.5 font-mono text-[10px]',
-                      t.new_status === 'failed' && 'bg-destructive/10 text-destructive',
+                      t.new_status === 'failed' && 'bg-destructive-bg-subtle text-destructive',
                       t.new_status === 'pending' && 'bg-muted text-muted-foreground',
                       t.new_status === 'processing' && 'bg-primary/10 text-primary',
-                      t.new_status === 'completed' && 'bg-success/10 text-success',
+                      t.new_status === 'completed' && 'bg-success-bg-subtle text-success',
                       t.new_status === 'cancelled' && 'bg-muted text-muted-foreground/70')}>
                       {t.old_status ?? '—'} → {t.new_status}
                     </span>
@@ -723,12 +723,12 @@ export function QueueHealthDashboard() {
                 </div>
               )}
               {guards && !guardsAllPass && !unsafeOverride && (
-                <div className="mt-2 rounded border border-destructive/40 bg-destructive/10 p-1.5 text-[10px] text-destructive">
+                <div className="mt-2 rounded border border-destructive/40 bg-destructive-bg-subtle p-1.5 text-[10px] text-destructive">
                   ⚠ Mindestens ein Guard schlägt fehl. Aktiviere „Unsafe Override" um diese Checks zu umgehen.
                 </div>
               )}
               {guards && !guardsAllPass && unsafeOverride && (
-                <div className="mt-2 rounded border border-warning/40 bg-warning/10 p-1.5 text-[10px] text-warning">
+                <div className="mt-2 rounded border border-warning/40 bg-warning-bg-subtle p-1.5 text-[10px] text-warning">
                   ⚠ Unsafe Override aktiv: SSOT-Schutz wird ignoriert. Risiko: obsoleter/doppelter Job wird scharf gemacht.
                 </div>
               )}
@@ -742,7 +742,7 @@ export function QueueHealthDashboard() {
           />
 
           {actionDialog?.action === 'force_pending' && (
-            <div className="flex items-start gap-2 rounded border border-warning/30 bg-warning/5 p-2">
+            <div className="flex items-start gap-2 rounded border border-warning/30 bg-warning-bg-subtle p-2">
               <Switch id="unsafe" checked={unsafeOverride} onCheckedChange={setUnsafeOverride} />
               <div className="flex-1">
                 <Label htmlFor="unsafe" className="text-xs font-semibold text-warning">

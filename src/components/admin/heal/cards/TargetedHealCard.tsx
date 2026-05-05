@@ -207,8 +207,8 @@ export function TargetedHealCard() {
                   className={`rounded-md border p-3 ${
                     row.packages > 0
                       ? meta.tone === "danger"
-                        ? "border-destructive/40 bg-destructive/5"
-                        : "border-warning/40 bg-warning/5"
+                        ? "border-destructive/40 bg-destructive-bg-subtle"
+                        : "border-warning/40 bg-warning-bg-subtle"
                       : "border-border bg-muted/20"
                   }`}
                 >

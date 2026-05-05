@@ -81,10 +81,10 @@ interface ExecuteResult {
 }
 
 const RISK_META: Record<RiskLevel, { label: string; icon: typeof Shield; cls: string; iconCls: string }> = {
-  SAFE:   { label: 'SAFE',   icon: ShieldCheck, cls: 'bg-success/10 text-success border-success/30',     iconCls: 'text-success' },
+  SAFE:   { label: 'SAFE',   icon: ShieldCheck, cls: 'bg-success-bg-subtle text-success border-success/30',     iconCls: 'text-success' },
   LOW:    { label: 'LOW',    icon: Shield,      cls: 'bg-primary/10 text-primary border-primary/30',     iconCls: 'text-primary' },
-  MEDIUM: { label: 'MEDIUM', icon: Shield,      cls: 'bg-warning/10 text-warning border-warning/30',     iconCls: 'text-warning' },
-  HIGH:   { label: 'HIGH',   icon: ShieldAlert, cls: 'bg-destructive/10 text-destructive border-destructive/30', iconCls: 'text-destructive' },
+  MEDIUM: { label: 'MEDIUM', icon: Shield,      cls: 'bg-warning-bg-subtle text-warning border-warning/30',     iconCls: 'text-warning' },
+  HIGH:   { label: 'HIGH',   icon: ShieldAlert, cls: 'bg-destructive-bg-subtle text-destructive border-destructive/30', iconCls: 'text-destructive' },
 };
 
 const STATUS_META: Record<HealthScore['status'], { label: string; cls: string; dot: string }> = {
@@ -301,7 +301,7 @@ export function QueueActionCockpit() {
 
       {/* === LIVE-LOCK HINWEIS === */}
       {hasActiveRepair && (
-        <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning">
+        <div className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning-bg-subtle px-3 py-2 text-[11px] text-warning">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           <span>
             <strong>{activeRepairs.data}</strong> Repair-Job{(activeRepairs.data ?? 0) !== 1 && 's'} läuft gerade —
@@ -368,7 +368,7 @@ export function QueueActionCockpit() {
           )}
 
           {!actions.isLoading && recommended.length === 0 && (
-            <div className="flex items-center gap-2 rounded-md border border-success/20 bg-success/5 p-3 text-xs">
+            <div className="flex items-center gap-2 rounded-md border border-success/20 bg-success-bg-subtle p-3 text-xs">
               <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
               <div>
                 <div className="font-semibold text-success">Alles ruhig</div>
@@ -511,7 +511,7 @@ export function QueueActionCockpit() {
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-xs">
                 <p>{confirmAction?.description}</p>
-                <div className="rounded-md border border-warning/30 bg-warning/5 p-2 text-warning space-y-1">
+                <div className="rounded-md border border-warning/30 bg-warning-bg-subtle p-2 text-warning space-y-1">
                   <div><strong>Risiko-Level: {confirmAction?.risk_level}</strong></div>
                   <div>Strategie: <code className="text-[10px]">{confirmAction?.recommended_strategy}</code></div>
                   <div>Cluster: <code className="text-[10px]">{confirmAction?.cluster}</code></div>
@@ -609,7 +609,7 @@ export function QueueActionCockpit() {
                   <div>Betrifft: {safeConfirm?.job_count} Job(s) in {safeConfirm?.package_count} Paket(en)</div>
                 </div>
                 {hasActiveRepair && (
-                  <div className="rounded-md border border-warning/40 bg-warning/10 p-2 text-warning">
+                  <div className="rounded-md border border-warning/40 bg-warning-bg-subtle p-2 text-warning">
                     ⚠️ {activeRepairs.data} Repair-Job(s) laufen aktuell — die Aktion ist gesperrt.
                   </div>
                 )}

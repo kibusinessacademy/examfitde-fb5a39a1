@@ -63,7 +63,7 @@ const STAGE_TONE: Record<string, string> = {
   proposal: 'bg-blue-500/15 text-blue-700 border-blue-500/30',
   negotiation: 'bg-amber-500/15 text-amber-700 border-amber-500/30',
   won: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30',
-  lost: 'bg-destructive/10 text-destructive border-destructive/30',
+  lost: 'bg-destructive-bg-subtle text-destructive border-destructive/30',
 };
 
 export default function CrmDealsDrilldown() {

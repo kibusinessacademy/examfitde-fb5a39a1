@@ -144,7 +144,7 @@ export function PermanentFixBacklogCard() {
         {isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : error ? (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+          <div className="rounded-md border border-destructive/40 bg-destructive-bg-subtle p-3 text-sm">
             <div className="text-destructive font-medium">Backlog konnte nicht geladen werden</div>
             <div className="text-xs text-muted-foreground font-mono break-all mt-1">
               {(error as Error).message}

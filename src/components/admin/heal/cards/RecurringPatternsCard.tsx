@@ -259,7 +259,7 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
         {isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : queryError ? (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm space-y-2">
+          <div className="rounded-md border border-destructive/40 bg-destructive-bg-subtle p-3 text-sm space-y-2">
             <div className="font-medium text-destructive">
               Pattern konnten nicht geladen werden
             </div>

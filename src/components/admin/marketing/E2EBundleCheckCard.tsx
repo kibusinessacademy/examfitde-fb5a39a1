@@ -184,7 +184,7 @@ export default function E2EBundleCheckCard() {
                 className={
                   result.assertions.bundle_active
                     ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                    : 'bg-destructive/10 text-destructive border-destructive/30'
+                    : 'bg-destructive-bg-subtle text-destructive border-destructive/30'
                 }
               >
                 bundle active
@@ -194,7 +194,7 @@ export default function E2EBundleCheckCard() {
                 className={
                   result.assertions.learning_course_inactive
                     ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                    : 'bg-destructive/10 text-destructive border-destructive/30'
+                    : 'bg-destructive-bg-subtle text-destructive border-destructive/30'
                 }
               >
                 learning_course inactive
@@ -204,7 +204,7 @@ export default function E2EBundleCheckCard() {
                 className={
                   result.assertions.exam_trainer_inactive
                     ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                    : 'bg-destructive/10 text-destructive border-destructive/30'
+                    : 'bg-destructive-bg-subtle text-destructive border-destructive/30'
                 }
               >
                 exam_trainer inactive
@@ -214,7 +214,7 @@ export default function E2EBundleCheckCard() {
                 className={
                   result.assertions.only_bundle_active
                     ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                    : 'bg-destructive/10 text-destructive border-destructive/30'
+                    : 'bg-destructive-bg-subtle text-destructive border-destructive/30'
                 }
               >
                 only bundle active
@@ -236,7 +236,7 @@ export default function E2EBundleCheckCard() {
                   className={
                     (result.failed ?? 0) === 0
                       ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30'
-                      : 'bg-destructive/10 text-destructive border-destructive/30'
+                      : 'bg-destructive-bg-subtle text-destructive border-destructive/30'
                   }
                 >
                   Fail: {result.failed ?? 0}

@@ -48,8 +48,8 @@ type AuditRow = {
 };
 
 const SEVERITY_LABEL: Record<string, { label: string; cls: string }> = {
-  hard_orphan: { label: "Hard Orphan", cls: "bg-destructive/10 text-destructive border-destructive/30" },
-  backfillable: { label: "Backfillable", cls: "bg-warning/10 text-warning border-warning/30" },
+  hard_orphan: { label: "Hard Orphan", cls: "bg-destructive-bg-subtle text-destructive border-destructive/30" },
+  backfillable: { label: "Backfillable", cls: "bg-warning-bg-subtle text-warning border-warning/30" },
   inspect: { label: "Inspect", cls: "bg-muted text-muted-foreground border-border" },
 };
 
@@ -157,10 +157,10 @@ export default function ArtifactOrphansCard() {
             <Skeleton className="h-5 w-16" />
           ) : (
             <>
-              <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/30">
+              <Badge variant="outline" className="text-[10px] bg-destructive-bg-subtle text-destructive border-destructive/30">
                 {hardTotal} hard
               </Badge>
-              <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">
+              <Badge variant="outline" className="text-[10px] bg-warning-bg-subtle text-warning border-warning/30">
                 {backfillTotal} backfill
               </Badge>
               <Badge variant="outline" className="text-[10px]">{total} total</Badge>
@@ -205,7 +205,7 @@ export default function ArtifactOrphansCard() {
               Dry-Run (würde löschen)
             </Button>
             <Button size="sm" variant="outline"
-              className="h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+              className="h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
               disabled={sweep.isPending || hardTotal === 0}
               onClick={() => {
                 if (confirm(`Sweep ausführen? Es werden bis zu 500 hard_orphan Datensätze gelöscht (${tableFilter ?? "alle Tabellen"}).`)) {
@@ -257,7 +257,7 @@ export default function ArtifactOrphansCard() {
           )}
 
           {summaryQ.data?.length === 0 && (
-            <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-xs text-success flex items-center gap-2">
+            <div className="rounded-lg border border-success/30 bg-success-bg-subtle p-3 text-xs text-success flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
               Keine Orphans erkannt — System konsistent.
             </div>

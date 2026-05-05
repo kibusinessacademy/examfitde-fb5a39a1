@@ -77,11 +77,11 @@ async function fetchLiveJobs(packageId: string): Promise<LiveJob[]> {
 function severityBadgeClass(sev: string): string {
   switch (sev) {
     case "critical":
-      return "bg-destructive/15 text-destructive border-destructive/30";
+      return "bg-destructive-bg-subtle text-destructive border-destructive/30";
     case "high":
-      return "bg-destructive/10 text-destructive border-destructive/20";
+      return "bg-destructive-bg-subtle text-destructive border-destructive/20";
     case "medium":
-      return "bg-warning/10 text-warning border-warning/30";
+      return "bg-warning-bg-subtle text-warning border-warning/30";
     case "low":
       return "bg-muted text-muted-foreground border-border";
     default:
@@ -94,9 +94,9 @@ function statusBadgeClass(s: string): string {
     case "processing":
       return "bg-primary/10 text-primary border-primary/30";
     case "failed":
-      return "bg-destructive/10 text-destructive border-destructive/30";
+      return "bg-destructive-bg-subtle text-destructive border-destructive/30";
     case "completed":
-      return "bg-success/10 text-success border-success/30";
+      return "bg-success-bg-subtle text-success border-success/30";
     default:
       return "bg-muted text-muted-foreground border-border";
   }
@@ -326,7 +326,7 @@ export function PackageDiagnostics({ packageId }: Props) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 border-destructive/30 text-destructive hover:bg-destructive/10"
+                  className="h-7 border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
                   onClick={() => cancelAllMut.mutate()}
                   disabled={cancelAllMut.isPending}
                 >
@@ -371,7 +371,7 @@ export function PackageDiagnostics({ packageId }: Props) {
                       </span>
                     </div>
                     {job.last_error && (
-                      <div className="mt-1 line-clamp-2 rounded bg-destructive/5 p-1.5 font-mono text-[10px] text-destructive">
+                      <div className="mt-1 line-clamp-2 rounded bg-destructive-bg-subtle p-1.5 font-mono text-[10px] text-destructive">
                         {job.last_error}
                       </div>
                     )}
@@ -379,7 +379,7 @@ export function PackageDiagnostics({ packageId }: Props) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                    className="h-7 w-7 p-0 text-destructive hover:bg-destructive-bg-subtle"
                     onClick={() => cancelJobMut.mutate(job.id)}
                     disabled={cancelJobMut.isPending}
                     title="Job stornieren"
@@ -404,11 +404,11 @@ export function PackageDiagnostics({ packageId }: Props) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {r.verify_passed ? (
-                      <Badge variant="outline" className="bg-success/10 text-success border-success/30">
+                      <Badge variant="outline" className="bg-success-bg-subtle text-success border-success/30">
                         <CheckCircle2 className="mr-1 h-3 w-3" /> verified
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">
+                      <Badge variant="outline" className="bg-destructive-bg-subtle text-destructive border-destructive/30">
                         <XCircle className="mr-1 h-3 w-3" /> failed
                       </Badge>
                     )}
@@ -569,9 +569,9 @@ function LimitTile({
 }) {
   const cls =
     tone === "destructive"
-      ? "border-destructive/30 bg-destructive/5 text-destructive"
+      ? "border-destructive/30 bg-destructive-bg-subtle text-destructive"
       : tone === "warning"
-        ? "border-warning/30 bg-warning/5 text-warning"
+        ? "border-warning/30 bg-warning-bg-subtle text-warning"
         : "border-border bg-muted/30 text-foreground";
   return (
     <div className={`rounded-md border p-2 text-center ${cls}`}>

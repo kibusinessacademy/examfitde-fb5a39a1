@@ -24,16 +24,16 @@ const CLOSING_SCRIPT = [
     '(Pause — Schmerz sichtbar machen)',
     '„Und wann merken Sie, dass jemand durchfällt? Vor oder nach der Prüfung?"',
   ]},
-  { phase: 'Problem verstärken', color: 'bg-warning/10 text-warning', lines: [
+  { phase: 'Problem verstärken', color: 'bg-warning-bg-subtle text-warning', lines: [
     '„Das heißt, Sie reagieren erst, wenn es zu spät ist?"',
     '„Das ist genau das Problem, das wir lösen."',
   ]},
-  { phase: 'Demo', color: 'bg-success/10 text-success', lines: [
+  { phase: 'Demo', color: 'bg-success-bg-subtle text-success', lines: [
     '→ Dashboard zeigen (Prüfungsreife-Übersicht)',
     '→ Kritischen Fall öffnen (Max Mustermann, 32%)',
     '→ Intervention demonstrieren (1-Click Kontakt)',
   ]},
-  { phase: 'Closing', color: 'bg-destructive/10 text-destructive', lines: [
+  { phase: 'Closing', color: 'bg-destructive-bg-subtle text-destructive', lines: [
     '„Wenn Sie heute sehen könnten, wer durchfällt — würden Sie das nutzen?"',
     '(Pause)',
     '„Dann macht ein Pilot für einen Ausbildungsjahrgang Sinn."',
@@ -100,15 +100,15 @@ export default function SalesDemoPanel() {
                   <div className="text-lg font-bold">5</div>
                   <div className="text-[10px] text-muted-foreground">Azubis</div>
                 </div>
-                <div className="text-center p-2 rounded-lg bg-destructive/10">
+                <div className="text-center p-2 rounded-lg bg-destructive-bg-subtle">
                   <div className="text-lg font-bold text-destructive">2</div>
                   <div className="text-[10px] text-muted-foreground">Kritisch</div>
                 </div>
-                <div className="text-center p-2 rounded-lg bg-warning/10">
+                <div className="text-center p-2 rounded-lg bg-warning-bg-subtle">
                   <div className="text-lg font-bold text-warning">1</div>
                   <div className="text-[10px] text-muted-foreground">Gefährdet</div>
                 </div>
-                <div className="text-center p-2 rounded-lg bg-success/10">
+                <div className="text-center p-2 rounded-lg bg-success-bg-subtle">
                   <div className="text-lg font-bold text-success">2</div>
                   <div className="text-[10px] text-muted-foreground">Bereit</div>
                 </div>
