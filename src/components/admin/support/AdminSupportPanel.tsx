@@ -43,19 +43,19 @@ type UserTicketUpdate = Database['public']['Tables']['user_tickets']['Update'];
 
 /* ── Constants ── */
 const STATUS_CONFIG: Record<TicketStatus, { label: string; icon: typeof AlertCircle; tone: string }> = {
-  OPEN: { label: 'Offen', icon: AlertCircle, tone: 'border-warning/40 text-warning bg-warning/5' },
+  OPEN: { label: 'Offen', icon: AlertCircle, tone: 'border-warning-border text-warning bg-warning-bg-subtle' },
   TRIAGE: { label: 'Triage', icon: AlertTriangle, tone: 'border-primary/40 text-primary bg-primary/5' },
   IN_PROGRESS: { label: 'In Bearbeitung', icon: Clock, tone: 'border-primary/40 text-primary bg-primary/5' },
-  RESOLVED: { label: 'Gelöst', icon: CheckCircle2, tone: 'border-success/40 text-success bg-success/5' },
-  REJECTED: { label: 'Abgelehnt', icon: XCircle, tone: 'border-destructive/40 text-destructive bg-destructive/5' },
-  DUPLICATE: { label: 'Duplikat', icon: XCircle, tone: 'border-muted-foreground/40 text-muted-foreground bg-muted/30' },
+  RESOLVED: { label: 'Gelöst', icon: CheckCircle2, tone: 'border-success-border text-success bg-success-bg-subtle' },
+  REJECTED: { label: 'Abgelehnt', icon: XCircle, tone: 'border-destructive-border text-destructive bg-destructive-bg-subtle' },
+  DUPLICATE: { label: 'Duplikat', icon: XCircle, tone: 'border-border-subtle text-text-tertiary bg-surface-sunken' },
 };
 
 const PRIORITY_TONE: Record<TicketPriority, string> = {
-  CRITICAL: 'border-destructive/40 text-destructive bg-destructive/5',
-  HIGH: 'border-destructive/30 text-destructive bg-destructive/5',
-  MEDIUM: 'border-warning/30 text-warning bg-warning/5',
-  LOW: 'border-border text-muted-foreground',
+  CRITICAL: 'border-destructive-border text-destructive bg-destructive-bg-subtle',
+  HIGH: 'border-destructive-border text-destructive bg-destructive-bg-subtle',
+  MEDIUM: 'border-warning-border text-warning bg-warning-bg-subtle',
+  LOW: 'border-border text-text-tertiary',
 };
 
 const TYPE_CONFIG: Record<TicketType, { label: string; icon: typeof Bug }> = {
