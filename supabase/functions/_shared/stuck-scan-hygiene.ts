@@ -665,10 +665,24 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
           if ((activeJobs ?? 0) > 0) {
             console.log(`[stuck-scan] NORMALIZE_SKIP: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — has ${activeJobs} active jobs, keeping building`);
           } else {
-            // Protection-Gate against cancel-storm: never demote build-complete/approved-rich packages
-            const { data: prot } = await sb.rpc("fn_package_demote_protected", { p_package_id: pkg.package_id });
-            if (prot && (prot as { protected?: boolean }).protected) {
-              console.log(`[stuck-scan] PROTECTED skip false-liveness normalize ${String(pkg.package_id).slice(0, 8)}: ${(prot as { reason?: string }).reason}`);
+            // Canonical pre-check via fn_can_demote_package_status
+            const { data: dec } = await sb.rpc("fn_can_demote_package_status" as never, {
+              p_package_id: pkg.package_id,
+              p_target_status: "queued",
+              p_source: "stuck_scan_normalize",
+            } as never);
+            const decRec = dec as { allowed?: boolean; reason?: string } | null;
+            if (!decRec?.allowed) {
+              console.log(`[stuck-scan] PRECHECK skip false-liveness normalize ${String(pkg.package_id).slice(0, 8)}: ${decRec?.reason}`);
+              await sb.from("auto_heal_log").insert({
+                action_type: "producer_precheck_skip",
+                target_type: "package",
+                target_id: pkg.package_id,
+                trigger_source: "stuck_scan_normalize",
+                result_status: "skipped",
+                result_detail: `Pre-check disallowed demote to queued (false-liveness): ${decRec?.reason ?? 'unknown'}`,
+                metadata: { decision: decRec, target_status: "queued", origin: "false_liveness" },
+              });
             } else {
               // SAFE_PACKAGE_STATUS_DEMOTE: routed via admin_revert_building_to_queued
               // (whitelisted source = stuck_scan_normalize, atomic protection re-check).
@@ -717,11 +731,25 @@ export async function healFalseLivenessPackages(sb: SupabaseClient): Promise<str
         if ((activeJobs ?? 0) > 0) {
           console.log(`[stuck-scan] NORMALIZE_SKIP: ${String(pkg.package_id).slice(0, 8)} "${pkg.title}" — has ${activeJobs} active jobs, keeping building`);
         } else {
-          // Protection-Gate against cancel-storm
-          const { data: prot } = await sb.rpc("fn_package_demote_protected", { p_package_id: pkg.package_id });
-          if (prot && (prot as { protected?: boolean }).protected) {
-            console.log(`[stuck-scan] PROTECTED skip no-activity normalize ${String(pkg.package_id).slice(0, 8)}: ${(prot as { reason?: string }).reason}`);
-          } else {
+            // Canonical pre-check via fn_can_demote_package_status
+            const { data: dec } = await sb.rpc("fn_can_demote_package_status" as never, {
+              p_package_id: pkg.package_id,
+              p_target_status: "queued",
+              p_source: "stuck_scan_normalize",
+            } as never);
+            const decRec = dec as { allowed?: boolean; reason?: string } | null;
+            if (!decRec?.allowed) {
+              console.log(`[stuck-scan] PRECHECK skip no-activity normalize ${String(pkg.package_id).slice(0, 8)}: ${decRec?.reason}`);
+              await sb.from("auto_heal_log").insert({
+                action_type: "producer_precheck_skip",
+                target_type: "package",
+                target_id: pkg.package_id,
+                trigger_source: "stuck_scan_normalize",
+                result_status: "skipped",
+                result_detail: `Pre-check disallowed demote to queued (no-activity): ${decRec?.reason ?? 'unknown'}`,
+                metadata: { decision: decRec, target_status: "queued", origin: "no_activity" },
+              });
+            } else {
             // SAFE_PACKAGE_STATUS_DEMOTE: routed via admin_revert_building_to_queued
             // (whitelisted source = stuck_scan_normalize, atomic protection re-check).
             const { data: revRows, error: resetErr } = await sb.rpc(
