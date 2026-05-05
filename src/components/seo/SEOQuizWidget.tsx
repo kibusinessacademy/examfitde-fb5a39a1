@@ -457,7 +457,7 @@ export function SEOQuizWidget({
             let classes = 'border-border hover:border-primary/40 hover:bg-primary/5 cursor-pointer';
             if (answered) {
               if (isCorrect) classes = 'border-green-500 bg-green-500/10 ring-1 ring-green-500/20';
-              else if (isSelected) classes = 'border-destructive bg-destructive/10 ring-1 ring-destructive/20';
+              else if (isSelected) classes = 'border-destructive bg-destructive-bg-subtle ring-1 ring-destructive/20';
               else classes = 'border-border opacity-40';
             }
 

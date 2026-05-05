@@ -46,7 +46,7 @@ export default function CostTab() {
     optimal: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
     premium: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
     bulk_acceptable: 'bg-muted text-muted-foreground border-border',
-    expensive_low_quality: 'bg-destructive/10 text-destructive border-destructive/30',
+    expensive_low_quality: 'bg-destructive-bg-subtle text-destructive border-destructive/30',
   };
   const quadrantLabels: Record<string, string> = {
     optimal: '✅ Optimal', premium: '💎 Premium',

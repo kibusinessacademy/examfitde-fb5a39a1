@@ -40,9 +40,9 @@ function CouncilPackageItem({ pkg, onAction, busy }: {
         <Badge variant="outline" className={cn(
           "text-[10px] shrink-0",
           isCompleteNotApproved
-            ? "border-warning/40 text-warning bg-warning/5"
+            ? "border-warning/40 text-warning bg-warning-bg-subtle"
             : pkg.council_approved
-              ? "border-success/40 text-success bg-success/5"
+              ? "border-success/40 text-success bg-success-bg-subtle"
               : "border-primary/40 text-primary bg-primary/5"
         )}>
           {isCompleteNotApproved ? 'Nicht approved' : pkg.council_approved ? 'Approved' : 'In Review'}
@@ -78,7 +78,7 @@ function CouncilPackageItem({ pkg, onAction, busy }: {
 
       {/* Diagnosis */}
       {isCompleteNotApproved && (
-        <div className="rounded-lg border border-warning/20 bg-warning/5 p-2">
+        <div className="rounded-lg border border-warning/20 bg-warning-bg-subtle p-2">
           <div className="text-xs font-medium text-foreground">Council abgeschlossen, aber nicht approved</div>
           <div className="text-[10px] text-muted-foreground mt-0.5">
             Möglicherweise fehlt die automatische Approval-Logik oder Sessions wurden abgelehnt.

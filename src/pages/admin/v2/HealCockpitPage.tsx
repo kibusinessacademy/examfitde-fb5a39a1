@@ -483,7 +483,7 @@ function QuickReapButton({
               Audit in <span className="font-mono">admin_actions</span>.
             </span>
             {lane === "control" && (
-              <span className="block rounded border border-destructive/40 bg-destructive/10 p-2 text-[11px]">
+              <span className="block rounded border border-destructive/40 bg-destructive-bg-subtle p-2 text-[11px]">
                 ⚠️ Control-Lane: Council / Auto-Publish / Promote. Tail-Step-Defer-Trigger fängt
                 blockierte Pakete idR auf.
               </span>

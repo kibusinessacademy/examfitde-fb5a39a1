@@ -53,7 +53,7 @@ type DrilldownRow = {
 };
 
 function statusBadge(s: string | null) {
-  if (s === "success") return <Badge className="bg-success/15 text-success border-success/30">success</Badge>;
+  if (s === "success") return <Badge className="bg-success-bg-subtle text-success border-success/30">success</Badge>;
   if (s === "noop") return <Badge variant="secondary">noop</Badge>;
   if (s === "error") return <Badge variant="destructive">error</Badge>;
   return <Badge variant="outline">{s ?? "?"}</Badge>;
@@ -171,7 +171,7 @@ export function ExamPoolDriftLogCard() {
         <div className="flex flex-wrap gap-2 mt-2 text-xs">
           <Badge variant="outline">Läufe: {runs.data?.length ?? 0}</Badge>
           <Badge variant="outline">Σ Kandidaten: {totals.candidates}</Badge>
-          <Badge className="bg-success/15 text-success border-success/30">geheilt: {totals.healed}</Badge>
+          <Badge className="bg-success-bg-subtle text-success border-success/30">geheilt: {totals.healed}</Badge>
           <Badge className="bg-primary/15 text-primary border-primary/30">genudged: {totals.nudged}</Badge>
           <Badge variant="secondary">skipped: {totals.skipped}</Badge>
           <Badge variant="outline">cooldown: {totals.cooldown}</Badge>

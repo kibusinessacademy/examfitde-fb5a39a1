@@ -10,7 +10,7 @@ const SEVERITY_COLOR: Record<string, string> = {
   OK: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   NEVER_CHECKED: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
   STALE_24H: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  ORPHAN_PUBLISHED: "bg-destructive/15 text-destructive",
+  ORPHAN_PUBLISHED: "bg-destructive-bg-subtle text-destructive",
   DRAFT_BUT_PKG_LIVE: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
 };
 

@@ -199,7 +199,7 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
         )}
 
         {errors.length > 0 && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-2">
+          <div className="rounded-md border border-destructive/40 bg-destructive-bg-subtle p-2">
             <div className="text-xs font-medium text-destructive">Schema-Validierung fehlgeschlagen</div>
             <ul className="mt-1 space-y-0.5 text-[11px] text-destructive">
               {errors.slice(0, 5).map((e, i) => (
@@ -223,7 +223,7 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
               </div>
               <div className="text-[10px] text-muted-foreground">warnings</div>
             </div>
-            <div className="rounded-md bg-destructive/10 p-2">
+            <div className="rounded-md bg-destructive-bg-subtle p-2">
               <div className="text-lg font-semibold tabular-nums text-destructive">
                 {validation.errorCount}
               </div>
@@ -298,7 +298,7 @@ export function FindingsImportDialog({ open, onOpenChange, existing, onApply }: 
               precheck?.ok
                 ? "border-emerald-500/40 bg-emerald-500/5"
                 : precheck && !precheck.ok
-                ? "border-destructive/40 bg-destructive/5"
+                ? "border-destructive/40 bg-destructive-bg-subtle"
                 : "border-amber-500/40 bg-amber-500/5"
             }`}
           >

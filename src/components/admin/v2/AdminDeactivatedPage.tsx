@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 export default function AdminDeactivatedPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-      <div className="p-4 rounded-2xl bg-warning/10 mb-4">
+      <div className="p-4 rounded-2xl bg-warning-bg-subtle mb-4">
         <AlertTriangle className="h-8 w-8 text-warning" />
       </div>
       <h1 className="text-xl font-bold text-foreground mb-2">

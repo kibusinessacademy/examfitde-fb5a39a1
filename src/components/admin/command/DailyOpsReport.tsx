@@ -47,7 +47,7 @@ const signalLabel: Record<Signal, string> = {
 const signalBadge: Record<Signal, string> = {
   green: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600",
   yellow: "border-amber-500/30 bg-amber-500/10 text-amber-600",
-  red: "border-destructive/30 bg-destructive/10 text-destructive",
+  red: "border-destructive/30 bg-destructive-bg-subtle text-destructive",
   neutral: "border-border bg-muted text-muted-foreground",
 };
 
@@ -202,7 +202,7 @@ export default function DailyOpsReport() {
           </CardHeader>
           <CardContent className="space-y-2">
             {d.blocked_packages.map((b: any, i: number) => (
-              <div key={i} className="rounded-lg border border-destructive/20 bg-destructive/5 p-2.5 text-xs">
+              <div key={i} className="rounded-lg border border-destructive/20 bg-destructive-bg-subtle p-2.5 text-xs">
                 <div className="font-medium text-foreground">{b.title}</div>
                 <div className="text-muted-foreground mt-0.5">Ursache: {b.blocked_reason || "—"}</div>
               </div>

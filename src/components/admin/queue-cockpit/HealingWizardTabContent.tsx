@@ -86,7 +86,7 @@ type ForceRunAudit = {
 
 const STATUS_TONE: Record<ArtifactRow["status"], string> = {
   ok: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
-  missing: "bg-destructive/10 text-destructive border-destructive/30",
+  missing: "bg-destructive-bg-subtle text-destructive border-destructive/30",
   partial: "bg-amber-500/10 text-amber-600 border-amber-500/30",
 };
 

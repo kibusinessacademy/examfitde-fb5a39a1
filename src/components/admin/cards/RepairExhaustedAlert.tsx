@@ -702,7 +702,7 @@ export function RepairExhaustedAlert() {
   const availableCategories = Object.keys(categoryStats) as ErrorCategory[];
 
   return (
-    <div className="rounded-xl border-2 border-destructive/50 bg-destructive/5 p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
+    <div className="rounded-xl border-2 border-destructive/50 bg-destructive-bg-subtle p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
       {/* Header */}
       <div
         className="flex items-center gap-2 cursor-pointer"
@@ -764,7 +764,7 @@ export function RepairExhaustedAlert() {
                 onClick={() => setActiveFilter('ALL')}
                 className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${
                   activeFilter === 'ALL'
-                    ? 'bg-destructive/20 text-destructive border-destructive/40'
+                    ? 'bg-destructive-bg-subtle text-destructive border-destructive/40'
                     : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
                 }`}
               >
@@ -814,7 +814,7 @@ export function RepairExhaustedAlert() {
 
       {/* Globaler Lock-Hinweis */}
       {hasActiveRepair && (
-        <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning-foreground flex items-center gap-2">
+        <div className="rounded-md border border-warning/40 bg-warning-bg-subtle px-3 py-2 text-[11px] text-warning-foreground flex items-center gap-2">
           <Loader2 className="h-3 w-3 animate-spin shrink-0" />
           <span>
             <strong>Repair-Lock aktiv:</strong> {activeRepairs.data} aktive(r) <code>package_repair_*</code>-Job(s) in der Queue.

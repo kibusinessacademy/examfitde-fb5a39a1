@@ -27,14 +27,14 @@ type ClusterRow = {
 const blockerStyle: Record<string, { icon: typeof AlertTriangle; tone: string; label: string }> = {
   INTEGRITY_NEVER_CHECKED: { icon: Clock, tone: "bg-muted text-muted-foreground", label: "Noch nicht geprüft" },
   INTEGRITY_DEFERRED: { icon: Pause, tone: "bg-secondary text-secondary-foreground", label: "Deferred (wartet auf Daten)" },
-  INTEGRITY_REPORT_MISSING: { icon: AlertTriangle, tone: "bg-destructive/15 text-destructive", label: "Report fehlt" },
+  INTEGRITY_REPORT_MISSING: { icon: AlertTriangle, tone: "bg-destructive-bg-subtle text-destructive", label: "Report fehlt" },
   INTEGRITY_FAILED: { icon: AlertTriangle, tone: "bg-destructive text-destructive-foreground", label: "Integrity Failed" },
   QUALITY_COUNCIL_PENDING: { icon: Clock, tone: "bg-secondary text-secondary-foreground", label: "Quality Council offen" },
-  MISSING_LEARNING: { icon: AlertTriangle, tone: "bg-destructive/15 text-destructive", label: "Lerninhalt fehlt" },
-  MISSING_MINICHECKS: { icon: AlertTriangle, tone: "bg-destructive/15 text-destructive", label: "Minichecks fehlen" },
-  MISSING_HANDBOOK: { icon: AlertTriangle, tone: "bg-destructive/15 text-destructive", label: "Handbuch fehlt" },
-  MISSING_TUTOR_INDEX: { icon: AlertTriangle, tone: "bg-destructive/15 text-destructive", label: "Tutor-Index fehlt" },
-  EXAM_POOL_TOO_SMALL: { icon: AlertTriangle, tone: "bg-destructive/15 text-destructive", label: "Prüfungspool zu klein" },
+  MISSING_LEARNING: { icon: AlertTriangle, tone: "bg-destructive-bg-subtle text-destructive", label: "Lerninhalt fehlt" },
+  MISSING_MINICHECKS: { icon: AlertTriangle, tone: "bg-destructive-bg-subtle text-destructive", label: "Minichecks fehlen" },
+  MISSING_HANDBOOK: { icon: AlertTriangle, tone: "bg-destructive-bg-subtle text-destructive", label: "Handbuch fehlt" },
+  MISSING_TUTOR_INDEX: { icon: AlertTriangle, tone: "bg-destructive-bg-subtle text-destructive", label: "Tutor-Index fehlt" },
+  EXAM_POOL_TOO_SMALL: { icon: AlertTriangle, tone: "bg-destructive-bg-subtle text-destructive", label: "Prüfungspool zu klein" },
   OK: { icon: CheckCircle2, tone: "bg-primary/15 text-primary", label: "OK" },
 };
 

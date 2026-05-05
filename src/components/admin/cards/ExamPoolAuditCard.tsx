@@ -66,7 +66,7 @@ export default function ExamPoolAuditCard() {
     <div className="space-y-3">
       {/* Drift packages */}
       {packages.length > 0 && (
-        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3">
+        <div className="rounded-xl border border-warning/30 bg-warning-bg-subtle p-3">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
             <span className="text-sm font-semibold text-foreground">
@@ -107,10 +107,10 @@ export default function ExamPoolAuditCard() {
                       className={cn(
                         "text-[9px] px-1.5 py-0 h-4",
                         diag.tone === 'red'
-                          ? 'border-destructive/40 text-destructive bg-destructive/5'
+                          ? 'border-destructive/40 text-destructive bg-destructive-bg-subtle'
                           : diag.tone === 'green'
-                            ? 'border-success/40 text-success bg-success/5'
-                            : 'border-warning/40 text-warning bg-warning/5'
+                            ? 'border-success/40 text-success bg-success-bg-subtle'
+                            : 'border-warning/40 text-warning bg-warning-bg-subtle'
                       )}
                     >
                       {diag.label}

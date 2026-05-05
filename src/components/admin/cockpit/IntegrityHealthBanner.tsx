@@ -70,7 +70,7 @@ export function IntegrityHealthBanner() {
   // Healthy state — keine Failures
   if (data.total_failed === 0) {
     return (
-      <Card className="p-3 border-success/40 bg-success/5">
+      <Card className="p-3 border-success/40 bg-success-bg-subtle">
         <div className="flex items-center gap-2 text-sm">
           <CheckCircle2 className="h-4 w-4 text-success" />
           <span className="font-medium">Integrity-Check: Alle Pakete geprüft & valide</span>
@@ -90,8 +90,8 @@ export function IntegrityHealthBanner() {
     <Card
       className={
         tone === "warning"
-          ? "p-4 border-warning/50 bg-warning/5"
-          : "p-4 border-destructive/50 bg-destructive/5"
+          ? "p-4 border-warning/50 bg-warning-bg-subtle"
+          : "p-4 border-destructive/50 bg-destructive-bg-subtle"
       }
     >
       <div className="flex flex-col lg:flex-row lg:items-start gap-4">
@@ -99,8 +99,8 @@ export function IntegrityHealthBanner() {
           <div
             className={
               tone === "warning"
-                ? "p-2 rounded-md bg-warning/10 border border-warning/30"
-                : "p-2 rounded-md bg-destructive/10 border border-destructive/30"
+                ? "p-2 rounded-md bg-warning-bg-subtle border border-warning/30"
+                : "p-2 rounded-md bg-destructive-bg-subtle border border-destructive/30"
             }
           >
             <ShieldAlert
@@ -202,9 +202,9 @@ function Stat({
 }) {
   const cls =
     tone === "destructive"
-      ? "border-destructive/40 bg-destructive/5"
+      ? "border-destructive/40 bg-destructive-bg-subtle"
       : tone === "warning"
-        ? "border-warning/40 bg-warning/5"
+        ? "border-warning/40 bg-warning-bg-subtle"
         : "border-border bg-muted/30";
   return (
     <div className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded border ${cls}`}>

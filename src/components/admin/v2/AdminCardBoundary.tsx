@@ -45,7 +45,7 @@ export class AdminCardBoundary extends Component<Props, State> {
     if (this.state.error) {
       if (this.props.fallback) return this.props.fallback(this.state.error, this.reset);
       return (
-        <Card className="p-3 border-destructive/30 bg-destructive/5">
+        <Card className="p-3 border-destructive/30 bg-destructive-bg-subtle">
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">

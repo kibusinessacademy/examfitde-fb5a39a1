@@ -14,7 +14,7 @@ interface Props {
 }
 
 function urgencyTone(score: number) {
-  if (score >= 90) return "bg-destructive/15 text-destructive border-destructive/30";
+  if (score >= 90) return "bg-destructive-bg-subtle text-destructive border-destructive/30";
   if (score >= 70) return "bg-amber-500/15 text-amber-600 border-amber-500/30";
   if (score >= 50) return "bg-primary/10 text-primary border-primary/20";
   return "bg-muted text-muted-foreground border-border";
@@ -23,7 +23,7 @@ function urgencyTone(score: number) {
 function releaseTone(rc: Row["release_class"]) {
   if (rc === "release_ok") return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
   if (rc === "release_warn") return "bg-amber-500/10 text-amber-600 border-amber-500/20";
-  if (rc === "release_block") return "bg-destructive/10 text-destructive border-destructive/20";
+  if (rc === "release_block") return "bg-destructive-bg-subtle text-destructive border-destructive/20";
   return "bg-muted text-muted-foreground border-border";
 }
 

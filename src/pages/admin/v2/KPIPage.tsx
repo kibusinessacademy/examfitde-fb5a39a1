@@ -79,8 +79,8 @@ function KpiCard({ title, value, subtitle, icon: Icon, trend, tone }: {
 }) {
   const toneMap = {
     success: 'border-primary/30 bg-primary/5',
-    warning: 'border-warning/30 bg-warning/5',
-    destructive: 'border-destructive/30 bg-destructive/5',
+    warning: 'border-warning/30 bg-warning-bg-subtle',
+    destructive: 'border-destructive/30 bg-destructive-bg-subtle',
     default: 'border-border',
   };
   return (

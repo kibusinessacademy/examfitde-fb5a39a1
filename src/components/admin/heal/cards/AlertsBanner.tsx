@@ -197,7 +197,7 @@ export function AlertsBanner() {
       )}
 
       {alerts.data && alerts.data.length > 0 && (
-        <Card className="p-4 border-warning/40 bg-warning/5">
+        <Card className="p-4 border-warning/40 bg-warning-bg-subtle">
           <div className="flex items-start gap-2 mb-2">
             <ShieldAlert className="h-4 w-4 text-warning mt-0.5" />
             <div className="flex-1">

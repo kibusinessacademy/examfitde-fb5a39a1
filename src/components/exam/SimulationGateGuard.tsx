@@ -34,7 +34,7 @@ export function SimulationGateGuard({ curriculumId, children }: SimulationGateGu
     <div className="container max-w-2xl py-12">
       <Card className="glass-card border-destructive/30">
         <CardContent className="p-8 text-center">
-          <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 rounded-full bg-destructive-bg-subtle flex items-center justify-center mx-auto mb-6">
             <Lock className="h-10 w-10 text-destructive" />
           </div>
 

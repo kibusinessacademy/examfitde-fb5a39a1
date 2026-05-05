@@ -60,7 +60,7 @@ export default function CriticalCaseRow({ row, onClickRow }: Props) {
           {reasons.map((reason, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-2 py-0.5 text-xs text-destructive"
+              className="inline-flex items-center gap-1 rounded-md bg-destructive-bg-subtle px-2 py-0.5 text-xs text-destructive"
             >
               {row.inactive_days > 14 && reason.includes('inaktiv') ? (
                 <Clock className="h-3 w-3" />

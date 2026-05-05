@@ -143,7 +143,7 @@ export function SingleJobRecoveryButton({ jobId, variant = 'outline', size = 'sm
           )}
 
           {result && !result.ok && (
-            <div className="flex items-start gap-2 p-3 border border-destructive/40 bg-destructive/10 rounded-md text-sm">
+            <div className="flex items-start gap-2 p-3 border border-destructive/40 bg-destructive-bg-subtle rounded-md text-sm">
               <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
               <div>
                 <div className="font-medium text-destructive">Recovery failed</div>

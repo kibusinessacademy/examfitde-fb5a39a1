@@ -85,9 +85,9 @@ interface InlineFeedback {
 }
 
 const INLINE_FEEDBACK_TONE: Record<InlineFeedback['tone'], string> = {
-  success: 'border-success/30 bg-success/10 text-success',
-  warning: 'border-warning/30 bg-warning/10 text-warning',
-  destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
+  success: 'border-success/30 bg-success-bg-subtle text-success',
+  warning: 'border-warning/30 bg-warning-bg-subtle text-warning',
+  destructive: 'border-destructive/30 bg-destructive-bg-subtle text-destructive',
 };
 
 function humanizeRepairReason(reason?: string | null, strategy?: string | null) {
@@ -145,8 +145,8 @@ function buildPreviewFeedback(preview: RepairPreviewResult): InlineFeedback {
 }
 
 const SEVERITY_META: Record<string, { cls: string; icon: typeof AlertTriangle; label: string }> = {
-  high:   { cls: 'border-destructive/40 bg-destructive/10 text-destructive', icon: AlertOctagon,  label: 'Kritisch' },
-  medium: { cls: 'border-warning/40 bg-warning/10 text-warning',             icon: AlertTriangle, label: 'Warnung' },
+  high:   { cls: 'border-destructive/40 bg-destructive-bg-subtle text-destructive', icon: AlertOctagon,  label: 'Kritisch' },
+  medium: { cls: 'border-warning/40 bg-warning-bg-subtle text-warning',             icon: AlertTriangle, label: 'Warnung' },
   info:   { cls: 'border-border bg-muted/30 text-foreground',                icon: AlertTriangle, label: 'Info' },
 };
 
@@ -530,7 +530,7 @@ function DrilldownSheet({ warning }: { warning: ValidationWarning }) {
             </div>
           )}
           {hasActiveRepair && (
-            <div className="rounded-md border border-warning/30 bg-warning/10 p-2 text-[11px] text-warning">
+            <div className="rounded-md border border-warning/30 bg-warning-bg-subtle p-2 text-[11px] text-warning">
               Für dieses Paket läuft bereits ein Repair-Job — neuer Start ist blockiert, bis der aktuelle Lauf fertig ist.
             </div>
           )}

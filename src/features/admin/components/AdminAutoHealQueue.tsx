@@ -220,7 +220,7 @@ export function AdminAutoHealQueue() {
             variant="outline"
             disabled={zombieMutation.isPending}
             onClick={() => zombieMutation.mutate()}
-            className="border-destructive/30 text-destructive hover:bg-destructive/10"
+            className="border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
             title="Cancelt Jobs die >30min im processing hängen"
           >
             {zombieMutation.isPending ? (

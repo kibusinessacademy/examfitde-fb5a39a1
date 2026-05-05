@@ -230,7 +230,7 @@ export default function UnternehmenPage() {
                 </p>
               </div>
               <div>
-                <div className="w-12 h-12 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-4">
+                <div className="w-12 h-12 rounded-full bg-success-bg-subtle flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl font-bold text-success">3</span>
                 </div>
                 <h3 className="font-semibold mb-2">Codes verteilen</h3>

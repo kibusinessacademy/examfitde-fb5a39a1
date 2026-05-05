@@ -99,11 +99,11 @@ function useCostOverview() {
 function OrderDetailSheet({ order, open, onOpenChange }: { order: OrderRow | null; open: boolean; onOpenChange: (v: boolean) => void }) {
   if (!order) return null;
   const statusTone: Record<string, string> = {
-    completed: 'border-success/40 text-success bg-success/5',
-    paid: 'border-success/40 text-success bg-success/5',
-    pending: 'border-warning/40 text-warning bg-warning/5',
-    failed: 'border-destructive/40 text-destructive bg-destructive/5',
-    refunded: 'border-destructive/40 text-destructive bg-destructive/5',
+    completed: 'border-success/40 text-success bg-success-bg-subtle',
+    paid: 'border-success/40 text-success bg-success-bg-subtle',
+    pending: 'border-warning/40 text-warning bg-warning-bg-subtle',
+    failed: 'border-destructive/40 text-destructive bg-destructive-bg-subtle',
+    refunded: 'border-destructive/40 text-destructive bg-destructive-bg-subtle',
   };
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -136,7 +136,7 @@ function OrderDetailSheet({ order, open, onOpenChange }: { order: OrderRow | nul
             </div>
           </div>
           {order.status === 'failed' && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2">
+            <div className="rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-2">
               <div className="text-[10px] text-destructive flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 Zahlung fehlgeschlagen – Checkout-Flow und Zahlungsanbieter prüfen.
@@ -213,14 +213,14 @@ export default function FinancePanel({ open, onOpenChange }: { open: boolean; on
                     <div className="text-sm font-bold text-foreground">€{costData.totalLlmCost.toFixed(2)}</div>
                     <div className="text-[10px] text-muted-foreground">{costData.totalCalls.toLocaleString()} Calls</div>
                   </div>
-                  <div className={cn("rounded-lg border p-2", costData.totalMargin30d >= 0 ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5")}>
+                  <div className={cn("rounded-lg border p-2", costData.totalMargin30d >= 0 ? "border-success/30 bg-success-bg-subtle" : "border-destructive/30 bg-destructive-bg-subtle")}>
                     <div className="text-[9px] text-muted-foreground uppercase">Marge 30d</div>
                     <div className="text-sm font-bold text-foreground">€{costData.totalMargin30d.toFixed(0)}</div>
                     <div className="text-[10px] text-muted-foreground">Ø ROI {costData.avgRoi.toFixed(1)}x</div>
                   </div>
                 </div>
                 {costData.negativeMargePkgs > 0 && (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 mt-2 flex items-center gap-2">
+                  <div className="rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-2 mt-2 flex items-center gap-2">
                     <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
                     <div className="text-[10px] text-destructive">
                       {costData.negativeMargePkgs} Paket(e) mit negativer Marge – Kosten prüfen oder Preis anpassen.
@@ -232,7 +232,7 @@ export default function FinancePanel({ open, onOpenChange }: { open: boolean; on
 
             {/* Refunds */}
             {refunds && refunds.count > 0 && (
-              <div className={cn("rounded-lg border p-3", refunds.count > 5 ? "border-destructive/30 bg-destructive/5" : "border-warning/30 bg-warning/5")}>
+              <div className={cn("rounded-lg border p-3", refunds.count > 5 ? "border-destructive/30 bg-destructive-bg-subtle" : "border-warning/30 bg-warning-bg-subtle")}>
                 <div className="flex items-center gap-2 mb-1">
                   <TrendingDown className="h-4 w-4 text-destructive" />
                   <span className="text-xs font-semibold text-foreground">{refunds.count} Refund(s) · €{refunds.total_eur?.toFixed(0)}</span>
@@ -245,7 +245,7 @@ export default function FinancePanel({ open, onOpenChange }: { open: boolean; on
 
             {/* Alerts for failed orders */}
             {failedOrders.length > 0 && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <div className="rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <XCircle className="h-4 w-4 text-destructive" />
                   <span className="text-xs font-semibold text-foreground">{failedOrders.length} fehlgeschlagene Bestellung(en)</span>

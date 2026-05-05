@@ -452,7 +452,7 @@ export default function StaleMarkerDiffPage() {
                         : j.status === 'processing'
                           ? 'bg-blue-500/15 text-blue-700 border-blue-500/30'
                           : j.status === 'failed' || j.status?.startsWith('cancelled')
-                            ? 'bg-destructive/10 text-destructive border-destructive/30'
+                            ? 'bg-destructive-bg-subtle text-destructive border-destructive/30'
                             : j.status === 'pending'
                               ? 'bg-amber-500/15 text-amber-700 border-amber-500/30'
                               : 'bg-muted text-muted-foreground';

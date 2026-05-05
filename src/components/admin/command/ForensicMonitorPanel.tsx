@@ -27,7 +27,7 @@ function severityColor(severity: string) {
 }
 
 function severityBg(severity: string) {
-  if (severity === "P0") return "bg-destructive/10 border-destructive/30";
+  if (severity === "P0") return "bg-destructive-bg-subtle border-destructive/30";
   if (severity === "P1") return "bg-orange-500/10 border-orange-500/30";
   if (severity === "P2") return "bg-amber-500/10 border-amber-500/30";
   return "bg-emerald-500/10 border-emerald-500/30";
@@ -132,7 +132,7 @@ export default function ForensicMonitorPanel() {
 
   if (error) {
     return (
-      <Card className="border-destructive/30 bg-destructive/10">
+      <Card className="border-destructive/30 bg-destructive-bg-subtle">
         <CardContent className="p-4 text-sm text-destructive">
           Forensik-Monitor Fehler: {(error as Error).message}
         </CardContent>
@@ -211,7 +211,7 @@ export default function ForensicMonitorPanel() {
 
       {/* Warning for critical */}
       {(severity === "P0" || severity === "P1") && (
-        <Card className="border-destructive/30 bg-destructive/5">
+        <Card className="border-destructive/30 bg-destructive-bg-subtle">
           <CardContent className="p-4 flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
             <div className="text-sm">

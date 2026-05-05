@@ -57,8 +57,8 @@ export function WorkerHeartbeatSSOTCard() {
   return (
     <Card className={cn(
       "p-4",
-      status === "critical" && "border-destructive bg-destructive/5",
-      status === "warn" && "border-warning bg-warning/5",
+      status === "critical" && "border-destructive bg-destructive-bg-subtle",
+      status === "warn" && "border-warning bg-warning-bg-subtle",
     )}>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold flex items-center gap-2">

@@ -14,9 +14,9 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const signalStyle = {
-  ok: 'border-success/40 text-success bg-success/5',
-  warn: 'border-warning/40 text-warning bg-warning/5',
-  hard_fail: 'border-destructive/40 text-destructive bg-destructive/5',
+  ok: 'border-success/40 text-success bg-success-bg-subtle',
+  warn: 'border-warning/40 text-warning bg-warning-bg-subtle',
+  hard_fail: 'border-destructive/40 text-destructive bg-destructive-bg-subtle',
 } as const;
 
 const signalIcon = {
@@ -193,7 +193,7 @@ export default function BlueprintMatchAuditCard() {
 
   if (problemPackages.length === 0 && global) {
     return (
-      <div className="rounded-xl border border-success/30 bg-success/5 p-3 flex items-center gap-3">
+      <div className="rounded-xl border border-success/30 bg-success-bg-subtle p-3 flex items-center gap-3">
         <Target className="h-4 w-4 text-success shrink-0" />
         <div>
           <div className="text-sm font-semibold text-foreground">Blueprint-Match OK</div>
@@ -218,12 +218,12 @@ export default function BlueprintMatchAuditCard() {
         </span>
         <div className="flex gap-1.5 ml-auto">
           {hardFails.length > 0 && (
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-destructive/40 text-destructive bg-destructive/5">
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-destructive/40 text-destructive bg-destructive-bg-subtle">
               {hardFails.length} Hard-Fail
             </Badge>
           )}
           {warns.length > 0 && (
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-warning/40 text-warning bg-warning/5">
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-warning/40 text-warning bg-warning-bg-subtle">
               {warns.length} Warn
             </Badge>
           )}
@@ -237,7 +237,7 @@ export default function BlueprintMatchAuditCard() {
 
       {/* Global stats */}
       {global && global.no_blueprint > 0 && (
-        <div className="rounded-lg border border-warning/30 bg-warning/5 p-2 flex items-start gap-2">
+        <div className="rounded-lg border border-warning/30 bg-warning-bg-subtle p-2 flex items-start gap-2">
           <HelpCircle className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
           <div className="text-[10px] text-foreground">
             <span className="font-semibold">{global.no_blueprint} Fragen</span> ohne Blueprint-Zuordnung.

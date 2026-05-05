@@ -73,7 +73,7 @@ export function SurfaceHumorCard({
             <Button
               variant="ghost"
               size="sm"
-              className={cn("h-6 px-1.5", vote === "disliked" && "text-destructive bg-destructive/10")}
+              className={cn("h-6 px-1.5", vote === "disliked" && "text-destructive bg-destructive-bg-subtle")}
               onClick={() => handleVote("disliked")}
             >
               <ThumbsDown className="h-3 w-3" />
@@ -109,7 +109,7 @@ export function SurfaceHumorCard({
         <Button
           variant="ghost"
           size="sm"
-          className={cn("h-7 px-2", vote === "disliked" && "text-destructive bg-destructive/10")}
+          className={cn("h-7 px-2", vote === "disliked" && "text-destructive bg-destructive-bg-subtle")}
           onClick={() => handleVote("disliked")}
         >
           <ThumbsDown className="h-3.5 w-3.5 mr-1" />

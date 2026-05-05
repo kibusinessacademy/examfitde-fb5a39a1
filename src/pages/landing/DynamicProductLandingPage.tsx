@@ -310,7 +310,7 @@ export default function DynamicProductLandingPage() {
           <section className="py-16 px-4">
             <div className="container max-w-5xl grid gap-6 md:grid-cols-3">
               <Card className="p-6 space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-destructive-bg-subtle flex items-center justify-center">
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                 </div>
                 <h2 className="text-xl font-semibold">Warum Nutzer scheitern</h2>

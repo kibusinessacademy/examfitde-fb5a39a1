@@ -32,7 +32,7 @@ function flagBadge(f: Row["stale_flag"]) {
   if (f === "STALE_HEAL_NEEDED")
     return <Badge variant="destructive">heal needed</Badge>;
   if (f === "STALE_WATCH")
-    return <Badge className="bg-warning/15 text-warning border-warning/30">watch</Badge>;
+    return <Badge className="bg-warning-bg-subtle text-warning border-warning/30">watch</Badge>;
   return <Badge variant="secondary">ok</Badge>;
 }
 
@@ -94,7 +94,7 @@ export function StaleDraftsCard() {
               <Badge variant="destructive">{healCount} heal needed</Badge>
             )}
             {watchCount > 0 && (
-              <Badge className="bg-warning/15 text-warning border-warning/30">
+              <Badge className="bg-warning-bg-subtle text-warning border-warning/30">
                 {watchCount} watch
               </Badge>
             )}

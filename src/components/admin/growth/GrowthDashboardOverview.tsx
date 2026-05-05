@@ -80,9 +80,9 @@ function healthDot(h?: HealthColor) {
 
 function tierBadge(tier: string) {
   const map: Record<string, string> = {
-    top_performer: "bg-success/15 text-success-foreground",
+    top_performer: "bg-success-bg-subtle text-success-foreground",
     lead_generator: "bg-primary/15 text-primary",
-    leaky_funnel: "bg-warning/15 text-warning-foreground",
+    leaky_funnel: "bg-warning-bg-subtle text-warning-foreground",
     no_traffic: "bg-muted text-muted-foreground",
     low_signal: "bg-muted text-muted-foreground",
   };

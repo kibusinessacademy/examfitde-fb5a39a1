@@ -88,7 +88,7 @@ export default function GuardrailEventsPanel() {
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <Card className={cn("p-3 border-l-4", hollowCount > 0 ? "border-l-destructive bg-destructive/5" : "border-l-emerald-500")}>
+        <Card className={cn("p-3 border-l-4", hollowCount > 0 ? "border-l-destructive bg-destructive-bg-subtle" : "border-l-emerald-500")}>
           <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5" /> Hollow Published
           </div>

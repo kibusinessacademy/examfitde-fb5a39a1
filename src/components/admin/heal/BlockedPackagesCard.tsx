@@ -332,7 +332,7 @@ export function BlockedPackagesCard({
           <Alert
             className={`mt-2 py-2 ${
               bulkSummary.breaker > 0 || bulkSummary.error > 0
-                ? "border-destructive/30 bg-destructive/5"
+                ? "border-destructive/30 bg-destructive-bg-subtle"
                 : "border-emerald-500/30 bg-emerald-500/5"
             }`}
           >

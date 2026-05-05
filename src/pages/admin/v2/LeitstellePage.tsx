@@ -60,9 +60,9 @@ function KpiTile({ label, value, icon, tone = 'neutral', onClick }: {
   onClick?: () => void;
 }) {
   const toneClasses = {
-    green: 'border-success/30 bg-success/5',
-    yellow: 'border-warning/30 bg-warning/5',
-    red: 'border-destructive/30 bg-destructive/5',
+    green: 'border-success/30 bg-success-bg-subtle',
+    yellow: 'border-warning/30 bg-warning-bg-subtle',
+    red: 'border-destructive/30 bg-destructive-bg-subtle',
     neutral: 'border-border bg-card',
   };
   return (
@@ -247,7 +247,7 @@ export default function LeitstellePage() {
       {/* Drift Warnings */}
       {kpis && kpis.stalePublish > 0 && (
         <div
-          className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          className="rounded-xl border border-warning/30 bg-warning-bg-subtle p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
           onClick={() => setDriftSheetOpen(true)}
           role="button"
         >
@@ -261,7 +261,7 @@ export default function LeitstellePage() {
 
       {kpis && kpis.publishDrift > 0 && (
         <div
-          className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          className="rounded-xl border border-destructive/30 bg-destructive-bg-subtle p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
           onClick={() => setDriftSheetOpen(true)}
           role="button"
         >
@@ -275,7 +275,7 @@ export default function LeitstellePage() {
 
       {kpis && kpis.councilCompleteNotApproved > 0 && (
         <div
-          className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+          className="rounded-xl border border-warning/30 bg-warning-bg-subtle p-3 flex items-start gap-3 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
           onClick={() => setCouncilSheetOpen(true)}
           role="button"
         >

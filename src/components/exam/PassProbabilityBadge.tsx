@@ -39,7 +39,7 @@ export function PassProbabilityBadge({ curriculumId, className }: PassProbabilit
     ? { color: 'text-green-500 bg-green-500/10', Icon: TrendingUp }
     : prob >= 50
     ? { color: 'text-yellow-500 bg-yellow-500/10', Icon: Minus }
-    : { color: 'text-destructive bg-destructive/10', Icon: TrendingDown };
+    : { color: 'text-destructive bg-destructive-bg-subtle', Icon: TrendingDown };
 
   return (
     <Badge variant="outline" className={cn('gap-1.5 font-mono', config.color, className)}>

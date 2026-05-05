@@ -151,7 +151,7 @@ export function PackageDrawer({ packageId, rows, onClose, onAction }: Props) {
                       <Badge
                         key={c}
                         variant="outline"
-                        className="bg-destructive/10 text-destructive border-destructive/30 text-[10px]"
+                        className="bg-destructive-bg-subtle text-destructive border-destructive/30 text-[10px]"
                       >
                         {c}
                       </Badge>

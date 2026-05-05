@@ -13,7 +13,7 @@ class AnalysisErrorBoundary extends Component<{ children: ReactNode }, { error: 
   render() {
     if (this.state.error) {
       return (
-        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <div>
             <div className="font-medium">Analyse-Anzeige fehlgeschlagen</div>
@@ -84,7 +84,7 @@ interface Props {
 const SEVERITY_COLOR: Record<Severity, string> = {
   low: "bg-muted text-muted-foreground",
   medium: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  high: "bg-destructive/15 text-destructive",
+  high: "bg-destructive-bg-subtle text-destructive",
 };
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -417,7 +417,7 @@ export function AdminAIAnalysisPanel({ routeKey, routePath, visibleHints, varian
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-3 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>

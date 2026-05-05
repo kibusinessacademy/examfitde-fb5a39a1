@@ -153,7 +153,7 @@ const QualityScorePage = () => {
                 </Badge>
               )}
               {(summary.rules_failed ?? 0) > 0 && (
-                <Badge variant="outline" className="bg-destructive/10 text-destructive">
+                <Badge variant="outline" className="bg-destructive-bg-subtle text-destructive">
                   ✗ {summary.rules_failed} nicht bestanden
                 </Badge>
               )}

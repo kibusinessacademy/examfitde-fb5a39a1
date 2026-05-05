@@ -52,7 +52,7 @@ export default function RunnerHealthCard() {
   return (
     <div className={cn(
       "rounded-lg border p-3",
-      hasIssues ? "border-destructive/50 bg-destructive/5" : "border-border bg-card"
+      hasIssues ? "border-destructive/50 bg-destructive-bg-subtle" : "border-border bg-card"
     )}>
       <div className="flex items-center gap-1.5 mb-2">
         <Activity className="h-3.5 w-3.5 text-muted-foreground" />

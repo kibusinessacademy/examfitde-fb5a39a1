@@ -171,7 +171,7 @@ export default function HealthTab() {
 
       {/* Critical Policy Health Guard */}
       {disabledCriticalPolicies.length > 0 && (
-        <Card className="border-destructive/50 bg-destructive/10">
+        <Card className="border-destructive/50 bg-destructive-bg-subtle">
           <CardContent className="py-3 px-4">
             <div className="flex items-start gap-2">
               <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
@@ -251,7 +251,7 @@ export default function HealthTab() {
             {aiDiagnose.risks.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {aiDiagnose.risks.map((r, i) => (
-                  <Badge key={i} variant="outline" className={cn("text-xs", r.score >= 70 && "border-destructive/40 text-destructive bg-destructive/5", r.score >= 40 && r.score < 70 && "border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5", r.score < 40 && "border-emerald-500/40 text-emerald-600 dark:text-emerald-400")}>
+                  <Badge key={i} variant="outline" className={cn("text-xs", r.score >= 70 && "border-destructive/40 text-destructive bg-destructive-bg-subtle", r.score >= 40 && r.score < 70 && "border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5", r.score < 40 && "border-emerald-500/40 text-emerald-600 dark:text-emerald-400")}>
                     <ShieldAlert className="h-3 w-3 mr-1" />{r.scope_id}: {r.score}
                   </Badge>
                 ))}
@@ -310,7 +310,7 @@ function StatBox({ label, value, alert: isAlert, onClick }: { label: string; val
     <div
       className={cn(
         "rounded-md border px-2.5 py-1.5 transition-all",
-        isAlert && "border-destructive/30 bg-destructive/5",
+        isAlert && "border-destructive/30 bg-destructive-bg-subtle",
         onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]"
       )}
       onClick={onClick}
@@ -330,7 +330,7 @@ export function KPICard({ icon, label, value, sublabel, accent, alert: isAlert, 
     <Card
       className={cn(
         "transition-colors",
-        isAlert ? "border-destructive/40 bg-destructive/5" : accent || "",
+        isAlert ? "border-destructive/40 bg-destructive-bg-subtle" : accent || "",
         onClick && "cursor-pointer hover:ring-2 hover:ring-primary/30 active:scale-[0.98]"
       )}
       onClick={onClick}

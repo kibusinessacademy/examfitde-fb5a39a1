@@ -49,7 +49,7 @@ const CAREER_LEVELS = [
     dqr: 'DQR 6',
     examples: ['Industriemeister Metall', 'Industriemeister Elektrotechnik', 'Handwerksmeister'],
     href: '/pruefungstraining/meister',
-    color: 'bg-success/10 text-success',
+    color: 'bg-success-bg-subtle text-success',
   },
   {
     level: 4,
@@ -62,7 +62,7 @@ const CAREER_LEVELS = [
     dqr: 'DQR 7',
     examples: ['Geprüfter Betriebswirt (IHK)', 'Technischer Betriebswirt'],
     href: '/pruefungstraining/betriebswirt',
-    color: 'bg-warning/10 text-warning',
+    color: 'bg-warning-bg-subtle text-warning',
   },
 ];
 

@@ -37,7 +37,7 @@ function relTime(iso: string): string {
 function kindStyle(kind: string) {
   if (kind === 'transition') return { icon: Activity, cls: 'bg-primary/10 text-primary border-primary/30' };
   if (kind === 'decision') return { icon: Shield, cls: 'bg-accent/10 text-accent-foreground border-accent/30' };
-  return { icon: AlertTriangle, cls: 'bg-warning/10 text-warning border-warning/30' };
+  return { icon: AlertTriangle, cls: 'bg-warning-bg-subtle text-warning border-warning/30' };
 }
 
 function decisionStyle(d: string | null): string {
@@ -122,7 +122,7 @@ export default function JobTimelinePage() {
       )}
 
       {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+        <div className="rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-3 text-xs text-destructive">
           {(error as Error).message}
         </div>
       )}

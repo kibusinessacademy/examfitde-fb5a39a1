@@ -103,7 +103,7 @@ export function CouplingHealV4Card() {
       ) : (
         <>
           {crashed && (
-            <div className="mb-3 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-xs">
+            <div className="mb-3 rounded-md border border-destructive/50 bg-destructive-bg-subtle p-3 text-xs">
               <div className="flex items-center gap-2 font-semibold text-destructive">
                 <AlertTriangle className="h-4 w-4" />
                 Letzter Lauf endete mit Status „{latest.status}"
@@ -124,8 +124,8 @@ export function CouplingHealV4Card() {
               const v = statusVariant(r.status);
               const f = (r.forensics ?? {}) as any;
               const tone =
-                v.tone === "crit" ? "border-destructive/50 bg-destructive/5"
-                : v.tone === "warn" ? "border-warning/50 bg-warning/5"
+                v.tone === "crit" ? "border-destructive/50 bg-destructive-bg-subtle"
+                : v.tone === "warn" ? "border-warning/50 bg-warning-bg-subtle"
                 : v.tone === "info" ? "border-border bg-muted/20"
                 : "border-border";
               return (

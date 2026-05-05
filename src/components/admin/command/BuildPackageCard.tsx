@@ -57,8 +57,8 @@ export function BuildPackageCard({
               className={cn(
                 'h-4 px-1.5 py-0 text-[9px]',
                 badge.tone === 'red'
-                  ? 'border-destructive/40 bg-destructive/5 text-destructive'
-                  : 'border-warning/40 bg-warning/5 text-warning',
+                  ? 'border-destructive/40 bg-destructive-bg-subtle text-destructive'
+                  : 'border-warning/40 bg-warning-bg-subtle text-warning',
               )}
             >
               {badge.label}

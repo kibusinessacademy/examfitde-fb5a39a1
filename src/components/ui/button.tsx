@@ -23,10 +23,10 @@ const buttonVariants = cva(
         mint: "bg-mint-500 text-petrol-900 hover:bg-mint-400 shadow-elev-1 hover:shadow-elev-2",
         // Status v2 (subtle, for non-primary actions in admin)
         success:
-          "bg-success-bg-subtle text-success border border-success-border hover:bg-success/10",
+          "bg-success-bg-subtle text-success border border-success-border hover:bg-success-bg-subtle",
         warning:
-          "bg-warning-bg-subtle text-warning border border-warning-border hover:bg-warning/10",
-        info: "bg-info-bg-subtle text-info border border-info-border hover:bg-info/10",
+          "bg-warning-bg-subtle text-warning border border-warning-border hover:bg-warning-bg-subtle",
+        info: "bg-info-bg-subtle text-info border border-info-border hover:bg-info-bg-subtle",
       },
       size: {
         default: "h-10 px-4 py-2",

@@ -46,7 +46,7 @@ import E2EBundleCheckCard from './E2EBundleCheckCard';
 type Health = 'critical' | 'warning' | 'ok' | 'unknown';
 
 const HEALTH_TONE: Record<Health, string> = {
-  critical: 'bg-destructive/10 text-destructive border-destructive/30',
+  critical: 'bg-destructive-bg-subtle text-destructive border-destructive/30',
   warning: 'bg-amber-500/15 text-amber-700 border-amber-500/30',
   ok: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30',
   unknown: 'bg-muted text-muted-foreground border-muted',
@@ -192,7 +192,7 @@ export default function MarketingIntelligencePanel() {
   return (
     <div className="space-y-5">
       {/* Header / Master-Diagnose */}
-      <Alert className={ordersHealth === 'critical' || crmHealth === 'critical' ? 'border-destructive/40 bg-destructive/5' : ''}>
+      <Alert className={ordersHealth === 'critical' || crmHealth === 'critical' ? 'border-destructive/40 bg-destructive-bg-subtle' : ''}>
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle className="text-sm font-semibold">Marketing-Stack Master-Diagnose</AlertTitle>
         <AlertDescription className="text-xs space-y-1.5 mt-1.5">
@@ -502,7 +502,7 @@ function DiagBlock({
   fixes?: Array<{ label: string; href?: string; to?: string; onClick?: () => void }>;
 }) {
   const toneCls = tone === 'critical'
-    ? 'border-destructive/40 bg-destructive/5'
+    ? 'border-destructive/40 bg-destructive-bg-subtle'
     : tone === 'warning' ? 'border-amber-500/40 bg-amber-500/5' : 'border-emerald-500/40 bg-emerald-500/5';
   return (
     <div className={`rounded-md border ${toneCls} p-3`}>

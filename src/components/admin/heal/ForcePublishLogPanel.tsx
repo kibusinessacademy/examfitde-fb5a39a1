@@ -172,7 +172,7 @@ export function ForcePublishLogPanel() {
       <PricingBackfillTrigger />
       {/* ── Active alerts (last 24h) ───────────────────────────────────── */}
       {alerts && alerts.length > 0 && (
-        <Card className="p-4 border-destructive/50 bg-destructive/5">
+        <Card className="p-4 border-destructive/50 bg-destructive-bg-subtle">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="h-4 w-4 text-destructive" />
             <h3 className="text-sm font-semibold text-destructive">
@@ -283,7 +283,7 @@ export function ForcePublishLogPanel() {
               </thead>
               <tbody>
                 {building.map((b) => (
-                  <tr key={b.package_id} className={`border-b hover:bg-muted/30 ${!b.has_progress ? "bg-destructive/5" : ""}`}>
+                  <tr key={b.package_id} className={`border-b hover:bg-muted/30 ${!b.has_progress ? "bg-destructive-bg-subtle" : ""}`}>
                     <td className="py-1.5 px-2">
                       <div className="font-medium truncate max-w-[260px]" title={b.title}>{b.title}</div>
                       <div className="font-mono text-[10px] text-muted-foreground">{b.package_id.slice(0, 8)}</div>

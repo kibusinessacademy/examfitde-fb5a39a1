@@ -152,11 +152,11 @@ export default function CouncilTimeline({ packageId, councils, onRefresh }: Prop
             <Brain className="h-4 w-4" /> Council-Entscheidungen
           </span>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px] bg-success/10 text-success">
+            <Badge variant="outline" className="text-[10px] bg-success-bg-subtle text-success">
               ✓ {approvedCount}
             </Badge>
             {rejectedCount > 0 && (
-              <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive">
+              <Badge variant="outline" className="text-[10px] bg-destructive-bg-subtle text-destructive">
                 ✗ {rejectedCount}
               </Badge>
             )}
@@ -201,8 +201,8 @@ export default function CouncilTimeline({ packageId, councils, onRefresh }: Prop
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Badge variant="outline" className={cn("text-[10px]",
-                    isApproved ? 'bg-success/10 text-success' :
-                    isRejected ? 'bg-destructive/10 text-destructive' :
+                    isApproved ? 'bg-success-bg-subtle text-success' :
+                    isRejected ? 'bg-destructive-bg-subtle text-destructive' :
                     isRunning ? 'bg-primary/10 text-primary' : ''
                   )}>
                     {isApproved ? 'Approved' : isRejected ? 'Rejected' : isRunning ? 'Läuft…' : 'Ausstehend'}

@@ -501,7 +501,7 @@ export default function CompliancePanel({ open, onOpenChange }: CompliancePanelP
                           <Badge variant="outline" className="text-[10px]">{r.request_type}</Badge>
                           <span className="ml-2 text-muted-foreground">{r.target_user_id?.slice(0, 8)}…</span>
                         </div>
-                        <Badge className={r.status === 'completed' ? 'bg-success/10 text-success border-success/30' : 'bg-warning/10 text-warning border-warning/30'}>
+                        <Badge className={r.status === 'completed' ? 'bg-success-bg-subtle text-success border-success/30' : 'bg-warning-bg-subtle text-warning border-warning/30'}>
                           {r.status}
                         </Badge>
                       </div>

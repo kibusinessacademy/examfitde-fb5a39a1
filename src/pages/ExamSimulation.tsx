@@ -262,7 +262,7 @@ export default function ExamSimulation() {
           if (isAnswered) {
             bgClass = q.is_correct 
               ? "bg-primary/20 text-primary" 
-              : "bg-destructive/20 text-destructive";
+              : "bg-destructive-bg-subtle text-destructive";
           }
           
           return (

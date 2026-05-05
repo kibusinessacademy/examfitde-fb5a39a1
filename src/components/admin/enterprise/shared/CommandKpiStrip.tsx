@@ -11,9 +11,9 @@ interface KpiCardProps {
 
 export function KpiCard({ label, value, icon, tone = 'neutral', onClick }: KpiCardProps) {
   const toneClasses = {
-    green: 'border-success/30 bg-success/5',
-    yellow: 'border-warning/30 bg-warning/5',
-    red: 'border-destructive/30 bg-destructive/5',
+    green: 'border-success/30 bg-success-bg-subtle',
+    yellow: 'border-warning/30 bg-warning-bg-subtle',
+    red: 'border-destructive/30 bg-destructive-bg-subtle',
     neutral: 'border-border bg-card',
   };
   return (

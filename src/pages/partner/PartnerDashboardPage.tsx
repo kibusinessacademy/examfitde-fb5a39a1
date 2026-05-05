@@ -59,8 +59,8 @@ export default function PartnerDashboardPage() {
             <span className="text-muted-foreground">{partner.contact_name || partner.email}</span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
               partner.status === 'active' ? 'bg-accent/10 text-accent' :
-              partner.status === 'pending' ? 'bg-warning/10 text-warning' :
-              'bg-destructive/10 text-destructive'
+              partner.status === 'pending' ? 'bg-warning-bg-subtle text-warning' :
+              'bg-destructive-bg-subtle text-destructive'
             }`}>
               {partner.status === 'active' ? 'Aktiv' : partner.status === 'pending' ? 'Ausstehend' : partner.status}
             </span>
@@ -69,7 +69,7 @@ export default function PartnerDashboardPage() {
       </header>
 
       {isPending && (
-        <div className="bg-warning/10 border-b border-warning/20 py-3 text-center text-sm text-warning">
+        <div className="bg-warning-bg-subtle border-b border-warning/20 py-3 text-center text-sm text-warning">
           Dein Partner-Konto wird derzeit geprüft. Einige Funktionen sind noch eingeschränkt.
         </div>
       )}

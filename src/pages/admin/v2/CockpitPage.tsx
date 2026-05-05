@@ -51,9 +51,9 @@ const DOMAIN_META: Record<Domain, { label: string; icon: typeof Globe; descripti
 };
 
 const STATUS_COLORS: Record<CockpitStatus, { ring: string; bg: string; dot: string; label: string }> = {
-  green: { ring: "ring-success/40", bg: "bg-success/5", dot: "bg-success", label: "Healthy" },
-  yellow: { ring: "ring-warning/40", bg: "bg-warning/5", dot: "bg-warning", label: "Warning" },
-  red: { ring: "ring-destructive/40", bg: "bg-destructive/5", dot: "bg-destructive", label: "Critical" },
+  green: { ring: "ring-success/40", bg: "bg-success-bg-subtle", dot: "bg-success", label: "Healthy" },
+  yellow: { ring: "ring-warning/40", bg: "bg-warning-bg-subtle", dot: "bg-warning", label: "Warning" },
+  red: { ring: "ring-destructive/40", bg: "bg-destructive-bg-subtle", dot: "bg-destructive", label: "Critical" },
   grey: { ring: "ring-muted-foreground/30", bg: "bg-muted/30", dot: "bg-muted-foreground", label: "No Data" },
 };
 
@@ -198,7 +198,7 @@ export default function CockpitPage() {
         )}
 
         {live.error && (
-          <Card className="p-4 border-destructive/50 bg-destructive/5">
+          <Card className="p-4 border-destructive/50 bg-destructive-bg-subtle">
             <div className="flex items-start gap-2 text-sm">
               <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
               <div>

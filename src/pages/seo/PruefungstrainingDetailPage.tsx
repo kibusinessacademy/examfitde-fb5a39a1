@@ -218,7 +218,7 @@ const PruefungstrainingDetailPage = () => {
                 'Unsicherheit bei mündlichen Prüfungsteilen',
                 'Falsches Lernmaterial ohne Prüfungsbezug',
               ].map(pain => (
-                <div key={pain} className="flex items-start gap-3 p-4 rounded-xl border border-destructive/20 bg-destructive/5">
+                <div key={pain} className="flex items-start gap-3 p-4 rounded-xl border border-destructive/20 bg-destructive-bg-subtle">
                   <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                   <span className="text-sm">{pain}</span>
                 </div>

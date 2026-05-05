@@ -155,7 +155,7 @@ export default function ExamPoolRootCausePanel({ packageId, onlyWhenBlocked = fa
 
   const tone = ROOT_CAUSE_LABELS[rc.code]?.tone ?? 'info';
   const accent =
-    tone === 'critical' ? 'border-destructive/40 bg-destructive/5'
+    tone === 'critical' ? 'border-destructive/40 bg-destructive-bg-subtle'
     : tone === 'warn'   ? 'border-amber-500/40 bg-amber-500/5'
     : 'border-border';
 

@@ -163,7 +163,7 @@ export function ProblemPackagesCard() {
                   <td className="px-2 py-2">
                     <div className="flex flex-wrap gap-0.5">
                       {(pkg.dead_ends || []).map((d) => (
-                        <span key={d} className="rounded bg-destructive/10 px-1 py-0.5 text-[9px] text-destructive">
+                        <span key={d} className="rounded bg-destructive-bg-subtle px-1 py-0.5 text-[9px] text-destructive">
                           {DEAD_END_LABELS[d] ?? d}
                         </span>
                       ))}

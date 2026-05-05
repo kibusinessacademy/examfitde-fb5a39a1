@@ -44,13 +44,13 @@ import {
 const POLL_MS = 30_000;
 
 const STALL_VARIANT: Record<StallReason["kind"], { label: string; cls: string }> = {
-  ok: { label: "OK", cls: "bg-success/10 text-success border-success/30" },
+  ok: { label: "OK", cls: "bg-success-bg-subtle text-success border-success/30" },
   running: { label: "Läuft", cls: "bg-primary/10 text-primary border-primary/30" },
-  no_repair_enqueued: { label: "Kein Repair", cls: "bg-warning/10 text-warning border-warning/30" },
-  wrong_repair_route: { label: "Falsches Repair", cls: "bg-warning/10 text-warning border-warning/30" },
-  hard_fail: { label: "HARD FAIL", cls: "bg-destructive/10 text-destructive border-destructive/30" },
-  exhausted: { label: "Erschöpft", cls: "bg-destructive/10 text-destructive border-destructive/30" },
-  no_progress: { label: "Kein Fortschritt", cls: "bg-warning/10 text-warning border-warning/30" },
+  no_repair_enqueued: { label: "Kein Repair", cls: "bg-warning-bg-subtle text-warning border-warning/30" },
+  wrong_repair_route: { label: "Falsches Repair", cls: "bg-warning-bg-subtle text-warning border-warning/30" },
+  hard_fail: { label: "HARD FAIL", cls: "bg-destructive-bg-subtle text-destructive border-destructive/30" },
+  exhausted: { label: "Erschöpft", cls: "bg-destructive-bg-subtle text-destructive border-destructive/30" },
+  no_progress: { label: "Kein Fortschritt", cls: "bg-warning-bg-subtle text-warning border-warning/30" },
   unknown: { label: "Unklar", cls: "bg-muted text-muted-foreground border-border" },
 };
 

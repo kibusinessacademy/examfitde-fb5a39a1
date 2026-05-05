@@ -553,10 +553,10 @@ export default function PricingSectionHighConvert() {
               </Card>
             ) : (
               /* Variant A: Risk Focus (default/control) */
-              <Card className="rounded-[2rem] border-destructive/20 bg-destructive/5 shadow-sm">
+              <Card className="rounded-[2rem] border-destructive/20 bg-destructive-bg-subtle shadow-sm">
                 <CardContent className="p-6 sm:p-7">
                   <div className="mb-5 flex items-center gap-3">
-                    <div className="rounded-2xl bg-destructive/10 p-3 text-destructive">
+                    <div className="rounded-2xl bg-destructive-bg-subtle p-3 text-destructive">
                       <ShieldAlert className="h-5 w-5" />
                     </div>
                     <div>

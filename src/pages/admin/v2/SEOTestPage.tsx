@@ -133,15 +133,15 @@ export default function SEOTestPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-4">
-              <div className="rounded-lg border border-success/30 bg-success/5 p-4">
+              <div className="rounded-lg border border-success/30 bg-success-bg-subtle p-4">
                 <div className="text-3xl font-bold text-success">{report.totals.passed}</div>
                 <div className="text-xs text-muted-foreground mt-1">Passed</div>
               </div>
-              <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
+              <div className="rounded-lg border border-warning/30 bg-warning-bg-subtle p-4">
                 <div className="text-3xl font-bold text-warning">{report.totals.warned}</div>
                 <div className="text-xs text-muted-foreground mt-1">Warnings</div>
               </div>
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+              <div className="rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-4">
                 <div className="text-3xl font-bold text-destructive">{report.totals.failed}</div>
                 <div className="text-xs text-muted-foreground mt-1">Failed</div>
               </div>

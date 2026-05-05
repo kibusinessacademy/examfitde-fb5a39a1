@@ -41,7 +41,7 @@ export function ExamTimer({ timeLimitMinutes, startedAt, onTimeUp }: ExamTimerPr
       variant="secondary"
       className={cn(
         'gap-1.5 text-sm font-mono tabular-nums transition-colors',
-        isLast5 && 'bg-destructive/20 text-destructive animate-pulse',
+        isLast5 && 'bg-destructive-bg-subtle text-destructive animate-pulse',
         isLast20 && !isLast5 && 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400',
       )}
     >

@@ -126,8 +126,8 @@ export function LaneHealthCard() {
                   key={row.lane}
                   className={cn(
                     "rounded-md border p-3 text-xs",
-                    critical && "border-destructive/50 bg-destructive/5",
-                    !critical && slow && "border-warning/50 bg-warning/5",
+                    critical && "border-destructive/50 bg-destructive-bg-subtle",
+                    !critical && slow && "border-warning/50 bg-warning-bg-subtle",
                     isIdle && "opacity-50",
                   )}
                 >

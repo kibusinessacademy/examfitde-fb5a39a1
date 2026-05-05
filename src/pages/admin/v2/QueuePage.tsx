@@ -30,11 +30,11 @@ function formatAge(seconds: number): string {
 
 function healthBadge(signal: string) {
   const map: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
-    zombie: { label: 'Zombie', className: 'bg-destructive/10 text-destructive border-destructive/30', icon: <Skull className="h-3 w-3" /> },
-    stale_lock: { label: 'Stale Lock', className: 'bg-warning/10 text-warning border-warning/30', icon: <AlertTriangle className="h-3 w-3" /> },
-    exhausted: { label: 'Erschöpft', className: 'bg-destructive/10 text-destructive border-destructive/30', icon: <XCircle className="h-3 w-3" /> },
-    retriable: { label: 'Wiederholbar', className: 'bg-warning/10 text-warning border-warning/30', icon: <AlertTriangle className="h-3 w-3" /> },
-    aging: { label: 'Alternder Job', className: 'bg-warning/10 text-warning border-warning/30', icon: <Clock className="h-3 w-3" /> },
+    zombie: { label: 'Zombie', className: 'bg-destructive-bg-subtle text-destructive border-destructive/30', icon: <Skull className="h-3 w-3" /> },
+    stale_lock: { label: 'Stale Lock', className: 'bg-warning-bg-subtle text-warning border-warning/30', icon: <AlertTriangle className="h-3 w-3" /> },
+    exhausted: { label: 'Erschöpft', className: 'bg-destructive-bg-subtle text-destructive border-destructive/30', icon: <XCircle className="h-3 w-3" /> },
+    retriable: { label: 'Wiederholbar', className: 'bg-warning-bg-subtle text-warning border-warning/30', icon: <AlertTriangle className="h-3 w-3" /> },
+    aging: { label: 'Alternder Job', className: 'bg-warning-bg-subtle text-warning border-warning/30', icon: <Clock className="h-3 w-3" /> },
     normal: { label: '', className: '', icon: null },
   };
   return map[signal] || map.normal;
@@ -44,8 +44,8 @@ function statusColor(status: string): string {
   switch (status) {
     case 'pending': case 'queued': return 'bg-muted text-muted-foreground border-border';
     case 'processing': return 'bg-primary/10 text-primary border-primary/30';
-    case 'failed': return 'bg-destructive/10 text-destructive border-destructive/30';
-    case 'completed': return 'bg-success/10 text-success border-success/30';
+    case 'failed': return 'bg-destructive-bg-subtle text-destructive border-destructive/30';
+    case 'completed': return 'bg-success-bg-subtle text-success border-success/30';
     default: return 'bg-muted text-muted-foreground border-border';
   }
 }
@@ -121,8 +121,8 @@ function JobRow({ job, onAction, actionPending }: {
           {diagnosis && (
             <div className={cn(
               "rounded-lg border p-2 text-xs",
-              diagnosis.severity === 'error' ? "border-destructive/20 bg-destructive/5 text-foreground" :
-              diagnosis.severity === 'warning' ? "border-warning/20 bg-warning/5 text-foreground" :
+              diagnosis.severity === 'error' ? "border-destructive/20 bg-destructive-bg-subtle text-foreground" :
+              diagnosis.severity === 'warning' ? "border-warning/20 bg-warning-bg-subtle text-foreground" :
               "border-border bg-muted/30 text-foreground"
             )}>
               <div className="font-semibold flex items-center gap-1 mb-0.5" style={{
@@ -152,7 +152,7 @@ function JobRow({ job, onAction, actionPending }: {
           </div>
 
           {job.last_error && (
-            <div className="rounded-lg bg-destructive/5 border border-destructive/20 p-2 text-destructive text-[11px] font-mono break-all line-clamp-4">
+            <div className="rounded-lg bg-destructive-bg-subtle border border-destructive/20 p-2 text-destructive text-[11px] font-mono break-all line-clamp-4">
               {job.last_error}
             </div>
           )}
@@ -189,7 +189,7 @@ function JobRow({ job, onAction, actionPending }: {
             )}
             {(isFailed || isZombie || job.job_status === 'processing' || job.job_status === 'pending') && (
               <Button size="sm" variant="outline" disabled={actionPending}
-                className="text-xs h-8 border-destructive/30 text-destructive hover:bg-destructive/10"
+                className="text-xs h-8 border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
                 onClick={(e) => { e.stopPropagation(); onAction(job.job_id, 'cancel'); }}>
                 <Trash2 className="h-3 w-3 mr-1.5" />
                 Abbrechen
@@ -305,7 +305,7 @@ export default function QueuePage() {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+      <div className="rounded-xl border border-destructive/30 bg-destructive-bg-subtle p-4 text-sm text-destructive">
         Fehler: {(error as Error).message}
       </div>
     );
@@ -359,13 +359,13 @@ export default function QueuePage() {
           <div className="text-lg font-bold text-primary">{c.processing}</div>
           <div className="text-[10px] text-muted-foreground">Processing</div>
         </button>
-        <button onClick={() => setStatusFilter('failed')} className={cn("rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center transition-colors hover:bg-destructive/10", statusFilter === 'failed' && "ring-2 ring-primary")}>
+        <button onClick={() => setStatusFilter('failed')} className={cn("rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-2 text-center transition-colors hover:bg-destructive-bg-subtle", statusFilter === 'failed' && "ring-2 ring-primary")}>
           <div className="text-lg font-bold text-destructive">{c.failed}</div>
           <div className="text-[10px] text-muted-foreground">Failed</div>
         </button>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <button onClick={() => setStatusFilter('completed')} className={cn("rounded-lg border border-success/30 bg-success/5 p-2 text-center transition-colors hover:bg-success/10", statusFilter === 'completed' && "ring-2 ring-primary")}>
+        <button onClick={() => setStatusFilter('completed')} className={cn("rounded-lg border border-success/30 bg-success-bg-subtle p-2 text-center transition-colors hover:bg-success-bg-subtle", statusFilter === 'completed' && "ring-2 ring-primary")}>
           <div className="text-lg font-bold text-success">{c.completed_1h}</div>
           <div className="text-[10px] text-muted-foreground">Done 1h</div>
         </button>
@@ -434,7 +434,7 @@ export default function QueuePage() {
               Failed requeuen (max 50)
             </Button>
             <Button size="sm" variant="outline" disabled={batchMutation.isPending}
-              className="text-xs h-8 border-destructive/30 text-destructive hover:bg-destructive/10"
+              className="text-xs h-8 border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
               onClick={() => {
                 if (confirm(`Alle ${c.failed} fehlgeschlagenen Jobs endgültig löschen?`)) {
                   batchMutation.mutate('purge_failed');

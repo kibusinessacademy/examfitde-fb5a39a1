@@ -137,8 +137,8 @@ function buildRecommendation(lanes: LaneRow[], claim: ClaimRow[]): Recommendatio
 const TONE: Record<Severity, { ring: string; text: string; badge: string; label: string; Icon: typeof CheckCircle2 }> = {
   ok:       { ring: "border-primary/40 bg-primary/5",       text: "text-primary",       badge: "bg-primary text-primary-foreground", label: "OK",       Icon: CheckCircle2 },
   info:     { ring: "border-muted-foreground/30 bg-muted/30", text: "text-foreground",  badge: "bg-muted text-foreground",            label: "INFO",     Icon: Compass },
-  warn:     { ring: "border-warning/50 bg-warning/5",       text: "text-warning",       badge: "bg-warning text-warning-foreground",  label: "ACTION",   Icon: AlertTriangle },
-  critical: { ring: "border-destructive/60 bg-destructive/5", text: "text-destructive", badge: "bg-destructive text-destructive-foreground", label: "URGENT", Icon: AlertTriangle },
+  warn:     { ring: "border-warning/50 bg-warning-bg-subtle",       text: "text-warning",       badge: "bg-warning text-warning-foreground",  label: "ACTION",   Icon: AlertTriangle },
+  critical: { ring: "border-destructive/60 bg-destructive-bg-subtle", text: "text-destructive", badge: "bg-destructive text-destructive-foreground", label: "URGENT", Icon: AlertTriangle },
 };
 
 function scrollTo(selector?: string) {

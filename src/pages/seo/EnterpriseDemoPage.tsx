@@ -127,15 +127,15 @@ export default function EnterpriseDemoPage() {
                   <Badge variant="outline" className="text-[10px] ml-auto">Live-Daten</Badge>
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div className="rounded-lg bg-destructive/10 p-3 text-center">
+                  <div className="rounded-lg bg-destructive-bg-subtle p-3 text-center">
                     <div className="text-2xl font-bold text-destructive">2</div>
                     <div className="text-[10px] text-muted-foreground">Kritisch</div>
                   </div>
-                  <div className="rounded-lg bg-warning/10 p-3 text-center">
+                  <div className="rounded-lg bg-warning-bg-subtle p-3 text-center">
                     <div className="text-2xl font-bold text-warning">1</div>
                     <div className="text-[10px] text-muted-foreground">Gefährdet</div>
                   </div>
-                  <div className="rounded-lg bg-success/10 p-3 text-center">
+                  <div className="rounded-lg bg-success-bg-subtle p-3 text-center">
                     <div className="text-2xl font-bold text-success">2</div>
                     <div className="text-[10px] text-muted-foreground">Bereit</div>
                   </div>
@@ -186,7 +186,7 @@ export default function EnterpriseDemoPage() {
         <section className="py-16 border-b">
           <div className="max-w-6xl mx-auto px-4">
             <div className="text-center mb-10">
-              <Badge className="mb-3 bg-success/10 text-success border-success/30">Enterprise-Ready</Badge>
+              <Badge className="mb-3 bg-success-bg-subtle text-success border-success-border">Enterprise-Ready</Badge>
               <h2 className="text-2xl sm:text-3xl font-bold">Gebaut für IT-Abteilungen</h2>
               <p className="text-muted-foreground mt-2">SSO, SCIM, EU-Hosting — alles, was Ihr IT-Leiter braucht</p>
             </div>

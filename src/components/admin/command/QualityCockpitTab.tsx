@@ -215,7 +215,7 @@ function CompetencyRow({ stat, onToggleFreeze }: { stat: CompetencyPerf; onToggl
           <span className="text-xs font-mono text-foreground truncate">
             {stat.competency_id?.slice(0, 8) || stat.topic_key?.slice(0, 16) || '—'}
           </span>
-          <Badge className={cn("text-[9px]", isCritical ? "bg-destructive/20 text-destructive" : isFrozen ? "bg-blue-500/20 text-blue-700" : "bg-yellow-500/20 text-yellow-700")}>
+          <Badge className={cn("text-[9px]", isCritical ? "bg-destructive-bg-subtle text-destructive" : isFrozen ? "bg-blue-500/20 text-blue-700" : "bg-yellow-500/20 text-yellow-700")}>
             {isFrozen ? '🔒 frozen' : `${repeatPct}% repeat-fail`}
           </Badge>
           {stat.unique_learners < 5 && (

@@ -58,7 +58,7 @@ export function LaneReasonBreakdownCard() {
                   key={row.lane}
                   className={cn(
                     "rounded-md border p-3 text-xs",
-                    critical && "border-destructive/50 bg-destructive/5",
+                    critical && "border-destructive/50 bg-destructive-bg-subtle",
                   )}
                 >
                   <div className="flex items-center justify-between mb-2 flex-wrap gap-2">

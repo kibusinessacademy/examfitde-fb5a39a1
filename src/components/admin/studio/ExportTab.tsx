@@ -331,7 +331,7 @@ export default function ExportTab({ pkg, packageId }: { pkg: any; packageId: str
 
       {/* Download banners */}
       {exportUrl && (
-        <Card className="border-success/30 bg-success/5">
+        <Card className="border-success/30 bg-success-bg-subtle">
           <CardContent className="p-4 flex flex-col sm:flex-row items-center gap-3">
             <Download className="h-5 w-5 text-success shrink-0" />
             <div className="flex-1 min-w-0"><p className="text-sm font-medium">ZIP-Export bereit</p><p className="text-xs text-muted-foreground">Link gültig für 1 Stunde</p></div>

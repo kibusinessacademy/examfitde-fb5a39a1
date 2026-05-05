@@ -10,10 +10,10 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const riskConfig = {
-  critical: { label: 'Kritisch', cls: 'border-destructive/40 text-destructive bg-destructive/5' },
-  high: { label: 'Hoch', cls: 'border-warning/40 text-warning bg-warning/5' },
+  critical: { label: 'Kritisch', cls: 'border-destructive/40 text-destructive bg-destructive-bg-subtle' },
+  high: { label: 'Hoch', cls: 'border-warning/40 text-warning bg-warning-bg-subtle' },
   medium: { label: 'Mittel', cls: 'border-primary/40 text-primary bg-primary/5' },
-  ok: { label: 'OK', cls: 'border-success/40 text-success bg-success/5' },
+  ok: { label: 'OK', cls: 'border-success/40 text-success bg-success-bg-subtle' },
 };
 
 export default function TrapCoverageAuditCard() {
@@ -43,7 +43,7 @@ export default function TrapCoverageAuditCard() {
 
   if (packages.length === 0 && global && global.missing === 0) {
     return (
-      <div className="rounded-xl border border-success/30 bg-success/5 p-3 flex items-center gap-3">
+      <div className="rounded-xl border border-success/30 bg-success-bg-subtle p-3 flex items-center gap-3">
         <ShieldCheck className="h-4 w-4 text-success shrink-0" />
         <div>
           <div className="text-sm font-semibold text-foreground">Trap Coverage 100%</div>
@@ -56,7 +56,7 @@ export default function TrapCoverageAuditCard() {
   }
 
   return (
-    <div className="rounded-xl border border-warning/30 bg-warning/5 p-3">
+    <div className="rounded-xl border border-warning/30 bg-warning-bg-subtle p-3">
       <div className="flex items-center gap-2 mb-2">
         <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
         <span className="text-sm font-semibold text-foreground">

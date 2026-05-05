@@ -50,8 +50,8 @@ type PerPackageRow = {
 };
 
 const PATTERN_TONE: Record<PatternRow["pattern_key"], string> = {
-  HIDDEN_DRAFTS: "border-destructive/40 bg-destructive/5",
-  QUEUED_NO_JOBS: "border-warning/40 bg-warning/5",
+  HIDDEN_DRAFTS: "border-destructive/40 bg-destructive-bg-subtle",
+  QUEUED_NO_JOBS: "border-warning/40 bg-warning-bg-subtle",
   REENTRY_GUARD_LOCKED: "border-muted-foreground/40 bg-muted/20",
 };
 

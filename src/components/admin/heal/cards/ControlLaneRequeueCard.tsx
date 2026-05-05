@@ -162,7 +162,7 @@ export function ControlLaneRequeueCard() {
                   <div
                     key={r.job_id}
                     className={`flex items-center justify-between rounded border p-1.5 font-mono ${
-                      blocked ? "border-warning/50 bg-warning/5" : ""
+                      blocked ? "border-warning/50 bg-warning-bg-subtle" : ""
                     }`}
                   >
                     <span className="truncate flex-1">{r.job_type}</span>

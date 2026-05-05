@@ -240,7 +240,7 @@ export default function AdminPromoCodesPanel() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-success/30 bg-success/5">
+        <Card className="border-success/30 bg-success-bg-subtle">
           <CardContent className="p-4 flex items-center gap-3">
             <Gift className="h-5 w-5 text-success shrink-0" />
             <div>
@@ -258,7 +258,7 @@ export default function AdminPromoCodesPanel() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-warning/30 bg-warning/5">
+        <Card className="border-warning/30 bg-warning-bg-subtle">
           <CardContent className="p-4 flex items-center gap-3">
             <DollarSign className="h-5 w-5 text-warning shrink-0" />
             <div>

@@ -118,7 +118,7 @@ export function RecoverActionsCard() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-      <Card className="p-4 border-destructive/40 bg-destructive/5">
+      <Card className="p-4 border-destructive/40 bg-destructive-bg-subtle">
         <div className="flex items-start justify-between mb-1 gap-2">
           <h3 className="text-sm font-semibold">Stale-Processing Reap</h3>
           <span className="text-[10px] text-muted-foreground">Lane-aware · mit Bestätigung</span>
@@ -141,7 +141,7 @@ export function RecoverActionsCard() {
         </div>
       </Card>
 
-      <Card className="p-4 border-warning/40 bg-warning/5">
+      <Card className="p-4 border-warning/40 bg-warning-bg-subtle">
         <h3 className="text-sm font-semibold mb-1">Hot-Loop Quarantäne</h3>
         <p className="text-[11px] text-muted-foreground mb-2">
           Cancelt Jobs mit attempts ≥ Threshold (nur Whitelist) und auto-defert zugehörige steps via
@@ -249,7 +249,7 @@ function ReapLaneButton({
               Vorgang wird in <span className="font-mono">admin_actions</span> auditiert.
             </span>
             {lane === "control" && (
-              <span className="block rounded border border-destructive/40 bg-destructive/10 p-2 text-[11px]">
+              <span className="block rounded border border-destructive/40 bg-destructive-bg-subtle p-2 text-[11px]">
                 ⚠️ Control-Lane betrifft Council / Auto-Publish / Promote — fehlgeschlagene Jobs
                 können Pakete blockieren bis der Tail-Step-Defer-Trigger greift.
               </span>

@@ -40,23 +40,23 @@ export default function WorkerLivenessCard() {
 
   return (
     <Card className={cn(
-      hasProblem ? 'border-warning/40 bg-warning/5' : 'border-success/30 bg-success/5'
+      hasProblem ? 'border-warning/40 bg-warning-bg-subtle' : 'border-success/30 bg-success-bg-subtle'
     )}>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Server className={cn('h-4 w-4', hasProblem ? 'text-warning' : 'text-success')} />
           Worker Liveness
           <div className="ml-auto flex items-center gap-2">
-            <Badge variant="outline" className="bg-success/10 text-success border-success/30 text-xs">
+            <Badge variant="outline" className="bg-success-bg-subtle text-success border-success/30 text-xs">
               {alive} alive
             </Badge>
             {falseActive > 0 && (
-              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 text-xs">
+              <Badge variant="outline" className="bg-destructive-bg-subtle text-destructive border-destructive/30 text-xs">
                 {falseActive} ghost
               </Badge>
             )}
             {noActivity > 0 && (
-              <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 text-xs">
+              <Badge variant="outline" className="bg-warning-bg-subtle text-warning border-warning/30 text-xs">
                 {noActivity} idle
               </Badge>
             )}

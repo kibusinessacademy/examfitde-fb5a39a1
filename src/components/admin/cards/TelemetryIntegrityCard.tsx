@@ -207,7 +207,7 @@ export function TelemetryIntegrityCard() {
               <div
                 className={cn(
                   "grid grid-cols-12 gap-1 items-center px-2 py-1.5 rounded text-xs hover:bg-muted/50 cursor-pointer transition-colors",
-                  row.logging_gap && "bg-destructive/5",
+                  row.logging_gap && "bg-destructive-bg-subtle",
                   row.drift_severity === "critical" && "bg-amber-500/5",
                 )}
                 onClick={() => setExpanded(expanded === row.package_id ? null : row.package_id)}

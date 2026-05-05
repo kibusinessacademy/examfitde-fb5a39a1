@@ -239,7 +239,7 @@ export function JobLiveProgressList() {
       </CardHeader>
       <CardContent className="space-y-1">
         {failureCount >= 3 && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive-bg-subtle p-2 text-xs text-destructive">
             <AlertCircle className="h-3 w-3" />
             {t("live.warnRepeated")} ({failureCount}×)
           </div>
@@ -264,7 +264,7 @@ export function JobLiveProgressList() {
                 key={j.id}
                 className={`flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5 text-xs ${
                   isGhost
-                    ? "border-destructive/50 bg-destructive/5"
+                    ? "border-destructive/50 bg-destructive-bg-subtle"
                     : isLoop
                     ? "border-purple-500/40 bg-purple-500/5"
                     : cls.tone === "warn"
