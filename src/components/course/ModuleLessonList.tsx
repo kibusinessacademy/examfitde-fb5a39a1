@@ -158,9 +158,12 @@ export function ModuleLessonList({
   if (modules.length === 0) {
     return (
       <Card className="glass-card">
-        <CardContent className="p-8 text-center">
-          <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Dieser Kurs hat noch keine Module.</p>
+        <CardContent className="p-8 text-center" role="status">
+          <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
+          <h3 className="text-lg font-semibold mb-2">Noch keine Module verfügbar</h3>
+          <p className="text-muted-foreground">
+            Die Lerninhalte für diesen Kurs werden gerade vorbereitet. Schau bald wieder vorbei.
+          </p>
         </CardContent>
       </Card>
     );
@@ -235,25 +238,36 @@ export function ModuleLessonList({
             )}
           >
             <CardHeader
-              className="cursor-pointer hover:bg-muted/30 transition-colors"
+              role="button"
+              tabIndex={0}
+              aria-expanded={isExpanded}
+              aria-controls={`module-panel-${module.id}`}
+              aria-label={`Modul ${index + 1}: ${module.title}, ${isExpanded ? 'eingeklappt' : 'ausklappen'}`}
+              className="cursor-pointer hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
               onClick={() => toggleModule(module.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggleModule(module.id);
+                }
+              }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center font-bold transition-colors",
-                    showOnlyReview && moduleReviewCount > 0 
-                      ? "bg-orange-500 text-white" 
+                    showOnlyReview && moduleReviewCount > 0
+                      ? "bg-orange-500 text-white"
                       : "gradient-primary text-primary-foreground"
-                  )}>
+                  )} aria-hidden="true">
                     {index + 1}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">{module.title}</CardTitle>
                       {moduleReviewCount > 0 && !showOnlyReview && (
-                        <Badge variant="outline" className="border-orange-500/50 text-orange-500 text-xs">
-                          <RotateCcw className="h-3 w-3 mr-1" />
+                        <Badge variant="outline" className="border-orange-500/50 text-orange-500 text-xs" aria-label={`${moduleReviewCount} Lektionen zur Wiederholung`}>
+                          <RotateCcw className="h-3 w-3 mr-1" aria-hidden="true" />
                           {moduleReviewCount}
                         </Badge>
                       )}
@@ -272,80 +286,109 @@ export function ModuleLessonList({
                     </div>
                   )}
                   {isExpanded ? (
-                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
                   ) : (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
                   )}
                 </div>
               </div>
-              {isEnrolled && !showOnlyReview && <Progress value={moduleProgress} className="h-1 mt-4" />}
+              {isEnrolled && !showOnlyReview && (
+                <Progress
+                  value={moduleProgress}
+                  className="h-1 mt-4"
+                  aria-label={`Modul-Fortschritt ${moduleProgress} Prozent`}
+                />
+              )}
             </CardHeader>
 
             {isExpanded && (
-              <CardContent className="pt-0 pb-4 animate-fade-in">
-                <div className="space-y-2">
+              <CardContent
+                id={`module-panel-${module.id}`}
+                role="region"
+                aria-label={`Lektionen in Modul ${module.title}`}
+                className="pt-0 pb-4 animate-fade-in"
+              >
+                {filteredLessons.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2" role="status">
+                    {showOnlyReview
+                      ? 'Keine Wiederholungs-Lektionen in diesem Modul.'
+                      : 'Dieses Modul enthält noch keine Lektionen.'}
+                  </p>
+                ) : (
+                <ul className="space-y-2 list-none p-0 m-0">
                   {filteredLessons.map((lesson) => {
                     const progressData = getLessonProgressData(lesson.id);
                     const status: LessonStatus = progressData?.status ?? "not_started";
                     const needsReview = progressData?.needs_review ?? false;
                     const score = progressData?.score_percent ?? null;
                     const locked = !isEnrolled;
+                    const stepLabel = STEP_LABELS[lesson.step] || lesson.step;
+                    const ariaLabel = locked
+                      ? `Gesperrt: ${lesson.title} (${stepLabel}). Schreibe dich ein, um zu starten.`
+                      : `${status === 'mastered' ? 'Abgeschlossen' : needsReview ? 'Zur Wiederholung' : 'Lektion starten'}: ${lesson.title} (${stepLabel})`;
 
                     return (
-                      <div
-                        key={lesson.id}
-                        onClick={() => handleLessonClick(lesson.id, locked)}
-                        className={cn(
-                          "flex items-center justify-between p-3 rounded-lg transition-all border animate-fade-in",
-                          locked
-                            ? "bg-muted/30 opacity-60 cursor-not-allowed"
-                            : `${getStatusBgColor(status)} hover:bg-muted/50 cursor-pointer hover:scale-[1.01]`,
-                          needsReview && "ring-1 ring-orange-500/50"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          {locked ? (
-                            <Lock className="h-5 w-5 text-muted-foreground" />
-                          ) : status === "mastered" ? (
-                            <CheckCircle className="h-5 w-5 text-green-500" />
-                          ) : needsReview ? (
-                            <RotateCcw className="h-5 w-5 text-orange-500 animate-pulse" />
-                          ) : (
-                            <PlayCircle className="h-5 w-5 text-primary" />
+                      <li key={lesson.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleLessonClick(lesson.id, locked)}
+                          disabled={locked}
+                          aria-disabled={locked}
+                          aria-label={ariaLabel}
+                          className={cn(
+                            "w-full text-left flex items-center justify-between p-3 min-h-12 rounded-lg transition-all border animate-fade-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            locked
+                              ? "bg-muted/30 opacity-60 cursor-not-allowed"
+                              : `${getStatusBgColor(status)} hover:bg-muted/50 cursor-pointer hover:scale-[1.01]`,
+                            needsReview && "ring-1 ring-orange-500/50"
                           )}
-                          <div className="flex-1">
-                            <span className="font-medium">{lesson.title}</span>
-                            <div className="flex flex-wrap items-center gap-2 mt-1">
-                              <Badge
-                                variant="secondary"
-                                className={`text-xs ${STEP_COLORS[lesson.step] || ""} text-white`}
-                              >
-                                {STEP_LABELS[lesson.step] || lesson.step}
-                              </Badge>
-                              {lesson.duration_minutes && (
-                                <span className="text-xs text-muted-foreground">
-                                  {lesson.duration_minutes} Min.
-                                </span>
-                              )}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {locked ? (
+                              <Lock className="h-5 w-5 text-muted-foreground shrink-0" aria-hidden="true" />
+                            ) : status === "mastered" ? (
+                              <CheckCircle className="h-5 w-5 text-green-500 shrink-0" aria-hidden="true" />
+                            ) : needsReview ? (
+                              <RotateCcw className="h-5 w-5 text-orange-500 animate-pulse shrink-0" aria-hidden="true" />
+                            ) : (
+                              <PlayCircle className="h-5 w-5 text-primary shrink-0" aria-hidden="true" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium block truncate">{lesson.title}</span>
+                              <div className="flex flex-wrap items-center gap-2 mt-1">
+                                <Badge
+                                  variant="secondary"
+                                  className={`text-xs ${STEP_COLORS[lesson.step] || ""} text-white`}
+                                >
+                                  {stepLabel}
+                                </Badge>
+                                {lesson.duration_minutes && (
+                                  <span className="text-xs text-muted-foreground">
+                                    <span className="sr-only">Dauer: </span>
+                                    {lesson.duration_minutes} Min.
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {isEnrolled && status !== "not_started" && (
-                          <div className="hidden sm:block">
-                            <LessonStatusBadge
-                              status={status}
-                              needsReview={needsReview}
-                              scorePercent={score}
-                              showScore
-                              size="sm"
-                            />
-                          </div>
-                        )}
-                      </div>
+                          {isEnrolled && status !== "not_started" && (
+                            <div className="hidden sm:block">
+                              <LessonStatusBadge
+                                status={status}
+                                needsReview={needsReview}
+                                scorePercent={score}
+                                showScore
+                                size="sm"
+                              />
+                            </div>
+                          )}
+                        </button>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
+                )}
               </CardContent>
             )}
           </Card>
