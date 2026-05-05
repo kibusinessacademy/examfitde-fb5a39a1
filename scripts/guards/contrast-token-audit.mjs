@@ -23,7 +23,7 @@ const baseline = existsSync(BASELINE_PATH)
       readFileSync(BASELINE_PATH, "utf8")
         .split("\n")
         .map((s) => s.trim())
-        .filter(Boolean),
+        .filter((line) => line && !line.startsWith("#")),
     )
   : new Set();
 
