@@ -39,14 +39,14 @@ export default function CoursesPage() {
   }, [user]);
 
   const fetchCourses = async () => {
-    const { data, error } = await supabase
-      .from('courses')
+    // Use v_courses_publishable: only courses with at least 1 module + 1 lesson
+    const { data, error } = await (supabase.from as any)('v_courses_publishable')
       .select('*')
       .eq('status', 'published')
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setCourses(data);
+      setCourses(data as Course[]);
     }
     setLoading(false);
   };
