@@ -1,0 +1,21 @@
+name: contrast-token-audit
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/guards/contrast-token-audit.mjs'
+      - '.github/workflows/contrast-token-audit.yml'
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with: { bun-version: latest }
+      - run: node scripts/guards/contrast-token-audit.mjs
