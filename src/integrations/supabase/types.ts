@@ -109496,6 +109496,10 @@ export type Database = {
           test_name: string
         }[]
       }
+      admin_test_heal_contract: {
+        Args: { p_package_id: string }
+        Returns: Json
+      }
       admin_test_heal_v3_invariants: { Args: never; Returns: Json }
       admin_test_lane_classification: { Args: { p_cases: Json }; Returns: Json }
       admin_trigger_pricing_backfill_now: { Args: never; Returns: Json }
