@@ -38,24 +38,32 @@ function fmtSec(s: number | null): string {
   return `${Math.floor(s / 86400)}d`;
 }
 
+interface WorkerHB { any_alive_5m: boolean; pipeline_alive_5m: number; pipeline_latest: string | null; }
+
 export function LaneHealthCard() {
   const q = useQuery({
     queryKey: ["admin-lane-health"],
     queryFn: async () => {
-      // Primary: SECURITY DEFINER RPC with has_role gate
       const { data, error } = await supabase.rpc("admin_get_lane_health" as any);
-      if (!error && Array.isArray(data) && data.length > 0) {
-        return data as LaneRow[];
-      }
-      // Fallback: direct view query (works only if caller has SELECT grant or RLS allows)
+      if (!error && Array.isArray(data) && data.length > 0) return data as LaneRow[];
       const { data: viewData, error: viewErr } = await supabase
-        .from("v_admin_lane_health" as any)
-        .select("*");
+        .from("v_admin_lane_health" as any).select("*");
       if (viewErr && error) throw error;
       return ((viewData ?? data ?? []) as unknown) as LaneRow[];
     },
     refetchInterval: 30_000,
   });
+  const hbQ = useQuery({
+    queryKey: ["admin-worker-heartbeat"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_get_worker_heartbeat_summary" as any);
+      if (error) throw error;
+      return data as WorkerHB;
+    },
+    refetchInterval: 30_000,
+  });
+  // Echte Worker-Heartbeat-Quelle (ops_worker_heartbeats / pipeline-runner)
+  const workersAlive = hbQ.data?.any_alive_5m ?? true;
 
   return (
     <Card className="p-4">
@@ -78,9 +86,10 @@ export function LaneHealthCard() {
               //   → echter Worker-Pickup-Ausfall
               // - dagBacklog: pending > 0, processing > 0 (Worker leben), aber 0 completed
               //   → Jobs werden vom Claim-RPC ausgefiltert (DAG-Prereqs nicht erfüllt)
+              // workerStalled NUR wenn echte Heartbeat-Quelle 0 alive_5m UND keine completions
               const noCompletions = row.pending_cnt > 0 && row.completed_6h === 0;
-              const workerStalled = noCompletions && row.processing_cnt === 0;
-              const dagBacklog = noCompletions && row.processing_cnt > 0;
+              const workerStalled = noCompletions && row.processing_cnt === 0 && !workersAlive;
+              const dagBacklog = noCompletions && (row.processing_cnt > 0 || workersAlive);
               const slow = (row.oldest_pending_sec ?? 0) > 3600;
               const critical = workerStalled || dagBacklog;
               return (
