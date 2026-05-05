@@ -30,6 +30,10 @@ export const GUARDS = [
     command: "node scripts/guards/schema-contract-product-prices.mjs",
     description: "Live DB schema contract for product_prices." },
 
+  { id: "schema.auto-heal-log-canonical", severity: "error", owner: "platform", phase: "pr",
+    command: "node scripts/guards/auto-heal-log-canonical-schema-guard.mjs",
+    description: "auto_heal_log: no legacy columns (action/details/triggered_by/package_id) in INSERTs; live bad_* = 0." },
+
   // ===== P0: SSOT =====
   { id: "ssot.lane-contract", severity: "error", owner: "queue", phase: "pr",
     command: "node scripts/guards/guard-lane-contract.mjs",
