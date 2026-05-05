@@ -110030,6 +110030,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_l2_enforce_readiness: { Args: never; Returns: Json }
       admin_get_lane_drilldown: {
         Args: { p_lane?: string }
         Returns: {
