@@ -312,7 +312,7 @@ export default function CourseDetailPage() {
 
           {/* Enrollment / Progress Bar */}
           <div className="p-6 border-t border-border">
-            {isEnrolled ? (
+            {hasAccess ? (
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex-1 w-full md:w-auto">
                   {courseProgress ? (
