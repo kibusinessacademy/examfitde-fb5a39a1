@@ -47,7 +47,18 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
       - name: Step 3 — Run progress-persistence E2E
-        run: bunx playwright test tests/e2e/learner-progress-persistence.spec.ts
+        run: |
+          bunx playwright test tests/e2e/learner-progress-persistence.spec.ts \
+            --reporter=list,json,html \
+            || echo "playwright_failed=1" >> $GITHUB_ENV
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-report/results.json
+      - name: Step 4 — Render CI artifact summary
+        if: always()
+        run: node scripts/ci/learner-progress-summary.mjs playwright-report/results.json
+      - name: Fail job if Playwright failed
+        if: env.playwright_failed == '1'
+        run: exit 1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -55,4 +66,5 @@ jobs:
           path: |
             playwright-report/
             test-results/
-          retention-days: 7
+            qa-pins-validation.json
+          retention-days: 14
