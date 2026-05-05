@@ -434,6 +434,7 @@ const AppRoutes = () => {
           <Route path="heal" element={<HealCockpitPage />} />
           <Route path="forensics" element={<ForensicsPage />} />
           <Route path="synthetic-cohort" element={<SyntheticCohortPage />} />
+          <Route path="ops/publish-blockers" element={<PublishBlockerCockpitPage />} />
           {/* Legacy redirects — alle alten Heal-/Queue-Hubs landen im Heal Cockpit */}
           <Route path="queue" element={<Navigate to="/admin/heal?queue_tab=live" replace />} />
           <Route path="heal-cockpit" element={<Navigate to="/admin/heal?queue_tab=heal" replace />} />
