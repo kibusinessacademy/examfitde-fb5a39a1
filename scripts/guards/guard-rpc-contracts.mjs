@@ -4,9 +4,9 @@
  *
  * For every .rpc('name') call in src/ + supabase/functions:
  *  1. Verify the function exists in DB via admin_list_rpc_contracts().
- *  2. Verify SECURITY DEFINER status matches "admin_*" / "_internal_*" naming
+ *  2. Verify SECURITY DEFINER status matches "admin_" / "_internal_" naming
  *     (must be SECURITY DEFINER).
- *  3. Verify execute rights: admin_*/claim_*/ops_*/_internal_*
+ *  3. Verify execute rights: admin_, claim_, ops_, _internal_
  *     must NOT be granted to anon/authenticated.
  *
  * Falls back to migration-grep for offline runs (no env). Then warn-only.
