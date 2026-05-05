@@ -111380,6 +111380,7 @@ export type Database = {
       }
       fn_alert_hard_block_anomalies: { Args: never; Returns: Json }
       fn_alert_stale_admin_holds: { Args: never; Returns: number }
+      fn_app_trigger_bypass_active: { Args: never; Returns: boolean }
       fn_apply_business_goals_to_recommendations: {
         Args: never
         Returns: undefined
@@ -111520,6 +111521,10 @@ export type Database = {
       }
       fn_auto_heal_hard_fail_repair_exhausted: { Args: never; Returns: Json }
       fn_auto_heal_materialization_guard: { Args: never; Returns: Json }
+      fn_auto_heal_package_cooldown_active: {
+        Args: { p_action_type: string; p_package_id: string; p_window?: string }
+        Returns: boolean
+      }
       fn_auto_heal_stale_lock_exhausted: { Args: never; Returns: Json }
       fn_auto_heal_zombie_locked_jobs: { Args: never; Returns: Json }
       fn_auto_quarantine_hot_cancel_loops: {
@@ -112165,6 +112170,10 @@ export type Database = {
       fn_heal_track_step_drift: { Args: never; Returns: Json }
       fn_heal_upstream_hotspots: { Args: never; Returns: Json }
       fn_is_bronze_locked: { Args: { p_package_id: string }; Returns: boolean }
+      fn_is_package_progress_blocked: {
+        Args: { p_package_id: string }
+        Returns: boolean
+      }
       fn_is_qc_coverage_eligible: {
         Args: { p_qc_status: string; p_status?: string }
         Returns: boolean
@@ -112222,6 +112231,15 @@ export type Database = {
       }
       fn_link_visitor_attribution: {
         Args: { _user_id: string; _visitor_id: string }
+        Returns: undefined
+      }
+      fn_log_auto_heal_blocked_skip: {
+        Args: {
+          p_action_type: string
+          p_package_id: string
+          p_reason?: string
+          p_step_key?: string
+        }
         Returns: undefined
       }
       fn_log_guardrail_event: {
@@ -112688,6 +112706,10 @@ export type Database = {
           reason_detail: Json
           should_quarantine: boolean
         }[]
+      }
+      fn_should_log_enqueue_source_missing: {
+        Args: { p_caller?: string; p_job_type: string; p_sample_rate?: number }
+        Returns: boolean
       }
       fn_shuffle_exam_answer_positions: {
         Args: { _certification_id: string }
