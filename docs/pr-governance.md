@@ -2,7 +2,8 @@
 
 Diese Datei dokumentiert die in GitHub Branch-Protection als **required**
 hinterlegten Status-Checks für `main`. Sie ist die SSOT — wer einen Check
-required machen will, ergänzt ihn hier *und* in der Repo-Settings UI.
+required machen will, ergänzt ihn hier *und* synchronisiert anschließend
+über `scripts/governance/apply-branch-protection.mjs`.
 
 ## Required (PR-Merge wird ohne diese Checks blockiert)
 
@@ -14,6 +15,8 @@ required machen will, ergänzt ihn hier *und* in der Repo-Settings UI.
 | `a11y-routes-parity` | `.github/workflows/a11y-routes-parity.yml` | SSOT-Parität: smoke-Routen ↔ AppRoutes.tsx (kein Drift, kein Typo). |
 | `status-revert-guard` | `.github/workflows/status-revert-guard.yml` | Verhindert unsichere `course_packages.status`-Demotes. |
 | `badge-visual-regression` | `.github/workflows/badge-visual-regression.yml` | Pixel-Snapshots der Status-Badges. **Required ab 2026-05-05.** |
+| `learner-course-readiness` | `.github/workflows/learner-course-readiness.yml` | DB-Gate: published Courses ohne Module/Lessons → block. Baseline `--max-empty=34`. |
+| `learner-course-smoke` | `.github/workflows/learner-course-smoke.yml` | Playwright Smoke auf 8 Sample-Courses (PR) / volles Set (nightly). |
 
 ## Optional / Nightly
 
@@ -22,16 +25,35 @@ required machen will, ergänzt ihn hier *und* in der Repo-Settings UI.
 | `nightly-pipeline-guards` | `.github/workflows/nightly-pipeline-guards.yml` | Cron-only. |
 | `seo-cluster-guard` | `.github/workflows/seo-cluster-guard.yml` | Soft-Audit, kein PR-Block. |
 
-## Setup-Schritte (Repo-Admin)
+## Branch-Protection setzen
 
-1. GitHub → Settings → Branches → Branch-Protection-Rule für `main`.
-2. Unter **Require status checks to pass** alle Workflows aus der
-   "Required"-Tabelle hinzufügen (Job-Name = Workflow-Name).
-3. **Require branches to be up to date** aktivieren.
-4. Diese Datei updaten, wenn ein Check rein- oder rauskommt.
+Scriptbasiert — nicht über UI-Klicks. Hält Doku und tatsächliche Settings garantiert in Sync.
 
-## Neue Routen
+```bash
+GITHUB_TOKEN=<PAT mit repo+admin> \
+GITHUB_REPO=<owner>/<repo> \
+node scripts/governance/apply-branch-protection.mjs --dry-run
+# danach ohne --dry-run
+```
+
+Das Script parst die "Required"-Tabelle aus dieser Datei und übergibt die
+Checks per `PUT /repos/{owner}/{repo}/branches/main/protection`. Zusätzlich:
+`enforce_admins=true`, 1 PR-Review (stale dismiss), strict (branch must be
+up-to-date), `required_conversation_resolution=true`,
+`allow_force_pushes=false`, `allow_deletions=false`.
+
+## Neue Routen / neue Required-Checks
 
 `tests/e2e/a11y-routes.ts` ist SSOT. Optional kann eine Route inline mit
 `// @a11y-smoke` markiert werden — der Parity-Guard erzwingt dann die
 Aufnahme in die SSOT.
+
+Neue Required-Checks: Tabelle oben ergänzen, dann
+`apply-branch-protection.mjs` re-runnen — fertig.
+
+## Learner Readiness Guard — Ratchet
+
+`scripts/guards/learner-course-readiness.mjs` ruft die SSOT-RPC
+`public.public_learner_course_readiness()` und failed bei
+`empty > --max-empty`. Aktuelle Baseline: 34 (Stand 2026-05-05).
+Nach jedem Sweep `--max-empty` im Workflow heruntersetzen, bis 0 erreicht.
