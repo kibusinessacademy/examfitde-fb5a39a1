@@ -119,6 +119,7 @@ export default function GrowthPage() {
         <TabsContent value="dashboard" className="mt-4 space-y-4">
           <Suspense fallback={<Loading />}><GrowthDashboardOverview onTabSwitch={setTab} /></Suspense>
           <Suspense fallback={<Loading />}><FunnelAnalyticsCard /></Suspense>
+          <Suspense fallback={<Loading />}><FunnelDropoffHeatmapCard /></Suspense>
           <Suspense fallback={<Loading />}><PlatformIntegrityCard /></Suspense>
           <Suspense fallback={<Loading />}><FunnelIntegrityCard /></Suspense>
           <Suspense fallback={<Loading />}><GrowthSeoCommandCenter /></Suspense>
