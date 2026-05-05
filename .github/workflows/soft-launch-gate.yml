@@ -38,7 +38,9 @@ jobs:
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Canonical name + sandbox/CI alias. Specs read both via service-key resolver.
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SRK_E2E }}
+      SRK_E2E: ${{ secrets.SRK_E2E || secrets.SUPABASE_SERVICE_ROLE_KEY }}
       E2E_GRANT_LEARNER_EMAIL: ${{ secrets.E2E_GRANT_LEARNER_EMAIL || 'e2e+grant@examfit-smoke.local' }}
       E2E_GRANT_LEARNER_PASSWORD: ${{ secrets.E2E_GRANT_LEARNER_PASSWORD || 'SmokeTest_E2E_2026!' }}
 
@@ -52,6 +54,15 @@ jobs:
       - run: npm ci
 
       - run: npx playwright install --with-deps chromium
+
+      # ── Pre-flight: required secrets present? ─────────────
+      - name: Pre-flight · required secrets
+        run: |
+          missing=0
+          for v in SUPABASE_URL VITE_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!v}" ]; then echo "::error::Missing env $v (set repo secret SUPABASE_SERVICE_ROLE_KEY or alias SRK_E2E)"; missing=1; fi
+          done
+          [ $missing -eq 0 ]
 
       # ── Required: Entitlement Flow ──────────────────────────
       - name: REQUIRED · learner-entitlement-flow

@@ -10,9 +10,10 @@
  *   - Lesson does not surface a MiniCheck (curriculum without quiz block)
  */
 import { test, expect, Page } from "@playwright/test";
+import { SERVICE_KEY, SUPABASE_URL } from "./helpers/service-key";
 
-const URL_BASE = process.env.VITE_SUPABASE_URL!;
-const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const URL_BASE = SUPABASE_URL;
+const SERVICE = SERVICE_KEY;
 const EMAIL = process.env.E2E_GRANT_LEARNER_EMAIL ?? "e2e+grant@examfit-smoke.local";
 const PASSWORD = process.env.E2E_GRANT_LEARNER_PASSWORD ?? "SmokeTest_E2E_2026!";
 

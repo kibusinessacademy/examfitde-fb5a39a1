@@ -6,10 +6,10 @@
  * checkout URL (cs_test_*). Stops short of paying the card.
  */
 import { test, expect } from "@playwright/test";
+import { SERVICE_KEY, SUPABASE_URL } from "./helpers/service-key";
 
-const URL_BASE = process.env.VITE_SUPABASE_URL!;
-const ANON = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY!;
-const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const URL_BASE = SUPABASE_URL;
+const SERVICE = SERVICE_KEY;
 const EMAIL = process.env.E2E_GRANT_LEARNER_EMAIL ?? "e2e+grant@examfit-smoke.local";
 const PASSWORD = process.env.E2E_GRANT_LEARNER_PASSWORD ?? "SmokeTest_E2E_2026!";
 
@@ -28,7 +28,7 @@ async function rpc(name: string, body: Record<string, unknown> = {}, key = SERVI
 }
 
 test.describe("Purchase checkout smoke (sellable course)", () => {
-  test.skip(!URL_BASE || !ANON, "Supabase env required");
+  test.skip(!URL_BASE || !SERVICE, "Supabase env (URL + service key alias) required");
 
   test("first sellable course → product page renders + checkout URL returned", async ({ page }) => {
     const sellable = await rpc("public_sellable_courses");
