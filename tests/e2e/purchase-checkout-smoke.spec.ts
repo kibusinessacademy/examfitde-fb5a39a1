@@ -43,21 +43,29 @@ test.describe("Purchase checkout smoke (sellable course)", () => {
       }
     }
 
-    // Login (so that create-product-checkout has a session) and invoke directly.
-    await page.goto("/auth");
-    await page.fill('input[type="email"]', EMAIL);
-    await page.fill('input[type="password"]', PASSWORD);
-    await page.click('button[type="submit"]');
-    await page.waitForURL((u) => !u.pathname.includes("/auth"), { timeout: 20_000 });
+    // Get a user session token via the auth REST endpoint, then invoke the
+    // edge function directly. We avoid dynamic-importing the app client
+    // because production bundles don't expose source files.
+    const ANON = process.env.SUPABASE_ANON_KEY!;
+    const SUP = process.env.SUPABASE_URL!;
+    const tokenRes = await page.request.post(`${SUP}/auth/v1/token?grant_type=password`, {
+      headers: { apikey: ANON, "Content-Type": "application/json" },
+      data: { email: EMAIL, password: PASSWORD },
+    });
+    expect(tokenRes.ok(), `auth login failed: ${tokenRes.status()}`).toBeTruthy();
+    const { access_token } = await tokenRes.json();
+    expect(access_token, "missing access_token").toBeTruthy();
 
-    const result = await page.evaluate(async (s) => {
-      const mod = await import("/src/integrations/supabase/client.ts");
-      const { supabase } = mod as any;
-      const { data, error } = await supabase.functions.invoke("create-product-checkout", {
-        body: { product_slug: s, source: "purchase-checkout-smoke", source_page: "/e2e/smoke" },
-      });
-      return { data, error: error ? String(error.message ?? error) : null };
-    }, slug ?? "");
+    const fnRes = await page.request.post(`${SUP}/functions/v1/create-product-checkout`, {
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${access_token}`,
+        "Content-Type": "application/json",
+      },
+      data: { product_slug: slug ?? "", source: "purchase-checkout-smoke", source_page: "/e2e/smoke" },
+    });
+    const data = await fnRes.json().catch(() => ({}));
+    const result = { data, error: fnRes.ok() ? null : `HTTP ${fnRes.status()}` };
 
     // Tolerate already_entitled (grant user) — that's also a green signal.
     if (result?.data?.error === "already_entitled") {
