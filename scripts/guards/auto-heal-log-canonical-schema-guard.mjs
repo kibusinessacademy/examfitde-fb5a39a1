@@ -35,7 +35,9 @@ function rg(args) {
 function staticScan() {
   const violations = [];
   // Find files touching auto_heal_log
-  const filesOut = rg(`-l --no-messages "auto_heal_log" supabase/migrations supabase/functions src 2>/dev/null || true`);
+  // Scope: only edge functions + app src. Historical migrations are immutable
+  // and may contain legacy columns that have since been corrected in the DB.
+  const filesOut = rg(`-l --no-messages "auto_heal_log" supabase/functions src 2>/dev/null || true`);
   const files = filesOut.split("\n").filter(Boolean);
 
   for (const f of files) {
