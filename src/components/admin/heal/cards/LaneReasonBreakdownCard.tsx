@@ -2,14 +2,17 @@
  * LaneReasonBreakdownCard — pro Lane: warum stehen Pending-Jobs?
  * Trennt echte Zombies, DAG-wartend, Bronze, Manual-Review, Complete.
  */
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Layers } from "lucide-react";
+import { Layers, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LaneDrilldownDialog } from "./LaneDrilldownDialog";
 
 interface Row {
   lane: string;
@@ -23,6 +26,7 @@ interface Row {
 }
 
 export function LaneReasonBreakdownCard() {
+  const [drillLane, setDrillLane] = useState<string | null>(null);
   const q = useQuery({
     queryKey: ["lane-reason-breakdown"],
     queryFn: async () => {
@@ -64,9 +68,19 @@ export function LaneReasonBreakdownCard() {
                         {row.pending_total} pending
                       </Badge>
                     </div>
-                    <span className="text-muted-foreground italic text-[11px]">
-                      {row.reason_summary}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground italic text-[11px]">
+                        {row.reason_summary}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => setDrillLane(row.lane)}
+                      >
+                        <Search className="h-3 w-3 mr-1" /> Drilldown
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-5 gap-2">
                     <ReasonMetric
@@ -111,6 +125,11 @@ export function LaneReasonBreakdownCard() {
           </div>
         </TooltipProvider>
       )}
+      <LaneDrilldownDialog
+        lane={drillLane}
+        open={!!drillLane}
+        onOpenChange={(v) => !v && setDrillLane(null)}
+      />
     </Card>
   );
 }

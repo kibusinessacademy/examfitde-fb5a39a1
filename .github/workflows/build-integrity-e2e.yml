@@ -1,0 +1,31 @@
+name: Build-Integrity E2E
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  build-integrity-e2e:
+    name: Build-Integrity E2E Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Run admin_build_integrity_e2e gate
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          MAX_DATA_HOLES_PUBLISHED: "0"
+          MAX_DATA_HOLES_BUILDING: "10"
+          HARD_FAIL_ON_MISSING_STEPS: "1"
+        run: node scripts/build-integrity-e2e-check.mjs
