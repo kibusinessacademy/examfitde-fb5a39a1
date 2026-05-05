@@ -42,3 +42,33 @@ Verhindert, dass neue Empty-/Phantom-Courses je wieder published werden. Komplem
 - Route `/admin/ops/publish-blockers` → `PublishBlockerCockpitPage`.
 - RPCs: `admin_get_publish_blocked_attempts(_limit)`, `admin_get_skeleton_backfill_jobs_summary()`, `admin_force_publish_course(_course_id,_reason)` (alle admin-gated SECURITY DEFINER, _reason min. 5 Zeichen, schreibt `course_publish_readiness_force_publish` Audit).
 - Anzeigt: Skeleton-Backfill Folgejobs (lesson_generate_content, package_generate_lesson_minichecks, council_recompute_course_ready) gruppiert nach Status; geblockte Publish-Versuche mit Force-Publish-Dialog (Begründungspflicht).
+
+## Level 2 (added 2026-05-05) — warn-only by default
+
+After L1 passes, the trigger evaluates **Level-2 readiness** for the course:
+`lessons_ready`, `minicheck_sets_total`, `minicheck_sets_approved`,
+`pending_minicheck_jobs` (pending/queued/running/retry on
+`package_generate_lesson_minichecks` + `package_validate_lesson_minichecks`),
+`failed_minicheck_jobs` (failed/dead_letter).
+
+L2 reasons collected: `NO_READY_LESSONS`, `NO_MINICHECK_SETS`,
+`MINICHECKS_NOT_APPROVED`, `MINICHECK_JOBS_PENDING`, `MINICHECK_JOBS_FAILED`.
+
+Behaviour:
+- **Default (`app.publish_guard_level2` unset or `'warn'`)** → publish proceeds,
+  audit row `course_publish_readiness_l2_warned` with full pipeline metadata.
+- **`app.publish_guard_level2 = 'enforce'`** → publish blocked,
+  `course_publish_readiness_l2_blocked` recorded.
+- **Admin bypass (`app.transition_source = 'admin_force_publish'`)** under any
+  L2 mode → `course_publish_readiness_l2_bypassed`.
+
+Test surface:
+- CI script: `scripts/guards/course-publish-guard-l2-test.mjs` (warn + enforce).
+- E2E: `tests/e2e/course-publish-guard-l2.spec.ts`.
+- Helper RPC: `admin_force_publish_course_l2_for_test(_course_id uuid)` —
+  admin-only, sets enforce GUC inside the transaction.
+- Workflow: `.github/workflows/course-publish-guard-l2.yml` (PR + nightly).
+
+Promotion path to hard enforcement: enable enforce session-wide (or via
+default GUC) only after the readiness cockpit shows
+`empty=0, skeleton≈0, content_failed=0, minicheck_missing` explainable.
