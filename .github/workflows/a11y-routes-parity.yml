@@ -1,0 +1,22 @@
+name: a11y-routes-parity
+
+on:
+  pull_request:
+    paths:
+      - 'src/routes/AppRoutes.tsx'
+      - 'tests/e2e/a11y-routes.ts'
+      - 'scripts/guards/a11y-routes-parity.mjs'
+      - '.github/workflows/a11y-routes-parity.yml'
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with: { bun-version: latest }
+      - run: node scripts/guards/a11y-routes-parity.mjs
