@@ -167,6 +167,63 @@ export default function PipelineReadinessCard() {
       toast({ title: 'Requeue fehlgeschlagen', description: err?.message, variant: 'destructive' }),
   });
 
+  // --- MiniCheck retry/requeue ---
+  const minicheckJobs = useQuery({
+    enabled: !!activeCourse?.course_id,
+    queryKey: ['admin-minicheck-jobs-for-course', activeCourse?.course_id],
+    queryFn: async (): Promise<CourseJob[]> => {
+      const { data, error } = await supabase.rpc(
+        'admin_get_minicheck_jobs_for_course' as any,
+        { _course_id: activeCourse!.course_id } as any,
+      );
+      if (error) throw error;
+      return (data ?? []) as CourseJob[];
+    },
+  });
+
+  const retryMcMut = useMutation({
+    mutationFn: async (jobId: string) => {
+      const { data, error } = await supabase.rpc(
+        'admin_retry_minicheck_job' as any,
+        { _job_id: jobId } as any,
+      );
+      if (error) throw error;
+      return data as { ok: boolean; error?: string };
+    },
+    onSuccess: (data) => {
+      if (!data?.ok) {
+        toast({ title: 'MC-Retry abgelehnt', description: data?.error ?? 'unknown', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'MiniCheck-Job auf pending zurückgesetzt' });
+      qc.invalidateQueries({ queryKey: ['admin-minicheck-jobs-for-course'] });
+      qc.invalidateQueries({ queryKey: ['admin-course-pipeline-readiness'] });
+    },
+    onError: (err: any) =>
+      toast({ title: 'MC-Retry fehlgeschlagen', description: err?.message, variant: 'destructive' }),
+  });
+
+  const requeueMcMut = useMutation({
+    mutationFn: async (courseId: string) => {
+      const { data, error } = await supabase.rpc(
+        'admin_requeue_minicheck_jobs_for_course' as any,
+        { _course_id: courseId } as any,
+      );
+      if (error) throw error;
+      return data as { ok: boolean; jobs_requeued?: number };
+    },
+    onSuccess: (data) => {
+      toast({
+        title: 'MiniCheck Bulk-Requeue ausgeführt',
+        description: `${data?.jobs_requeued ?? 0} Job(s) auf pending gesetzt.`,
+      });
+      qc.invalidateQueries({ queryKey: ['admin-minicheck-jobs-for-course'] });
+      qc.invalidateQueries({ queryKey: ['admin-course-pipeline-readiness'] });
+    },
+    onError: (err: any) =>
+      toast({ title: 'MC-Requeue fehlgeschlagen', description: err?.message, variant: 'destructive' }),
+  });
+
   return (
     <Card>
       <CardHeader>
