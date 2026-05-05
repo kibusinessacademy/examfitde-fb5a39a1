@@ -17,7 +17,18 @@ const fakeProgress = {
   completed_lessons: 4,
   in_progress_lessons: 1,
   progress_percent: 40,
-  next_lesson: { lesson_id: "l1", lesson_title: "Nächste Lektion", module_id: "m1" },
+  summary: {
+    not_started: 5,
+    in_progress: 1,
+    completed: 4,
+    needs_review: 1,
+  },
+  next_lesson: {
+    lesson_id: "l1",
+    lesson_title: "Nächste Lektion",
+    module_id: "m1",
+    module_title: "Modul 1",
+  },
   last_activity: { lesson_id: "l0", lesson_title: "Vorherige Lektion", completed_at: null },
 } as any;
 
