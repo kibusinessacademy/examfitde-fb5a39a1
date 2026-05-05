@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Activity, AlertTriangle, CheckCircle2, Clock, PauseCircle, Play, RefreshCw, RotateCw } from "lucide-react";
 import { toast } from "sonner";
+import { CopyButton } from "@/components/admin/shared/CopyButton";
+import { PackageActionsMenu } from "@/components/admin/shared/PackageActionsMenu";
 
 type TrackRow = {
   track: string;
