@@ -128,20 +128,38 @@ export default function CourseDetailPage() {
   }, [slug, user]);
 
   const fetchCourseData = async () => {
-    // Fetch course
-    const { data: courseData, error: courseError } = await supabase
-      .from("courses")
-      .select("*")
-      .eq("id", slug!)
-      .single();
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        slug || ""
+      );
+
+    // Load from publishable view (filters out phantom courses with 0 modules/lessons)
+    let query = supabase.from("v_courses_publishable" as any).select("*");
+    query = isUuid ? query.eq("id", slug!) : query.eq("id", slug!); // slug column not present on courses; UUID-only for now
+    const { data: courseData, error: courseError } = await query.maybeSingle();
 
     if (courseError || !courseData) {
-      toast({ title: "Kurs nicht gefunden", variant: "destructive" });
+      toast({
+        title: "Kurs nicht gefunden",
+        description: "Dieser Kurs ist nicht (mehr) verfügbar.",
+        variant: "destructive",
+      });
       navigate("/courses");
       return;
     }
 
-    setCourse(courseData);
+    // Phantom guard (defensive — view already filters)
+    const cd: any = courseData;
+    if ((cd.module_count ?? 0) === 0 || (cd.lesson_count ?? 0) === 0) {
+      toast({
+        title: "Kurs in Vorbereitung",
+        description: "Lernmodule werden noch vorbereitet.",
+      });
+      navigate("/courses");
+      return;
+    }
+
+    setCourse(courseData as Course);
 
     // Fetch modules
     const { data: modulesData } = await supabase
