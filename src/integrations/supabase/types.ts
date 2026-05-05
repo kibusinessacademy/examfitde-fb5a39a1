@@ -108185,6 +108185,24 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_lane_drilldown: {
+        Args: { p_lane?: string }
+        Returns: {
+          classification: string
+          has_open_steps: boolean
+          is_bronze: boolean
+          job_age_minutes: number
+          job_id: string
+          job_status: string
+          job_type: string
+          lane: string
+          open_step_count: number
+          package_id: string
+          package_title: string
+          pkg_status: string
+          reason: string
+        }[]
+      }
       admin_get_lane_health: {
         Args: never
         Returns: {
