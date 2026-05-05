@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useProductPageSSOT } from "@/hooks/useProductPageSSOT";
 import { useResolvePaywall } from "@/hooks/useResolvePaywall";
 import { useProductPersonaOverlay } from "@/hooks/useProductPersonaOverlay";
+import { useBuyCtaExperiment } from "@/hooks/useBuyCtaExperiment";
 import { ProductPageTemplate } from "@/components/product/ProductPageTemplate";
 import { trackEvent } from "@/lib/tracking/track";
 import { useTrackGrowthEvent } from "@/hooks/useTrackGrowthEvent";
