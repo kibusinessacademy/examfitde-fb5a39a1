@@ -44,12 +44,17 @@
     --text-tertiary: 215 16% 45%;
     --text-quaternary: 215 14% 60%;
     --text-on-petrol: 0 0% 100%;
+    --text-on-gradient: 0 0% 100%;
 
     /* ── Surface Hierarchy v2 (Light) ── */
     --surface-sunken: 210 40% 95%;
     --surface-default: 0 0% 100%;
     --surface-raised: 0 0% 100%;
     --surface-overlay: 0 0% 100%;
+    /* Modal/sheet backdrop scrim (was bg-black/80) */
+    --scrim: 0 0% 0%;
+    /* Subtle track for inline progress bars on tinted backgrounds */
+    --track-subtle: 222 47% 11%;
 
     /* ── Border Hierarchy v2 (Light) ── */
     --border-subtle: 220 14% 94%;
