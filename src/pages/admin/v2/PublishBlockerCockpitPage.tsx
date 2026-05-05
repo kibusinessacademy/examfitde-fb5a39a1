@@ -29,6 +29,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, RefreshCcw, ShieldAlert, Zap } from 'lucide-react';
 import PipelineReadinessCard from '@/components/admin/publish-blockers/PipelineReadinessCard';
+import L2EnforceReadinessCard from '@/components/admin/publish-blockers/L2EnforceReadinessCard';
 
 type BlockedRow = {
   log_id: string;
