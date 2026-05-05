@@ -10,26 +10,10 @@
  *   - Lesson does not surface a MiniCheck (curriculum without quiz block)
  */
 import { test, expect, Page } from "@playwright/test";
-import { SERVICE_KEY, SUPABASE_URL } from "./helpers/service-key";
+import { HAS_ADMIN_PATH, SUPABASE_URL, e2eHelper } from "./helpers/service-key";
 
-const URL_BASE = SUPABASE_URL;
-const SERVICE = SERVICE_KEY;
 const EMAIL = process.env.E2E_GRANT_LEARNER_EMAIL ?? "e2e+grant@examfit-smoke.local";
 const PASSWORD = process.env.E2E_GRANT_LEARNER_PASSWORD ?? "SmokeTest_E2E_2026!";
-
-async function rpc(name: string, body: Record<string, unknown> = {}) {
-  const r = await fetch(`${URL_BASE}/rest/v1/rpc/${name}`, {
-    method: "POST",
-    headers: {
-      apikey: SERVICE,
-      Authorization: `Bearer ${SERVICE}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`${name} → ${r.status}: ${(await r.text()).slice(0, 300)}`);
-  return r.json();
-}
 
 async function login(page: Page) {
   await page.goto("/auth");
@@ -59,16 +43,17 @@ async function answerThroughMiniCheck(page: Page) {
 }
 
 test.describe("MiniCheck progress persistence", () => {
-  test.skip(!URL_BASE || !SERVICE, "Supabase env required");
+  test.skip(!SUPABASE_URL || !HAS_ADMIN_PATH, "E2E_HELPER_TOKEN or service-role alias required");
 
   test("complete minicheck → reload → result still shown", async ({ page }) => {
-    const sellable = await rpc("public_sellable_courses");
-    test.skip(!sellable?.length, "no sellable course available");
-    const target = sellable[0];
-    await rpc("admin_create_test_purchase_grant", {
-      _course_id: target.course_id,
-      _user_email: EMAIL,
-      _reason: "playwright minicheck smoke",
+    const { courses } = await e2eHelper<{ ok: boolean; courses: any[] }>({ op: "sellable_courses" });
+    test.skip(!courses?.length, "no sellable course available");
+    const target = courses[0];
+    await e2eHelper({
+      op: "create_test_grant",
+      course_id: target.course_id,
+      email: EMAIL,
+      reason: "playwright minicheck smoke",
     });
 
     await login(page);
