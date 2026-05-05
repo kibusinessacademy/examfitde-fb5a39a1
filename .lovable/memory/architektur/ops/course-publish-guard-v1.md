@@ -37,3 +37,8 @@ Verhindert, dass neue Empty-/Phantom-Courses je wieder published werden. Komplem
 - `scripts/guards/course-publish-guard-test.mjs` (Node, service-role): empty→blocked + auto_heal_log + bypass via `admin_force_publish_course_for_test` RPC.
 - `tests/e2e/course-publish-guard.spec.ts` (Playwright, REST): app-Workflow (PATCH courses) für empty-rejected + valid-accepted.
 - Workflow `.github/workflows/course-publish-guard.yml` (PR + nightly 04:37 UTC).
+
+## Cockpit
+- Route `/admin/ops/publish-blockers` → `PublishBlockerCockpitPage`.
+- RPCs: `admin_get_publish_blocked_attempts(_limit)`, `admin_get_skeleton_backfill_jobs_summary()`, `admin_force_publish_course(_course_id,_reason)` (alle admin-gated SECURITY DEFINER, _reason min. 5 Zeichen, schreibt `course_publish_readiness_force_publish` Audit).
+- Anzeigt: Skeleton-Backfill Folgejobs (lesson_generate_content, package_generate_lesson_minichecks, council_recompute_course_ready) gruppiert nach Status; geblockte Publish-Versuche mit Force-Publish-Dialog (Begründungspflicht).
