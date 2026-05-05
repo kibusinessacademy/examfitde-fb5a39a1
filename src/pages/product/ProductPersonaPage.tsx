@@ -62,7 +62,8 @@ export default function ProductPersonaPage() {
           : product.painCopy,
       ctas: {
         ...product.ctas,
-        primaryLabel: overlay.primaryCta || product.ctas.primaryLabel,
+        primaryLabel:
+          ctaVariantLabel || overlay.primaryCta || product.ctas.primaryLabel,
         secondaryLabel: overlay.secondaryCta ?? product.ctas.secondaryLabel,
       },
       uspItems:
