@@ -294,6 +294,7 @@ export default function HealCockpitPage() {
           <AccordionContent className="pb-4 space-y-3">
             <DidaktikAuditCard />
             <BuildIntegrityE2ECard />
+            <SeoPublishDriftCard />
             <RecurringPatternsCard limit={10} />
             <PermanentFixBacklogCard />
             <CourseHealPlansCard />
