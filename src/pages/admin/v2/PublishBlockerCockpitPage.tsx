@@ -31,6 +31,7 @@ import { ArrowLeft, Loader2, RefreshCcw, ShieldAlert, Zap } from 'lucide-react';
 import PipelineReadinessCard from '@/components/admin/publish-blockers/PipelineReadinessCard';
 import L2EnforceReadinessCard from '@/components/admin/publish-blockers/L2EnforceReadinessCard';
 import LaunchReadinessDashboardCard from '@/components/admin/publish-blockers/LaunchReadinessDashboardCard';
+import SoftLaunchPromotionCard from '@/components/admin/publish-blockers/SoftLaunchPromotionCard';
 
 type BlockedRow = {
   log_id: string;
@@ -155,6 +156,7 @@ export default function PublishBlockerCockpitPage() {
 
       {/* ── Launch Readiness Overall ── */}
       <LaunchReadinessDashboardCard />
+      <SoftLaunchPromotionCard />
 
       {/* ── Skeleton-backfill follow-up jobs ── */}
       <Card>
