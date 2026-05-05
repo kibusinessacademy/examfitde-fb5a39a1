@@ -108460,6 +108460,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_worker_heartbeat_summary: { Args: never; Returns: Json }
       admin_has_recent_terminal_notification: {
         Args: { _job_type: string; _package_id: string; _within?: string }
         Returns: boolean
