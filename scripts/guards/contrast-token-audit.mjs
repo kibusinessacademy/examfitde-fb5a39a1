@@ -14,8 +14,18 @@
  *
  * SCOPE: src/components/**, src/pages/**, src/features/** — excludes tests.
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, extname } from "node:path";
+
+const BASELINE_PATH = "scripts/guards/.contrast-token-audit-baseline.txt";
+const baseline = existsSync(BASELINE_PATH)
+  ? new Set(
+      readFileSync(BASELINE_PATH, "utf8")
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+  : new Set();
 
 const ROOTS = ["src/components", "src/pages", "src/features"];
 const HARD_PATTERNS = [
