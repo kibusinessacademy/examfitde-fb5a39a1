@@ -109151,6 +109151,13 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      admin_seo_publish_drift_heal: {
+        Args: never
+        Returns: {
+          curriculum_id: string
+          pages_published: number
+        }[]
+      }
       admin_seo_republish_package: {
         Args: { p_package_id: string }
         Returns: Json
