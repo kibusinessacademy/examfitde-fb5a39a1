@@ -107,7 +107,7 @@ function ProductCard({ pkg }: { pkg: PackageInfo }) {
   const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
   const { progress, currentLabel, isActive } = deriveStepProgress(pkg.step_status_json);
   return (
-    <Link to={`/admin/studio/${pkg.id}`} className={cn("block rounded-lg border p-3 transition-colors active:bg-muted/50", pkg.status === 'building' && 'border-primary/30 bg-primary/5', pkg.status === 'failed' && 'border-destructive/30 bg-destructive/5')}>
+    <Link to={`/admin/studio/${pkg.id}`} className={cn("block rounded-lg border p-3 transition-colors active:bg-muted/50", pkg.status === 'building' && 'border-primary/30 bg-primary/5', pkg.status === 'failed' && 'border-destructive/30 bg-destructive-bg-subtle')}>
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="font-medium text-sm truncate">{getShortTitle(pkg)}</span>
         {getStatusBadge(pkg.status, pkg.priority)}
@@ -162,7 +162,7 @@ function ProductRow({ pkg, isSubRow }: { pkg: PackageInfo; isSubRow?: boolean })
   const stepStatuses = (pkg.step_status_json || {}) as Record<string, string>;
   const { progress } = deriveStepProgress(pkg.step_status_json);
   return (
-    <TableRow className={cn(pkg.status === 'building' && 'bg-primary/5', pkg.status === 'failed' && 'bg-destructive/5', isSubRow && 'bg-muted/20')}>
+    <TableRow className={cn(pkg.status === 'building' && 'bg-primary/5', pkg.status === 'failed' && 'bg-destructive-bg-subtle', isSubRow && 'bg-muted/20')}>
       <TableCell className={cn("pl-6", isSubRow && "pl-10")}>
         <Link to={`/admin/studio/${pkg.id}`} className="hover:underline font-medium text-sm">
           {isSubRow ? <span className="text-muted-foreground">↳ </span> : null}{getShortTitle(pkg)}

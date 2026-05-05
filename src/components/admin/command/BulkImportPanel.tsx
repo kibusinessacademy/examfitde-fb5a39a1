@@ -195,17 +195,17 @@ export default function BulkImportPanel({
                     <Badge variant="outline">{validation.total_rows} Zeilen</Badge>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="rounded-lg bg-success/5 border border-success/20 p-3 text-center">
+                    <div className="rounded-lg bg-success-bg-subtle border border-success/20 p-3 text-center">
                       <CheckCircle2 className="h-4 w-4 text-success mx-auto mb-1" />
                       <div className="text-lg font-bold text-foreground">{validation.valid_count}</div>
                       <div className="text-[10px] text-muted-foreground">Gültig</div>
                     </div>
-                    <div className="rounded-lg bg-destructive/5 border border-destructive/20 p-3 text-center">
+                    <div className="rounded-lg bg-destructive-bg-subtle border border-destructive/20 p-3 text-center">
                       <XCircle className="h-4 w-4 text-destructive mx-auto mb-1" />
                       <div className="text-lg font-bold text-foreground">{validation.error_count}</div>
                       <div className="text-[10px] text-muted-foreground">Fehler</div>
                     </div>
-                    <div className="rounded-lg bg-warning/5 border border-warning/20 p-3 text-center">
+                    <div className="rounded-lg bg-warning-bg-subtle border border-warning/20 p-3 text-center">
                       <AlertTriangle className="h-4 w-4 text-warning mx-auto mb-1" />
                       <div className="text-lg font-bold text-foreground">{validation.warning_count}</div>
                       <div className="text-[10px] text-muted-foreground">Warnungen</div>
@@ -259,7 +259,7 @@ export default function BulkImportPanel({
                 <CardContent className="p-4 space-y-3">
                   <div className="text-sm font-medium">Dry Run Ergebnis</div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg bg-success/5 border border-success/20 p-3 text-center">
+                    <div className="rounded-lg bg-success-bg-subtle border border-success/20 p-3 text-center">
                       <div className="text-lg font-bold">{dryRun.to_create}</div>
                       <div className="text-[10px] text-muted-foreground">Neu erstellen</div>
                     </div>
@@ -328,7 +328,7 @@ export default function BulkImportPanel({
                     <span className="text-sm font-medium">Import abgeschlossen</span>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="rounded-lg bg-success/5 border border-success/20 p-3 text-center">
+                    <div className="rounded-lg bg-success-bg-subtle border border-success/20 p-3 text-center">
                       <div className="text-lg font-bold">{result.created}</div>
                       <div className="text-[10px] text-muted-foreground">Erstellt</div>
                     </div>
@@ -336,7 +336,7 @@ export default function BulkImportPanel({
                       <div className="text-lg font-bold">{result.updated}</div>
                       <div className="text-[10px] text-muted-foreground">Aktualisiert</div>
                     </div>
-                    <div className="rounded-lg bg-destructive/5 border border-destructive/20 p-3 text-center">
+                    <div className="rounded-lg bg-destructive-bg-subtle border border-destructive/20 p-3 text-center">
                       <div className="text-lg font-bold">{result.failed}</div>
                       <div className="text-[10px] text-muted-foreground">Fehlgeschlagen</div>
                     </div>

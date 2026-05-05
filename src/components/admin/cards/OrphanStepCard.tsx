@@ -24,14 +24,14 @@ interface OrphanStep {
 const CLASS_CONFIG: Record<string, { label: string; tone: string; action: string; actionLabel: string; icon: typeof Wrench }> = {
   guard_swallowed: {
     label: 'Guard-Swallowed',
-    tone: 'border-destructive/40 text-destructive bg-destructive/5',
+    tone: 'border-destructive/40 text-destructive bg-destructive-bg-subtle',
     action: 'enqueue_single_step',
     actionLabel: 'Guard/Step synchronisieren',
     icon: Wrench,
   },
   materializer_gap: {
     label: 'Materializer-Gap',
-    tone: 'border-warning/40 text-warning bg-warning/5',
+    tone: 'border-warning/40 text-warning bg-warning-bg-subtle',
     action: 'enqueue_single_step',
     actionLabel: 'Job materialisieren',
     icon: Zap,

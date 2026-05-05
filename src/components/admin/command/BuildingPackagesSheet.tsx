@@ -66,7 +66,7 @@ function BuildingPackageItem({ pkg, onAction, busy }: {
           </Badge>
         )}
         {hasFailedJobs && (
-          <Badge variant="outline" className="text-[9px] border-destructive/40 text-destructive bg-destructive/5">
+          <Badge variant="outline" className="text-[9px] border-destructive/40 text-destructive bg-destructive-bg-subtle">
             {pkg.jobs_failed} fehlgeschlagen
           </Badge>
         )}
@@ -89,7 +89,7 @@ function BuildingPackageItem({ pkg, onAction, busy }: {
         )}
         <Button
           size="sm" variant="outline" disabled={busy}
-          className="text-xs h-8 border-destructive/30 text-destructive hover:bg-destructive/10"
+          className="text-xs h-8 border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
           onClick={() => onAction(pkg.package_id, 'cancel_build')}
         >
           <XCircle className="h-3 w-3 mr-1.5" />

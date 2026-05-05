@@ -46,13 +46,13 @@ const statusLabels: Record<string, string> = {
 
 const statusTone: Record<string, string> = {
   new: 'border-primary/40 text-primary bg-primary/5',
-  contacted: 'border-warning/40 text-warning bg-warning/5',
-  demo_scheduled: 'border-warning/40 text-warning bg-warning/5',
-  demo_done: 'border-success/40 text-success bg-success/5',
-  proposal_sent: 'border-success/40 text-success bg-success/5',
-  negotiation: 'border-warning/40 text-warning bg-warning/5',
-  closed_won: 'border-success/40 text-success bg-success/5',
-  closed_lost: 'border-destructive/40 text-destructive bg-destructive/5',
+  contacted: 'border-warning/40 text-warning bg-warning-bg-subtle',
+  demo_scheduled: 'border-warning/40 text-warning bg-warning-bg-subtle',
+  demo_done: 'border-success/40 text-success bg-success-bg-subtle',
+  proposal_sent: 'border-success/40 text-success bg-success-bg-subtle',
+  negotiation: 'border-warning/40 text-warning bg-warning-bg-subtle',
+  closed_won: 'border-success/40 text-success bg-success-bg-subtle',
+  closed_lost: 'border-destructive/40 text-destructive bg-destructive-bg-subtle',
 };
 
 const NEXT_STATUS: Record<string, string> = {
@@ -273,11 +273,11 @@ export default function CrmPanel({ open, onOpenChange }: { open: boolean; onOpen
                 <div className="text-lg font-bold text-foreground">{pipeline.length}</div>
                 <div className="text-[10px] text-muted-foreground">In Pipeline</div>
               </div>
-              <div className="rounded-lg border border-success/30 bg-success/5 p-2 text-center">
+              <div className="rounded-lg border border-success/30 bg-success-bg-subtle p-2 text-center">
                 <div className="text-lg font-bold text-foreground">€{pipelineValue.toFixed(0)}</div>
                 <div className="text-[10px] text-muted-foreground">Pipeline-Wert</div>
               </div>
-              <div className={cn("rounded-lg border p-2 text-center", newLeads.length > 3 ? "border-warning/30 bg-warning/5" : "border-border")}>
+              <div className={cn("rounded-lg border p-2 text-center", newLeads.length > 3 ? "border-warning/30 bg-warning-bg-subtle" : "border-border")}>
                 <div className="text-lg font-bold text-foreground">{newLeads.length}</div>
                 <div className="text-[10px] text-muted-foreground">Neue Leads</div>
               </div>
@@ -313,7 +313,7 @@ export default function CrmPanel({ open, onOpenChange }: { open: boolean; onOpen
 
             {/* Alerts */}
             {newLeads.length > 0 && (
-              <div className="rounded-lg border border-warning/30 bg-warning/5 p-2 flex items-start gap-2">
+              <div className="rounded-lg border border-warning/30 bg-warning-bg-subtle p-2 flex items-start gap-2">
                 <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
                 <div className="text-[10px] text-foreground">
                   <span className="font-semibold">{newLeads.length} neue Leads</span> warten auf erste Kontaktaufnahme.
@@ -362,7 +362,7 @@ export default function CrmPanel({ open, onOpenChange }: { open: boolean; onOpen
                   {wonLeads.slice(0, 10).map(lead => (
                     <div
                       key={lead.id}
-                      className="rounded-lg border border-success/20 bg-success/5 p-2 flex items-center justify-between cursor-pointer hover:bg-success/10 transition-colors"
+                      className="rounded-lg border border-success/20 bg-success-bg-subtle p-2 flex items-center justify-between cursor-pointer hover:bg-success-bg-subtle transition-colors"
                       onClick={() => { setSelectedLead(lead); setLeadSheetOpen(true); }}
                     >
                       <span className="text-xs font-medium text-foreground">{lead.company_name}</span>

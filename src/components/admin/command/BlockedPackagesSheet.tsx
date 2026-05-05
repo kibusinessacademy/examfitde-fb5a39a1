@@ -88,7 +88,7 @@ function BlockedPackageItem({ pkg, onSoftReentry, onHardHeal, onUnblock, onConte
       </div>
 
       {isAdminHold ? (
-        <div className="rounded-lg border border-warning/20 bg-warning/5 p-2">
+        <div className="rounded-lg border border-warning/20 bg-warning-bg-subtle p-2">
           <div className="text-xs font-medium text-foreground">Admin Hold</div>
           <div className="text-[10px] text-muted-foreground mt-0.5">
             {pkg.block_reason.replace('admin_hold:', '').trim() || 'Manuell blockiert'}
@@ -105,7 +105,7 @@ function BlockedPackageItem({ pkg, onSoftReentry, onHardHeal, onUnblock, onConte
               {pkg.hard_fail_reasons.map((reason, i) => {
                 const { label, detail } = formatReasonCode(reason);
                 return (
-                  <div key={i} className="rounded-lg border border-destructive/20 bg-destructive/5 p-2">
+                  <div key={i} className="rounded-lg border border-destructive/20 bg-destructive-bg-subtle p-2">
                     <div className="text-xs font-medium text-foreground">{label}</div>
                     {detail && <div className="text-[11px] text-muted-foreground mt-0.5">{detail}</div>}
                   </div>
@@ -123,7 +123,7 @@ function BlockedPackageItem({ pkg, onSoftReentry, onHardHeal, onUnblock, onConte
               {pkg.warnings.slice(0, 2).map((w, i) => {
                 const { label, detail } = formatReasonCode(w);
                 return (
-                  <div key={i} className="rounded-lg border border-warning/20 bg-warning/5 p-2">
+                  <div key={i} className="rounded-lg border border-warning/20 bg-warning-bg-subtle p-2">
                     <div className="text-[11px] font-medium text-foreground">{label}</div>
                     {detail && <div className="text-[10px] text-muted-foreground mt-0.5">{detail}</div>}
                   </div>
@@ -177,7 +177,7 @@ function BlockedPackageItem({ pkg, onSoftReentry, onHardHeal, onUnblock, onConte
               variant="outline"
               disabled={busy}
               onClick={() => onContentGap(pkg.id)}
-              className="col-span-2 border-destructive/30 text-destructive hover:bg-destructive/10"
+              className="col-span-2 border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
             >
               <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
               Mark content_gap
@@ -332,7 +332,7 @@ export function BlockedPackagesSheet({ open, onOpenChange }: {
           )}
 
           {!isLoading && displayPackages.length === 0 && (
-            <div className="rounded-xl border border-success/20 bg-success/5 p-4 flex items-center gap-3">
+            <div className="rounded-xl border border-success/20 bg-success-bg-subtle p-4 flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-success" />
               <div className="text-sm text-foreground">
                 {showAdminHolds ? 'Keine Admin-Hold Pakete.' : 'Keine blockierten Pakete.'}

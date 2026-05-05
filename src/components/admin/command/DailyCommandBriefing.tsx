@@ -26,7 +26,7 @@ function useDailyBriefing() {
 }
 
 const severityStyles: Record<string, string> = {
-  critical: "bg-destructive/10 text-destructive border-destructive/30",
+  critical: "bg-destructive-bg-subtle text-destructive border-destructive/30",
   high: "bg-orange-500/10 text-orange-600 border-orange-500/30",
   medium: "bg-yellow-500/10 text-yellow-700 border-yellow-500/30",
   low: "bg-muted text-muted-foreground border-border",

@@ -16,10 +16,10 @@ type SheetMode = 'failed' | 'zombie';
 
 function healthBadge(signal: string) {
   switch (signal) {
-    case 'zombie': return { label: 'Zombie', cls: 'border-destructive/40 text-destructive bg-destructive/5' };
-    case 'exhausted': return { label: 'Max Retries', cls: 'border-destructive/40 text-destructive bg-destructive/5' };
-    case 'retriable': return { label: 'Retriable', cls: 'border-warning/40 text-warning bg-warning/5' };
-    case 'stale_lock': return { label: 'Stale Lock', cls: 'border-warning/40 text-warning bg-warning/5' };
+    case 'zombie': return { label: 'Zombie', cls: 'border-destructive/40 text-destructive bg-destructive-bg-subtle' };
+    case 'exhausted': return { label: 'Max Retries', cls: 'border-destructive/40 text-destructive bg-destructive-bg-subtle' };
+    case 'retriable': return { label: 'Retriable', cls: 'border-warning/40 text-warning bg-warning-bg-subtle' };
+    case 'stale_lock': return { label: 'Stale Lock', cls: 'border-warning/40 text-warning bg-warning-bg-subtle' };
     default: return { label: signal, cls: 'border-muted-foreground/40 text-muted-foreground' };
   }
 }
@@ -63,7 +63,7 @@ function JobItem({ job, onAction, busy }: {
 
       {/* Error */}
       {job.last_error && (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-2">
+        <div className="rounded-lg border border-destructive/20 bg-destructive-bg-subtle p-2">
           <div className="text-[11px] font-semibold text-destructive flex items-center gap-1 mb-0.5">
             <AlertTriangle className="h-3 w-3" /> Fehler
           </div>
@@ -73,12 +73,12 @@ function JobItem({ job, onAction, busy }: {
 
       {/* Diagnosis */}
       {isZombie && (
-        <div className="rounded-lg border border-warning/20 bg-warning/5 p-2 text-xs text-foreground">
+        <div className="rounded-lg border border-warning/20 bg-warning-bg-subtle p-2 text-xs text-foreground">
           Job hängt im Status „processing" ohne Fortschritt. Lock vermutlich verloren.
         </div>
       )}
       {isExhausted && (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-2 text-xs text-foreground">
+        <div className="rounded-lg border border-destructive/20 bg-destructive-bg-subtle p-2 text-xs text-foreground">
           Maximale Wiederholungsversuche erreicht ({job.max_attempts}). Manuelles Eingreifen nötig.
         </div>
       )}
@@ -107,7 +107,7 @@ function JobItem({ job, onAction, busy }: {
         )}
         <Button
           size="sm" variant="outline" disabled={busy}
-          className="text-xs h-8 border-destructive/30 text-destructive hover:bg-destructive/10"
+          className="text-xs h-8 border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
           onClick={() => onAction(job.job_id, 'cancel')}
         >
           <Trash2 className="h-3 w-3 mr-1.5" />
@@ -204,7 +204,7 @@ export function FailedJobsSheet({ open, onOpenChange, mode = 'failed' }: {
 
         <div className="mt-4 space-y-3">
           {filtered.length === 0 && (
-            <div className="rounded-xl border border-success/20 bg-success/5 p-4 flex items-center gap-3">
+            <div className="rounded-xl border border-success/20 bg-success-bg-subtle p-4 flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-success" />
               <div className="text-sm text-foreground">
                 {isZombieMode ? 'Keine Zombie-Jobs.' : 'Keine fehlgeschlagenen Jobs.'}

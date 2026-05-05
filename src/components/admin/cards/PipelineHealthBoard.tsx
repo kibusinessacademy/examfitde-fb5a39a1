@@ -250,7 +250,7 @@ export default function PipelineHealthBoard() {
 
   if (error || !data?.score) {
     return (
-      <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
+      <div className="rounded-2xl border border-destructive/30 bg-destructive-bg-subtle p-6 text-sm text-destructive">
         Pipeline Health nicht verfügbar: {(error as Error)?.message ?? "Keine Daten"}
       </div>
     );

@@ -24,8 +24,8 @@ function Tile({ label, value, icon: Icon, tone }: {
 }) {
   const map = {
     success: 'border-primary/30 bg-primary/5 text-primary',
-    warning: 'border-warning/30 bg-warning/5 text-warning',
-    destructive: 'border-destructive/30 bg-destructive/5 text-destructive',
+    warning: 'border-warning/30 bg-warning-bg-subtle text-warning',
+    destructive: 'border-destructive/30 bg-destructive-bg-subtle text-destructive',
     neutral: 'border-border bg-card text-foreground',
   };
   return (

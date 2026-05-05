@@ -166,8 +166,8 @@ export default function OutcomeKPIsTab() {
                   <span className="text-xs text-foreground flex-1 truncate">{c.name}</span>
                   <Badge className={cn("text-[9px]",
                     c.status === 'active' ? 'bg-primary/20 text-primary' :
-                    c.status === 'promoted' ? 'bg-success/20 text-success' :
-                    c.status === 'rolled_back' ? 'bg-destructive/20 text-destructive' :
+                    c.status === 'promoted' ? 'bg-success-bg-subtle text-success' :
+                    c.status === 'rolled_back' ? 'bg-destructive-bg-subtle text-destructive' :
                     'bg-muted text-muted-foreground'
                   )}>{c.status}</Badge>
                   <span className="text-[10px] text-muted-foreground">{c.engine_version}</span>

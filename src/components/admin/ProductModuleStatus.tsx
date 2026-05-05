@@ -152,9 +152,9 @@ export default function ProductModuleStatus({ packageId, courseId, curriculumId,
             <Layers className="h-4 w-4" /> Produktmodule
           </span>
           <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full",
-            overallHealth >= 90 ? 'bg-success/10 text-success' :
-            overallHealth >= 60 ? 'bg-warning/10 text-warning' :
-            'bg-destructive/10 text-destructive'
+            overallHealth >= 90 ? 'bg-success-bg-subtle text-success' :
+            overallHealth >= 60 ? 'bg-warning-bg-subtle text-warning' :
+            'bg-destructive-bg-subtle text-destructive'
           )}>
             {overallHealth}% Gesamt
           </span>
@@ -173,8 +173,8 @@ export default function ProductModuleStatus({ packageId, courseId, curriculumId,
             return (
               <div key={m.key} className="border rounded-lg p-3 flex items-center gap-3">
                 <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                  m.status === 'ok' ? 'bg-success/10' :
-                  m.status === 'warning' ? 'bg-warning/10' : 'bg-destructive/10'
+                  m.status === 'ok' ? 'bg-success-bg-subtle' :
+                  m.status === 'warning' ? 'bg-warning-bg-subtle' : 'bg-destructive-bg-subtle'
                 )}>
                   <Icon className={cn("h-4 w-4", statusColor)} />
                 </div>

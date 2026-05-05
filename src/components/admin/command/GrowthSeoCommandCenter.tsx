@@ -395,7 +395,7 @@ export default function GrowthSeoCommandCenter() {
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-6 text-sm text-destructive">
+      <div className="rounded-2xl border border-destructive/30 bg-destructive-bg-subtle p-6 text-sm text-destructive">
         Fehler beim Laden der Growth & SEO Zentrale: {(error as Error).message}
       </div>
     );

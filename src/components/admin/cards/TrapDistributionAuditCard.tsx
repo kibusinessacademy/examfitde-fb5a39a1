@@ -13,9 +13,9 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const signalStyle = {
-  ok: 'border-success/40 text-success bg-success/5',
-  warn: 'border-warning/40 text-warning bg-warning/5',
-  hard_fail: 'border-destructive/40 text-destructive bg-destructive/5',
+  ok: 'border-success/40 text-success bg-success-bg-subtle',
+  warn: 'border-warning/40 text-warning bg-warning-bg-subtle',
+  hard_fail: 'border-destructive/40 text-destructive bg-destructive-bg-subtle',
   insufficient_sample: 'border-muted-foreground/30 text-muted-foreground bg-muted/30',
 } as const;
 
@@ -65,7 +65,7 @@ type AuditPackage = {
 function FallbackWarning({ resolvedFrom }: { resolvedFrom: string }) {
   if (!resolvedFrom.includes('fallback')) return null;
   return (
-    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-destructive/50 text-destructive bg-destructive/5">
+    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-destructive/50 text-destructive bg-destructive-bg-subtle">
       ⚠ Fallback-Regeln
     </Badge>
   );
@@ -163,8 +163,8 @@ function PackageRow({ pkg }: { pkg: AuditPackage }) {
                     className={cn(
                       "text-[9px] px-1.5 py-0 h-4",
                       cfg.tone === 'red'
-                        ? 'border-destructive/40 text-destructive bg-destructive/5'
-                        : 'border-warning/40 text-warning bg-warning/5'
+                        ? 'border-destructive/40 text-destructive bg-destructive-bg-subtle'
+                        : 'border-warning/40 text-warning bg-warning-bg-subtle'
                     )}
                   >
                     {cfg.label}
@@ -269,7 +269,7 @@ export default function TrapDistributionAuditCard() {
 
   if (relevantPackages.length === 0 && global) {
     return (
-      <div className="rounded-xl border border-success/30 bg-success/5 p-3 flex items-center gap-3">
+      <div className="rounded-xl border border-success/30 bg-success-bg-subtle p-3 flex items-center gap-3">
         <BarChart3 className="h-4 w-4 text-success shrink-0" />
         <div>
           <div className="text-sm font-semibold text-foreground">Trap-Verteilung OK</div>
@@ -298,12 +298,12 @@ export default function TrapDistributionAuditCard() {
         </span>
         <div className="flex gap-1.5 ml-auto">
           {global && global.packages_hard_fail > 0 && (
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-destructive/40 text-destructive bg-destructive/5">
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-destructive/40 text-destructive bg-destructive-bg-subtle">
               {global.packages_hard_fail} Hard-Fail
             </Badge>
           )}
           {global && global.packages_warn > 0 && (
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-warning/40 text-warning bg-warning/5">
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-warning/40 text-warning bg-warning-bg-subtle">
               {global.packages_warn} Warn
             </Badge>
           )}
@@ -317,7 +317,7 @@ export default function TrapDistributionAuditCard() {
 
       {/* Fallback warning */}
       {fallbackCount > 0 && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 flex items-start gap-2">
+        <div className="rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-2 flex items-start gap-2">
           <ShieldAlert className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
           <div className="text-[10px] text-foreground">
             <span className="font-semibold">{fallbackCount} Paket(e)</span> nutzen Fallback-Regeln statt SSOT-Konfiguration.

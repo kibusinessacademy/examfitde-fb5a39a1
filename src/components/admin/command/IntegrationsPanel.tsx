@@ -19,7 +19,7 @@ const BulkImportPanel = lazy(() => import('./BulkImportPanel'));
 function StatusBadge({ status }: { status: IntegrationStatus }) {
   if (status === 'connected') {
     return (
-      <Badge className="bg-success/10 text-success border-success/30 gap-1">
+      <Badge className="bg-success-bg-subtle text-success border-success/30 gap-1">
         <CheckCircle2 className="h-3 w-3" /> Verbunden
       </Badge>
     );

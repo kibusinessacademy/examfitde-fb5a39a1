@@ -1,7 +1,7 @@
 import type { CriticalAlertItem } from "@/components/admin/lib/admin-types";
 
 const severityClasses: Record<CriticalAlertItem["severity"], string> = {
-  critical: "border-destructive/30 bg-destructive/10",
+  critical: "border-destructive/30 bg-destructive-bg-subtle",
   high: "border-orange-500/30 bg-orange-500/10",
   medium: "border-amber-500/30 bg-amber-500/10",
   low: "border-border bg-card",

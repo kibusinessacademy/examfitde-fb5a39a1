@@ -30,10 +30,10 @@ interface GuardRow {
 }
 
 const STATE_CONFIG: Record<string, { label: string; icon: typeof Activity; tone: string; bg: string; border: string }> = {
-  healthy: { label: 'Healthy', icon: Activity, tone: 'text-success', bg: 'bg-success/5', border: 'border-success/30' },
+  healthy: { label: 'Healthy', icon: Activity, tone: 'text-success', bg: 'bg-success-bg-subtle', border: 'border-success/30' },
   recovering: { label: 'Recovering', icon: Clock, tone: 'text-primary', bg: 'bg-primary/5', border: 'border-primary/30' },
-  soft_stalled: { label: 'Soft Stall', icon: AlertTriangle, tone: 'text-warning', bg: 'bg-warning/5', border: 'border-warning/30' },
-  hard_stalled: { label: 'Hard Stall', icon: XCircle, tone: 'text-destructive', bg: 'bg-destructive/5', border: 'border-destructive/30' },
+  soft_stalled: { label: 'Soft Stall', icon: AlertTriangle, tone: 'text-warning', bg: 'bg-warning-bg-subtle', border: 'border-warning/30' },
+  hard_stalled: { label: 'Hard Stall', icon: XCircle, tone: 'text-destructive', bg: 'bg-destructive-bg-subtle', border: 'border-destructive/30' },
 };
 
 const ACTION_MAP: Record<string, { action: string; stepKey: string; label: string }> = {

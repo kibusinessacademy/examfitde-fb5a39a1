@@ -27,7 +27,7 @@ function useRevenueTower() {
 const toneColors: Record<string, string> = {
   green: "text-green-600 bg-green-500/10 border-green-500/30",
   yellow: "text-yellow-700 bg-yellow-500/10 border-yellow-500/30",
-  red: "text-destructive bg-destructive/10 border-destructive/30",
+  red: "text-destructive bg-destructive-bg-subtle border-destructive/30",
 };
 
 function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
@@ -108,7 +108,7 @@ export default function RevenueCommandCenter() {
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex gap-3 text-xs">
-              <div className="flex-1 rounded-lg bg-destructive/10 p-2 text-center">
+              <div className="flex-1 rounded-lg bg-destructive-bg-subtle p-2 text-center">
                 <p className="text-lg font-bold text-destructive">{churn.high_risk}</p>
                 <p className="text-muted-foreground">{"Hoch (>70%)"}</p>
               </div>
@@ -144,7 +144,7 @@ export default function RevenueCommandCenter() {
                 <p className="text-lg font-bold text-orange-600">{publish_blockers.ready}</p>
                 <p className="text-muted-foreground">Publish-Ready</p>
               </div>
-              <div className="flex-1 rounded-lg bg-destructive/10 p-2 text-center">
+              <div className="flex-1 rounded-lg bg-destructive-bg-subtle p-2 text-center">
                 <p className="text-lg font-bold text-destructive">{publish_blockers.blocked}</p>
                 <p className="text-muted-foreground">Blockiert</p>
               </div>
@@ -203,7 +203,7 @@ export default function RevenueCommandCenter() {
           <CardContent className="space-y-2">
             {issues.map((issue: any, i: number) => (
               <div key={i} className={cn("rounded-lg border p-3 text-xs",
-                issue.severity === "critical" ? "border-destructive/30 bg-destructive/5" :
+                issue.severity === "critical" ? "border-destructive/30 bg-destructive-bg-subtle" :
                 issue.severity === "high" ? "border-orange-500/30 bg-orange-500/5" :
                 "border-border bg-muted/30"
               )}>

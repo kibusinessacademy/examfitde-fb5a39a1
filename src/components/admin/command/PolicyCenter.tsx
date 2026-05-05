@@ -163,7 +163,7 @@ export function PolicyCenter() {
           const disabledCritical = policies.filter(p => CRITICAL_POLICIES.has(p.policy_key) && !p.enabled);
           if (disabledCritical.length > 0) {
             return (
-              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex items-start gap-2">
+              <div className="rounded-lg border border-destructive/40 bg-destructive-bg-subtle p-3 flex items-start gap-2">
                 <ShieldAlert className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                 <div>
                   <p className="text-xs font-semibold text-destructive">
@@ -194,7 +194,7 @@ export function PolicyCenter() {
               key={p.id}
               className={cn(
                 'rounded-xl border p-4 transition-colors',
-                p.enabled ? 'border-primary/20 bg-primary/5' : isCritical ? 'border-destructive/40 bg-destructive/5' : 'border-border/60 bg-card/50',
+                p.enabled ? 'border-primary/20 bg-primary/5' : isCritical ? 'border-destructive/40 bg-destructive-bg-subtle' : 'border-border/60 bg-card/50',
               )}
             >
               <div className="flex items-start justify-between gap-3">

@@ -168,13 +168,13 @@ function deriveHealActions(pkg: StuckPackage): HealAction[] {
 function stuckClassLabel(sc: StuckClass): { text: string; className: string } {
   switch (sc) {
     case 'active_processing':
-      return { text: 'Aktiv — kein Eingriff nötig', className: 'border-success/40 text-success bg-success/5' };
+      return { text: 'Aktiv — kein Eingriff nötig', className: 'border-success/40 text-success bg-success-bg-subtle' };
     case 'claim_starvation':
-      return { text: 'Dispatch-Starvation', className: 'border-warning/40 text-warning bg-warning/5' };
+      return { text: 'Dispatch-Starvation', className: 'border-warning/40 text-warning bg-warning-bg-subtle' };
     case 'no_jobs':
-      return { text: 'Keine Jobs', className: 'border-destructive/40 text-destructive bg-destructive/5' };
+      return { text: 'Keine Jobs', className: 'border-destructive/40 text-destructive bg-destructive-bg-subtle' };
     case 'failed_jobs':
-      return { text: 'Fehlgeschlagene Jobs', className: 'border-destructive/40 text-destructive bg-destructive/5' };
+      return { text: 'Fehlgeschlagene Jobs', className: 'border-destructive/40 text-destructive bg-destructive-bg-subtle' };
     default:
       return { text: 'Unbekannt', className: 'border-muted-foreground/40 text-muted-foreground' };
   }
@@ -229,7 +229,7 @@ function StuckPackageItem({ pkg, onHeal, busy }: {
           </Badge>
         )}
         {pkg.jobs_failed > 0 && (
-          <Badge variant="outline" className="text-[9px] border-destructive/40 text-destructive bg-destructive/5">
+          <Badge variant="outline" className="text-[9px] border-destructive/40 text-destructive bg-destructive-bg-subtle">
             {pkg.jobs_failed} fehlgeschlagen
           </Badge>
         )}
@@ -237,7 +237,7 @@ function StuckPackageItem({ pkg, onHeal, busy }: {
 
       {/* Stuck Reason (if present) */}
       {pkg.stuck_reason && (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-2">
+        <div className="rounded-lg border border-destructive/20 bg-destructive-bg-subtle p-2">
           <div className="text-[11px] font-semibold text-destructive flex items-center gap-1 mb-0.5">
             <AlertTriangle className="h-3 w-3" />
             Festgefahren-Grund
@@ -285,7 +285,7 @@ function StuckPackageItem({ pkg, onHeal, busy }: {
               variant={action.variant}
               className={cn(
                 "justify-start h-auto py-2 px-3 text-left",
-                action.key === 'observe' && 'border-success/30 text-success hover:bg-success/10'
+                action.key === 'observe' && 'border-success/30 text-success hover:bg-success-bg-subtle'
               )}
               disabled={busy}
               onClick={() => {
@@ -462,7 +462,7 @@ export function StuckPackagesSheet({ open, onOpenChange }: {
           )}
 
           {!isLoading && stuckPackages.length === 0 && (
-            <div className="rounded-xl border border-success/20 bg-success/5 p-4 flex items-center gap-3">
+            <div className="rounded-xl border border-success/20 bg-success-bg-subtle p-4 flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-success" />
               <div className="text-sm text-foreground">Keine festgefahrenen Pakete.</div>
             </div>

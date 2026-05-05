@@ -40,8 +40,8 @@ function DriftPackageItem({ pkg, driftType, onAction, busy }: {
         <Badge variant="outline" className={cn(
           "text-[10px] shrink-0",
           isDrift
-            ? "border-destructive/40 text-destructive bg-destructive/5"
-            : "border-warning/40 text-warning bg-warning/5"
+            ? "border-destructive/40 text-destructive bg-destructive-bg-subtle"
+            : "border-warning/40 text-warning bg-warning-bg-subtle"
         )}>
           {isDrift ? 'Publish Drift' : 'Stale Publish'}
         </Badge>
@@ -50,7 +50,7 @@ function DriftPackageItem({ pkg, driftType, onAction, busy }: {
       {/* Diagnosis */}
       <div className={cn(
         "rounded-lg border p-2",
-        isDrift ? "border-destructive/20 bg-destructive/5" : "border-warning/20 bg-warning/5"
+        isDrift ? "border-destructive/20 bg-destructive-bg-subtle" : "border-warning/20 bg-warning-bg-subtle"
       )}>
         <div className="text-[11px] font-semibold flex items-center gap-1 mb-1" style={{ color: isDrift ? 'hsl(var(--destructive))' : 'hsl(var(--warning))' }}>
           {isDrift ? <TrendingDown className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
@@ -149,7 +149,7 @@ export function PublishDriftSheet({ open, onOpenChange }: {
         </SheetHeader>
         <div className="mt-4 space-y-3">
           {allPkgs.length === 0 && (
-            <div className="rounded-xl border border-success/20 bg-success/5 p-4 flex items-center gap-3">
+            <div className="rounded-xl border border-success/20 bg-success-bg-subtle p-4 flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-success" />
               <div className="text-sm text-foreground">Keine Publish-Probleme.</div>
             </div>

@@ -170,7 +170,7 @@ export default function BuildLiveLog({ packageId, isBuilding }: BuildLiveLogProp
               <div key={`${entry.id}-${i}`}>
                 <div className={cn(
                   "flex gap-2 py-1 px-2 rounded transition-colors",
-                  entry.status === 'failed' ? 'bg-destructive/5' :
+                  entry.status === 'failed' ? 'bg-destructive-bg-subtle' :
                   entry.status === 'running' ? 'bg-primary/5' : ''
                 )}>
                   <span className="text-muted-foreground shrink-0 w-[52px]">

@@ -70,7 +70,7 @@ export default function BlockedButReadyCard() {
               {data.blocked_but_ready.map((pkg: any) => (
                 <div
                   key={pkg.package_id}
-                  className="rounded-lg border border-destructive/20 bg-destructive/5 p-2"
+                  className="rounded-lg border border-destructive/20 bg-destructive-bg-subtle p-2"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <Link
@@ -122,7 +122,7 @@ export default function BlockedButReadyCard() {
               {data.integrity_anomalies.map((a: any) => (
                 <div
                   key={a.package_id}
-                  className="rounded-lg border border-warning/20 bg-warning/5 p-2"
+                  className="rounded-lg border border-warning/20 bg-warning-bg-subtle p-2"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <Link

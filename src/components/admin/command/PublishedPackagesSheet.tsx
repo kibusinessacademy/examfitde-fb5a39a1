@@ -35,7 +35,7 @@ function PublishedItem({ pkg, onAction, busy }: {
             {pkg.package_id.slice(0, 8)} · Veröffentlicht: {publishedDate}
           </div>
         </div>
-        <Badge variant="outline" className="text-[9px] border-success/40 text-success bg-success/5 shrink-0">
+        <Badge variant="outline" className="text-[9px] border-success/40 text-success bg-success-bg-subtle shrink-0">
           Published
         </Badge>
       </div>

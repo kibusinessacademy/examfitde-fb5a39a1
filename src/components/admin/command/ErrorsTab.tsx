@@ -40,7 +40,7 @@ export default function ErrorsTab() {
         <Card><CardContent className="pt-3 pb-2.5 px-3"><p className="text-[10px] text-muted-foreground uppercase">Fehler gesamt</p><p className="text-xl font-bold">{totalErrors}</p></CardContent></Card>
         <Card className={cn(last1hTotal > 5 && "border-destructive/30")}><CardContent className="pt-3 pb-2.5 px-3"><p className="text-[10px] text-muted-foreground uppercase">Letzte 1h</p><p className={cn("text-xl font-bold", last1hTotal > 5 && "text-destructive")}>{last1hTotal}</p></CardContent></Card>
         <Card><CardContent className="pt-3 pb-2.5 px-3"><p className="text-[10px] text-muted-foreground uppercase">Error Cluster</p><p className="text-xl font-bold">{errors.length}</p></CardContent></Card>
-        <Card className={cn(spikes.length > 0 && "border-destructive/40 bg-destructive/5")}><CardContent className="pt-3 pb-2.5 px-3"><p className="text-[10px] text-muted-foreground uppercase flex items-center gap-1"><Flame className="h-3 w-3" /> Spikes aktiv</p><p className={cn("text-xl font-bold", spikes.length > 0 && "text-destructive")}>{spikes.length}</p></CardContent></Card>
+        <Card className={cn(spikes.length > 0 && "border-destructive/40 bg-destructive-bg-subtle")}><CardContent className="pt-3 pb-2.5 px-3"><p className="text-[10px] text-muted-foreground uppercase flex items-center gap-1"><Flame className="h-3 w-3" /> Spikes aktiv</p><p className={cn("text-xl font-bold", spikes.length > 0 && "text-destructive")}>{spikes.length}</p></CardContent></Card>
       </div>
 
       {/* Spike Alerts */}
@@ -53,7 +53,7 @@ export default function ErrorsTab() {
           <CardContent>
             <div className="space-y-2">
               {spikes.map((e, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm bg-destructive/5 rounded-md p-2">
+                <div key={i} className="flex items-center gap-3 text-sm bg-destructive-bg-subtle rounded-md p-2">
                   <Badge variant="outline" className={cn("text-[10px]", clusterColors[e.error_cluster] || '')}>{e.error_cluster}</Badge>
                   <span className="text-xs font-medium">{e.job_type}</span>
                   <span className="text-xs font-mono text-muted-foreground">#{e.error_fingerprint}</span>

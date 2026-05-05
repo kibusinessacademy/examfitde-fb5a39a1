@@ -10,8 +10,8 @@ function MetricTile({ label, value, icon: Icon, tone }: {
 }) {
   const colors = {
     success: 'border-primary/30 bg-primary/5 text-primary',
-    warning: 'border-warning/30 bg-warning/5 text-warning',
-    destructive: 'border-destructive/30 bg-destructive/5 text-destructive',
+    warning: 'border-warning/30 bg-warning-bg-subtle text-warning',
+    destructive: 'border-destructive/30 bg-destructive-bg-subtle text-destructive',
   };
   const effective = value === 0 ? 'success' : tone;
   return (

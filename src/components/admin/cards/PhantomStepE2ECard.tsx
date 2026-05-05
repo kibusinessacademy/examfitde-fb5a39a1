@@ -64,7 +64,7 @@ export function PhantomStepE2ECard() {
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
               lastRun.overall_pass
                 ? "bg-emerald-500/10 text-emerald-500"
-                : "bg-destructive/10 text-destructive"
+                : "bg-destructive-bg-subtle text-destructive"
             }`}>
               {lastRun.overall_pass ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
               {lastRun.overall_pass ? "PASS" : "FAIL"}
