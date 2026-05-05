@@ -26,6 +26,7 @@ interface Row {
 }
 
 export function LaneReasonBreakdownCard() {
+  const [drillLane, setDrillLane] = useState<string | null>(null);
   const q = useQuery({
     queryKey: ["lane-reason-breakdown"],
     queryFn: async () => {
