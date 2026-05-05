@@ -335,6 +335,10 @@ export function ModuleLessonList({
                           disabled={locked}
                           aria-disabled={locked}
                           aria-label={ariaLabel}
+                          data-testid="lesson-item"
+                          data-lesson-id={lesson.id}
+                          data-lesson-status={status}
+                          data-lesson-locked={locked ? 'true' : 'false'}
                           className={cn(
                             "w-full text-left flex items-center justify-between p-3 min-h-12 rounded-lg transition-all border animate-fade-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                             locked
