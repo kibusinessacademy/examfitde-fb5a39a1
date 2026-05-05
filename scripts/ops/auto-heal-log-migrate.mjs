@@ -31,6 +31,9 @@ const args = Object.fromEntries(
 );
 
 const REPORT = !!args.report;
+const SQL_MODE = args.sql === true || typeof args.sql === "string"; // --sql or --sql=update
+const SQL_KIND = typeof args.sql === "string" ? args.sql : "insert"; // 'insert' | 'update'
+const SQL_ID_COL = args.id || "id"; // column for UPDATE WHERE
 
 function readInput() {
   if (args.in) return readFileSync(args.in, "utf8");
