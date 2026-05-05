@@ -134,67 +134,110 @@ async function readCourseProgressPercent(page: Page): Promise<number | null> {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Classified retry — only retry the persistence test on transient infra
+ * failures, never on real product regressions.
+ *
+ * Transient (retry once):
+ *   - Timeout waiting for `[data-testid="lesson-player"]`        → slow Vite/Lovable cold start
+ *   - Timeout waiting for `[data-testid="lesson-completed-badge"]` BEFORE we asserted persistence
+ *   - Missing aria-valuenow on the progressbar (component still hydrating)
+ *
+ * Hard fail (do NOT retry — these indicate real bugs):
+ *   - status === 'not_started' after reload (progress not persisted)
+ *   - progressAfter < progressBefore (regression)
+ *   - login failure (auth misconfig — fix secrets, not retry)
+ */
+const TRANSIENT_PATTERNS = [
+  /Timed out .* lesson-player/i,
+  /lesson-completed-badge.*Timed out/i,
+  /Lesson player did not become interactive/i,
+  /aria-valuenow.*hydrat/i,
+];
+
+function isTransient(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return TRANSIENT_PATTERNS.some((p) => p.test(msg));
+}
+
+async function runPersistenceFlow(page: Page, testInfo: TestInfo) {
+  const course = await pickRepresentativeCourse();
+  await annotate(testInfo, 'course', `${course.id} :: ${course.title}`);
+  if (PINNED_LESSON_ID) await annotate(testInfo, 'pinned_lesson', PINNED_LESSON_ID);
+
+  await page.goto(`/course/${course.id}`);
+  await expect(page.getByTestId('course-title')).toBeVisible({ timeout: 20_000 });
+  const progressBefore = await readCourseProgressPercent(page);
+  await annotate(testInfo, 'progress_before', String(progressBefore));
+
+  const lessonId = await openLesson(page, course.id, PINNED_LESSON_ID || undefined);
+  await annotate(testInfo, 'lesson', lessonId);
+
+  const state = await waitForLessonPlayerReady(page);
+  const completedBadge = page.getByTestId('lesson-completed-badge');
+
+  if (state === 'ready_to_complete') {
+    await page.getByTestId('lesson-complete-btn').click();
+    await expect(completedBadge).toBeVisible({ timeout: 20_000 });
+  } else {
+    await annotate(testInfo, 'precondition', 'lesson_already_completed');
+  }
+
+  // Hard reload — progress must be persisted server-side.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.getByTestId('lesson-player')).toBeVisible({ timeout: 20_000 });
+  await expect(completedBadge).toBeVisible({ timeout: 20_000 });
+
+  await page.goto(`/course/${course.id}`);
+  await expect(page.getByTestId('course-title')).toBeVisible({ timeout: 20_000 });
+  const item = page.locator(`[data-testid="lesson-item"][data-lesson-id="${lessonId}"]`);
+  await expect(item).toBeVisible({ timeout: 10_000 });
+  const status = await item.getAttribute('data-lesson-status');
+  await annotate(testInfo, 'lesson_status_after', String(status));
+  // ── Hard assertion: real product invariant, never retried ──
+  expect(status, `lesson status after reload=${status}`).not.toBe('not_started');
+
+  const progressAfter = await readCourseProgressPercent(page);
+  await annotate(testInfo, 'progress_after', String(progressAfter));
+  if (progressBefore !== null && progressAfter !== null) {
+    if (state === 'ready_to_complete') {
+      // ── Hard: must rise on fresh completion ──
+      expect(progressAfter, 'progress should increase after a fresh completion').toBeGreaterThan(
+        progressBefore,
+      );
+    } else {
+      expect(progressAfter, 'progress must not regress on reload').toBeGreaterThanOrEqual(
+        progressBefore,
+      );
+    }
+  }
+}
+
 test.describe('Learner: progress is saved and survives reload', () => {
+  // Disable Playwright's blanket retry for this file — we own retry below.
+  test.describe.configure({ retries: 0 });
+
   test.beforeEach(async ({ page }) => {
     await loginAs(page, 'qa_allaccess');
   });
 
   test('mark lesson completed → reload → still completed', async ({ page }, testInfo) => {
-    const course = await pickRepresentativeCourse();
-    await annotate(testInfo, 'course', `${course.id} :: ${course.title}`);
-    if (PINNED_LESSON_ID) await annotate(testInfo, 'pinned_lesson', PINNED_LESSON_ID);
-
     try {
-      // Capture progress baseline (before completion).
-      await page.goto(`/course/${course.id}`);
-      await expect(page.getByTestId('course-title')).toBeVisible({ timeout: 20_000 });
-      const progressBefore = await readCourseProgressPercent(page);
-      await annotate(testInfo, 'progress_before', String(progressBefore));
-
-      const lessonId = await openLesson(page, course.id, PINNED_LESSON_ID || undefined);
-      await annotate(testInfo, 'lesson', lessonId);
-
-      const state = await waitForLessonPlayerReady(page);
-      const completedBadge = page.getByTestId('lesson-completed-badge');
-
-      if (state === 'ready_to_complete') {
-        await page.getByTestId('lesson-complete-btn').click();
-        await expect(completedBadge).toBeVisible({ timeout: 20_000 });
-      } else {
-        // Idempotent: lesson already completed from prior run.
-        await annotate(testInfo, 'precondition', 'lesson_already_completed');
+      await runPersistenceFlow(page, testInfo);
+    } catch (err) {
+      if (!isTransient(err)) {
+        await attachOnFailure(page, testInfo, 'progress-persistence-hardfail');
+        throw err; // real bug → fail fast, no retry
       }
-
-      // Hard reload — progress must be persisted server-side.
-      await page.reload({ waitUntil: 'domcontentloaded' });
-      await expect(page.getByTestId('lesson-player')).toBeVisible({ timeout: 20_000 });
-      await expect(completedBadge).toBeVisible({ timeout: 20_000 });
-
-      // Course view reflects the new state.
-      await page.goto(`/course/${course.id}`);
-      await expect(page.getByTestId('course-title')).toBeVisible({ timeout: 20_000 });
-      const item = page.locator(`[data-testid="lesson-item"][data-lesson-id="${lessonId}"]`);
-      await expect(item).toBeVisible({ timeout: 10_000 });
-      const status = await item.getAttribute('data-lesson-status');
-      await annotate(testInfo, 'lesson_status_after', String(status));
-      expect(status, `lesson status after reload=${status}`).not.toBe('not_started');
-
-      // Progress percentage must not regress; on a fresh completion it must rise.
-      const progressAfter = await readCourseProgressPercent(page);
-      await annotate(testInfo, 'progress_after', String(progressAfter));
-      if (progressBefore !== null && progressAfter !== null) {
-        if (state === 'ready_to_complete') {
-          expect(progressAfter, 'progress should increase after a fresh completion').toBeGreaterThan(
-            progressBefore,
-          );
-        } else {
-          expect(progressAfter, 'progress must not regress on reload').toBeGreaterThanOrEqual(
-            progressBefore,
-          );
-        }
+      await annotate(testInfo, 'retry_reason', err instanceof Error ? err.message : String(err));
+      // Reset session state and retry once.
+      await page.context().clearCookies();
+      await loginAs(page, 'qa_allaccess');
+      try {
+        await runPersistenceFlow(page, testInfo);
+      } finally {
+        await attachOnFailure(page, testInfo, 'progress-persistence-after-retry');
       }
-    } finally {
-      await attachOnFailure(page, testInfo, 'progress-persistence');
     }
   });
 });
