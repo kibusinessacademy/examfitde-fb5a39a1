@@ -600,6 +600,13 @@ export type Database = {
             foreignKeyName: "affiliate_referrals_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "affiliate_referrals_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -3518,6 +3525,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: true
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "azav_massnahmen_zulassungen_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -10053,6 +10067,13 @@ export type Database = {
             foreignKeyName: "content_versions_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "content_versions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -12074,6 +12095,13 @@ export type Database = {
             foreignKeyName: "course_enrollments_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_enrollments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -12176,6 +12204,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_evidence_packs_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -12307,6 +12342,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: true
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_generation_locks_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -13244,6 +13286,13 @@ export type Database = {
             foreignKeyName: "course_health_snapshots_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_health_snapshots_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -13367,6 +13416,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_notes_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -17676,6 +17732,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -17917,6 +17980,13 @@ export type Database = {
             foreignKeyName: "course_production_forecasts_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: true
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_production_forecasts_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -18016,6 +18086,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_quality_audits_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -18935,6 +19012,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_reviews_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -21637,6 +21721,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -30565,6 +30656,13 @@ export type Database = {
             foreignKeyName: "export_jobs_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "export_jobs_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -35677,6 +35775,13 @@ export type Database = {
             foreignKeyName: "learning_events_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "learning_events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -39623,6 +39728,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -45099,6 +45211,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -51074,6 +51193,13 @@ export type Database = {
             foreignKeyName: "post_validation_results_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "post_validation_results_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -56955,6 +57081,13 @@ export type Database = {
             foreignKeyName: "promo_code_redemptions_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "promo_code_redemptions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -57592,6 +57725,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "qc_run_results_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -58696,6 +58836,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "quality_gate_results_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -61154,6 +61301,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "revenue_events_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -64725,6 +64879,13 @@ export type Database = {
             foreignKeyName: "standalone_artifact_versions_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -66336,6 +66497,13 @@ export type Database = {
             foreignKeyName: "support_ai_responses_context_course_id_fkey"
             columns: ["context_course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "support_ai_responses_context_course_id_fkey"
+            columns: ["context_course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -66475,6 +66643,13 @@ export type Database = {
             foreignKeyName: "support_faq_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "support_faq_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -66585,6 +66760,13 @@ export type Database = {
             columns: ["affected_course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "support_feedback_loop_affected_course_id_fkey"
+            columns: ["affected_course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -66802,6 +66984,13 @@ export type Database = {
             columns: ["context_course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "support_tickets_context_course_id_fkey"
+            columns: ["context_course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -71800,6 +71989,13 @@ export type Database = {
             foreignKeyName: "affiliate_referrals_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "affiliate_referrals_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -73098,6 +73294,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "curriculum_products_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -81314,6 +81517,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -81573,6 +81783,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -88895,6 +89112,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -90364,6 +90588,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -90453,6 +90684,82 @@ export type Database = {
           },
           {
             foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+        ]
+      }
+      v_admin_course_pipeline_readiness: {
+        Row: {
+          course_id: string | null
+          course_status: string | null
+          curriculum_id: string | null
+          failed_jobs: number | null
+          lessons_ready: number | null
+          lessons_total: number | null
+          minichecks_total: number | null
+          modules: number | null
+          pending_jobs: number | null
+          placeholder_lessons: number | null
+          primary_blocker: string | null
+          published_at: string | null
+          readiness_level: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "courses_curriculum_id_fkey"
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "v_orphan_blueprint_audit"
@@ -90685,6 +90992,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -92177,6 +92491,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -92347,6 +92668,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -93782,6 +94110,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -93945,6 +94280,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -94076,6 +94418,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -94216,6 +94565,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -95204,6 +95560,13 @@ export type Database = {
             foreignKeyName: "modules_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -95284,6 +95647,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -97194,6 +97564,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -99881,6 +100258,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -101698,6 +102082,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -105512,6 +105903,13 @@ export type Database = {
             foreignKeyName: "course_packages_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "v_admin_empty_published_courses"
             referencedColumns: ["id"]
           },
@@ -105717,6 +106115,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_packages_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -107303,6 +107708,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "ops_recovery_impact"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "v_admin_course_pipeline_readiness"
             referencedColumns: ["course_id"]
           },
           {
@@ -109259,6 +109671,31 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_course_pipeline_readiness: {
+        Args: { _limit?: number; _readiness_filter?: string }
+        Returns: {
+          course_id: string | null
+          course_status: string | null
+          curriculum_id: string | null
+          failed_jobs: number | null
+          lessons_ready: number | null
+          lessons_total: number | null
+          minichecks_total: number | null
+          modules: number | null
+          pending_jobs: number | null
+          placeholder_lessons: number | null
+          primary_blocker: string | null
+          published_at: string | null
+          readiness_level: string | null
+          title: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_admin_course_pipeline_readiness"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_data_holes_summary: {
         Args: never
         Returns: {
@@ -109871,6 +110308,18 @@ export type Database = {
         Args: { _package_id: string }
         Returns: Json
       }
+      admin_get_skeleton_backfill_jobs_for_course: {
+        Args: { _course_id: string }
+        Returns: {
+          attempts: number
+          created_at: string
+          job_id: string
+          job_type: string
+          last_error: string
+          status: string
+          updated_at: string
+        }[]
+      }
       admin_get_skeleton_backfill_jobs_summary: {
         Args: never
         Returns: {
@@ -110427,6 +110876,10 @@ export type Database = {
         Args: { p_dry_run?: boolean }
         Returns: Json
       }
+      admin_requeue_skeleton_backfill_jobs_for_course: {
+        Args: { _course_id: string }
+        Returns: Json
+      }
       admin_requeue_stale_control_jobs: {
         Args: {
           p_dry_run?: boolean
@@ -110501,6 +110954,10 @@ export type Database = {
       }
       admin_retry_failed_step: {
         Args: { p_package_id: string; p_reason?: string; p_step_key: string }
+        Returns: Json
+      }
+      admin_retry_skeleton_backfill_job: {
+        Args: { _job_id: string }
         Returns: Json
       }
       admin_revert_building_to_queued: {
