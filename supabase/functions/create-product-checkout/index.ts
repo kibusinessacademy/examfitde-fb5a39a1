@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: lineItems,
       success_url: `${appUrl}/checkout/success?order_id=${order.id}`,
-      cancel_url: `${appUrl}/landing/FORTBILDUNG/${product.slug}?checkout=cancelled`,
+      cancel_url: `${appUrl}/landing/FORTBILDUNG/${encodeURIComponent(product.slug)}?checkout=cancelled`,
       metadata: {
         order_id: order.id,
         product_id: product.id,
