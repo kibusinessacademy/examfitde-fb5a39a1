@@ -75,13 +75,9 @@ describe("RecurringPatternsCard — snooze fallback (no active_recommendation_id
     rpcMock.mockImplementation((name: string) => defaultRpc(name));
   });
 
-  async function clickButton(buttonName: RegExp) {
+  async function renderAndClick(buttonName: RegExp) {
     renderCard();
-    await waitFor(() =>
-      expect(screen.getByText("AWS Cloud Practitioner")).toBeInTheDocument(),
-    );
-    const btn = await screen.findByRole("button", { name: buttonName });
-    await userEvent.click(btn);
+    await awaitTextThenClick("AWS Cloud Practitioner", buttonName);
   }
 
   it("invokes admin_heal_pattern_snooze on Resolve when no recommendation exists", async () => {
