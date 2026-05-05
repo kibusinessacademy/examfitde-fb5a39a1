@@ -109482,6 +109482,10 @@ export type Database = {
         Args: { _course_id: string }
         Returns: Json
       }
+      admin_force_publish_course_l2_for_test: {
+        Args: { _course_id: string }
+        Returns: Json
+      }
       admin_force_publish_package: {
         Args: { p_package_id: string; p_reason?: string }
         Returns: Json
