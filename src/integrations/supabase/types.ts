@@ -109709,6 +109709,10 @@ export type Database = {
           track: string
         }[]
       }
+      admin_auto_promote_ready_courses: {
+        Args: { _dry_run?: boolean }
+        Returns: Json
+      }
       admin_auto_repair_limit_status: {
         Args: {
           p_critical_threshold_pct?: number
@@ -110612,6 +110616,7 @@ export type Database = {
         }[]
       }
       admin_get_launch_queue_health: { Args: never; Returns: Json }
+      admin_get_launch_queue_health_alerts: { Args: never; Returns: Json }
       admin_get_launch_readiness_dashboard: { Args: never; Returns: Json }
       admin_get_minicheck_jobs_for_course: {
         Args: { _course_id: string }
@@ -115006,6 +115011,10 @@ export type Database = {
           reason_detail: Json
           should_quarantine: boolean
         }[]
+      }
+      fn_should_log_blocked_skip: {
+        Args: { _package_id: string; _producer: string }
+        Returns: boolean
       }
       fn_should_log_enqueue_source_missing: {
         Args: { p_caller?: string; p_job_type: string; p_sample_rate?: number }
