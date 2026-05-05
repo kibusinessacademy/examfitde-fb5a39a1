@@ -41,7 +41,7 @@ jobs:
       - uses: oven-sh/setup-bun@v1
         with: { bun-version: latest }
       - name: Step 1 — Course readiness DB-gate
-        run: node scripts/guards/learner-course-readiness.mjs --max-empty=34
+        run: node scripts/guards/learner-course-readiness.mjs --max-empty=30
       - name: Step 2 — Validate QA pins point at live data
         run: node scripts/guards/qa-pins-validation.mjs
       - run: bun install --frozen-lockfile

@@ -32,4 +32,4 @@ jobs:
         run: |
           # Tolerated empty count starts at the historical baseline (34) and
           # ratchets down as content lands. Reduce manually after cleanup.
-          node scripts/guards/learner-course-readiness.mjs --max-empty=34
+          node scripts/guards/learner-course-readiness.mjs --max-empty=30

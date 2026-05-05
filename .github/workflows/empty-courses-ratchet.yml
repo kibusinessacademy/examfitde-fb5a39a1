@@ -1,0 +1,37 @@
+name: empty-courses-ratchet
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/guards/empty-courses-report.mjs'
+      - '.github/workflows/empty-courses-ratchet.yml'
+      - 'supabase/migrations/**'
+  schedule:
+    # Daily snapshot of how the empty-published count is trending.
+    - cron: '37 5 * * *'
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Generate empty-courses report
+        run: node scripts/guards/empty-courses-report.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: empty-courses-report
+          path: |
+            empty-courses.json
+            empty-courses.md
+          retention-days: 30
