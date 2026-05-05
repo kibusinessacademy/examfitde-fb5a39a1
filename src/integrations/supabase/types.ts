@@ -93412,6 +93412,17 @@ export type Database = {
         }
         Relationships: []
       }
+      v_auto_heal_log_legacy_producers: {
+        Row: {
+          bad_action_col: boolean | null
+          bad_details_col: boolean | null
+          bad_package_id_col: boolean | null
+          bad_payload: boolean | null
+          bad_triggered_by: boolean | null
+          func: string | null
+        }
+        Relationships: []
+      }
       v_b2b_metrics: {
         Row: {
           avg_order_value: number | null
@@ -107356,7 +107367,6 @@ export type Database = {
       }
     }
     Functions: {
-      _admin_backfill_council_verdict_2026_05_04: { Args: never; Returns: Json }
       _admin_recheck_enqueue: {
         Args: {
           p_job_type: string
