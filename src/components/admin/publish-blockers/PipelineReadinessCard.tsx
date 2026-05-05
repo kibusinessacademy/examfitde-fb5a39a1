@@ -328,6 +328,22 @@ export default function PipelineReadinessCard() {
                           <span className="ml-1">Requeue {r.failed_jobs}</span>
                         </Button>
                       )}
+                      {(r.minichecks_total === 0 || r.primary_blocker === 'MINICHECKS_MISSING') && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={requeueMcMut.isPending}
+                          onClick={() => requeueMcMut.mutate(r.course_id)}
+                          title="Failed/cancelled MiniCheck-Jobs auf pending zurücksetzen"
+                        >
+                          {requeueMcMut.isPending && requeueMcMut.variables === r.course_id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Repeat className="h-3 w-3" />
+                          )}
+                          <span className="ml-1">MC Requeue</span>
+                        </Button>
+                      )}
                       <Dialog
                         open={activeCourse?.course_id === r.course_id}
                         onOpenChange={(o) => setActiveCourse(o ? r : null)}
