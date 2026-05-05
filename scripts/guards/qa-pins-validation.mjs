@@ -24,6 +24,7 @@
  *   2 = config / network / RPC error (block CI, distinguishable in logs)
  */
 import fs from "node:fs";
+import { renderLearnerGateTable, appendStepSummary } from "../ci/_lib/step-summary.mjs";
 
 const URL_BASE = process.env.VITE_SUPABASE_URL;
 const ANON =
