@@ -146,10 +146,24 @@ export async function checkBuildingOrphans(sb: SupabaseClient) {
           ? (Date.now() - new Date(lastDone.finished_at).getTime()) / 60_000 : 999;
 
         if (lastDoneAge >= 3) {
-          // Protection-Gate: never demote build-complete/approved-rich packages
-          const { data: prot } = await sb.rpc("fn_package_demote_protected", { p_package_id: pkg.id });
-          if (prot && (prot as { protected?: boolean }).protected) {
-            buildingPkgResults.push({ package_id: pkg.id, action: `Skipped zombie demote: protected (${(prot as { reason?: string }).reason})` });
+          // Canonical pre-check via fn_can_demote_package_status (same source as RPC)
+          const { data: dec } = await sb.rpc("fn_can_demote_package_status" as never, {
+            p_package_id: pkg.id,
+            p_target_status: "queued",
+            p_source: "stuck_scan_zombie",
+          } as never);
+          const decRec = dec as { allowed?: boolean; reason?: string } | null;
+          if (!decRec?.allowed) {
+            buildingPkgResults.push({ package_id: pkg.id, action: `Skipped zombie demote (precheck): ${decRec?.reason ?? 'unknown'}` });
+            await sb.from("auto_heal_log").insert({
+              action_type: "producer_precheck_skip",
+              target_type: "package",
+              target_id: pkg.id,
+              trigger_source: "stuck_scan_zombie",
+              result_status: "skipped",
+              result_detail: `Pre-check disallowed demote to queued: ${decRec?.reason ?? 'unknown'}`,
+              metadata: { decision: decRec, target_status: "queued" },
+            });
             continue;
           }
           // SAFE_PACKAGE_STATUS_DEMOTE: routed through admin_revert_building_to_queued
