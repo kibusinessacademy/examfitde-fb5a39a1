@@ -4,7 +4,7 @@ import { useTopGaps, type TopGap } from '@/hooks/useLearningIntelligence';
 import { AlertTriangle, TrendingDown, Eye, Loader2 } from 'lucide-react';
 
 const GAP_CONFIG: Record<string, { label: string; icon: typeof AlertTriangle; color: string }> = {
-  acute: { label: 'Akut', icon: AlertTriangle, color: 'bg-destructive/10 text-destructive border-destructive/30' },
+  acute: { label: 'Akut', icon: AlertTriangle, color: 'bg-destructive-bg-subtle text-destructive border-destructive-border' },
   unstable: { label: 'Instabil', icon: TrendingDown, color: 'bg-amber-500/10 text-amber-600 border-amber-500/30' },
   blind: { label: 'Blind Spot', icon: Eye, color: 'bg-blue-500/10 text-blue-600 border-blue-500/30' },
   none: { label: '', icon: AlertTriangle, color: '' },

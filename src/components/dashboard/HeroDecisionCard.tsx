@@ -13,7 +13,7 @@ interface HeroDecisionCardProps {
 const RISK_CONFIG = {
   high: {
     accent: 'from-destructive to-orange-500',
-    bg: 'bg-destructive/5 border-destructive/20',
+    bg: 'bg-destructive-bg-subtle border-destructive-border',
     gaugeColor: 'text-destructive',
   },
   medium: {

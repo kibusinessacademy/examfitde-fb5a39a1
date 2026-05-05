@@ -45,7 +45,7 @@ export function StepProgressIndicator({
               className={cn(
                 "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium transition-all",
                 isCurrent && "bg-primary text-primary-foreground",
-                isCompleted && !isCurrent && "bg-success/20 text-success",
+                isCompleted && !isCurrent && "bg-success-bg-subtle text-success",
                 isLocked && "bg-muted text-muted-foreground opacity-50",
                 !isCurrent && !isCompleted && !isLocked && "bg-muted/50 text-muted-foreground",
                 isClickable && "cursor-pointer hover:opacity-80"
