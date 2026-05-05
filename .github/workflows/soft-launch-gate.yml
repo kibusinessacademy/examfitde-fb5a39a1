@@ -55,6 +55,15 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
+      # ── Pre-flight: required secrets present? ─────────────
+      - name: Pre-flight · required secrets
+        run: |
+          missing=0
+          for v in SUPABASE_URL VITE_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!v}" ]; then echo "::error::Missing env $v (set repo secret SUPABASE_SERVICE_ROLE_KEY or alias SRK_E2E)"; missing=1; fi
+          done
+          [ $missing -eq 0 ]
+
       # ── Required: Entitlement Flow ──────────────────────────
       - name: REQUIRED · learner-entitlement-flow
         id: req_entitlement
