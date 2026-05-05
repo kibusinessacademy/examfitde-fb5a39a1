@@ -353,9 +353,9 @@ export default function PipelineReadinessCard() {
                         </DialogTrigger>
                         <DialogContent className="max-w-3xl">
                           <DialogHeader>
-                            <DialogTitle>Backfill-Jobs · {r.title}</DialogTitle>
+                            <DialogTitle>Backfill- &amp; MiniCheck-Jobs · {r.title}</DialogTitle>
                             <DialogDescription>
-                              Pro Job einzeln retry; Bulk via Requeue-Button in der Tabelle.
+                              Pro Job einzeln Retry; Bulk via Requeue-Buttons in der Tabelle. Alle Aktionen werden in <code>auto_heal_log</code> auditiert.
                             </DialogDescription>
                           </DialogHeader>
                           {courseJobs.isLoading ? (
