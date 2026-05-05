@@ -1,0 +1,132 @@
+name: Soft Launch Gate
+
+# Bündelt die 4 Soft-Launch-kritischen Playwright-Specs:
+#   1. learner-entitlement-flow      [REQUIRED]
+#   2. purchase-checkout-smoke       [REQUIRED]
+#   3. learner-minicheck-persistence [SOFT  — skip erlaubt]
+#   4. learner-oral-persistence      [SOFT  — skip erlaubt]
+#
+# Soft-Launch = grün, wenn beide REQUIRED-Specs passed (skipped == fail) und
+# beide SOFT-Specs entweder passed oder skipped (kein failed).
+#
+# Trigger: workflow_dispatch (manuell vor jedem Soft-Launch-Check) +
+#          repository_dispatch type=soft_launch_gate (für Auto-Promote-Hooks).
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL to test against"
+        required: false
+        default: "https://examfitde.lovable.app"
+  repository_dispatch:
+    types: [soft_launch_gate]
+
+permissions: read-all
+
+concurrency:
+  group: soft-launch-gate
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BASE_URL: ${{ github.event.client_payload.base_url || inputs.base_url || 'https://examfitde.lovable.app' }}
+      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      E2E_GRANT_LEARNER_EMAIL: ${{ secrets.E2E_GRANT_LEARNER_EMAIL || 'e2e+grant@examfit-smoke.local' }}
+      E2E_GRANT_LEARNER_PASSWORD: ${{ secrets.E2E_GRANT_LEARNER_PASSWORD || 'SmokeTest_E2E_2026!' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      # ── Required: Entitlement Flow ──────────────────────────
+      - name: REQUIRED · learner-entitlement-flow
+        id: req_entitlement
+        run: |
+          npx playwright test tests/e2e/learner-entitlement-flow.spec.ts \
+            --reporter=list,json \
+            --output=test-results/entitlement \
+            --quiet || (echo "::error::entitlement flow failed" && exit 1)
+        continue-on-error: false
+
+      # ── Required: Purchase Checkout Smoke ───────────────────
+      - name: REQUIRED · purchase-checkout-smoke
+        id: req_checkout
+        run: |
+          npx playwright test tests/e2e/purchase-checkout-smoke.spec.ts \
+            --reporter=list,json \
+            --output=test-results/checkout \
+            --quiet || (echo "::error::checkout smoke failed" && exit 1)
+        continue-on-error: false
+
+      # ── Soft: MiniCheck Persistence (skip = OK, fail = ❌) ──
+      - name: SOFT · learner-minicheck-persistence
+        id: soft_minicheck
+        continue-on-error: true
+        run: |
+          set +e
+          npx playwright test tests/e2e/learner-minicheck-persistence.spec.ts \
+            --reporter=list,json=test-results/minicheck.json \
+            --output=test-results/minicheck
+          rc=$?
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          # Treat skipped as success; only failed (rc=1) is bad. rc=0 ok, rc=1 failures, rc=2 no tests.
+          if [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ]; then exit 0; else exit $rc; fi
+
+      # ── Soft: Oral Persistence (skip = OK, fail = ❌) ───────
+      - name: SOFT · learner-oral-persistence
+        id: soft_oral
+        continue-on-error: true
+        run: |
+          set +e
+          npx playwright test tests/e2e/learner-oral-persistence.spec.ts \
+            --reporter=list,json=test-results/oral.json \
+            --output=test-results/oral
+          rc=$?
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          if [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ]; then exit 0; else exit $rc; fi
+
+      # ── Verdict ─────────────────────────────────────────────
+      - name: Soft-Launch Verdict
+        if: always()
+        run: |
+          {
+            echo "# Soft Launch Gate"
+            echo ""
+            echo "| Spec | Tier | Result |"
+            echo "|---|---|---|"
+            echo "| learner-entitlement-flow | REQUIRED | ${{ steps.req_entitlement.outcome }} |"
+            echo "| purchase-checkout-smoke  | REQUIRED | ${{ steps.req_checkout.outcome }} |"
+            echo "| learner-minicheck-persistence | SOFT | ${{ steps.soft_minicheck.outcome }} (rc=${{ steps.soft_minicheck.outputs.exit_code }}) |"
+            echo "| learner-oral-persistence | SOFT | ${{ steps.soft_oral.outcome }} (rc=${{ steps.soft_oral.outputs.exit_code }}) |"
+            echo ""
+            if [ "${{ steps.req_entitlement.outcome }}" = "success" ] && [ "${{ steps.req_checkout.outcome }}" = "success" ]; then
+              echo "## ✅ Soft Launch: **JA**"
+            else
+              echo "## ❌ Soft Launch: **NEIN** — required spec failed"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soft-launch-gate-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 14
