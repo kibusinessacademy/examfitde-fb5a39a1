@@ -327,7 +327,7 @@ export default function CourseDetailPage() {
                 <div className="flex gap-3">
                   <Button onClick={handleContinue} className="gradient-primary text-primary-foreground shadow-glow-sm" data-testid="course-continue-btn">
                     <PlayCircle className="h-4 w-4 mr-2" />
-                    {progressPercent > 0 ? "Fortsetzen" : "Training starten"}
+                    {progressPercent > 0 ? "Training fortsetzen" : "Lektion starten"}
                   </Button>
                   {course.curriculum_id && (
                     <Button
