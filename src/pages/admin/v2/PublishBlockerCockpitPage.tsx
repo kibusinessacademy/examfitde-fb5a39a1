@@ -32,6 +32,7 @@ import PipelineReadinessCard from '@/components/admin/publish-blockers/PipelineR
 import L2EnforceReadinessCard from '@/components/admin/publish-blockers/L2EnforceReadinessCard';
 import LaunchReadinessDashboardCard from '@/components/admin/publish-blockers/LaunchReadinessDashboardCard';
 import SoftLaunchPromotionCard from '@/components/admin/publish-blockers/SoftLaunchPromotionCard';
+import LaunchQueueAlertsCard from '@/components/admin/publish-blockers/LaunchQueueAlertsCard';
 
 type BlockedRow = {
   log_id: string;
@@ -156,6 +157,7 @@ export default function PublishBlockerCockpitPage() {
 
       {/* ── Launch Readiness Overall ── */}
       <LaunchReadinessDashboardCard />
+      <LaunchQueueAlertsCard />
       <SoftLaunchPromotionCard />
 
       {/* ── Skeleton-backfill follow-up jobs ── */}
