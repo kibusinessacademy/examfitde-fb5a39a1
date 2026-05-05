@@ -107463,6 +107463,24 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: Json
       }
+      admin_build_integrity_e2e: {
+        Args: { p_limit?: number }
+        Returns: {
+          blocked_steps: number
+          completeness_pct: number
+          data_holes: number
+          done_steps: number
+          failed_steps: number
+          last_progress_at: string
+          missing_step_keys: string[]
+          package_id: string
+          pending_enqueue_steps: number
+          queued_steps: number
+          status: string
+          title: string
+          total_steps: number
+        }[]
+      }
       admin_bulk_depublish_hollow: {
         Args: { p_dry_run?: boolean; p_max_packages?: number }
         Returns: Json
@@ -107602,6 +107620,27 @@ export type Database = {
           oldest_at: string
           sample_error: string
         }[]
+      }
+      admin_didaktik_audit_scan: {
+        Args: never
+        Returns: {
+          blocked_didactic: number
+          bronze_locked: boolean
+          done_didactic: number
+          failed_didactic: number
+          last_progress_at: string
+          open_didactic: number
+          open_steps: string[]
+          package_id: string
+          status: string
+          title: string
+          total_didactic: number
+          track: string
+        }[]
+      }
+      admin_didaktik_heal_packages: {
+        Args: { p_bypass_bronze?: boolean; p_package_ids: string[] }
+        Returns: Json
       }
       admin_dismiss_growth_action: {
         Args: { p_action_id: string }
@@ -108165,6 +108204,19 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      admin_get_lane_reason_breakdown: {
+        Args: never
+        Returns: {
+          bronze_locked: number
+          complete_packages: number
+          dag_waiting: number
+          lane: string
+          manual_review: number
+          pending_total: number
+          reason_summary: string
+          true_zombies: number
+        }[]
       }
       admin_get_package_block_diagnosis: {
         Args: { p_package_id: string }
