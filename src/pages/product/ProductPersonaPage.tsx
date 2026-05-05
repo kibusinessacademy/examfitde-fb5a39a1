@@ -155,6 +155,10 @@ export default function ProductPersonaPage() {
         cta_type: "persona_diagnose",
         target_path: personaContext.diagnoseTargetPath,
         overlay_active: Boolean(overlay),
+        experiment_name: ctaExperimentId ? "buy_cta_persona_v1" : null,
+        experiment_id: ctaExperimentId,
+        experiment_variant: ctaVariant,
+        cta_label: ctaVariantLabel,
       },
     });
     const params = new URLSearchParams({
@@ -164,7 +168,7 @@ export default function ProductPersonaPage() {
       source: `product_persona_${persona}`,
     });
     navigate(`${personaContext.diagnoseTargetPath}?${params.toString()}`);
-  }, [product, persona, personaContext, navigate, track, overlay]);
+  }, [product, persona, personaContext, navigate, track, overlay, ctaExperimentId, ctaVariant, ctaVariantLabel]);
 
   const handleCtaClick = useCallback(
     (ctaType: string) => {
