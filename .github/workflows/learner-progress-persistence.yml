@@ -31,6 +31,11 @@ jobs:
       E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
       TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+      E2E_SMOKE_NO_ENTITLEMENT_EMAIL: ${{ secrets.E2E_SMOKE_NO_ENTITLEMENT_EMAIL }}
+      E2E_SMOKE_NO_ENTITLEMENT_PASSWORD: ${{ secrets.E2E_SMOKE_NO_ENTITLEMENT_PASSWORD }}
+      # Pin a deterministic course/lesson to keep this gate stable across catalog changes.
+      E2E_QA_COURSE_ID: ${{ secrets.E2E_QA_COURSE_ID }}
+      E2E_QA_LESSON_ID: ${{ secrets.E2E_QA_LESSON_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
