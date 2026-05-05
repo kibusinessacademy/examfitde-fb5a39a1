@@ -69,7 +69,8 @@ test.describe("Entitlement → CTA → Lesson (launch gate)", () => {
     const ctx = await browser.newContext({ storageState: undefined });
     const page = await ctx.newPage();
     try {
-      const sellable = await rpc("public_sellable_courses");
+      const sellableResp = await e2eHelper<{ ok: boolean; courses: any[] }>({ op: "sellable_courses" });
+      const sellable = sellableResp?.courses ?? [];
       test.skip(!sellable?.length, "no sellable course available");
       const target = sellable[0];
       await page.goto(`/course/${target.course_id}`);
