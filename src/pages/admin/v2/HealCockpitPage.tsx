@@ -84,6 +84,10 @@ import { HealAuditLayersCard } from "@/components/admin/heal/cards/HealAuditLaye
 import { QueuedStallSuggestionCard } from "@/components/admin/heal/cards/QueuedStallSuggestionCard";
 import { StatusReverterAlertsCard } from "@/components/admin/heal/cards/StatusReverterAlertsCard";
 import { HealFunctionAuditCard } from "@/components/admin/heal/cards/HealFunctionAuditCard";
+import { DidaktikAuditCard } from "@/components/admin/heal/cards/DidaktikAuditCard";
+import { BuildIntegrityE2ECard } from "@/components/admin/heal/cards/BuildIntegrityE2ECard";
+import { LaneReasonBreakdownCard } from "@/components/admin/heal/cards/LaneReasonBreakdownCard";
+import { WorkerHeartbeatSSOTCard } from "@/components/admin/heal/cards/WorkerHeartbeatSSOTCard";
 
 // Queue-Detail-Tabs (lazy — schwer)
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
@@ -253,6 +257,8 @@ export default function HealCockpitPage() {
               <LaneHealthCard />
               <ThroughputCard windowHours={6} />
             </div>
+            <WorkerHeartbeatSSOTCard />
+            <LaneReasonBreakdownCard />
             <BlockerCountsCard filter={filter} onFilterChange={setFilter} />
           </AccordionContent>
         </AccordionItem>
@@ -285,6 +291,8 @@ export default function HealCockpitPage() {
             />
           </AccordionTrigger>
           <AccordionContent className="pb-4 space-y-3">
+            <DidaktikAuditCard />
+            <BuildIntegrityE2ECard />
             <RecurringPatternsCard limit={10} />
             <PermanentFixBacklogCard />
             <CourseHealPlansCard />
