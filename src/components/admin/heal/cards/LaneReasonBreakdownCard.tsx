@@ -125,6 +125,11 @@ export function LaneReasonBreakdownCard() {
           </div>
         </TooltipProvider>
       )}
+      <LaneDrilldownDialog
+        lane={drillLane}
+        open={!!drillLane}
+        onOpenChange={(v) => !v && setDrillLane(null)}
+      />
     </Card>
   );
 }
