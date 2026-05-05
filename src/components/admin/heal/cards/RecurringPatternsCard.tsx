@@ -169,6 +169,24 @@ export function RecurringPatternsCard({ limit = 10 }: { limit?: number }) {
       toast.error("Konnte nicht verworfen werden", { description: e.message }),
   });
 
+  // Snooze (works even when no active recommendation exists — pattern comes from auto_heal_log directly)
+  const snoozeMutation = useMutation({
+    mutationFn: async ({ cluster, target_id, hours, note }: { cluster: string; target_id: string; hours?: number; note?: string }) => {
+      const { data, error } = await supabase.rpc(
+        "admin_heal_pattern_snooze" as never,
+        { p_cluster: cluster, p_target_id: target_id, p_hours: hours ?? 168, p_note: note ?? null } as never,
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Pattern gesnoozt (7 Tage) — verschwindet aus der Liste");
+      qc.invalidateQueries({ queryKey: ["heal-recurring-patterns"] });
+    },
+    onError: (e: Error) =>
+      toast.error("Snooze fehlgeschlagen", { description: e.message }),
+  });
+
   const applyMutation = useMutation({
     mutationFn: async ({ id }: { id: string }) => {
       const { data, error } = await supabase.rpc(
