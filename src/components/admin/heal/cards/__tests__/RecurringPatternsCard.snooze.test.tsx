@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { awaitTextThenClick } from "@/test/helpers/admin-interactions";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { RecurringPatternsCard } from "../RecurringPatternsCard";
@@ -75,17 +76,13 @@ describe("RecurringPatternsCard — snooze fallback (no active_recommendation_id
     rpcMock.mockImplementation((name: string) => defaultRpc(name));
   });
 
-  async function clickButton(buttonName: RegExp) {
+  async function renderAndClick(buttonName: RegExp) {
     renderCard();
-    await waitFor(() =>
-      expect(screen.getByText("AWS Cloud Practitioner")).toBeInTheDocument(),
-    );
-    const btn = await screen.findByRole("button", { name: buttonName });
-    await userEvent.click(btn);
+    await awaitTextThenClick("AWS Cloud Practitioner", buttonName);
   }
 
   it("invokes admin_heal_pattern_snooze on Resolve when no recommendation exists", async () => {
-    await clickButton(/als gelöst markieren|gelöst|resolve/i);
+    await renderAndClick(/als gelöst markieren|gelöst|resolve/i);
 
     await waitFor(() => {
       const calls = rpcMock.mock.calls.map((c) => c[0]);
@@ -104,7 +101,7 @@ describe("RecurringPatternsCard — snooze fallback (no active_recommendation_id
   });
 
   it("invokes admin_heal_pattern_snooze on Dismiss when no recommendation exists", async () => {
-    await clickButton(/verwerfen|dismiss/i);
+    await renderAndClick(/verwerfen|dismiss/i);
 
     await waitFor(() => {
       const calls = rpcMock.mock.calls.map((c) => c[0]);
