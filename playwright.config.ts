@@ -25,7 +25,7 @@ export default defineConfig({
   projects: [
     {
       name: 'smoke',
-      testMatch: /smoke\.spec\.ts/,
+      testMatch: /(smoke\.spec\.ts|learner-entitlement-flow\.spec\.ts|learner-minicheck-persistence\.spec\.ts)$/,
       timeout: 60_000,
     },
     {
