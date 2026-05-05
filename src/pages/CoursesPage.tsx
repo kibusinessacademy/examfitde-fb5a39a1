@@ -39,14 +39,14 @@ export default function CoursesPage() {
   }, [user]);
 
   const fetchCourses = async () => {
-    const { data, error } = await supabase
-      .from('courses')
+    // Use v_courses_publishable: only courses with at least 1 module + 1 lesson
+    const { data, error } = await (supabase.from as any)('v_courses_publishable')
       .select('*')
       .eq('status', 'published')
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setCourses(data);
+      setCourses(data as Course[]);
     }
     setLoading(false);
   };
@@ -97,8 +97,9 @@ export default function CoursesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center" role="status" aria-live="polite" aria-busy="true">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+        <span className="sr-only">Kurse werden geladen…</span>
       </div>
     );
   }
@@ -130,10 +131,12 @@ export default function CoursesPage() {
               />
               {search && (
                 <button
+                  type="button"
                   onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Suche zurücksetzen"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               )}
             </div>

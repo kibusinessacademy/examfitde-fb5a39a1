@@ -267,9 +267,10 @@ export default function CourseDetailPage() {
         {/* Back Button */}
         <Link
           to="/courses"
-          className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          aria-label="Zurück zur Kursübersicht"
+          className="inline-flex items-center min-h-11 px-2 -ml-2 text-muted-foreground hover:text-foreground transition-colors mb-4 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <ArrowLeft className="h-4 w-4 mr-2" aria-hidden="true" />
           Zurück zu Kursen
         </Link>
 
