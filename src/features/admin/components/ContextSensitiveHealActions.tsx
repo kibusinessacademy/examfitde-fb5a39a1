@@ -57,7 +57,7 @@ export function ContextSensitiveHealActions({
           variant="outline"
           disabled={busy}
           onClick={onMarkContentGap}
-          className="border-destructive/30 text-destructive hover:bg-destructive/10"
+          className="border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
         >
           {busy ? <Spin /> : <OctagonAlert className="h-3.5 w-3.5 mr-1.5" />}
           Mark content_gap
@@ -78,7 +78,7 @@ export function ContextSensitiveHealActions({
           disabled={busy}
           onClick={onMarkContentGap}
           variant="outline"
-          className="border-destructive/30 text-destructive hover:bg-destructive/10"
+          className="border-destructive/30 text-destructive hover:bg-destructive-bg-subtle"
         >
           {busy ? <Spin /> : <OctagonAlert className="h-3.5 w-3.5 mr-1.5" />}
           Mark content_gap

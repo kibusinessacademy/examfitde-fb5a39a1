@@ -154,7 +154,7 @@ export default function LernplanPage() {
           </p>
 
           {!mapping && (
-            <div className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive no-print">
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive-bg-subtle p-3 text-sm text-destructive no-print">
               <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
               <span>
                 Konfigurationsfehler: Für dieses Quiz ist kein Bundle-Mapping

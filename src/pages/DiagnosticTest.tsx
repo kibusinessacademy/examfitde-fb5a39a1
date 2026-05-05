@@ -391,7 +391,7 @@ export default function DiagnosticTest() {
             })}
 
             {answerError && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive-bg-subtle border border-destructive/30 text-destructive text-sm">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span>{answerError}</span>
                 <Button

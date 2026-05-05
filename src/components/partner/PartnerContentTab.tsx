@@ -36,7 +36,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: 'Wartend', color: 'bg-muted text-muted-foreground' },
   generating: { label: 'Generiert...', color: 'bg-primary/10 text-primary' },
   completed: { label: 'Fertig', color: 'bg-accent/10 text-accent' },
-  failed: { label: 'Fehler', color: 'bg-destructive/10 text-destructive' },
+  failed: { label: 'Fehler', color: 'bg-destructive-bg-subtle text-destructive' },
 };
 
 export function PartnerContentTab({ partnerId }: Props) {

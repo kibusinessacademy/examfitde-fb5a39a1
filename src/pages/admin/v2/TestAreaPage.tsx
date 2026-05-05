@@ -43,8 +43,8 @@ function ForensicHealthCard() {
   if (error || !data) return null;
 
   const severityColor = {
-    P0: 'border-destructive/40 bg-destructive/5',
-    P1: 'border-warning/40 bg-warning/5',
+    P0: 'border-destructive/40 bg-destructive-bg-subtle',
+    P1: 'border-warning/40 bg-warning-bg-subtle',
     P2: 'border-primary/20 bg-primary/5',
     info: 'border-border bg-card',
   }[data.severity] || 'border-border bg-card';
@@ -153,10 +153,10 @@ function PublishReadinessCard() {
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-3 mb-3">
-          <div className="rounded-lg border border-success/30 bg-success/5 px-3 py-1.5 text-xs">
+          <div className="rounded-lg border border-success/30 bg-success-bg-subtle px-3 py-1.5 text-xs">
             <span className="font-bold text-success">{ready}</span> bereit
           </div>
-          <div className="rounded-lg border border-warning/30 bg-warning/5 px-3 py-1.5 text-xs">
+          <div className="rounded-lg border border-warning/30 bg-warning-bg-subtle px-3 py-1.5 text-xs">
             <span className="font-bold text-warning">{notReady}</span> nicht bereit
           </div>
         </div>

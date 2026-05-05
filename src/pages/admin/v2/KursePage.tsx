@@ -33,21 +33,21 @@ const STATUS_FILTERS = [
 function statusBadge(pkg: AdminPackageSSOT) {
   const badges: { label: string; className: string }[] = [];
   const statusMap: Record<string, { label: string; className: string }> = {
-    published: { label: 'Veröffentlicht', className: 'bg-success/10 text-success border-success/30' },
+    published: { label: 'Veröffentlicht', className: 'bg-success-bg-subtle text-success border-success/30' },
     building: { label: 'Building', className: 'bg-primary/10 text-primary border-primary/30' },
-    council_review: { label: 'Council', className: 'bg-warning/10 text-warning border-warning/30' },
+    council_review: { label: 'Council', className: 'bg-warning-bg-subtle text-warning border-warning/30' },
     queued: { label: 'Queued', className: 'bg-muted text-muted-foreground border-border' },
-    blocked: { label: 'Blockiert', className: 'bg-destructive/10 text-destructive border-destructive/30' },
-    failed: { label: 'Fehlgeschlagen', className: 'bg-destructive/10 text-destructive border-destructive/30' },
+    blocked: { label: 'Blockiert', className: 'bg-destructive-bg-subtle text-destructive border-destructive/30' },
+    failed: { label: 'Fehlgeschlagen', className: 'bg-destructive-bg-subtle text-destructive border-destructive/30' },
   };
   const s = statusMap[pkg.status] || { label: pkg.status, className: 'bg-muted text-muted-foreground border-border' };
   badges.push(s);
-  if (pkg.is_stuck) badges.push({ label: 'Festgefahren', className: 'bg-destructive/10 text-destructive border-destructive/30' });
-  if (pkg.has_publish_drift) badges.push({ label: 'Publish Drift', className: 'bg-destructive/10 text-destructive border-destructive/30' });
-  if (pkg.has_stale_publish) badges.push({ label: 'Stale Publish', className: 'bg-warning/10 text-warning border-warning/30' });
-  if (pkg.council_complete && !pkg.council_approved) badges.push({ label: 'Council ✓ / Approval ✗', className: 'bg-warning/10 text-warning border-warning/30' });
-  if (pkg.council_sessions_pending > 0) badges.push({ label: `Council ${pkg.council_sessions_pending} offen`, className: 'bg-warning/10 text-warning border-warning/30' });
-  if (pkg.jobs_failed > 0) badges.push({ label: `${pkg.jobs_failed} Jobs failed`, className: 'bg-destructive/10 text-destructive border-destructive/30' });
+  if (pkg.is_stuck) badges.push({ label: 'Festgefahren', className: 'bg-destructive-bg-subtle text-destructive border-destructive/30' });
+  if (pkg.has_publish_drift) badges.push({ label: 'Publish Drift', className: 'bg-destructive-bg-subtle text-destructive border-destructive/30' });
+  if (pkg.has_stale_publish) badges.push({ label: 'Stale Publish', className: 'bg-warning-bg-subtle text-warning border-warning/30' });
+  if (pkg.council_complete && !pkg.council_approved) badges.push({ label: 'Council ✓ / Approval ✗', className: 'bg-warning-bg-subtle text-warning border-warning/30' });
+  if (pkg.council_sessions_pending > 0) badges.push({ label: `Council ${pkg.council_sessions_pending} offen`, className: 'bg-warning-bg-subtle text-warning border-warning/30' });
+  if (pkg.jobs_failed > 0) badges.push({ label: `${pkg.jobs_failed} Jobs failed`, className: 'bg-destructive-bg-subtle text-destructive border-destructive/30' });
   return badges;
 }
 
@@ -204,8 +204,8 @@ function PackageRow({ pkg, onHeal, healPending }: {
           {diags.map((d, i) => (
             <div key={i} className={cn(
               "rounded-lg border p-2 text-xs",
-              d.severity === 'error' ? "border-destructive/20 bg-destructive/5" :
-              d.severity === 'warning' ? "border-warning/20 bg-warning/5" :
+              d.severity === 'error' ? "border-destructive/20 bg-destructive-bg-subtle" :
+              d.severity === 'warning' ? "border-warning/20 bg-warning-bg-subtle" :
               "border-border bg-muted/30"
             )}>
               <div className="font-semibold flex items-center gap-1 mb-0.5" style={{
@@ -305,7 +305,7 @@ export default function KursePage() {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+      <div className="rounded-xl border border-destructive/30 bg-destructive-bg-subtle p-4 text-sm text-destructive">
         Fehler: {(error as Error).message}
       </div>
     );
@@ -329,25 +329,25 @@ export default function KursePage() {
       {counts && (counts.stuck > 0 || counts.blocked > 0 || counts.failed > 0 || counts.drift > 0) && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {counts.stuck > 0 && (
-            <button onClick={() => setStatusFilter('stuck')} className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center hover:bg-destructive/10 transition-colors">
+            <button onClick={() => setStatusFilter('stuck')} className="rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-2 text-center hover:bg-destructive-bg-subtle transition-colors">
               <div className="text-lg font-bold text-destructive">{counts.stuck}</div>
               <div className="text-[10px] text-muted-foreground">Festgefahren</div>
             </button>
           )}
           {counts.blocked > 0 && (
-            <button onClick={() => setStatusFilter('blocked')} className="rounded-lg border border-warning/30 bg-warning/5 p-2 text-center hover:bg-warning/10 transition-colors">
+            <button onClick={() => setStatusFilter('blocked')} className="rounded-lg border border-warning/30 bg-warning-bg-subtle p-2 text-center hover:bg-warning-bg-subtle transition-colors">
               <div className="text-lg font-bold text-warning">{counts.blocked}</div>
               <div className="text-[10px] text-muted-foreground">Blockiert</div>
             </button>
           )}
           {counts.failed > 0 && (
-            <button onClick={() => setStatusFilter('has_failed_jobs')} className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center hover:bg-destructive/10 transition-colors">
+            <button onClick={() => setStatusFilter('has_failed_jobs')} className="rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-2 text-center hover:bg-destructive-bg-subtle transition-colors">
               <div className="text-lg font-bold text-destructive">{counts.failed}</div>
               <div className="text-[10px] text-muted-foreground">Failed Jobs</div>
             </button>
           )}
           {counts.drift > 0 && (
-            <button onClick={() => setStatusFilter('publish_drift')} className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-center hover:bg-destructive/10 transition-colors">
+            <button onClick={() => setStatusFilter('publish_drift')} className="rounded-lg border border-destructive/30 bg-destructive-bg-subtle p-2 text-center hover:bg-destructive-bg-subtle transition-colors">
               <div className="text-lg font-bold text-destructive">{counts.drift}</div>
               <div className="text-[10px] text-muted-foreground">Publish Drift</div>
             </button>

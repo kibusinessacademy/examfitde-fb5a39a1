@@ -98,7 +98,7 @@ export default class AdminErrorBoundary extends Component<AdminErrorBoundaryProp
     // Auto-Recovery läuft → schlanker Übergangs-Hinweis
     if (this.state.recoveryAttempted) {
       return (
-        <div className="rounded-2xl border border-warning/30 bg-warning/5 p-5 sm:p-6">
+        <div className="rounded-2xl border border-warning/30 bg-warning-bg-subtle p-5 sm:p-6">
           <div className="flex items-center gap-3">
             <RefreshCcw className="h-4 w-4 animate-spin text-warning" />
             <div className="text-sm text-foreground">
@@ -110,9 +110,9 @@ export default class AdminErrorBoundary extends Component<AdminErrorBoundaryProp
     }
 
     return (
-      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 sm:p-6">
+      <div className="rounded-2xl border border-destructive/30 bg-destructive-bg-subtle p-5 sm:p-6">
         <div className="flex items-start gap-3">
-          <div className="rounded-xl bg-destructive/10 p-2 text-destructive">
+          <div className="rounded-xl bg-destructive-bg-subtle p-2 text-destructive">
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1 space-y-3">

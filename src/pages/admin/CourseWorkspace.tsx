@@ -255,7 +255,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
 
       {/* SSOT Drift Warnings */}
       {hasStalePublish && (
-        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 flex items-start gap-3">
+        <div className="rounded-xl border border-warning/30 bg-warning-bg-subtle p-3 flex items-start gap-3">
           <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-semibold text-foreground">Stale-Publish-Signal erkannt</div>
@@ -264,7 +264,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         </div>
       )}
       {hasPublishDrift && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3">
+        <div className="rounded-xl border border-destructive/30 bg-destructive-bg-subtle p-3 flex items-start gap-3">
           <TrendingDown className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-semibold text-foreground">Publish Drift</div>
@@ -273,7 +273,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
         </div>
       )}
       {isStuck && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 flex items-start gap-3">
+        <div className="rounded-xl border border-destructive/30 bg-destructive-bg-subtle p-3 flex items-start gap-3">
           <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
           <div>
             <div className="text-sm font-semibold text-foreground">Paket festgefahren</div>
@@ -291,11 +291,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <TrackBadge track={track} certType={certType} showCertType />
                 <Badge variant="outline" className={cn("text-xs",
-                  releaseState === 'published' ? 'bg-success/20 text-success' :
-                  releaseState === 'publish_drift' ? 'bg-destructive/20 text-destructive' :
-                  releaseState === 'council_review' ? 'bg-warning/20 text-warning' :
+                  releaseState === 'published' ? 'bg-success-bg-subtle text-success' :
+                  releaseState === 'publish_drift' ? 'bg-destructive-bg-subtle text-destructive' :
+                  releaseState === 'council_review' ? 'bg-warning-bg-subtle text-warning' :
                   releaseState === 'building' ? 'bg-primary/20 text-primary' :
-                  releaseState === 'ready_to_publish' ? 'bg-success/20 text-success' :
+                  releaseState === 'ready_to_publish' ? 'bg-success-bg-subtle text-success' :
                   'bg-muted text-muted-foreground'
                 )}>
                   {releaseState === 'published' ? 'Live' :
@@ -307,7 +307,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                 </Badge>
                 <div
                   title="Health Score = Integrität + Council + Step-Done + Drift-Penalties (nicht Build-Fortschritt)"
-                  className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold", healthScore >= 95 ? 'bg-success/10 text-success' : healthScore >= 80 ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive')}
+                  className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold", healthScore >= 95 ? 'bg-success-bg-subtle text-success' : healthScore >= 80 ? 'bg-warning-bg-subtle text-warning' : 'bg-destructive-bg-subtle text-destructive')}
                 >
                   <Activity className="h-3 w-3" /> Health {healthScore}%
                 </div>
@@ -461,7 +461,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
 
           {/* Unblock button for blocked packages */}
           {pkg.status === 'blocked' && (
-            <Card className="border-destructive/30 bg-destructive/5">
+            <Card className="border-destructive/30 bg-destructive-bg-subtle">
               <CardContent className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Unlock className="h-4 w-4 text-destructive" /> Kurs ist blockiert</p>
@@ -532,7 +532,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                   const diagnosis = diagnoseError(step.last_error || step.error_message);
                   const stepDef = PIPELINE_STEPS.find(s => s.key === (step.step_key || step.step_name));
                   return (
-                    <div key={step.id || step.step_key} className="bg-destructive/5 border border-destructive/20 rounded-lg p-3">
+                    <div key={step.id || step.step_key} className="bg-destructive-bg-subtle border border-destructive/20 rounded-lg p-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-medium text-foreground">{stepDef?.label || step.step_label || step.step_key}</p>
                         <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => handleRebuildStep(step.step_key || step.step_name)} disabled={rebuildingStep === (step.step_key || step.step_name)}>
@@ -541,7 +541,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                       </div>
                       {(step.last_error || step.error_message) && <p className="text-xs text-destructive mt-1 font-mono truncate max-w-full">{step.last_error || step.error_message}</p>}
                       {diagnosis && (
-                        <div className="mt-2 flex items-start gap-2 bg-warning/5 border border-warning/20 rounded p-2">
+                        <div className="mt-2 flex items-start gap-2 bg-warning-bg-subtle border border-warning/20 rounded p-2">
                           <Lightbulb className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
                           <div className="text-xs"><p className="text-foreground"><strong>Ursache:</strong> {diagnosis.cause}</p><p className="text-muted-foreground"><strong>Lösung:</strong> {diagnosis.fix}</p></div>
                         </div>
@@ -600,15 +600,15 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                                 <RotateCcw className="h-3 w-3 mr-0.5" /> Retry
                               </Button>
                             )}
-                            {isException && <Badge variant="outline" className="text-[10px] bg-success/10 text-success">Genehmigt</Badge>}
-                            <Badge variant="outline" className={cn("text-[10px]", isDone ? 'bg-success/10 text-success' : isSkipped ? 'bg-muted text-muted-foreground' : isFailed ? 'bg-destructive/10 text-destructive' : isRunning ? 'bg-primary/10 text-primary' : '')}>{status}</Badge>
+                            {isException && <Badge variant="outline" className="text-[10px] bg-success-bg-subtle text-success">Genehmigt</Badge>}
+                            <Badge variant="outline" className={cn("text-[10px]", isDone ? 'bg-success-bg-subtle text-success' : isSkipped ? 'bg-muted text-muted-foreground' : isFailed ? 'bg-destructive-bg-subtle text-destructive' : isRunning ? 'bg-primary/10 text-primary' : '')}>{status}</Badge>
                             {hasDetails && (isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />)}
                           </div>
                         </button>
                         {isExpanded && hasDetails && (
                         <div className="px-3 pb-3 pt-0 space-y-2">
                             {isException && (
-                              <div className="bg-success/5 border border-success/20 rounded p-2">
+                              <div className="bg-success-bg-subtle border border-success/20 rounded p-2">
                                 <div className="flex items-center gap-2 mb-1">
                                   <ShieldCheck className="h-3.5 w-3.5 text-success" />
                                   <span className="text-[10px] font-medium text-success uppercase tracking-wider">Ausnahme genehmigt</span>
@@ -619,7 +619,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                                 </p>
                               </div>
                             )}
-                            {(step?.last_error || step?.error_message) && <p className="text-xs text-destructive bg-destructive/5 p-2 rounded font-mono break-all">{step.last_error || step.error_message}</p>}
+                            {(step?.last_error || step?.error_message) && <p className="text-xs text-destructive bg-destructive-bg-subtle p-2 rounded font-mono break-all">{step.last_error || step.error_message}</p>}
                             {(() => {
                               const logData = step?.meta || step?.log;
                               if (!logData || Object.keys(logData).length === 0) return null;
@@ -712,7 +712,7 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
                 <Button variant="destructive" size="sm" onClick={handleReset}><RotateCcw className="h-4 w-4 mr-1" /> Reset anfordern</Button>
               )}
               {confirmReset === 1 && (
-                <div className="flex items-center gap-3 bg-destructive/10 p-3 rounded-lg">
+                <div className="flex items-center gap-3 bg-destructive-bg-subtle p-3 rounded-lg">
                   <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-destructive">Wirklich zurücksetzen?</p>
@@ -758,7 +758,7 @@ function QualityGateBannerSSoT({ packageId }: { packageId: string }) {
 
   if (es.should_show_fail_banner && es.package_status !== 'published') {
     return (
-      <Card className="border-destructive/30 bg-destructive/5">
+      <Card className="border-destructive/30 bg-destructive-bg-subtle">
         <CardContent className="py-4">
           <p className="text-sm font-semibold text-destructive flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" /> Quality Gate nicht bestanden

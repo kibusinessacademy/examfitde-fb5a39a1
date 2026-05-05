@@ -17,7 +17,7 @@ interface Props {
 
 const statusColor: Record<string, string> = {
   active: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
-  revoked: "bg-destructive/15 text-destructive border-destructive/30",
+  revoked: "bg-destructive-bg-subtle text-destructive border-destructive/30",
   suspended: "bg-amber-500/15 text-amber-700 border-amber-500/30",
   expired: "bg-muted text-muted-foreground border-border",
 };
@@ -25,7 +25,7 @@ const statusColor: Record<string, string> = {
 const riskColor: Record<string, string> = {
   ok: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
   warning: "bg-amber-500/15 text-amber-700 border-amber-500/30",
-  critical: "bg-destructive/15 text-destructive border-destructive/30",
+  critical: "bg-destructive-bg-subtle text-destructive border-destructive/30",
 };
 
 export function StandaloneLicenseTable({ licenses, onSelect }: Props) {

@@ -110,7 +110,7 @@ export default function IntegrityReportCard({ report, curriculumId, packageId }:
             <Shield className="h-4 w-4" /> Qualitätsbericht
             {liveCounts && <Badge variant="outline" className="text-[9px] text-primary">LIVE</Badge>}
             {skippedLearning && (
-              <Badge variant="outline" className="text-[9px] text-warning border-warning/40 bg-warning/10">
+              <Badge variant="outline" className="text-[9px] text-warning border-warning/40 bg-warning-bg-subtle">
                 Exam-only
               </Badge>
             )}
@@ -136,7 +136,7 @@ export default function IntegrityReportCard({ report, curriculumId, packageId }:
         )}
 
         {skippedLearning && (
-          <div className="flex items-start gap-1.5 mt-1.5 p-1.5 rounded bg-warning/10 border border-warning/20">
+          <div className="flex items-start gap-1.5 mt-1.5 p-1.5 rounded bg-warning-bg-subtle border border-warning/20">
             <Info className="h-3 w-3 text-warning shrink-0 mt-0.5" />
             <p className="text-[10px] text-warning leading-tight">
               Learning-Gates übersprungen (Track: Exam-First). Score bildet nur Prüfungspool ab. Für Veröffentlichung als Vollkurs wird AUSBILDUNG_VOLL benötigt.

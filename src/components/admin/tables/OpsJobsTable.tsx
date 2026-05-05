@@ -32,7 +32,7 @@ export function OpsJobsTable({ items }: { items: OpsJobItem[] }) {
                   <span
                     className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                       item.status === "failed"
-                        ? "bg-destructive/15 text-destructive"
+                        ? "bg-destructive-bg-subtle text-destructive"
                         : item.status === "processing"
                         ? "bg-blue-500/15 text-blue-400"
                         : item.status === "completed"

@@ -168,7 +168,7 @@ export function QuestionCard({
               "mt-4 p-4 rounded-lg border",
               isCorrect 
                 ? "bg-primary/5 border-primary/20" 
-                : "bg-destructive/5 border-destructive/20"
+                : "bg-destructive-bg-subtle border-destructive/20"
             )}>
               <h4 className={cn(
                 "font-medium mb-2",

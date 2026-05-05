@@ -12,9 +12,9 @@ const PAIN_POINTS = [
 
 export function ProductPainSection({ cleanTitle }: Props) {
   return (
-    <section className="py-12 md:py-16 bg-destructive/5 rounded-3xl mx-2 sm:mx-0">
+    <section className="py-12 md:py-16 bg-destructive-bg-subtle rounded-3xl mx-2 sm:mx-0">
       <div className="max-w-3xl mx-auto px-4 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-destructive/10 text-destructive mb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-destructive-bg-subtle text-destructive mb-6">
           <AlertTriangle className="h-4 w-4" />
           <span className="text-sm font-medium">Die Realität</span>
         </div>

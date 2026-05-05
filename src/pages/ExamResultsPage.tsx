@@ -222,7 +222,7 @@ export default function ExamResultsPage() {
   };
 
   const priorityStyles: Record<string, { icon: any; badgeClass: string }> = {
-    critical: { icon: AlertTriangle, badgeClass: 'bg-destructive/10 text-destructive border-destructive/20' },
+    critical: { icon: AlertTriangle, badgeClass: 'bg-destructive-bg-subtle text-destructive border-destructive/20' },
     recommended: { icon: Brain, badgeClass: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
     next_step: { icon: TrendingUp, badgeClass: 'bg-primary/10 text-primary border-primary/20' },
   };
@@ -269,7 +269,7 @@ export default function ExamResultsPage() {
         <CardContent className="pt-8 pb-6">
           <div className={cn(
             "w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-4",
-            passed ? "bg-primary/20" : "bg-destructive/20"
+            passed ? "bg-primary/20" : "bg-destructive-bg-subtle"
           )}>
             {passed ? (
               <Trophy className="h-10 w-10 text-primary" />
@@ -377,7 +377,7 @@ export default function ExamResultsPage() {
                 </h4>
                 <div className="space-y-2">
                   {diagnostic.session_weakest_skills.slice(0, 4).map((skill) => (
-                    <div key={skill.skill_node_id} className="flex items-center gap-3 p-2.5 rounded-lg bg-destructive/5 border border-destructive/15">
+                    <div key={skill.skill_node_id} className="flex items-center gap-3 p-2.5 rounded-lg bg-destructive-bg-subtle border border-destructive/15">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{skill.kompetenz}</p>
                         <p className="text-xs text-muted-foreground">
@@ -649,7 +649,7 @@ export default function ExamResultsPage() {
           <CardContent>
             <div className="space-y-4">
               {(showAllQuestions ? incorrectQuestions : incorrectQuestions.slice(0, 3)).map((q) => (
-                <div key={q.id} className="p-4 rounded-xl bg-destructive/5 border border-destructive/20">
+                <div key={q.id} className="p-4 rounded-xl bg-destructive-bg-subtle border border-destructive/20">
                   <div className="flex items-start justify-between gap-4 mb-2">
                     <span className="text-sm font-medium">Frage {q.order_index + 1}</span>
                     <Badge variant="outline" className="text-xs">

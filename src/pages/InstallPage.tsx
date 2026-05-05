@@ -89,7 +89,7 @@ export default function InstallPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <CardHeader>
-            <div className="mx-auto w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mb-4">
+            <div className="mx-auto w-16 h-16 bg-success-bg-subtle rounded-full flex items-center justify-center mb-4">
               <CheckCircle className="h-8 w-8 text-success" />
             </div>
             <CardTitle>ExamFit ist installiert!</CardTitle>

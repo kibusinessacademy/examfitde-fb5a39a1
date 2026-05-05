@@ -54,7 +54,7 @@ export function PaywallContent({
   return (
     <div className="flex flex-col">
       {/* Hero header */}
-      <div className={`px-6 pt-6 pb-4 ${isUrgency ? 'bg-destructive/5' : 'bg-primary/5'}`}>
+      <div className={`px-6 pt-6 pb-4 ${isUrgency ? 'bg-destructive-bg-subtle' : 'bg-primary/5'}`}>
         <div className="flex items-center gap-2 mb-3">
           {isUrgency ? (
             <Badge variant="destructive" className="gap-1">

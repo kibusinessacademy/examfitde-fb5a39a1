@@ -84,7 +84,7 @@ export function ImportMergeUndoWizard({ refreshTick }: { refreshTick?: number })
                 key={r.id}
                 className={`flex flex-wrap items-center gap-2 rounded-md border px-2 py-1.5 text-xs ${
                   r.precheckBypassed
-                    ? "border-destructive/40 bg-destructive/5"
+                    ? "border-destructive/40 bg-destructive-bg-subtle"
                     : r.discarded && !r.applied
                     ? "border-amber-500/30 bg-amber-500/5"
                     : "border-border bg-muted/10"
@@ -162,7 +162,7 @@ function Step({ ok, fail, label }: { ok?: boolean; fail?: boolean; label: string
         ok
           ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
           : fail
-          ? "bg-destructive/15 text-destructive"
+          ? "bg-destructive-bg-subtle text-destructive"
           : "bg-muted text-muted-foreground"
       }`}
     >
@@ -175,7 +175,7 @@ function Step({ ok, fail, label }: { ok?: boolean; fail?: boolean; label: string
 function ScenarioBadge({ label, count, tone = "default" }: { label: string; count: number; tone?: "default" | "warn" }) {
   const cls =
     tone === "warn" && count > 0
-      ? "bg-destructive/10 text-destructive"
+      ? "bg-destructive-bg-subtle text-destructive"
       : count > 0
       ? "bg-emerald-500/10"
       : "bg-muted/30";

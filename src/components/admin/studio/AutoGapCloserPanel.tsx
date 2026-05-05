@@ -113,7 +113,7 @@ export default function AutoGapCloserPanel({
   const ReasonIcon = reasonMeta?.icon ?? AlertTriangle;
 
   return (
-    <Card className="border-warning/30 bg-warning/5">
+    <Card className="border-warning/30 bg-warning-bg-subtle">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center justify-between">
           <span className="flex items-center gap-2"><Wrench className="h-4 w-4 text-warning" /> Auto-Gap-Closer</span>
@@ -129,7 +129,7 @@ export default function AutoGapCloserPanel({
             { label: 'Tutor', gap: deficits.tutor, icon: Bot },
           ].map(d => (
             <div key={d.label} className={cn("rounded-lg border px-3 py-2 text-center",
-              d.gap === 0 ? "border-success/30 bg-success/5" : "border-warning/30 bg-warning/5")}>
+              d.gap === 0 ? "border-success/30 bg-success-bg-subtle" : "border-warning/30 bg-warning-bg-subtle")}>
               <d.icon className={cn("h-3.5 w-3.5 mx-auto mb-1", d.gap === 0 ? "text-success" : "text-warning")} />
               <p className="text-xs font-medium">{d.label}</p>
               <p className={cn("text-sm font-bold", d.gap === 0 ? "text-success" : "text-warning")}>{d.gap === 0 ? '✓' : `-${d.gap}`}</p>
@@ -154,7 +154,7 @@ export default function AutoGapCloserPanel({
 
         {/* ── Last failed/frozen run diagnostics ── */}
         {!autofixRun && lastFailedRun && (
-          <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 space-y-2">
+          <div className="bg-destructive-bg-subtle border border-destructive/20 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className={cn("text-xs font-medium flex items-center gap-1.5", reasonMeta?.color ?? "text-destructive")}>
                 <ReasonIcon className="h-3 w-3" />
@@ -214,7 +214,7 @@ export default function AutoGapCloserPanel({
 
         {/* Baseline rejection warning from dry-run */}
         {dryRunResult?.status === 'insufficient_baseline' && (
-          <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-3 space-y-1">
+          <div className="bg-destructive-bg-subtle border border-destructive/20 rounded-lg p-3 space-y-1">
             <p className="text-xs font-medium text-destructive flex items-center gap-1.5">
               <XCircle className="h-3.5 w-3.5" /> Autofix nicht möglich
             </p>

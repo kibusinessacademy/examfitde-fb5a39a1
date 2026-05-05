@@ -11,8 +11,8 @@ interface Props {
 }
 
 const RISK_COLORS: Record<string, string> = {
-  high: 'bg-destructive/10 text-destructive border-destructive/20',
-  medium: 'bg-warning/10 text-warning-foreground border-warning/20',
+  high: 'bg-destructive-bg-subtle text-destructive border-destructive/20',
+  medium: 'bg-warning-bg-subtle text-warning-foreground border-warning/20',
   low: 'bg-accent/10 text-accent-foreground border-accent/20',
   not_started: 'bg-muted text-muted-foreground border-border',
 };

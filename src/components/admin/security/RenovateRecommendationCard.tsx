@@ -140,7 +140,7 @@ export function RenovateRecommendationCard() {
                     </Button>
                   </div>
                   <div className="grid grid-cols-1 gap-1 font-mono md:grid-cols-2">
-                    <div className="rounded bg-destructive/10 p-1.5 text-destructive">- {patch.before}</div>
+                    <div className="rounded bg-destructive-bg-subtle p-1.5 text-destructive">- {patch.before}</div>
                     <div className="rounded bg-emerald-500/10 p-1.5 text-emerald-700 dark:text-emerald-400">
                       + {patch.after}
                     </div>
