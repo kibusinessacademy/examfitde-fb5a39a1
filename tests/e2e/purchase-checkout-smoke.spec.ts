@@ -17,7 +17,12 @@ test.describe("Purchase checkout smoke (sellable course)", () => {
   test("first sellable course → product page renders + checkout URL returned", async ({ page }) => {
     const { courses } = await e2eHelper<{ ok: boolean; courses: any[] }>({ op: "sellable_courses" });
     test.skip(!courses?.length, "no sellable course available");
-    const target = courses[0];
+    // Skip archived slugs (brittle: first sellable course was an archived clone).
+    const target =
+      courses.find((c) => {
+        const s = String(c.product_slug || c.slug || "");
+        return s && !/__archived/i.test(s);
+      }) ?? courses[0];
     const slug: string | undefined = target.product_slug || target.slug;
 
     if (slug) {
