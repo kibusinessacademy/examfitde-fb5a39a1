@@ -201,6 +201,9 @@ export default function PublishBlockerCockpitPage() {
         </CardContent>
       </Card>
 
+      {/* ── L2 Enforce Promotion Metric ── */}
+      <L2EnforceReadinessCard />
+
       {/* ── Pipeline readiness (Phase 1: warn-only) ── */}
       <PipelineReadinessCard />
 
