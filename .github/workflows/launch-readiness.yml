@@ -1,0 +1,34 @@
+name: launch-readiness
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/guards/seo-sellable-pages-guard.mjs'
+      - 'scripts/guards/empty-courses-cleanup-runner.mjs'
+      - 'tests/e2e/purchase-grant-access.spec.ts'
+      - '.github/workflows/launch-readiness.yml'
+      - 'supabase/migrations/**'
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  seo-sellable-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: node scripts/guards/seo-sellable-pages-guard.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seo-sellable-pages
+          path: seo-sellable-pages.json
+          retention-days: 14
