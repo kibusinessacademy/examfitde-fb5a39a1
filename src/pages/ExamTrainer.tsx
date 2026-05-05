@@ -270,8 +270,8 @@ export default function ExamTrainer() {
                   </div>
                 )}
                 <Badge variant="outline" className={cn(
-                  adaptiveDifficulty === 'easy' && "text-success border-success/30 bg-success-bg-subtle",
-                  adaptiveDifficulty === 'medium' && "text-warning border-warning/30 bg-warning-bg-subtle",
+                  adaptiveDifficulty === 'easy' && "text-success border-success-border bg-success-bg-subtle",
+                  adaptiveDifficulty === 'medium' && "text-warning border-warning-border bg-warning-bg-subtle",
                   adaptiveDifficulty === 'hard' && "text-danger border-danger/30 bg-danger-bg-subtle",
                 )}>
                   {adaptiveDifficulty === 'easy' ? 'Leicht' : adaptiveDifficulty === 'medium' ? 'Mittel' : 'Schwer'}
