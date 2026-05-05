@@ -112419,15 +112419,10 @@ export type Database = {
         Args: { p_curriculum_id: string; p_user_id: string }
         Returns: Json
       }
-      fn_step_already_terminal:
-        | {
-            Args: { p_job_type: string; p_package_id: string }
-            Returns: boolean
-          }
-        | {
-            Args: { p_job_type: string; p_package_id: string; p_payload?: Json }
-            Returns: boolean
-          }
+      fn_step_already_terminal: {
+        Args: { p_job_type: string; p_package_id: string; p_payload?: Json }
+        Returns: boolean
+      }
       fn_submit_shuttle_answer: {
         Args: {
           p_question_id: string
