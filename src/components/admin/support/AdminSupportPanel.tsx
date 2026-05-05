@@ -357,7 +357,7 @@ export default function AdminSupportPanel() {
     <div className="space-y-6">
       {/* KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className={cn('border-warning/30 bg-warning/5', openCount === 0 && 'border-border bg-card')}>
+        <Card className={cn('border-warning-border bg-warning-bg-subtle', openCount === 0 && 'border-border bg-card')}>
           <CardContent className="p-4">
             <div className="text-lg font-bold text-foreground">{openCount}</div>
             <div className="text-[11px] text-muted-foreground">Offen</div>
@@ -375,7 +375,7 @@ export default function AdminSupportPanel() {
             <div className="text-[11px] text-muted-foreground">In Bearbeitung</div>
           </CardContent>
         </Card>
-        <Card className={cn('border-destructive/30 bg-destructive/5', criticalCount === 0 && 'border-border bg-card')}>
+        <Card className={cn('border-destructive-border bg-destructive-bg-subtle', criticalCount === 0 && 'border-border bg-card')}>
           <CardContent className="p-4">
             <div className="text-lg font-bold text-foreground">{criticalCount}</div>
             <div className="text-[11px] text-muted-foreground">Kritisch/Hoch</div>
