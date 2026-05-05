@@ -88,6 +88,7 @@ import { DidaktikAuditCard } from "@/components/admin/heal/cards/DidaktikAuditCa
 import { BuildIntegrityE2ECard } from "@/components/admin/heal/cards/BuildIntegrityE2ECard";
 import { LaneReasonBreakdownCard } from "@/components/admin/heal/cards/LaneReasonBreakdownCard";
 import { WorkerHeartbeatSSOTCard } from "@/components/admin/heal/cards/WorkerHeartbeatSSOTCard";
+import { SeoPublishDriftCard } from "@/components/admin/heal/cards/SeoPublishDriftCard";
 
 // Queue-Detail-Tabs (lazy — schwer)
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
