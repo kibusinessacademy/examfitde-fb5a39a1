@@ -269,7 +269,7 @@ export default function SupportPanel({ open, onOpenChange }: { open: boolean; on
 
             {/* Critical alerts */}
             {criticalTickets.length > 0 && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <div className="rounded-lg border border-destructive-border bg-destructive-bg-subtle p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <AlertTriangle className="h-4 w-4 text-destructive" />
                   <span className="text-xs font-semibold text-foreground">{criticalTickets.length} kritische/hohe Tickets</span>
