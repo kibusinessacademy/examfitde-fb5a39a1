@@ -82,7 +82,7 @@ export default function ProductPersonaPage() {
         ogDescription: overlay.seoDescription || product.seo.ogDescription,
       },
     };
-  }, [product, overlay]);
+  }, [product, overlay, ctaVariantLabel]);
 
   // Override personaContext SEO methods if overlay provides them
   const effectivePersonaContext: ProductPersonaContext = useMemo(() => {
