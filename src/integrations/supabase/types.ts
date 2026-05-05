@@ -71035,6 +71035,24 @@ export type Database = {
         }
         Relationships: []
       }
+      zombie_log_throttle: {
+        Row: {
+          last_logged_at: string
+          package_id: string
+          zombie_class: string
+        }
+        Insert: {
+          last_logged_at?: string
+          package_id: string
+          zombie_class: string
+        }
+        Update: {
+          last_logged_at?: string
+          package_id?: string
+          zombie_class?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       admin_elite_matrix_curriculum_v: {
@@ -112720,6 +112738,10 @@ export type Database = {
       }
       fn_should_log_enqueue_source_missing: {
         Args: { p_caller?: string; p_job_type: string; p_sample_rate?: number }
+        Returns: boolean
+      }
+      fn_should_log_zombie: {
+        Args: { p_package_id: string; p_zombie_class: string }
         Returns: boolean
       }
       fn_shuffle_exam_answer_positions: {
