@@ -28,7 +28,7 @@ async function rpc(name: string, body: Record<string, unknown> = {}, key = SERVI
 }
 
 test.describe("Purchase checkout smoke (sellable course)", () => {
-  test.skip(!URL_BASE || !ANON, "Supabase env required");
+  test.skip(!URL_BASE || !SERVICE, "Supabase env (URL + service key alias) required");
 
   test("first sellable course → product page renders + checkout URL returned", async ({ page }) => {
     const sellable = await rpc("public_sellable_courses");
