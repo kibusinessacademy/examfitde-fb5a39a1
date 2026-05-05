@@ -1,0 +1,33 @@
+name: course-publish-guard
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/guards/course-publish-guard-test.mjs'
+      - '.github/workflows/course-publish-guard.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/guards/course-publish-guard-test.mjs'
+      - '.github/workflows/course-publish-guard.yml'
+  schedule:
+    - cron: '37 4 * * *'  # nightly 04:37 UTC
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Run publish-guard CI test
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/guards/course-publish-guard-test.mjs
