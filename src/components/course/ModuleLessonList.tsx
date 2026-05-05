@@ -391,11 +391,6 @@ export function ModuleLessonList({
                 )}
               </CardContent>
             )}
-                    );
-                  })}
-                </div>
-              </CardContent>
-            )}
           </Card>
         );
       })}
