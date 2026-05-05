@@ -191,7 +191,7 @@ export default function CourseDetailPage() {
       const { data: enrollmentData } = await supabase
         .from("course_enrollments")
         .select("*")
-        .eq("course_id", courseData.id)
+        .eq("course_id", (courseData as any).id)
         .eq("user_id", user.id)
         .single();
 
