@@ -49,7 +49,11 @@ export default function ProductPersonaPage() {
   // ────────────────────────────────────────────────────────────────────────
   const mergedProduct: ProductPageSSOT | null = useMemo(() => {
     if (!product) return null;
-    if (!overlay) return product;
+    if (!overlay) {
+      // No persona overlay → still apply A/B CTA variant if assigned
+      if (!ctaVariantLabel) return product;
+      return { ...product, ctas: { ...product.ctas, primaryLabel: ctaVariantLabel } };
+    }
 
     return {
       ...product,
