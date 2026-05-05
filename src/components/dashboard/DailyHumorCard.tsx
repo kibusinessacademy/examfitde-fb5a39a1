@@ -189,7 +189,7 @@ export function DailyHumorCard({ certificationId, curriculumId }: DailyHumorCard
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={cn("h-7 px-2", vote === -1 && "text-destructive bg-destructive/10")}
+                  className={cn("h-7 px-2", vote === -1 && "text-destructive bg-destructive-bg-subtle")}
                   onClick={() => handleVote(-1)}
                   disabled={voteSaving}
                 >

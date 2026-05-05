@@ -2,21 +2,21 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'border-success/30 bg-success/10 text-success',
-  suspended: 'border-warning/30 bg-warning/10 text-warning',
-  deactivated: 'border-destructive/30 bg-destructive/10 text-destructive',
+  active: 'border-success-border bg-success-bg-subtle text-success',
+  suspended: 'border-warning-border bg-warning-bg-subtle text-warning',
+  deactivated: 'border-destructive-border bg-destructive-bg-subtle text-destructive',
   expired: 'border-muted-foreground/30 bg-muted text-muted-foreground',
-  cancelled: 'border-destructive/30 bg-destructive/10 text-destructive',
+  cancelled: 'border-destructive-border bg-destructive-bg-subtle text-destructive',
   trial: 'border-primary/30 bg-primary/10 text-primary',
   pilot: 'border-primary/30 bg-primary/10 text-primary',
-  revoked: 'border-destructive/30 bg-destructive/10 text-destructive',
+  revoked: 'border-destructive-border bg-destructive-bg-subtle text-destructive',
 };
 
 const ROLE_STYLES: Record<string, string> = {
   owner: 'border-primary/30 bg-primary/10 text-primary',
-  admin: 'border-warning/30 bg-warning/10 text-warning',
-  manager: 'border-success/30 bg-success/10 text-success',
-  trainer: 'border-success/30 bg-success/10 text-success',
+  admin: 'border-warning-border bg-warning-bg-subtle text-warning',
+  manager: 'border-success-border bg-success-bg-subtle text-success',
+  trainer: 'border-success-border bg-success-bg-subtle text-success',
   learner: 'border-border bg-muted text-muted-foreground',
 };
 

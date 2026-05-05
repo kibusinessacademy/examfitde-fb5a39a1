@@ -64,7 +64,7 @@ export default function LessonNavigation({
             Als abgeschlossen markieren
           </Button>
         ) : (
-          <Badge className="bg-success/20 text-success border-0 py-2 px-4">
+          <Badge className="bg-success-bg-subtle text-success border-0 py-2 px-4">
             <CheckCircle className="h-4 w-4 mr-2" />
             Abgeschlossen
           </Badge>

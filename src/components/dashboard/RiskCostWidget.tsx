@@ -28,7 +28,7 @@ export function RiskCostWidget({ curriculumId }: RiskCostWidgetProps) {
         <div className="flex items-start gap-4">
           <div className={cn(
             'p-2.5 rounded-xl flex-shrink-0',
-            isHighRisk ? 'bg-destructive/10' : 'bg-warning/10'
+            isHighRisk ? 'bg-destructive-bg-subtle' : 'bg-warning-bg-subtle'
           )}>
             <AlertTriangle className={cn('h-5 w-5', isHighRisk ? 'text-destructive' : 'text-warning')} />
           </div>

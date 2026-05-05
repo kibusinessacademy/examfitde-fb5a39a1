@@ -169,7 +169,7 @@ export function ExamReadinessGauge({ curriculumId }: ExamReadinessGaugeProps) {
                 <Lock className="h-4 w-4" />
                 Simulation gesperrt
               </Button>
-              <div className="p-3 rounded-xl border border-destructive/30 bg-destructive/5 text-sm text-muted-foreground">
+              <div className="p-3 rounded-xl border border-destructive-border bg-destructive-bg-subtle text-sm text-muted-foreground">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
                   <div>
