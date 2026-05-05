@@ -158,9 +158,12 @@ export function ModuleLessonList({
   if (modules.length === 0) {
     return (
       <Card className="glass-card">
-        <CardContent className="p-8 text-center">
-          <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Dieser Kurs hat noch keine Module.</p>
+        <CardContent className="p-8 text-center" role="status">
+          <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
+          <h3 className="text-lg font-semibold mb-2">Noch keine Module verfügbar</h3>
+          <p className="text-muted-foreground">
+            Die Lerninhalte für diesen Kurs werden gerade vorbereitet. Schau bald wieder vorbei.
+          </p>
         </CardContent>
       </Card>
     );
