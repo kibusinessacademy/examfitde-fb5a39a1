@@ -111700,6 +111700,10 @@ export type Database = {
         Args: { p_order_id: string }
         Returns: Json
       }
+      admin_smoke_reset_password: {
+        Args: { p_email: string; p_new_password?: string }
+        Returns: Json
+      }
       admin_soft_reset_package: {
         Args: {
           p_package_id: string
