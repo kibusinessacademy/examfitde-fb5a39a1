@@ -104,18 +104,31 @@ export function useTrainerBerufe() {
         if (c.beruf_id) curMap.set(c.beruf_id, { id: c.id, title: c.title });
       }
 
-      // Map and filter
+      // Enrich with approved question counts (filters out empty curricula)
+      const curriculumIds = Array.from(curMap.values()).map((c) => c.id);
+      const countMap = new Map<string, number>();
+      if (curriculumIds.length > 0) {
+        const { data: counts } = await supabase
+          .rpc('get_approved_question_counts' as any, { p_curriculum_ids: curriculumIds });
+        for (const row of (counts as any[] | null) || []) {
+          countMap.set(row.curriculum_id, Number(row.cnt) || 0);
+        }
+      }
+
+      // Map and filter — skip berufe without curriculum OR without questions
       const berufe: TrainerBeruf[] = [];
       for (const b of data || []) {
         const cur = curMap.get(b.id);
-        if (!cur) continue; // Skip berufe without frozen curriculum
+        if (!cur) continue;
+        const qCount = countMap.get(cur.id) ?? 0;
+        if (qCount < 5) continue; // Hide empty/thin curricula from picker
         berufe.push({
           id: b.id,
           bezeichnung_kurz: b.bezeichnung_kurz,
           zustaendigkeit: b.zustaendigkeit || '',
           curriculum_id: cur.id,
           curriculum_title: cur.title,
-          question_count: 0, // Will be enriched below
+          question_count: qCount,
           category: classifyBeruf(b.bezeichnung_kurz, b.zustaendigkeit || ''),
         });
       }
