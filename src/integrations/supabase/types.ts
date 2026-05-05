@@ -111922,6 +111922,7 @@ export type Database = {
           reason: string
         }[]
       }
+      fn_ensure_daily_humor_pick: { Args: { p_day?: string }; Returns: string }
       fn_exam_pool_fallback_progress:
         | { Args: { p_package_id: string }; Returns: Json }
         | { Args: { p_failed?: boolean; p_package_id: string }; Returns: Json }
