@@ -32,10 +32,10 @@ interface SupportTicket {
 }
 
 const priorityTone: Record<string, string> = {
-  critical: 'border-destructive/40 text-destructive bg-destructive/5',
-  high: 'border-destructive/40 text-destructive bg-destructive/5',
-  medium: 'border-warning/40 text-warning bg-warning/5',
-  low: 'border-border text-muted-foreground',
+  critical: 'border-destructive-border text-destructive bg-destructive-bg-subtle',
+  high: 'border-destructive-border text-destructive bg-destructive-bg-subtle',
+  medium: 'border-warning-border text-warning bg-warning-bg-subtle',
+  low: 'border-border text-text-tertiary',
 };
 
 const statusLabels: Record<string, string> = {
@@ -48,10 +48,10 @@ const statusLabels: Record<string, string> = {
 
 const statusTone: Record<string, string> = {
   open: 'border-primary/40 text-primary bg-primary/5',
-  in_progress: 'border-warning/40 text-warning bg-warning/5',
-  waiting: 'border-muted-foreground/40 text-muted-foreground bg-muted/30',
-  resolved: 'border-success/40 text-success bg-success/5',
-  closed: 'border-border text-muted-foreground',
+  in_progress: 'border-warning-border text-warning bg-warning-bg-subtle',
+  waiting: 'border-border-subtle text-text-tertiary bg-surface-sunken',
+  resolved: 'border-success-border text-success bg-success-bg-subtle',
+  closed: 'border-border text-text-tertiary',
 };
 
 /* ── Hooks ── */
