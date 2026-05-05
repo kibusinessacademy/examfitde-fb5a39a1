@@ -22,4 +22,4 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node scripts/guards/auto-heal-log-canonical-schema-guard.mjs
+        run: node scripts/guards/auto-heal-log-canonical-schema-guard.mjs --annotate
