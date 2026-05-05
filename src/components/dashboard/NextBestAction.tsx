@@ -53,7 +53,7 @@ export function NextBestAction({ curriculumId }: NextBestActionProps) {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className={cn('p-3 rounded-xl bg-gradient-to-br text-white flex-shrink-0', config.accent)}>
+              <div className={cn('p-3 rounded-xl bg-gradient-to-br text-text-on-gradient flex-shrink-0', config.accent)}>
                 <Icon className="h-6 w-6" />
               </div>
               <div className="flex-1 min-w-0">

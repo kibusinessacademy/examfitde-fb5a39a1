@@ -372,8 +372,8 @@ export default function DiagnosticTest() {
                   <div className="flex items-center gap-3">
                     <div className={cn(
                       "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
-                      showResult && isCorrect ? "bg-green-500 text-white" :
-                      showResult && isSelected && !isCorrect ? "bg-red-500 text-white" :
+                      showResult && isCorrect ? "bg-success text-success-foreground" :
+                      showResult && isSelected && !isCorrect ? "bg-destructive text-destructive-foreground" :
                       "bg-muted"
                     )}>
                       {showResult ? (

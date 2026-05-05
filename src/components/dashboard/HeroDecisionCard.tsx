@@ -136,7 +136,7 @@ export function HeroDecisionCard({ curriculumId }: HeroDecisionCardProps) {
                 size="lg"
                 className={cn(
                   'w-full sm:w-auto font-bold text-base h-12 px-8 shadow-lg',
-                  'bg-gradient-to-r text-white',
+                  'bg-gradient-to-r text-text-on-gradient',
                   config.accent
                 )}
               >

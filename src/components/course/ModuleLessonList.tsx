@@ -257,7 +257,7 @@ export function ModuleLessonList({
                   <div className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center font-bold transition-colors",
                     showOnlyReview && moduleReviewCount > 0
-                      ? "bg-orange-500 text-white"
+                      ? "bg-warning text-warning-foreground"
                       : "gradient-primary text-primary-foreground"
                   )} aria-hidden="true">
                     {index + 1}
@@ -358,7 +358,7 @@ export function ModuleLessonList({
                               <div className="flex flex-wrap items-center gap-2 mt-1">
                                 <Badge
                                   variant="secondary"
-                                  className={`text-xs ${STEP_COLORS[lesson.step] || ""} text-white`}
+                                  className={`text-xs ${STEP_COLORS[lesson.step] || ""} text-text-on-gradient`}
                                 >
                                   {stepLabel}
                                 </Badge>
