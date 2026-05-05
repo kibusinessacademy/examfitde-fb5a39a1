@@ -200,6 +200,9 @@ export default function PublishBlockerCockpitPage() {
         </CardContent>
       </Card>
 
+      {/* ── Pipeline readiness (Phase 1: warn-only) ── */}
+      <PipelineReadinessCard />
+
       {/* ── Blocked publish attempts ── */}
       <Card>
         <CardHeader>
