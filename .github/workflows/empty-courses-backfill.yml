@@ -1,0 +1,39 @@
+name: empty-courses-backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max courses to backfill (0 = all)"
+        required: false
+        default: "0"
+      dry_run:
+        description: "Dry run (list only, no RPC calls)"
+        required: false
+        default: "false"
+
+permissions: read-all
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      BACKFILL_LIMIT: ${{ inputs.limit }}
+      BACKFILL_DRY_RUN: ${{ inputs.dry_run == 'true' && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Run skeleton backfill
+        run: node scripts/guards/empty-courses-backfill-run.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: empty-courses-backfill
+          path: |
+            empty-courses-backfill.json
+            empty-courses-backfill.md
+          retention-days: 30
