@@ -110965,6 +110965,7 @@ export type Database = {
         Returns: Json
       }
       admin_heal_control_lane_drift: { Args: never; Returns: Json }
+      admin_heal_course_lessons: { Args: { _course_id: string }; Returns: Json }
       admin_heal_exam_pool_too_small: {
         Args: {
           p_dry_run?: boolean
@@ -111172,6 +111173,27 @@ export type Database = {
         Returns: {
           grantee: string
           proname: string
+        }[]
+      }
+      admin_list_softlaunch_candidates: {
+        Args: { _limit?: number; _min_lessons_ready?: number }
+        Returns: {
+          course_id: string
+          course_title: string
+          curriculum_id: string
+          has_active_jobs: boolean
+          is_currently_sellable: boolean
+          is_promotable: boolean
+          lessons: number
+          lessons_failed: number
+          lessons_pending: number
+          lessons_ready: number
+          modules: number
+          package_id: string
+          package_status: string
+          product_id: string
+          product_slug: string
+          visibility: string
         }[]
       }
       admin_log_force_run: {
@@ -111647,6 +111669,10 @@ export type Database = {
           package_status: string
           package_title: string
         }[]
+      }
+      admin_set_product_visibility: {
+        Args: { _product_id: string; _reason?: string; _visibility: string }
+        Returns: Json
       }
       admin_set_setting: {
         Args: { p_key: string; p_value: Json }
