@@ -32,6 +32,7 @@ import { Link } from "react-router-dom";
 type NextBestAction = {
   pattern_key: string;
   cluster: string;
+  target_id: string;
   package_id: string | null;
   package_title: string | null;
   package_status: string | null;
