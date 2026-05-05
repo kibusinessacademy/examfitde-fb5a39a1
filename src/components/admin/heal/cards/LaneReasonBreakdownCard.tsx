@@ -68,9 +68,19 @@ export function LaneReasonBreakdownCard() {
                         {row.pending_total} pending
                       </Badge>
                     </div>
-                    <span className="text-muted-foreground italic text-[11px]">
-                      {row.reason_summary}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground italic text-[11px]">
+                        {row.reason_summary}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => setDrillLane(row.lane)}
+                      >
+                        <Search className="h-3 w-3 mr-1" /> Drilldown
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-5 gap-2">
                     <ReasonMetric
