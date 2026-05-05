@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'border-success/30 bg-success/10 text-success',
+  active: 'border-success/30 bg-success-bg-subtle text-success',
   suspended: 'border-warning/30 bg-warning/10 text-warning',
   deactivated: 'border-destructive/30 bg-destructive/10 text-destructive',
   expired: 'border-muted-foreground/30 bg-muted text-muted-foreground',
@@ -15,8 +15,8 @@ const STATUS_STYLES: Record<string, string> = {
 const ROLE_STYLES: Record<string, string> = {
   owner: 'border-primary/30 bg-primary/10 text-primary',
   admin: 'border-warning/30 bg-warning/10 text-warning',
-  manager: 'border-success/30 bg-success/10 text-success',
-  trainer: 'border-success/30 bg-success/10 text-success',
+  manager: 'border-success/30 bg-success-bg-subtle text-success',
+  trainer: 'border-success/30 bg-success-bg-subtle text-success',
   learner: 'border-border bg-muted text-muted-foreground',
 };
 
