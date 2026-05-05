@@ -112350,6 +112350,7 @@ export type Database = {
         Args: { p_curriculum_id: string }
         Returns: Json
       }
+      fn_pipeline_loop_verification_run: { Args: never; Returns: Json }
       fn_platform_auto_heal: { Args: { p_dry_run?: boolean }; Returns: Json }
       fn_populate_fi_lf_equivalence: { Args: never; Returns: Json }
       fn_prebuild_auto_seed_exam_blueprints: {
