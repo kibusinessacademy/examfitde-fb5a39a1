@@ -25,6 +25,8 @@ const RefreshQueueManager = lazy(() => import('@/components/admin/growth/Refresh
 const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditManager'));
 const LlmVisibilityCard = lazy(() => import('@/features/admin/components/LlmVisibilityCard').then(m => ({ default: m.LlmVisibilityCard })));
 const SeoDeadEndDriftCard = lazy(() => import('@/features/admin/components/SeoDeadEndDriftCard').then(m => ({ default: m.SeoDeadEndDriftCard })));
+const SeoCanonicalParityCard = lazy(() => import('@/components/admin/growth/SeoCanonicalParityCard'));
+const FunnelDropoffHeatmapCard = lazy(() => import('@/components/admin/growth/FunnelDropoffHeatmapCard'));
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
 const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
