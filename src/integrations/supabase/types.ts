@@ -113240,6 +113240,14 @@ export type Database = {
           test_name: string
         }[]
       }
+      fn_test_status_revert_guards: {
+        Args: never
+        Returns: {
+          detail: string
+          passed: boolean
+          test_name: string
+        }[]
+      }
       fn_track_min_coverage_thresholds: {
         Args: { p_track: string }
         Returns: {

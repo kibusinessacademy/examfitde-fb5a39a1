@@ -431,9 +431,25 @@ Deno.serve(async (req) => {
         // is the SSOT helper that prevents the cancel-storm loop.
         const safeIds: string[] = [];
         for (const id of revertableIds) {
-          const { data: prot } = await sb.rpc("fn_package_demote_protected", { p_package_id: id });
-          if (prot && (prot as { protected?: boolean }).protected) {
-            console.log(`[watchdog] PROTECTED skip zombie revert ${id.slice(0, 8)}: ${(prot as { reason?: string }).reason}`);
+          // Canonical pre-check (replaces direct fn_package_demote_protected call below)
+          // Canonical pre-check via fn_can_demote_package_status (same source as RPC)
+          const { data: dec } = await sb.rpc("fn_can_demote_package_status" as never, {
+            p_package_id: id,
+            p_target_status: "queued",
+            p_source: "pipeline_watchdog_zombie_revert",
+          } as never);
+          const decRec = dec as { allowed?: boolean; reason?: string; protection?: unknown } | null;
+          if (!decRec?.allowed) {
+            console.log(`[watchdog] PRECHECK skip zombie revert ${id.slice(0, 8)}: ${decRec?.reason}`);
+            await sb.from("auto_heal_log").insert({
+              action_type: "producer_precheck_skip",
+              target_type: "package",
+              target_id: id,
+              trigger_source: "pipeline_watchdog_zombie_revert",
+              result_status: "skipped",
+              result_detail: `Pre-check disallowed demote to queued: ${decRec?.reason ?? 'unknown'}`,
+              metadata: { decision: decRec, target_status: "queued" },
+            });
             continue;
           }
           safeIds.push(id);
