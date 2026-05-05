@@ -412,6 +412,66 @@ export default function PipelineReadinessCard() {
                               </Table>
                             </div>
                           )}
+
+                          <div className="mt-4">
+                            <div className="text-xs uppercase tracking-wider text-text-tertiary mb-2">
+                              MiniCheck-Jobs
+                            </div>
+                            {minicheckJobs.isLoading ? (
+                              <div className="flex items-center gap-2 text-text-secondary">
+                                <Loader2 className="h-4 w-4 animate-spin" /> lade …
+                              </div>
+                            ) : (minicheckJobs.data ?? []).length === 0 ? (
+                              <div className="text-sm text-text-secondary">Keine MiniCheck-Jobs für diesen Kurs.</div>
+                            ) : (
+                              <div className="max-h-[40vh] overflow-auto">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Type</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead className="text-right">Att</TableHead>
+                                      <TableHead>Last Error</TableHead>
+                                      <TableHead className="text-right">Aktion</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {(minicheckJobs.data ?? []).map((j) => (
+                                      <TableRow key={j.job_id}>
+                                        <TableCell className="text-xs font-mono">{j.job_type}</TableCell>
+                                        <TableCell>
+                                          <Badge variant={jobStatusVariant(j.status)} className="font-mono">
+                                            {j.status}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono">{j.attempts}</TableCell>
+                                        <TableCell className="text-xs text-text-tertiary max-w-[280px] truncate">
+                                          {j.last_error ?? '—'}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          {(j.status === 'failed' || j.status === 'cancelled') && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              disabled={retryMcMut.isPending}
+                                              onClick={() => retryMcMut.mutate(j.job_id)}
+                                            >
+                                              {retryMcMut.isPending && retryMcMut.variables === j.job_id ? (
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                              ) : (
+                                                <Repeat className="h-3 w-3" />
+                                              )}
+                                              <span className="ml-1">Retry</span>
+                                            </Button>
+                                          )}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            )}
+                          </div>
                         </DialogContent>
                       </Dialog>
                     </div>
