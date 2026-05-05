@@ -43,19 +43,19 @@ type UserTicketUpdate = Database['public']['Tables']['user_tickets']['Update'];
 
 /* ── Constants ── */
 const STATUS_CONFIG: Record<TicketStatus, { label: string; icon: typeof AlertCircle; tone: string }> = {
-  OPEN: { label: 'Offen', icon: AlertCircle, tone: 'border-warning/40 text-warning bg-warning/5' },
+  OPEN: { label: 'Offen', icon: AlertCircle, tone: 'border-warning-border text-warning bg-warning-bg-subtle' },
   TRIAGE: { label: 'Triage', icon: AlertTriangle, tone: 'border-primary/40 text-primary bg-primary/5' },
   IN_PROGRESS: { label: 'In Bearbeitung', icon: Clock, tone: 'border-primary/40 text-primary bg-primary/5' },
-  RESOLVED: { label: 'Gelöst', icon: CheckCircle2, tone: 'border-success/40 text-success bg-success/5' },
-  REJECTED: { label: 'Abgelehnt', icon: XCircle, tone: 'border-destructive/40 text-destructive bg-destructive/5' },
-  DUPLICATE: { label: 'Duplikat', icon: XCircle, tone: 'border-muted-foreground/40 text-muted-foreground bg-muted/30' },
+  RESOLVED: { label: 'Gelöst', icon: CheckCircle2, tone: 'border-success-border text-success bg-success-bg-subtle' },
+  REJECTED: { label: 'Abgelehnt', icon: XCircle, tone: 'border-destructive-border text-destructive bg-destructive-bg-subtle' },
+  DUPLICATE: { label: 'Duplikat', icon: XCircle, tone: 'border-border-subtle text-text-tertiary bg-surface-sunken' },
 };
 
 const PRIORITY_TONE: Record<TicketPriority, string> = {
-  CRITICAL: 'border-destructive/40 text-destructive bg-destructive/5',
-  HIGH: 'border-destructive/30 text-destructive bg-destructive/5',
-  MEDIUM: 'border-warning/30 text-warning bg-warning/5',
-  LOW: 'border-border text-muted-foreground',
+  CRITICAL: 'border-destructive-border text-destructive bg-destructive-bg-subtle',
+  HIGH: 'border-destructive-border text-destructive bg-destructive-bg-subtle',
+  MEDIUM: 'border-warning-border text-warning bg-warning-bg-subtle',
+  LOW: 'border-border text-text-tertiary',
 };
 
 const TYPE_CONFIG: Record<TicketType, { label: string; icon: typeof Bug }> = {
@@ -357,7 +357,7 @@ export default function AdminSupportPanel() {
     <div className="space-y-6">
       {/* KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className={cn('border-warning/30 bg-warning/5', openCount === 0 && 'border-border bg-card')}>
+        <Card className={cn('border-warning-border bg-warning-bg-subtle', openCount === 0 && 'border-border bg-card')}>
           <CardContent className="p-4">
             <div className="text-lg font-bold text-foreground">{openCount}</div>
             <div className="text-[11px] text-muted-foreground">Offen</div>
@@ -375,7 +375,7 @@ export default function AdminSupportPanel() {
             <div className="text-[11px] text-muted-foreground">In Bearbeitung</div>
           </CardContent>
         </Card>
-        <Card className={cn('border-destructive/30 bg-destructive/5', criticalCount === 0 && 'border-border bg-card')}>
+        <Card className={cn('border-destructive-border bg-destructive-bg-subtle', criticalCount === 0 && 'border-border bg-card')}>
           <CardContent className="p-4">
             <div className="text-lg font-bold text-foreground">{criticalCount}</div>
             <div className="text-[11px] text-muted-foreground">Kritisch/Hoch</div>

@@ -32,10 +32,10 @@ interface SupportTicket {
 }
 
 const priorityTone: Record<string, string> = {
-  critical: 'border-destructive/40 text-destructive bg-destructive/5',
-  high: 'border-destructive/40 text-destructive bg-destructive/5',
-  medium: 'border-warning/40 text-warning bg-warning/5',
-  low: 'border-border text-muted-foreground',
+  critical: 'border-destructive-border text-destructive bg-destructive-bg-subtle',
+  high: 'border-destructive-border text-destructive bg-destructive-bg-subtle',
+  medium: 'border-warning-border text-warning bg-warning-bg-subtle',
+  low: 'border-border text-text-tertiary',
 };
 
 const statusLabels: Record<string, string> = {
@@ -48,10 +48,10 @@ const statusLabels: Record<string, string> = {
 
 const statusTone: Record<string, string> = {
   open: 'border-primary/40 text-primary bg-primary/5',
-  in_progress: 'border-warning/40 text-warning bg-warning/5',
-  waiting: 'border-muted-foreground/40 text-muted-foreground bg-muted/30',
-  resolved: 'border-success/40 text-success bg-success/5',
-  closed: 'border-border text-muted-foreground',
+  in_progress: 'border-warning-border text-warning bg-warning-bg-subtle',
+  waiting: 'border-border-subtle text-text-tertiary bg-surface-sunken',
+  resolved: 'border-success-border text-success bg-success-bg-subtle',
+  closed: 'border-border text-text-tertiary',
 };
 
 /* ── Hooks ── */
@@ -253,7 +253,7 @@ export default function SupportPanel({ open, onOpenChange }: { open: boolean; on
           <div className="space-y-5 mt-4">
             {/* KPIs */}
             <div className="grid grid-cols-3 gap-2">
-              <div className={cn("rounded-lg border p-2 text-center", openTickets.length > 0 ? "border-warning/30 bg-warning/5" : "border-border")}>
+              <div className={cn("rounded-lg border p-2 text-center", openTickets.length > 0 ? "border-warning-border bg-warning-bg-subtle" : "border-border")}>
                 <div className="text-lg font-bold text-foreground">{openTickets.length}</div>
                 <div className="text-[10px] text-muted-foreground">Offen</div>
               </div>
@@ -269,7 +269,7 @@ export default function SupportPanel({ open, onOpenChange }: { open: boolean; on
 
             {/* Critical alerts */}
             {criticalTickets.length > 0 && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <div className="rounded-lg border border-destructive-border bg-destructive-bg-subtle p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <AlertTriangle className="h-4 w-4 text-destructive" />
                   <span className="text-xs font-semibold text-foreground">{criticalTickets.length} kritische/hohe Tickets</span>
@@ -310,9 +310,9 @@ export default function SupportPanel({ open, onOpenChange }: { open: boolean; on
                 <div className="space-y-1.5 max-h-48 ">
                   {notifications.slice(0, 15).map((n: any) => {
                     const sevCls: Record<string, string> = {
-                      critical: 'border-destructive/30 bg-destructive/5',
-                      high: 'border-destructive/30 bg-destructive/5',
-                      medium: 'border-warning/30 bg-warning/5',
+                      critical: 'border-destructive-border bg-destructive-bg-subtle',
+                      high: 'border-destructive-border bg-destructive-bg-subtle',
+                      medium: 'border-warning-border bg-warning-bg-subtle',
                       low: 'border-border bg-card',
                       info: 'border-border bg-card',
                     };
