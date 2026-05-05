@@ -2,14 +2,17 @@
  * LaneReasonBreakdownCard — pro Lane: warum stehen Pending-Jobs?
  * Trennt echte Zombies, DAG-wartend, Bronze, Manual-Review, Complete.
  */
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Layers } from "lucide-react";
+import { Layers, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LaneDrilldownDialog } from "./LaneDrilldownDialog";
 
 interface Row {
   lane: string;
