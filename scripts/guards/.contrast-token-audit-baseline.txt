@@ -1,0 +1,13 @@
+src/components/course/ModuleLessonList.tsx
+src/components/dashboard/HeroDecisionCard.tsx
+src/components/dashboard/NextBestAction.tsx
+src/components/layout/SEOLayout.tsx
+src/components/ui/alert-dialog.tsx
+src/components/ui/dialog.tsx
+src/components/ui/drawer.tsx
+src/components/ui/sheet.tsx
+src/pages/CoursesPage.tsx
+src/pages/DiagnosticTest.tsx
+src/pages/ExamHeatmap.tsx
+src/pages/InstallPage.tsx
+src/pages/LearnerDashboard.tsx
