@@ -402,21 +402,21 @@ export default function CourseDetailPage() {
         </Accordion>
 
         {/* Continue Learning Card for enrolled users with progress */}
-        {isEnrolled && courseProgress && progressPercent > 0 && (
+        {hasAccess && courseProgress && progressPercent > 0 && (
           <div className="mb-8">
             <ContinueLearningCard courseId={course.id} courseTitle={course.title} progress={courseProgress} />
           </div>
         )}
 
         {/* Competency Progress Section */}
-        {isEnrolled && <div className="mb-8"><CompetencyProgressGrid competencies={competencyProgress} /></div>}
+        {hasAccess && <div className="mb-8"><CompetencyProgressGrid competencies={competencyProgress} /></div>}
 
         {/* Modules List */}
         <ModuleLessonList
           modules={modules}
           lessons={lessons}
           lessonProgress={courseProgress?.lessons}
-          isEnrolled={isEnrolled}
+          isEnrolled={hasAccess}
           defaultExpandedModuleId={modules[0]?.id}
         />
       </div>
