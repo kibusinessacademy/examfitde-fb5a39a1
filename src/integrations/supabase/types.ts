@@ -107689,9 +107689,9 @@ export type Database = {
           }
         | {
             Args: {
-              p_emergency_bypass?: boolean
+              p_emergency_bypass: boolean
               p_package_id: string
-              p_reason?: string
+              p_reason: string
               p_step_keys: string[]
             }
             Returns: Json
