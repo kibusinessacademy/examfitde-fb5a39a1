@@ -111922,6 +111922,7 @@ export type Database = {
           reason: string
         }[]
       }
+      fn_ensure_daily_humor_pick: { Args: { p_day?: string }; Returns: string }
       fn_exam_pool_fallback_progress:
         | { Args: { p_package_id: string }; Returns: Json }
         | { Args: { p_failed?: boolean; p_package_id: string }; Returns: Json }
@@ -113135,6 +113136,13 @@ export type Database = {
         }[]
       }
       get_ai_cost_summary: { Args: never; Returns: Json }
+      get_approved_question_counts: {
+        Args: { p_curriculum_ids: string[] }
+        Returns: {
+          cnt: number
+          curriculum_id: string
+        }[]
+      }
       get_artifact_threshold: {
         Args: { p_artifact: string; p_context?: Json; p_step_key: string }
         Returns: number
