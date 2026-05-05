@@ -1,0 +1,36 @@
+name: a11y-smoke-routes
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/e2e/a11y-smoke.spec.ts'
+      - '.github/workflows/a11y-smoke-routes.yml'
+  schedule:
+    - cron: '37 5 * * *'
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  a11y-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: ${{ secrets.STAGING_URL || 'https://examfitde.lovable.app' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with: { bun-version: latest }
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - name: Run axe smoke on 5 core routes
+        run: bunx playwright test tests/e2e/a11y-smoke.spec.ts --project=smoke || bunx playwright test tests/e2e/a11y-smoke.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a11y-smoke-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
