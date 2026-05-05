@@ -42,17 +42,28 @@ export function ContinueLearningCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <CourseProgressBar
-          summary={progress.summary}
-          progressPercent={progress.progress_percent}
-          showDetails={false}
-        />
+        <div
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress.progress_percent}
+          aria-label={`Kursfortschritt: ${progress.progress_percent}%`}
+        >
+          <CourseProgressBar
+            summary={progress.summary}
+            progressPercent={progress.progress_percent}
+            showDetails={false}
+          />
+        </div>
 
         {/* Lessons needing review */}
         {progress.summary.needs_review > 0 && (
-          <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/30">
+          <div
+            className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/30"
+            role="status"
+          >
             <div className="flex items-center gap-2 text-orange-500">
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
               <span className="text-sm font-medium">
                 {progress.summary.needs_review} Lektionen zur Wiederholung empfohlen
               </span>
@@ -63,21 +74,36 @@ export function ContinueLearningCard({
         {/* Next lesson / Continue button */}
         <div className="flex items-center gap-3">
           {nextLesson ? (
-            <Button asChild className="flex-1">
-              <Link to={`/lesson/${nextLesson.lesson_id}`}>
-                <PlayCircle className="h-4 w-4 mr-2" />
+            <Button asChild className="flex-1 min-h-11">
+              <Link
+                to={`/lesson/${nextLesson.lesson_id}`}
+                aria-label={
+                  hasStarted
+                    ? `Training fortsetzen mit: ${nextLesson.module_title} – ${nextLesson.lesson_title}`
+                    : `Training starten mit: ${nextLesson.module_title} – ${nextLesson.lesson_title}`
+                }
+              >
+                <PlayCircle className="h-4 w-4 mr-2" aria-hidden="true" />
                 {hasStarted ? "Fortsetzen" : "Training starten"}
-                <ArrowRight className="h-4 w-4 ml-2" />
+                <ArrowRight className="h-4 w-4 ml-2" aria-hidden="true" />
               </Link>
             </Button>
           ) : (
-            <Button variant="secondary" className="flex-1" disabled>
+            <Button
+              variant="secondary"
+              className="flex-1 min-h-11"
+              disabled
+              aria-disabled="true"
+              aria-label="Training abgeschlossen – keine offenen Lektionen"
+            >
               Training abgeschlossen
             </Button>
           )}
 
-          <Button variant="outline" asChild>
-            <Link to={`/course/${courseId}`}>Übersicht</Link>
+          <Button variant="outline" asChild className="min-h-11">
+            <Link to={`/course/${courseId}`} aria-label={`Kursübersicht öffnen: ${courseTitle}`}>
+              Übersicht
+            </Link>
           </Button>
         </div>
 
