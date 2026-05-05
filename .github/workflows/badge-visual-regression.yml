@@ -1,0 +1,37 @@
+name: badge-visual-regression
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/**'
+      - 'src/pages/**'
+      - 'src/index.css'
+      - 'tailwind.config.ts'
+      - 'tests/e2e/badge-visual.spec.ts'
+      - '.github/workflows/badge-visual-regression.yml'
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: ${{ secrets.STAGING_URL || 'https://examfitde.lovable.app' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with: { bun-version: latest }
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - name: Run badge visual regression
+        run: bunx playwright test tests/e2e/badge-visual.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: badge-visual-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
