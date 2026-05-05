@@ -161,7 +161,6 @@ export function NextActionCard() {
     },
     refetchInterval: 30_000,
   });
-
   const claimQ = useQuery({
     queryKey: ["admin-queue-claimability"],
     queryFn: async () => {
@@ -171,9 +170,28 @@ export function NextActionCard() {
     },
     refetchInterval: 30_000,
   });
+  const hbQ = useQuery({
+    queryKey: ["admin-worker-heartbeat"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_get_worker_heartbeat_summary" as any);
+      if (error) throw error;
+      return data as { any_alive_5m: boolean; pipeline_alive_5m: number };
+    },
+    refetchInterval: 30_000,
+  });
 
   if (lanesQ.isLoading || claimQ.isLoading) return <Skeleton className="h-24 w-full" />;
-  const rec = buildRecommendation(lanesQ.data ?? [], claimQ.data ?? []);
+  // Heartbeat-Override: wenn echte Worker leben, NIE „Runner-Stillstand" zeigen
+  const workersAlive = hbQ.data?.any_alive_5m ?? true;
+  let rec = buildRecommendation(lanesQ.data ?? [], claimQ.data ?? []);
+  if (workersAlive && rec.title.startsWith("Runner-Stillstand")) {
+    rec = {
+      severity: "warn",
+      title: "DAG-Backlog: Worker leben, Jobs vom Claim-RPC ausgefiltert",
+      body: `${hbQ.data?.pipeline_alive_5m ?? 0} pipeline-runner alive in 5min. Pending Jobs warten auf DAG-Prereqs (Bronze/Manual-Review/Tail-Steps). Stuck-Patterns Bulk-Promote oder Per-Step-Retry prüfen.`,
+      action: { label: 'Zu „Pakete heilen"', targetSelector: '[data-section="packages"]' },
+    };
+  }
   const tone = TONE[rec.severity];
 
   return (

@@ -86,9 +86,10 @@ export function LaneHealthCard() {
               //   → echter Worker-Pickup-Ausfall
               // - dagBacklog: pending > 0, processing > 0 (Worker leben), aber 0 completed
               //   → Jobs werden vom Claim-RPC ausgefiltert (DAG-Prereqs nicht erfüllt)
+              // workerStalled NUR wenn echte Heartbeat-Quelle 0 alive_5m UND keine completions
               const noCompletions = row.pending_cnt > 0 && row.completed_6h === 0;
-              const workerStalled = noCompletions && row.processing_cnt === 0;
-              const dagBacklog = noCompletions && row.processing_cnt > 0;
+              const workerStalled = noCompletions && row.processing_cnt === 0 && !workersAlive;
+              const dagBacklog = noCompletions && (row.processing_cnt > 0 || workersAlive);
               const slow = (row.oldest_pending_sec ?? 0) > 3600;
               const critical = workerStalled || dagBacklog;
               return (
