@@ -35,6 +35,7 @@ export default function ProductPersonaPage() {
     triggerContext: "product_page_view",
   });
   const { data: overlay } = useProductPersonaOverlay(product?.packageId ?? null, persona);
+  const { variant: ctaVariant, label: ctaVariantLabel, experimentId: ctaExperimentId } = useBuyCtaExperiment();
 
   // ────────────────────────────────────────────────────────────────────────
   // Overlay-Merge (Presentation-only).
