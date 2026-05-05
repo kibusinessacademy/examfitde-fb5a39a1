@@ -25,7 +25,7 @@ export function CourseProgressBar({
         <span className="font-medium">{progressPercent}%</span>
       </div>
 
-      <Progress value={progressPercent} className="h-2" />
+      <Progress value={progressPercent} className="h-2" aria-label={`Kursfortschritt: ${progressPercent}%`} />
 
       {showDetails && (
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-2">
