@@ -57,9 +57,12 @@ export default function CourseDetailPage() {
     'learning_course'
   );
 
-  // Use the course progress hook for enrolled users
+  // Effective access: explicit enrollment OR active product entitlement (grant)
+  const hasAccess = isEnrolled || hasLearningAccess === true;
+
+  // Use the course progress hook for users with access
   const { data: courseProgress, isLoading: progressLoading } = useCourseProgress(
-    isEnrolled ? slug : undefined
+    hasAccess ? slug : undefined
   );
 
   // Derive competency progress from lessons
