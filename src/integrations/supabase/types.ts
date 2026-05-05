@@ -114730,6 +114730,10 @@ export type Database = {
           skipped_count: number
         }[]
       }
+      fn_provision_smoke_auth_user: {
+        Args: { p_email: string; p_password: string }
+        Returns: string
+      }
       fn_quarantine_terminal_gate_conflicts: {
         Args: { p_dry_run?: boolean }
         Returns: Json
