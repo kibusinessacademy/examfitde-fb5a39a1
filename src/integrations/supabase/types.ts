@@ -110082,6 +110082,18 @@ export type Database = {
           true_zombies: number
         }[]
       }
+      admin_get_minicheck_jobs_for_course: {
+        Args: { _course_id: string }
+        Returns: {
+          attempts: number
+          created_at: string
+          job_id: string
+          job_type: string
+          last_error: string
+          status: string
+          updated_at: string
+        }[]
+      }
       admin_get_package_block_diagnosis: {
         Args: { p_package_id: string }
         Returns: {
@@ -110881,6 +110893,10 @@ export type Database = {
         Args: { p_dry_run?: boolean }
         Returns: Json
       }
+      admin_requeue_minicheck_jobs_for_course: {
+        Args: { _course_id: string }
+        Returns: Json
+      }
       admin_requeue_skeleton_backfill_jobs_for_course: {
         Args: { _course_id: string }
         Returns: Json
@@ -110961,6 +110977,7 @@ export type Database = {
         Args: { p_package_id: string; p_reason?: string; p_step_key: string }
         Returns: Json
       }
+      admin_retry_minicheck_job: { Args: { _job_id: string }; Returns: Json }
       admin_retry_skeleton_backfill_job: {
         Args: { _job_id: string }
         Returns: Json
