@@ -4,6 +4,7 @@
  * SSOT: job_queue.status='completed' (NICHT 'done'). Erkennt Worker-Stillstände
  * (Lane mit Pending > 0, aber completed_6h = 0) → kritisch markiert.
  */
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
