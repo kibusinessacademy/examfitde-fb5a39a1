@@ -109286,7 +109286,8 @@ export type Database = {
           grant_entitlement_drift: number | null
           paid_orders_without_grant: number | null
           sellable_published_packages: number | null
-          zombie_with_approved_questions: number | null
+          zombie_eligible_for_unblock: number | null
+          zombie_total: number | null
         }
         Relationships: []
       }
