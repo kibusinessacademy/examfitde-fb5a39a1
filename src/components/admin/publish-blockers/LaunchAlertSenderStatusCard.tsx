@@ -147,6 +147,55 @@ export default function LaunchAlertSenderStatusCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-subtle bg-surface-1 p-3">
+          <div className="text-xs text-text-secondary">
+            Wenn die Domain in Resend grün ist: hier <span className="font-medium">verified=true</span> setzen.
+            Es wird sofort ein Smoke-Alert in die Outbox gelegt und der Flush-Worker manuell getriggert.
+          </div>
+          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant={verified ? 'outline' : 'default'} className="gap-1">
+                <ShieldCheck className="h-4 w-4" />
+                {verified ? 'Smoke-Alert erneut senden' : 'Verified=true setzen + Smoke senden'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Sender als verified markieren</DialogTitle>
+                <DialogDescription>
+                  Setzt <span className="font-mono">launch_alert_from_address.verified = true</span>.
+                  Ab sofort wird <span className="font-mono">{configuredEmail}</span> als FROM verwendet
+                  (statt {fallbackEmail}). Anschließend wird ein Smoke-Alert (severity=info) in die
+                  Outbox gelegt und der Flush-Worker direkt aufgerufen.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-text-secondary">Audit-Notiz (optional)</label>
+                <textarea
+                  className="w-full rounded-md border border-border bg-background p-2 text-sm"
+                  rows={2}
+                  placeholder="z.B. SPF+DKIM in Resend grün, getestet 2026-05-06 14:00 UTC"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={verifyMut.isPending}>
+                  Abbrechen
+                </Button>
+                <Button
+                  onClick={() => verifyMut.mutate({ note })}
+                  disabled={verifyMut.isPending}
+                  className="gap-1"
+                >
+                  {verifyMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  Bestätigen & Smoke auslösen
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-md border border-border-subtle bg-surface-1 p-3">
             <div className="text-xs text-text-tertiary mb-1">Konfigurierter Absender</div>
