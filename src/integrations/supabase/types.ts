@@ -113779,6 +113779,27 @@ export type Database = {
           oldest_sec: number
         }[]
       }
+      admin_get_producer_noise_anomalies: {
+        Args: { p_minutes?: number }
+        Returns: {
+          action_type: string
+          prior_n: number
+          producer: string
+          ratio: number
+          recent_n: number
+          severity: string
+        }[]
+      }
+      admin_get_producer_noise_trend: {
+        Args: { p_minutes?: number }
+        Returns: {
+          action_type: string
+          bucket_minute: string
+          job_type: string
+          n: number
+          producer: string
+        }[]
+      }
       admin_get_publish_blocked_attempts: {
         Args: { _limit?: number }
         Returns: {
