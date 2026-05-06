@@ -100837,6 +100837,15 @@ export type Database = {
           },
         ]
       }
+      v_lxi_publish_block_monitor: {
+        Row: {
+          block_count: number | null
+          gate: string | null
+          hour_bucket: string | null
+          track: string | null
+        }
+        Relationships: []
+      }
       v_minicheck_curriculum_drift: {
         Row: {
           competency_id: string | null
@@ -113709,6 +113718,22 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      admin_get_lxi_publish_block_events: {
+        Args: { p_hours?: number; p_limit?: number }
+        Returns: {
+          attempted_status: string
+          created_at: string
+          id: string
+          package_id: string
+          previous_status: string
+          track: string
+          violations: Json
+        }[]
+      }
+      admin_get_lxi_publish_block_summary: {
+        Args: { p_hours?: number }
+        Returns: Json
       }
       admin_get_minicheck_jobs_for_course: {
         Args: { _course_id: string }
