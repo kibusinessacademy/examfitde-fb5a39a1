@@ -117627,6 +117627,20 @@ export type Database = {
         Args: { p_package_id: string; p_runner_id?: string; p_step_key: string }
         Returns: undefined
       }
+      submit_b2b_demo_request: {
+        Args: {
+          p_azubi_count?: number
+          p_company_name: string
+          p_contact_email: string
+          p_contact_name: string
+          p_contact_phone?: string
+          p_industry?: string
+          p_message?: string
+          p_seats?: number
+          p_source?: string
+        }
+        Returns: string
+      }
       submit_daily_challenge_answer: {
         Args: {
           p_challenge_id: string

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { PRICING } from '@/config/pricing';
+import { QuizCTA } from '@/components/quiz/QuizCTA';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -139,6 +140,10 @@ export default function HandbookLandingPage() {
                     Kapitel ansehen
                   </Link>
                 </Button>
+              </div>
+
+              <div className="max-w-2xl mx-auto mb-8">
+                <QuizCTA location="mid" cluster="handbook_landing" />
               </div>
 
               {/* Trust Indicators */}

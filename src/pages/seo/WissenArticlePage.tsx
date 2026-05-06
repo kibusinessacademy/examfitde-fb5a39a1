@@ -12,6 +12,7 @@ import type { BlogArticle } from '@/data/blogArticles';
 import { SITE_URL, generateOrganizationSchema } from '@/lib/seo';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { QuizCTA } from '@/components/quiz/QuizCTA';
 
 function mapDbToArticle(doc: any): BlogArticle {
   return {
@@ -130,6 +131,10 @@ export default function WissenArticlePage() {
               prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
             dangerouslySetInnerHTML={{ __html: formatMarkdown(article.content) }}
           />
+
+          <div className="my-8">
+            <QuizCTA location="mid" cluster="wissen_article" />
+          </div>
 
           {article.tags.length > 0 && (
             <div className="mt-12 pt-8 border-t">

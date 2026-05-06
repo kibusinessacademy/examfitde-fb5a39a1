@@ -28,7 +28,15 @@ export function ProductPricingCard({ product, onBuyClick, isLoading }: Props) {
           )}
           <CardContent className="p-6">
             <div className="text-center mb-6">
-              <p className="text-4xl font-display font-bold">{priceStr}</p>
+              <div className="flex items-baseline justify-center gap-2">
+                <span className="text-lg text-muted-foreground line-through" aria-label="Regulärer Preis">
+                  49,90&nbsp;€
+                </span>
+                <p className="text-4xl font-display font-bold text-primary">{priceStr}</p>
+              </div>
+              <p className="text-xs font-semibold text-primary mt-1 uppercase tracking-wide">
+                Launch-Preis · 50&nbsp;% gespart
+              </p>
               <p className="text-sm text-muted-foreground mt-1">{pricing.label}</p>
             </div>
 

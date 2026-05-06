@@ -7,6 +7,7 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { SEOInternalLinks } from '@/components/seo/SEOInternalLinks';
 import { generateBreadcrumbSchema, generateFAQSchema, generateOrganizationSchema, SITE_URL } from '@/lib/seo';
+import { QuizCTA } from '@/components/quiz/QuizCTA';
 
 const FAQS = [
   { question: 'Wie viele Prüfungsfragen bietet ExamFit?', answer: 'ExamFit bietet über 1.100 Prüfungsfragen pro Prüfungstrainer. Alle Fragen sind prüfungsnah formuliert und orientieren sich am aktuellen Rahmenplan.' },
@@ -73,6 +74,10 @@ export default function PruefungsfragenPage() {
                 <Button size="lg" variant="outline" className="h-14 px-8" asChild>
                   <Link to="/probepruefung">Probeprüfung machen</Link>
                 </Button>
+              </div>
+
+              <div className="mt-8 max-w-2xl">
+                <QuizCTA location="mid" cluster="pruefungsfragen_landing" />
               </div>
             </div>
           </div>
