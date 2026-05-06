@@ -9,7 +9,16 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/resend';
-const FROM_ADDRESS = 'ExamFit Alerts <onboarding@resend.dev>';
+const FALLBACK_FROM = 'ExamFit Alerts <onboarding@resend.dev>';
+
+function buildFromAddress(setting: any): { from: string; verified: boolean; email: string } {
+  const v = setting?.value ?? {};
+  const email = typeof v.email === 'string' ? v.email : '';
+  const name = typeof v.name === 'string' && v.name.length > 0 ? v.name : 'ExamFit Alerts';
+  const verified = v.verified === true;
+  if (verified && email) return { from: `${name} <${email}>`, verified: true, email };
+  return { from: FALLBACK_FROM, verified: false, email: email || 'onboarding@resend.dev' };
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -35,6 +44,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  // Load FROM-address (with fallback while domain unverified)
+  const { data: fromSetting } = await sb.from('admin_settings').select('value').eq('key', 'launch_alert_from_address').maybeSingle();
+  const fromInfo = buildFromAddress(fromSetting);
 
   // Pending alerts (cap 20/run)
   const { data: pending, error } = await sb
@@ -66,7 +79,7 @@ Deno.serve(async (req) => {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'X-Connection-Api-Key': RESEND_API_KEY,
         },
-        body: JSON.stringify({ from: FROM_ADDRESS, to: recipients, subject, html }),
+        body: JSON.stringify({ from: fromInfo.from, to: recipients, subject, html }),
       });
       const body = await resp.json();
       if (!resp.ok) {
@@ -86,7 +99,7 @@ Deno.serve(async (req) => {
     action_type: 'launch_alert_email_flush',
     target_type: 'system',
     result_status: results.every(r => r.ok) ? 'success' : 'partial',
-    metadata: { processed: results.length, recipients, results },
+    metadata: { processed: results.length, recipients, results, from: fromInfo.from, from_verified: fromInfo.verified, configured_email: fromInfo.email },
   });
 
   return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
