@@ -38685,6 +38685,48 @@ export type Database = {
           },
         ]
       }
+      lxi_block_thresholds: {
+        Row: {
+          active: boolean
+          created_at: string
+          critical_count: number
+          gate: string
+          id: string
+          notes: string | null
+          track: string
+          updated_at: string
+          updated_by: string | null
+          warning_count: number
+          window_hours: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          critical_count?: number
+          gate?: string
+          id?: string
+          notes?: string | null
+          track?: string
+          updated_at?: string
+          updated_by?: string | null
+          warning_count?: number
+          window_hours?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          critical_count?: number
+          gate?: string
+          id?: string
+          notes?: string | null
+          track?: string
+          updated_at?: string
+          updated_by?: string | null
+          warning_count?: number
+          window_hours?: number
+        }
+        Relationships: []
+      }
       management_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -114151,6 +114193,15 @@ export type Database = {
         Args: { _job_ids: string[]; _reason?: string }
         Returns: Json
       }
+      admin_heal_lxi_block_cluster: {
+        Args: {
+          p_gate: string
+          p_hours?: number
+          p_limit?: number
+          p_track: string
+        }
+        Returns: Json
+      }
       admin_heal_next_best_action: {
         Args: { p_limit?: number }
         Returns: {
@@ -117746,6 +117797,10 @@ export type Database = {
           _source_job_id: string
           _validation: Json
         }
+        Returns: string
+      }
+      fn_lxi_severity: {
+        Args: { p_count: number; p_gate: string; p_track: string }
         Returns: string
       }
       fn_mark_legacy_exempt: {
