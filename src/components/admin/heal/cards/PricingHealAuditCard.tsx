@@ -214,8 +214,15 @@ export function PricingHealAuditCard() {
                           <div className="font-medium text-text-secondary mt-2 mb-1">{r.gap_type}</div>
                           <ul className="space-y-1">
                             {r.packages.map(p => (
-                              <li key={p.id} className="flex items-center justify-between">
-                                <span className="truncate">{p.title}</span>
+                              <li key={p.id} className="flex items-center justify-between gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailPkg(p.id)}
+                                  className="flex items-center gap-1 truncate text-left hover:underline text-link"
+                                >
+                                  <Search className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{p.title}</span>
+                                </button>
                                 <Badge variant="outline" className="text-xs ml-2 shrink-0">{p.status}</Badge>
                               </li>
                             ))}
