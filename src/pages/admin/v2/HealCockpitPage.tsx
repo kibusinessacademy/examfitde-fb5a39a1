@@ -60,6 +60,7 @@ import { ExamPoolDriftLogCard } from "@/components/admin/heal/cards/ExamPoolDrif
 import { StaleDraftsCard } from "@/components/admin/heal/cards/StaleDraftsCard";
 import { ContentGapTopupCard } from "@/components/admin/heal/cards/ContentGapTopupCard";
 import { LearningIntegrityExecutiveCard } from "@/components/admin/heal/cards/LearningIntegrityExecutiveCard";
+import { LxiNoLessonsRepairCard } from "@/components/admin/heal/cards/LxiNoLessonsRepairCard";
 import { StaleDoneStepsCard } from "@/components/admin/heal/cards/StaleDoneStepsCard";
 import { ContinuationFailuresCard } from "@/components/admin/heal/cards/ContinuationFailuresCard";
 import { ForcePublishLogPanel } from "@/components/admin/heal/ForcePublishLogPanel";
@@ -312,6 +313,7 @@ export default function HealCockpitPage() {
             <HealStatusCard />
             <StaleDraftsCard />
             <LearningIntegrityExecutiveCard />
+            <LxiNoLessonsRepairCard />
             <ContentGapTopupCard />
             <StaleDoneStepsCard />
             <ContinuationFailuresCard />
