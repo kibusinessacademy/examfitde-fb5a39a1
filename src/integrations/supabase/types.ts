@@ -114761,6 +114761,7 @@ export type Database = {
       fn_heal_remaining_packages_by_class: { Args: never; Returns: Json }
       fn_heal_track_step_drift: { Args: never; Returns: Json }
       fn_heal_upstream_hotspots: { Args: never; Returns: Json }
+      fn_is_admin_or_service_role: { Args: { _uid: string }; Returns: boolean }
       fn_is_bronze_locked: { Args: { p_package_id: string }; Returns: boolean }
       fn_is_package_progress_blocked: {
         Args: { p_package_id: string }
