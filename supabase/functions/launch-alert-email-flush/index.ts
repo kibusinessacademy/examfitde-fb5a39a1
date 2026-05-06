@@ -9,7 +9,16 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/resend';
-const FROM_ADDRESS = 'ExamFit Alerts <onboarding@resend.dev>';
+const FALLBACK_FROM = 'ExamFit Alerts <onboarding@resend.dev>';
+
+function buildFromAddress(setting: any): { from: string; verified: boolean; email: string } {
+  const v = setting?.value ?? {};
+  const email = typeof v.email === 'string' ? v.email : '';
+  const name = typeof v.name === 'string' && v.name.length > 0 ? v.name : 'ExamFit Alerts';
+  const verified = v.verified === true;
+  if (verified && email) return { from: `${name} <${email}>`, verified: true, email };
+  return { from: FALLBACK_FROM, verified: false, email: email || 'onboarding@resend.dev' };
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
