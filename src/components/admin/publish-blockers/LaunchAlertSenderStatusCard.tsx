@@ -90,6 +90,41 @@ export default function LaunchAlertSenderStatusCard() {
   const senderName = from.name ?? 'ExamFit Alerts';
   const recipients = settings.data?.recipients?.emails ?? [];
 
+  const verifyMut = useMutation({
+    mutationFn: async (input: { note: string }) => {
+      const { data, error } = await supabase.rpc(
+        'admin_mark_sender_verified_and_smoke' as any,
+        { p_verified: true, p_note: input.note || null } as any,
+      );
+      if (error) throw error;
+      return data as { ok: boolean; outbox_id: string; alert_key: string };
+    },
+    onSuccess: async (data) => {
+      toast({
+        title: 'Domain als verified markiert',
+        description: `Smoke-Alert in der Outbox: ${data.alert_key}. Flush wird sofort ausgelöst.`,
+      });
+      // Trigger immediate flush so user does not wait 5 min for cron
+      try {
+        await supabase.functions.invoke('launch-alert-email-flush');
+      } catch (e) {
+        // Non-fatal: cron will pick it up
+        console.warn('immediate flush failed; cron will retry', e);
+      }
+      setConfirmOpen(false);
+      setNote('');
+      qc.invalidateQueries({ queryKey: ['admin-launch-alert-sender-settings'] });
+      qc.invalidateQueries({ queryKey: ['admin-launch-alert-outbox-recent'] });
+    },
+    onError: (e: any) => {
+      toast({
+        title: 'Aktion fehlgeschlagen',
+        description: String(e?.message ?? e),
+        variant: 'destructive',
+      });
+    },
+  });
+
   return (
     <Card>
       <CardHeader>
