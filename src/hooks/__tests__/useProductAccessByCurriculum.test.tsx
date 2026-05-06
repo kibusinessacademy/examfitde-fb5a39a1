@@ -99,4 +99,31 @@ describe('useProductAccessByCurriculum — auth race regression', () => {
     await waitFor(() => expect(result.current.data).toBe(true));
     expect(rpcMock.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('refetches when curriculum_id changes after login (no stale CTA)', async () => {
+    rpcMock.mockImplementation((_fn: string, args: any) =>
+      Promise.resolve({ data: args.p_curriculum_id === 'cur-2', error: null })
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    authState.user = { id: 'user-1' };
+    authState.loading = false;
+
+    let curriculumId = 'cur-1';
+    const { result, rerender } = renderHook(
+      () => useProductAccessByCurriculum(curriculumId, 'learning_course'),
+      { wrapper: wrapper(client) }
+    );
+    await waitFor(() => expect(result.current.data).toBe(false));
+
+    await act(async () => {
+      curriculumId = 'cur-2';
+      rerender();
+    });
+    await waitFor(() => expect(result.current.data).toBe(true));
+
+    const calledCurricula = rpcMock.mock.calls.map((c) => c[1].p_curriculum_id);
+    expect(calledCurricula).toContain('cur-1');
+    expect(calledCurricula).toContain('cur-2');
+  });
 });
