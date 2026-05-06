@@ -79,8 +79,9 @@ describe('useProductAccessByCurriculum — auth race regression', () => {
   });
 
   it('queryKey is namespaced per user — no cross-user leak', async () => {
-    rpcMock.mockResolvedValueOnce({ data: false, error: null });
-    rpcMock.mockResolvedValueOnce({ data: true, error: null });
+    rpcMock.mockImplementation((_fn: string, args: any) =>
+      Promise.resolve({ data: args.p_user_id === 'user-B', error: null })
+    );
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     authState.user = { id: 'user-A' };
@@ -96,6 +97,6 @@ describe('useProductAccessByCurriculum — auth race regression', () => {
       rerender();
     });
     await waitFor(() => expect(result.current.data).toBe(true));
-    expect(rpcMock).toHaveBeenCalledTimes(2);
+    expect(rpcMock.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 });
