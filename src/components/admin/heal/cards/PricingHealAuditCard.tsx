@@ -207,18 +207,48 @@ export function PricingHealAuditCard() {
             {totalGaps === 0 ? "Keine Pricing-Lücken." : `${totalGaps} Pakete mit Pricing-Lücken`} · {runs.length} Heal-Runs (7 Tage)
           </p>
         </div>
-        <Button
-          variant="ghost" size="sm"
-          onClick={() => { gapsQ.refetch(); runsQ.refetch(); }}
-          disabled={gapsQ.isFetching || runsQ.isFetching}
-        >
-          <RefreshCw className={`h-4 w-4 ${gapsQ.isFetching ? "animate-spin" : ""}`} />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={exportCsv} disabled={filteredTotal === 0} title="Gefilterte Lücken als CSV exportieren">
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => { gapsQ.refetch(); runsQ.refetch(); }}
+            disabled={gapsQ.isFetching || runsQ.isFetching}
+          >
+            <RefreshCw className={`h-4 w-4 ${gapsQ.isFetching ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {totalGaps > 0 && (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <Select value={filterCluster} onValueChange={setFilterCluster}>
+                <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Cluster" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle Cluster</SelectItem>
+                  {trackOptions.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterReason} onValueChange={setFilterReason}>
+                <SelectTrigger className="h-8 w-48 text-xs"><SelectValue placeholder="Reason" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle Reasons</SelectItem>
+                  {reasonOptions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input
+                value={filterPkg}
+                onChange={(e) => setFilterPkg(e.target.value)}
+                placeholder="Paket-Titel oder ID…"
+                className="h-8 text-xs flex-1 min-w-[180px]"
+              />
+            </div>
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wide">Lücken nach Track × Gate</h4>
+            <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+              Lücken nach Track × Gate {filteredTotal !== totalGaps && `(${filteredTotal}/${totalGaps} gefiltert)`}
+            </h4>
             {Array.from(byTrack.entries()).map(([track, rows]) => {
               const open = expandedTrack === track;
               const trackTotal = rows.reduce((s, r) => s + r.package_count, 0);
