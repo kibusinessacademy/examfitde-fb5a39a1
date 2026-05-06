@@ -68,5 +68,10 @@ export default defineConfig({
       testMatch: /g3b\..*\.spec\.ts/,
       timeout: 90_000,
     },
+    {
+      name: 'funnel-bridge',
+      testMatch: /funnel-bridge-.*\.spec\.ts/,
+      timeout: 90_000,
+    },
   ],
 });
