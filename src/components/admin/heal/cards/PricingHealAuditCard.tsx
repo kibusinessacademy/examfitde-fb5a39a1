@@ -285,6 +285,7 @@ export function PricingHealAuditCard() {
           )}
         </div>
       </CardContent>
+      <PackageDetailDialog packageId={detailPkg} onClose={() => setDetailPkg(null)} />
     </Card>
   );
 }
