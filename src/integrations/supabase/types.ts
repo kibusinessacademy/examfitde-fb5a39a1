@@ -99673,6 +99673,7 @@ export type Database = {
           status: string | null
           title: string | null
           total_exam_question_count: number | null
+          track: Database["public"]["Enums"]["product_track"] | null
           tutor_context_count: number | null
         }
         Relationships: [
@@ -99884,6 +99885,7 @@ export type Database = {
           package_key: string | null
           product_id: string | null
           title: string | null
+          track: Database["public"]["Enums"]["product_track"] | null
           tutor_context_count: number | null
         }
         Relationships: [
@@ -112605,6 +112607,7 @@ export type Database = {
           status: string | null
           title: string | null
           total_exam_question_count: number | null
+          track: Database["public"]["Enums"]["product_track"] | null
           tutor_context_count: number | null
         }[]
         SetofOptions: {
@@ -112628,6 +112631,7 @@ export type Database = {
           package_key: string | null
           product_id: string | null
           title: string | null
+          track: Database["public"]["Enums"]["product_track"] | null
           tutor_context_count: number | null
         }[]
         SetofOptions: {
