@@ -128,6 +128,7 @@ const STATUS_TONE: Record<string, string> = {
 
 export function PricingHealAuditCard() {
   const [expandedTrack, setExpandedTrack] = useState<string | null>(null);
+  const [detailPkg, setDetailPkg] = useState<string | null>(null);
 
   const gapsQ = useQuery({
     queryKey: ["pricing-gap-by-track"],
