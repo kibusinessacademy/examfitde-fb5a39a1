@@ -86,6 +86,7 @@ function AppChrome() {
 
   usePointerLockRecovery();
   useTrailingSlashNormalizer();
+  useHeatmapTracking({ source: "site" });
 
   // Detect partner referral params on landing
   useEffect(() => {
