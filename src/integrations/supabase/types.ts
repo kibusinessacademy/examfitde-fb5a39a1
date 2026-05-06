@@ -35221,6 +35221,105 @@ export type Database = {
         }
         Relationships: []
       }
+      launch_alert_email_outbox: {
+        Row: {
+          alert_key: string
+          created_at: string
+          dedupe_window_start: string
+          details: Json
+          id: number
+          send_error: string | null
+          sent_at: string | null
+          severity: string
+          summary: string
+        }
+        Insert: {
+          alert_key: string
+          created_at?: string
+          dedupe_window_start?: string
+          details?: Json
+          id?: number
+          send_error?: string | null
+          sent_at?: string | null
+          severity: string
+          summary: string
+        }
+        Update: {
+          alert_key?: string
+          created_at?: string
+          dedupe_window_start?: string
+          details?: Json
+          id?: number
+          send_error?: string | null
+          sent_at?: string | null
+          severity?: string
+          summary?: string
+        }
+        Relationships: []
+      }
+      launch_readiness_snapshots: {
+        Row: {
+          can_public_launch: boolean
+          can_soft_launch: boolean
+          checkout_started_24h: number
+          cta_clicked_24h: number
+          cta_visible_24h: number
+          empty_published: number
+          full_payload: Json
+          heatmap_click_24h: number
+          id: number
+          orders_paid_24h: number
+          overall_status: string
+          paid_no_grant_24h: number
+          pending_no_session_24h: number
+          pricing_ready: number
+          quiz_started_24h: number
+          sellable_courses: number
+          snapshot_date: string
+          taken_at: string
+        }
+        Insert: {
+          can_public_launch: boolean
+          can_soft_launch: boolean
+          checkout_started_24h?: number
+          cta_clicked_24h?: number
+          cta_visible_24h?: number
+          empty_published?: number
+          full_payload?: Json
+          heatmap_click_24h?: number
+          id?: number
+          orders_paid_24h?: number
+          overall_status: string
+          paid_no_grant_24h?: number
+          pending_no_session_24h?: number
+          pricing_ready?: number
+          quiz_started_24h?: number
+          sellable_courses?: number
+          snapshot_date?: string
+          taken_at?: string
+        }
+        Update: {
+          can_public_launch?: boolean
+          can_soft_launch?: boolean
+          checkout_started_24h?: number
+          cta_clicked_24h?: number
+          cta_visible_24h?: number
+          empty_published?: number
+          full_payload?: Json
+          heatmap_click_24h?: number
+          id?: number
+          orders_paid_24h?: number
+          overall_status?: string
+          paid_no_grant_24h?: number
+          pending_no_session_24h?: number
+          pricing_ready?: number
+          quiz_started_24h?: number
+          sellable_courses?: number
+          snapshot_date?: string
+          taken_at?: string
+        }
+        Relationships: []
+      }
       lead_magnets: {
         Row: {
           content_json: Json | null
@@ -110741,6 +110840,36 @@ export type Database = {
       admin_get_launch_queue_health: { Args: never; Returns: Json }
       admin_get_launch_queue_health_alerts: { Args: never; Returns: Json }
       admin_get_launch_readiness_dashboard: { Args: never; Returns: Json }
+      admin_get_launch_readiness_dashboard_v2: { Args: never; Returns: Json }
+      admin_get_launch_readiness_timeseries: {
+        Args: { p_days?: number }
+        Returns: {
+          can_public_launch: boolean
+          can_soft_launch: boolean
+          checkout_started_24h: number
+          cta_clicked_24h: number
+          cta_visible_24h: number
+          empty_published: number
+          full_payload: Json
+          heatmap_click_24h: number
+          id: number
+          orders_paid_24h: number
+          overall_status: string
+          paid_no_grant_24h: number
+          pending_no_session_24h: number
+          pricing_ready: number
+          quiz_started_24h: number
+          sellable_courses: number
+          snapshot_date: string
+          taken_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "launch_readiness_snapshots"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_minicheck_jobs_for_course: {
         Args: { _course_id: string }
         Returns: {
@@ -110936,6 +111065,18 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      admin_get_recent_launch_alerts: {
+        Args: { p_hours?: number }
+        Returns: {
+          alert_key: string
+          created_at: string
+          details: Json
+          id: number
+          sent_at: string
+          severity: string
+          summary: string
+        }[]
       }
       admin_get_remaining_revert_producers: {
         Args: { p_window_hours?: number }
@@ -113500,10 +113641,12 @@ export type Database = {
         Returns: number
       }
       cron_alert_remaining_revert_producers: { Args: never; Returns: Json }
+      cron_check_launch_readiness_alerts: { Args: never; Returns: Json }
       cron_record_tick_intent: {
         Args: { p_intent_type: string; p_source: string }
         Returns: Json
       }
+      cron_take_launch_readiness_snapshot: { Args: never; Returns: Json }
       current_integrity_report_version_num: { Args: never; Returns: number }
       default_asset_plan_for_channel: {
         Args: { p_offer_type: string; p_primary_channel: string }
@@ -114650,6 +114793,8 @@ export type Database = {
         Args: { p_job_type: string }
         Returns: boolean
       }
+      fn_launch_live_traffic_counts: { Args: never; Returns: Json }
+      fn_launch_orders_health: { Args: never; Returns: Json }
       fn_link_visitor_attribution: {
         Args: { _user_id: string; _visitor_id: string }
         Returns: undefined
