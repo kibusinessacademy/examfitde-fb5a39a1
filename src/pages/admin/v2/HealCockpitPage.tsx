@@ -313,6 +313,7 @@ export default function HealCockpitPage() {
             <HealStatusCard />
             <StaleDraftsCard />
             <LearningIntegrityExecutiveCard />
+            <LxiNoLessonsRepairCard />
             <ContentGapTopupCard />
             <StaleDoneStepsCard />
             <ContinuationFailuresCard />
