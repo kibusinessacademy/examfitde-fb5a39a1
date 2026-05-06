@@ -256,11 +256,15 @@ export function PricingHealAuditCard() {
                 </thead>
                 <tbody>
                   {runs.slice(0, 50).map(r => (
-                    <tr key={r.id} className="border-b border-border-subtle/50">
+                    <tr
+                      key={r.id}
+                      className="border-b border-border-subtle/50 cursor-pointer hover:bg-surface-subtle"
+                      onClick={() => setDetailPkg(r.package_id)}
+                    >
                       <td className="py-1.5 pr-2 text-text-muted whitespace-nowrap">
                         {new Date(r.created_at).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}
                       </td>
-                      <td className="py-1.5 pr-2 max-w-[200px] truncate">{r.package_title ?? r.package_id.slice(0, 8)}</td>
+                      <td className="py-1.5 pr-2 max-w-[200px] truncate text-link">{r.package_title ?? r.package_id.slice(0, 8)}</td>
                       <td className="py-1.5 pr-2">
                         <Badge variant="outline" className={`text-xs ${STATUS_TONE[r.result_status] ?? STATUS_TONE.unknown}`}>
                           {r.result_status}
