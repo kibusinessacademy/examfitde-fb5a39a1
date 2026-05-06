@@ -23,6 +23,8 @@ const BC_DIR = path.join(ROOT, "phase-breadcrumbs");
 const SUITES = [
   { spec: "learner-entitlement-flow.spec.ts", key: "learner-entitlement-flow", required: true },
   { spec: "purchase-checkout-smoke.spec.ts", key: "purchase-checkout-smoke", required: true },
+  { spec: "learner-minicheck-persistence.spec.ts", key: "learner-minicheck-persistence", required: false },
+  { spec: "oral-exam.spec.ts", key: "oral-exam", required: false },
 ];
 
 function loadResults() {
@@ -82,10 +84,15 @@ const text = [
   ``,
   `Verdict: ${verdict === "SOFT_LAUNCH_JA" ? "✅ JA" : "❌ NEIN"}`,
   ``,
-  ...summary.map((s) =>
-    `- [${s.required ? "REQUIRED" : "SOFT"}] ${s.suite}: ${s.status}` +
-    (s.lastPhase ? ` (last phase: ${s.lastPhase}${s.attempt != null ? `, attempt=${s.attempt}` : ""})` : ""),
-  ),
+  `## Per-Suite Verdict`,
+  ...summary.map((s) => {
+    const icon = s.status === "passed" ? "✅" : s.status === "failed" ? "❌" : s.status === "skipped" ? "⏭️" : "❔";
+    const tag = s.required ? "REQUIRED" : "OPTIONAL";
+    const phase = s.lastPhase ? ` — last phase: ${s.lastPhase}${s.attempt != null ? ` (attempt=${s.attempt})` : ""}` : "";
+    return `- ${icon} [${tag}] ${s.suite}: ${s.status}${phase}`;
+  }),
+  ``,
+  `## Final Verdict: ${verdict}`,
 ].join("\n");
 fs.writeFileSync(path.join(ROOT, "soft-launch-summary.txt"), text);
 console.log(text);
