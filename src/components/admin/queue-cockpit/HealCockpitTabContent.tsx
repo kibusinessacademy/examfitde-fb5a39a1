@@ -15,6 +15,7 @@ import { CouplingHealV4Card } from "@/components/admin/heal/cards/CouplingHealV4
 import { BronzeReviewCard } from "@/components/admin/heal/cards/BronzeReviewCard";
 import { ProducerNoiseTrendCard } from "@/components/admin/heal/cards/ProducerNoiseTrendCard";
 import { LxiPublishBlockMonitorCard } from "@/components/admin/heal/cards/LxiPublishBlockMonitorCard";
+import { PricingHealAuditCard } from "@/components/admin/heal/cards/PricingHealAuditCard";
 
 export function HealCockpitTabContent() {
   return (
@@ -35,6 +36,7 @@ export function HealCockpitTabContent() {
       </div>
       <MorningBriefing />
       <LxiPublishBlockMonitorCard />
+      <PricingHealAuditCard />
       <ProducerNoiseTrendCard />
       <BronzeReviewCard />
       <CouplingHealV4Card />
