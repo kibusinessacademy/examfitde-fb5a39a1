@@ -16,6 +16,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 
+const JOB_STATUS_TONE: Record<string, string> = {
+  pending: "bg-status-bg-subtle text-status-info border-status-info/30",
+  queued: "bg-status-bg-subtle text-status-info border-status-info/30",
+  processing: "bg-status-bg-subtle text-status-warning border-status-warning/30",
+  running: "bg-status-bg-subtle text-status-warning border-status-warning/30",
+  completed: "bg-status-bg-subtle text-status-success border-status-success/30",
+  failed: "bg-status-bg-subtle text-status-danger border-status-danger/30",
+  cancelled: "bg-surface-subtle text-text-muted border-border-subtle",
+};
+
 function PackageDetailDialog({ packageId, onClose }: { packageId: string | null; onClose: () => void }) {
   const q = useQuery({
     queryKey: ["pricing-pkg-detail", packageId],
@@ -25,18 +35,42 @@ function PackageDetailDialog({ packageId, onClose }: { packageId: string | null;
       if (error) throw error;
       return data as any;
     },
+    refetchInterval: (q) => (q.state.data ? 10_000 : false),
   });
   const d = q.data;
   const pkg = d?.package;
+  const lastJob = d?.auto_publish_jobs?.[0];
   return (
     <Dialog open={!!packageId} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-base">{pkg?.title ?? "Paket-Detail"}</DialogTitle>
+          <DialogTitle className="text-base flex items-center gap-2">
+            {pkg?.title ?? "Paket-Detail"}
+            <Button
+              variant="ghost" size="sm" className="h-6 w-6 p-0"
+              onClick={() => q.refetch()} disabled={q.isFetching}
+              title="Live-Status neu laden"
+            >
+              <RefreshCw className={`h-3 w-3 ${q.isFetching ? "animate-spin" : ""}`} />
+            </Button>
+          </DialogTitle>
         </DialogHeader>
         {q.isLoading && <p className="text-xs text-text-muted">Lade…</p>}
         {d && (
           <div className="space-y-4 text-xs">
+            {lastJob && (
+              <div className="rounded-md border border-border-subtle bg-surface-subtle px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-text-muted text-[11px] uppercase tracking-wide">Letzter Auto-Publish-Job</span>
+                  <Badge variant="outline" className={`text-xs ${JOB_STATUS_TONE[lastJob.status] ?? JOB_STATUS_TONE.pending}`}>
+                    {lastJob.status}
+                  </Badge>
+                </div>
+                <div className="mt-1 text-text-secondary">
+                  {new Date(lastJob.created_at).toLocaleString("de-DE")} · Quelle: {lastJob.enqueue_source ?? "—"}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <div><span className="text-text-muted">Status:</span> <Badge variant="outline">{pkg.status}</Badge></div>
               <div><span className="text-text-muted">Track:</span> {pkg.track_slug ?? "—"}</div>
