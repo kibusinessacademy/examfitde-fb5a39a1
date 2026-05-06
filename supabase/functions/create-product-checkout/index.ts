@@ -149,10 +149,61 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Create order (pending) ──
+    // ── Stripe Checkout Session FIRST (no zombie orders on Stripe failure) ──
+    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+
+    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    const customerId = customers.data.length > 0 ? customers.data[0].id : undefined;
+
+    const appUrl = origin || Deno.env.get("APP_URL") || "https://examfit.de";
+
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = price.stripe_price_id
+      ? [{ price: price.stripe_price_id, quantity: 1 }]
+      : [{
+          price_data: {
+            currency: price.currency.toLowerCase(),
+            product_data: { name: product.title },
+            unit_amount: price.amount_cents,
+          },
+          quantity: 1,
+        }];
+
+    // Pre-generate order UUID so Stripe metadata + success_url can reference it
+    // even though the DB row is created AFTER Stripe confirms session creation.
+    const pendingOrderId = crypto.randomUUID();
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer: customerId,
+      customer_email: customerId ? undefined : user.email,
+      line_items: lineItems,
+      success_url: `${appUrl}/checkout/success?order_id=${pendingOrderId}`,
+      cancel_url: `${appUrl}/landing/FORTBILDUNG/${encodeURIComponent(product.slug)}?checkout=cancelled`,
+      metadata: {
+        order_id: pendingOrderId,
+        product_id: product.id,
+        user_id: user.id,
+        product_slug: product.slug,
+        package_id: resolvedPackageId ?? '',
+        persona: resolvedPersona ?? '',
+        flow: "paywall_variant",
+        checkout_source: "create-payment",
+        access_months: String(price.access_months),
+        duration_days: String(price.access_months * 30),
+      },
+    });
+
+    if (!session?.id || !session?.url) {
+      logStep("Stripe session creation failed — no order inserted", { sessionId: session?.id });
+      throw new Error("Stripe session creation failed");
+    }
+    logStep("Stripe session created", { sessionId: session.id });
+
+    // ── Create order (pending) AFTER Stripe success — no zombie orders ──
     const { data: order, error: orderError } = await adminClient
       .from("orders")
       .insert({
+        id: pendingOrderId,
         buyer_user_id: user.id,
         subtotal_cents: price.amount_cents,
         total_cents: price.amount_cents,
@@ -162,19 +213,21 @@ Deno.serve(async (req) => {
         customer_type: "b2c",
         billing_email: user.email,
         notes: `product_checkout:${product.slug}`,
+        stripe_checkout_session_id: session.id,
       })
       .select("id")
       .single();
 
     if (orderError || !order) {
-      logStep("Order creation failed", { error: orderError?.message });
+      logStep("Order insert failed AFTER Stripe session — manual reconciliation needed", {
+        sessionId: session.id,
+        error: orderError?.message,
+      });
       throw new Error(orderError?.message ?? "Order creation failed");
     }
     logStep("Order created", { orderId: order.id });
 
-    // ── SSOT: checkout_started event in conversion_events ──
-    // Server-side write damit Tracking nicht durch Stripe-Redirect verloren geht.
-    // metadata.package_id ist Pflicht (SSOT-Strict-Event-Konvention für Funnel).
+    // ── SSOT: checkout_started event ──
     try {
       const clientAnonId = typeof body.anonymous_id === 'string' ? String(body.anonymous_id).slice(0, 80) : null;
       const clientSessionId = typeof body.session_id === 'string' ? String(body.session_id).slice(0, 80) : null;
@@ -202,65 +255,17 @@ Deno.serve(async (req) => {
           amount_cents: price.amount_cents,
           currency: price.currency,
           order_id: order.id,
+          stripe_session_id: session.id,
           flow: 'paywall_variant',
           ts_server: new Date().toISOString(),
         },
       });
       logStep("checkout_started emitted", { packageId: resolvedPackageId, orderId: order.id });
     } catch (trackErr) {
-      // Tracking darf Checkout NIE blockieren.
       logStep("checkout_started insert failed (non-fatal)", { error: String(trackErr) });
     }
 
-
-    // ── Stripe Checkout Session ──
-    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
-
-    // Check if customer exists
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    const customerId = customers.data.length > 0 ? customers.data[0].id : undefined;
-
-    const appUrl = origin || Deno.env.get("APP_URL") || "https://examfit.de";
-
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = price.stripe_price_id
-      ? [{ price: price.stripe_price_id, quantity: 1 }]
-      : [{
-          price_data: {
-            currency: price.currency.toLowerCase(),
-            product_data: { name: product.title },
-            unit_amount: price.amount_cents,
-          },
-          quantity: 1,
-        }];
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      customer: customerId,
-      customer_email: customerId ? undefined : user.email,
-      line_items: lineItems,
-      success_url: `${appUrl}/checkout/success?order_id=${order.id}`,
-      cancel_url: `${appUrl}/landing/FORTBILDUNG/${encodeURIComponent(product.slug)}?checkout=cancelled`,
-      metadata: {
-        order_id: order.id,
-        product_id: product.id,
-        user_id: user.id,
-        product_slug: product.slug,
-        package_id: resolvedPackageId ?? '',
-        persona: resolvedPersona ?? '',
-        flow: "paywall_variant",
-        checkout_source: "create-payment",
-        access_months: String(price.access_months),
-        duration_days: String(price.access_months * 30),
-      },
-    });
-
-    // ── Update order with session ID ──
-    await adminClient
-      .from("orders")
-      .update({ stripe_checkout_session_id: session.id })
-      .eq("id", order.id);
-
-    logStep("Checkout session created", { sessionId: session.id, url: session.url });
+    logStep("Checkout session ready", { sessionId: session.id, url: session.url });
 
     return new Response(JSON.stringify({
       ok: true,
