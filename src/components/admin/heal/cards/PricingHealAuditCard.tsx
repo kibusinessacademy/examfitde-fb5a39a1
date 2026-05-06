@@ -7,11 +7,108 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { ChevronDown, ChevronRight, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, AlertCircle, CheckCircle2, RefreshCw, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+
+function PackageDetailDialog({ packageId, onClose }: { packageId: string | null; onClose: () => void }) {
+  const q = useQuery({
+    queryKey: ["pricing-pkg-detail", packageId],
+    enabled: !!packageId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_get_pricing_package_detail", { p_package_id: packageId! });
+      if (error) throw error;
+      return data as any;
+    },
+  });
+  const d = q.data;
+  const pkg = d?.package;
+  return (
+    <Dialog open={!!packageId} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-base">{pkg?.title ?? "Paket-Detail"}</DialogTitle>
+        </DialogHeader>
+        {q.isLoading && <p className="text-xs text-text-muted">Lade…</p>}
+        {d && (
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 gap-2">
+              <div><span className="text-text-muted">Status:</span> <Badge variant="outline">{pkg.status}</Badge></div>
+              <div><span className="text-text-muted">Track:</span> {pkg.track_slug ?? "—"}</div>
+              <div><span className="text-text-muted">Blocked:</span> {pkg.blocked_reason ?? "NULL"}</div>
+              <div>
+                <span className="text-text-muted">Stripe-Preis aktiv:</span>{" "}
+                {pkg.has_active_stripe_price
+                  ? <Badge className="bg-status-bg-subtle text-status-success border-status-success/30">JA</Badge>
+                  : <Badge className="bg-status-bg-subtle text-status-danger border-status-danger/30">NEIN</Badge>}
+              </div>
+            </div>
+            <div>
+              <h5 className="font-semibold mb-1">Produkt-Preise ({d.prices.length})</h5>
+              {d.prices.length === 0
+                ? <p className="text-text-muted">Keine Preise.</p>
+                : (
+                  <table className="w-full">
+                    <thead><tr className="text-text-muted border-b border-border-subtle">
+                      <th className="text-left py-1">Betrag</th><th className="text-left py-1">Stripe ID</th><th className="text-left py-1">Aktiv</th>
+                    </tr></thead>
+                    <tbody>
+                      {d.prices.map((p: any) => (
+                        <tr key={p.id} className="border-b border-border-subtle/40">
+                          <td className="py-1">{(p.amount_cents/100).toFixed(2)} {p.currency}</td>
+                          <td className="py-1 font-mono text-[10px]">{p.stripe_price_id ?? "—"}</td>
+                          <td className="py-1">{p.active ? "✓" : "✗"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+            </div>
+            <div>
+              <h5 className="font-semibold mb-1">Heal-Runs (letzte {d.heal_runs.length})</h5>
+              {d.heal_runs.length === 0
+                ? <p className="text-text-muted">Keine Runs.</p>
+                : (
+                  <ul className="space-y-1">
+                    {d.heal_runs.map((r: any) => (
+                      <li key={r.id} className="border-b border-border-subtle/40 pb-1">
+                        <div className="flex justify-between">
+                          <span className="text-text-muted">{new Date(r.created_at).toLocaleString("de-DE")}</span>
+                          <Badge variant="outline" className="text-[10px]">{r.result_status}</Badge>
+                        </div>
+                        <div className="text-text-muted">
+                          ready: {String(r.ready_before)} → {String(r.ready_after)} · blocked: {r.blocked_before ?? "—"} → {pkg.blocked_reason ?? "NULL"} · job: {r.job_enqueued ? "✓" : "—"}
+                          {r.reason && <> · <span className="italic">{r.reason}</span></>}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+            <div>
+              <h5 className="font-semibold mb-1">Auto-Publish-Jobs ({d.auto_publish_jobs.length})</h5>
+              {d.auto_publish_jobs.length === 0
+                ? <p className="text-text-muted">Keine Jobs.</p>
+                : (
+                  <ul className="space-y-0.5">
+                    {d.auto_publish_jobs.map((j: any) => (
+                      <li key={j.id} className="flex justify-between">
+                        <span>{new Date(j.created_at).toLocaleString("de-DE")}</span>
+                        <span><Badge variant="outline" className="text-[10px] mr-1">{j.status}</Badge>{j.enqueue_source ?? "—"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 type GapRow = { track: string; gap_type: string; package_count: number; packages: Array<{ id: string; title: string; status: string }> };
 type RunRow = {
@@ -31,6 +128,7 @@ const STATUS_TONE: Record<string, string> = {
 
 export function PricingHealAuditCard() {
   const [expandedTrack, setExpandedTrack] = useState<string | null>(null);
+  const [detailPkg, setDetailPkg] = useState<string | null>(null);
 
   const gapsQ = useQuery({
     queryKey: ["pricing-gap-by-track"],
@@ -116,8 +214,15 @@ export function PricingHealAuditCard() {
                           <div className="font-medium text-text-secondary mt-2 mb-1">{r.gap_type}</div>
                           <ul className="space-y-1">
                             {r.packages.map(p => (
-                              <li key={p.id} className="flex items-center justify-between">
-                                <span className="truncate">{p.title}</span>
+                              <li key={p.id} className="flex items-center justify-between gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailPkg(p.id)}
+                                  className="flex items-center gap-1 truncate text-left hover:underline text-link"
+                                >
+                                  <Search className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{p.title}</span>
+                                </button>
                                 <Badge variant="outline" className="text-xs ml-2 shrink-0">{p.status}</Badge>
                               </li>
                             ))}
@@ -151,11 +256,15 @@ export function PricingHealAuditCard() {
                 </thead>
                 <tbody>
                   {runs.slice(0, 50).map(r => (
-                    <tr key={r.id} className="border-b border-border-subtle/50">
+                    <tr
+                      key={r.id}
+                      className="border-b border-border-subtle/50 cursor-pointer hover:bg-surface-subtle"
+                      onClick={() => setDetailPkg(r.package_id)}
+                    >
                       <td className="py-1.5 pr-2 text-text-muted whitespace-nowrap">
                         {new Date(r.created_at).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}
                       </td>
-                      <td className="py-1.5 pr-2 max-w-[200px] truncate">{r.package_title ?? r.package_id.slice(0, 8)}</td>
+                      <td className="py-1.5 pr-2 max-w-[200px] truncate text-link">{r.package_title ?? r.package_id.slice(0, 8)}</td>
                       <td className="py-1.5 pr-2">
                         <Badge variant="outline" className={`text-xs ${STATUS_TONE[r.result_status] ?? STATUS_TONE.unknown}`}>
                           {r.result_status}
@@ -176,6 +285,7 @@ export function PricingHealAuditCard() {
           )}
         </div>
       </CardContent>
+      <PackageDetailDialog packageId={detailPkg} onClose={() => setDetailPkg(null)} />
     </Card>
   );
 }
