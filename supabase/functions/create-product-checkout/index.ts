@@ -63,6 +63,56 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ── Idempotency: 60s dedup window per (user, product_slug, status=pending) ──
+    // Prevents zombie orders from double-clicks, retries or double-mounts.
+    try {
+      const sinceIso = new Date(Date.now() - 60_000).toISOString();
+      const { data: recent } = await adminClient
+        .from("orders")
+        .select("id, stripe_checkout_session_id, created_at, notes")
+        .eq("buyer_user_id", user.id)
+        .eq("status", "pending")
+        .gte("created_at", sinceIso)
+        .ilike("notes", `product_checkout:${productSlug}`)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (recent && recent.length > 0 && recent[0].stripe_checkout_session_id) {
+        const existing = recent[0];
+        // Best-effort: rebuild the Stripe URL — re-retrieve session
+        try {
+          const stripeEarly = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+          const sess = await stripeEarly.checkout.sessions.retrieve(existing.stripe_checkout_session_id);
+          if (sess?.url && sess?.status !== "complete" && sess?.status !== "expired") {
+            await adminClient.from("auto_heal_log").insert({
+              action_type: "checkout_idempotency_hit",
+              target_type: "orders",
+              target_id: existing.id,
+              result_status: "success",
+              metadata: {
+                user_id: user.id,
+                product_slug: productSlug,
+                stripe_session_id: existing.stripe_checkout_session_id,
+                source: "create-product-checkout",
+              },
+            });
+            return new Response(JSON.stringify({
+              ok: true,
+              checkout_url: sess.url,
+              order_id: existing.id,
+              idempotent: true,
+            }), {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } catch (sessErr) {
+          logStep("idempotency Stripe retrieve failed (non-fatal)", { error: String(sessErr) });
+        }
+      }
+    } catch (idemErr) {
+      logStep("idempotency check failed (non-fatal)", { error: String(idemErr) });
+    }
+
     // ── Load product ──
     const { data: product, error: productError } = await adminClient
       .from("products")
