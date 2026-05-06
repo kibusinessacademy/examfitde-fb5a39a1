@@ -148,7 +148,8 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload Playwright report
+      # ── Artifact uploads (always, even on failure) ──────────
+      - name: Upload Playwright report + test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -157,3 +158,49 @@ jobs:
             playwright-report
             test-results
           retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload phase breadcrumbs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soft-launch-phase-breadcrumbs
+          path: |
+            .tmp/e2e-breadcrumbs
+            test-results/phase-breadcrumbs
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload soft-launch summary (json + txt)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soft-launch-summary
+          path: |
+            test-results/soft-launch-summary.json
+            test-results/soft-launch-summary.txt
+          retention-days: 30
+          if-no-files-found: warn
+
+      # ── Failure-only diagnostics (HAR + phase timing) ───────
+      - name: Upload HAR traces (on failure only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soft-launch-har-traces
+          path: |
+            test-results/**/*.har
+            test-results/**/trace.zip
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload phase timing metrics (on failure only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soft-launch-phase-timing
+          path: |
+            test-results/**/phase-timing*.json
+            test-results/**/entitlement-fail-phase.txt
+          retention-days: 14
+          if-no-files-found: ignore
