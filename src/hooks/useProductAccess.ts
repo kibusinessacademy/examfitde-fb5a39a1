@@ -44,19 +44,28 @@ export function useProductAccessByCurriculum(
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const userId = user?.id;
+  const enabled = !authLoading && !!userId && !!curriculumId;
+  const queryKey = ['product-access-curriculum', userId ?? 'anon', curriculumId ?? 'none', feature ?? 'any'] as const;
+
+  // Temporary diagnostic logging — gated behind localStorage flag to avoid noise.
+  // Enable in browser via: localStorage.setItem('debug:access','1')
+  const debug =
+    typeof window !== 'undefined' && window.localStorage?.getItem('debug:access') === '1';
 
   // After auth flips from anonymous → authenticated, drop any stale `false`
   // cached under user=null so we re-fetch with the real session.
   useEffect(() => {
     if (userId) {
+      if (debug) console.log('[useProductAccessByCurriculum] auth ready → invalidate', { userId });
       queryClient.invalidateQueries({ queryKey: ['product-access-curriculum'] });
     }
-  }, [userId, queryClient]);
+  }, [userId, queryClient, debug]);
 
-  return useQuery({
-    queryKey: ['product-access-curriculum', userId ?? 'anon', curriculumId ?? 'none', feature ?? 'any'],
+  const query = useQuery({
+    queryKey: [...queryKey],
     queryFn: async () => {
       if (!userId || !curriculumId) return false;
+      if (debug) console.log('[useProductAccessByCurriculum] RPC call', { userId, curriculumId, feature });
 
       const { data, error } = await supabase
         .rpc('check_product_access_by_curriculum' as any, {
@@ -69,15 +78,32 @@ export function useProductAccessByCurriculum(
         console.error('Product access by curriculum error:', error);
         return false;
       }
+      if (debug) console.log('[useProductAccessByCurriculum] RPC result', { userId, curriculumId, feature, data });
       return data as boolean;
     },
     // Only run once we have BOTH a confirmed authenticated user AND a curriculum.
     // Skip while auth is still hydrating to avoid caching `false` under user=null.
-    enabled: !authLoading && !!userId && !!curriculumId,
+    enabled,
     staleTime: 30 * 1000,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
+
+  if (debug) {
+    console.log('[useProductAccessByCurriculum] state', {
+      enabled,
+      queryKey,
+      authLoading,
+      userId,
+      curriculumId,
+      feature,
+      data: query.data,
+      isLoading: query.isLoading,
+      isFetching: query.isFetching,
+    });
+  }
+
+  return query;
 }
 
 export interface ProductCatalogItem {
