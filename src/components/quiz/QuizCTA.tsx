@@ -196,10 +196,9 @@ export function QuizCTA({
 
   // FOOTER
   return (
-    <section
-      ref={containerRef as unknown as React.RefObject<HTMLElement>}
-      className="py-16 bg-gradient-to-br from-primary/10 via-transparent to-accent/10"
-    >
+    <div ref={containerRef}>
+      <section className="py-16 bg-gradient-to-br from-primary/10 via-transparent to-accent/10">
+
       <div className="container text-center max-w-3xl space-y-5">
         <div className="inline-flex items-center gap-2 text-primary">
           <Target className="h-5 w-5" />
