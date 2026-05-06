@@ -158,6 +158,7 @@ export default function PublishBlockerCockpitPage() {
 
       {/* ── Launch Readiness Overall ── */}
       <LaunchReadinessDashboardCard />
+      <LaunchAlertSenderStatusCard />
       <LaunchQueueAlertsCard />
       <SoftLaunchPromotionCard />
 
