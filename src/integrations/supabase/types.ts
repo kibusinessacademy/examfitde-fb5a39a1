@@ -109280,6 +109280,16 @@ export type Database = {
         }
         Relationships: []
       }
+      v_system_audit_executive: {
+        Row: {
+          computed_at: string | null
+          grant_entitlement_drift: number | null
+          paid_orders_without_grant: number | null
+          sellable_published_packages: number | null
+          zombie_with_approved_questions: number | null
+        }
+        Relationships: []
+      }
       v_system_intents_kpi: {
         Row: {
           avg_processing_seconds: number | null
@@ -111225,6 +111235,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_get_system_audit_executive: { Args: never; Returns: Json }
       admin_get_worker_heartbeat_summary: { Args: never; Returns: Json }
       admin_has_recent_terminal_notification: {
         Args: { _job_type: string; _package_id: string; _within?: string }
@@ -111706,6 +111717,14 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_repair_grant_entitlement_drift: {
+        Args: { p_caller_id?: string; p_dry_run?: boolean }
+        Returns: Json
+      }
+      admin_repair_paid_orders_without_grant: {
+        Args: { p_caller_id?: string; p_dry_run?: boolean }
+        Returns: Json
+      }
       admin_repair_quality_council_drift: {
         Args: { p_dry_run?: boolean; p_limit?: number }
         Returns: {
@@ -112071,6 +112090,10 @@ export type Database = {
       admin_unblock_user: {
         Args: { p_reason?: string; p_user_id: string }
         Returns: undefined
+      }
+      admin_unblock_zombie_with_approved_questions: {
+        Args: { p_caller_id?: string; p_dry_run?: boolean }
+        Returns: Json
       }
       admin_unseal_course_for_regen: {
         Args: { p_course_id: string }
