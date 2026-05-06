@@ -84,10 +84,15 @@ const text = [
   ``,
   `Verdict: ${verdict === "SOFT_LAUNCH_JA" ? "✅ JA" : "❌ NEIN"}`,
   ``,
-  ...summary.map((s) =>
-    `- [${s.required ? "REQUIRED" : "SOFT"}] ${s.suite}: ${s.status}` +
-    (s.lastPhase ? ` (last phase: ${s.lastPhase}${s.attempt != null ? `, attempt=${s.attempt}` : ""})` : ""),
-  ),
+  `## Per-Suite Verdict`,
+  ...summary.map((s) => {
+    const icon = s.status === "passed" ? "✅" : s.status === "failed" ? "❌" : s.status === "skipped" ? "⏭️" : "❔";
+    const tag = s.required ? "REQUIRED" : "OPTIONAL";
+    const phase = s.lastPhase ? ` — last phase: ${s.lastPhase}${s.attempt != null ? ` (attempt=${s.attempt})` : ""}` : "";
+    return `- ${icon} [${tag}] ${s.suite}: ${s.status}${phase}`;
+  }),
+  ``,
+  `## Final Verdict: ${verdict}`,
 ].join("\n");
 fs.writeFileSync(path.join(ROOT, "soft-launch-summary.txt"), text);
 console.log(text);
