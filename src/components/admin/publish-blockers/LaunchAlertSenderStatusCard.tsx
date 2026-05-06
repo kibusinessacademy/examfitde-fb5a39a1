@@ -46,6 +46,10 @@ type OutboxRow = {
 };
 
 export default function LaunchAlertSenderStatusCard() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [note, setNote] = useState('');
   const settings = useQuery({
     queryKey: ['admin-launch-alert-sender-settings'],
     queryFn: async () => {
