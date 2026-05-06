@@ -21,9 +21,10 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
-vi.mock('@/hooks/useCourseProgress', () => ({
-  useCourseProgress: () => ({ data: null, isLoading: false }),
-}));
+vi.mock('@/hooks/useCourseProgress', async (importOriginal) => {
+  const actual: any = await importOriginal();
+  return { ...actual, useCourseProgress: () => ({ data: null, isLoading: false }) };
+});
 
 vi.mock('@/hooks/use-toast', () => ({ toast: vi.fn() }));
 
