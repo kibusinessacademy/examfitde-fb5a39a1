@@ -86,10 +86,14 @@ test.describe('Funnel Bridge · Lead-Magnet-CTA → quiz_started', () => {
     expect(ctaEvt, 'quiz_cta_clicked must be persisted').not.toBeNull();
     expect(ctaEvt!.metadata?.quiz_slug).toBe(QUIZ_SLUG);
     expect(ctaEvt!.metadata?.source_page || ctaEvt!.page_path).toContain(SOURCE_PATH);
+    expect(ctaEvt!.metadata?.cta_location, 'CTA must carry cta_location').toBeTruthy();
 
     const quizEvt = await pollEvent(sessionId!, 'quiz_started');
     expect(quizEvt, 'quiz_started must be persisted in same session').not.toBeNull();
     expect(quizEvt!.metadata?.quiz_slug).toBe(QUIZ_SLUG);
     expect(quizEvt!.session_id).toBe(sessionId);
+    // Bridge-Verifikation: cta_location und source_page müssen in quiz_started landen
+    expect(quizEvt!.metadata?.source_page, 'quiz_started must carry source_page from CTA bridge').toContain(SOURCE_PATH);
+    expect(quizEvt!.metadata?.cta_location, 'quiz_started must carry cta_location from CTA bridge').toBe(ctaEvt!.metadata?.cta_location);
   });
 });

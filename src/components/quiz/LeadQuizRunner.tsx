@@ -126,13 +126,31 @@ export function LeadQuizRunner({ slug }: Props) {
 
     if (!startedRef.current) {
       startedRef.current = true;
+      // Origin-Bridge aus QuizCTA → cta_location/source_page in quiz_started
+      let origin: { cta_location?: string; source_page?: string; source?: string; variant?: string } = {};
+      try {
+        if (typeof window !== "undefined") {
+          const raw = window.sessionStorage.getItem("ef_quiz_origin");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            // Nur wenn quiz_slug matched und < 60 min alt
+            if (parsed?.quiz_slug === slug && Date.now() - (parsed.ts || 0) < 3_600_000) {
+              origin = parsed;
+            }
+          }
+        }
+      } catch {/* ignore */}
       emitFunnelEvent("QUIZ_STARTED", {
         curriculum_id: quiz?.curriculum_id ?? null,
         package_id: mapping?.packageId ?? null,
         persona: mapping?.persona ?? null,
         source_page:
-          typeof window !== "undefined" ? window.location.pathname : null,
+          origin.source_page ??
+          (typeof window !== "undefined" ? window.location.pathname : null),
         quiz_slug: slug,
+        cta_location: origin.cta_location ?? "direct",
+        source: origin.source ?? "direct",
+        variant: origin.variant ?? null,
       });
       await ensureAttempt();
     }

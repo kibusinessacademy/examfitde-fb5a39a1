@@ -19647,6 +19647,51 @@ export type Database = {
           },
         ]
       }
+      cta_winner_decisions: {
+        Row: {
+          cta_location: string
+          data_window_start: string
+          decided_at: string
+          decided_by: string
+          id: string
+          loser_quiz_start_per_visible_pct: number
+          notes: string | null
+          page_path: string
+          views_loser: number
+          views_winner: number
+          winner_quiz_start_per_visible_pct: number
+          winner_variant: string
+        }
+        Insert: {
+          cta_location: string
+          data_window_start: string
+          decided_at?: string
+          decided_by?: string
+          id?: string
+          loser_quiz_start_per_visible_pct: number
+          notes?: string | null
+          page_path: string
+          views_loser: number
+          views_winner: number
+          winner_quiz_start_per_visible_pct: number
+          winner_variant: string
+        }
+        Update: {
+          cta_location?: string
+          data_window_start?: string
+          decided_at?: string
+          decided_by?: string
+          id?: string
+          loser_quiz_start_per_visible_pct?: number
+          notes?: string | null
+          page_path?: string
+          views_loser?: number
+          views_winner?: number
+          winner_quiz_start_per_visible_pct?: number
+          winner_variant?: string
+        }
+        Relationships: []
+      }
       curricula: {
         Row: {
           beruf_id: string | null
@@ -95869,7 +95914,9 @@ export type Database = {
           clicks: number | null
           cta_location: string | null
           ctr_pct: number | null
+          first_seen_at: string | null
           page_path: string | null
+          quiz_start_per_visible_pct: number | null
           quiz_start_rate_pct: number | null
           quiz_started: number | null
           source: string | null
@@ -109725,6 +109772,19 @@ export type Database = {
           track: string
         }[]
       }
+      admin_auto_promote_cta_winners: {
+        Args: {
+          p_min_clicks_per_variant?: number
+          p_min_delta_pct?: number
+          p_min_hours?: number
+        }
+        Returns: {
+          action: string
+          cta_location: string
+          page_path: string
+          winner: string
+        }[]
+      }
       admin_auto_promote_ready_courses: {
         Args: { _dry_run?: boolean }
         Returns: Json
@@ -110257,7 +110317,9 @@ export type Database = {
           clicks: number | null
           cta_location: string | null
           ctr_pct: number | null
+          first_seen_at: string | null
           page_path: string | null
+          quiz_start_per_visible_pct: number | null
           quiz_start_rate_pct: number | null
           quiz_started: number | null
           source: string | null
@@ -110267,6 +110329,29 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "v_conversion_cta_performance"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      admin_get_cta_winners: {
+        Args: never
+        Returns: {
+          cta_location: string
+          data_window_start: string
+          decided_at: string
+          decided_by: string
+          id: string
+          loser_quiz_start_per_visible_pct: number
+          notes: string | null
+          page_path: string
+          views_loser: number
+          views_winner: number
+          winner_quiz_start_per_visible_pct: number
+          winner_variant: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "cta_winner_decisions"
           isOneToOne: false
           isSetofReturn: true
         }
