@@ -111717,8 +111717,8 @@ export type Database = {
         Args: { p_dry_run?: boolean }
         Returns: {
           action: string
-          package_id: string
-          persona: string
+          out_package_id: string
+          out_persona: string
         }[]
       }
       admin_seed_missing_product_prices: {
