@@ -95862,6 +95862,22 @@ export type Database = {
         }
         Relationships: []
       }
+      v_conversion_cta_performance: {
+        Row: {
+          checkout_rate_pct: number | null
+          checkout_started: number | null
+          clicks: number | null
+          cta_location: string | null
+          ctr_pct: number | null
+          page_path: string | null
+          quiz_start_rate_pct: number | null
+          quiz_started: number | null
+          source: string | null
+          variant: string | null
+          views: number | null
+        }
+        Relationships: []
+      }
       v_cost_per_package: {
         Row: {
           avg_latency_ms: number | null
@@ -110229,6 +110245,28 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "v_admin_course_pipeline_readiness"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      admin_get_cta_performance: {
+        Args: never
+        Returns: {
+          checkout_rate_pct: number | null
+          checkout_started: number | null
+          clicks: number | null
+          cta_location: string | null
+          ctr_pct: number | null
+          page_path: string | null
+          quiz_start_rate_pct: number | null
+          quiz_started: number | null
+          source: string | null
+          variant: string | null
+          views: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_conversion_cta_performance"
           isOneToOne: false
           isSetofReturn: true
         }
