@@ -25,9 +25,45 @@ test.describe("Entitlement → CTA → Lesson (launch gate)", () => {
   // on top of the global config so deployment lag does not turn into red gates.
   test.describe.configure({ retries: 3 });
 
-  test("grant user sees continue-CTA, opens lesson, progress persists", async ({ page }) => {
+  test("grant user sees continue-CTA, opens lesson, progress persists", async ({ page }, testInfo) => {
     test.slow();
 
+    // ── Phase tracker: prints which step we're in on each retry, so flake
+    //    triage is "scroll to PHASE_FAIL line" instead of stack-spelunking.
+    const attempt = testInfo.retry;
+    let currentPhase = "init";
+    const phase = (name: string) => {
+      currentPhase = name;
+      // eslint-disable-next-line no-console
+      console.log(`[entitlement-e2e][attempt=${attempt}] ▶ phase: ${name}`);
+    };
+    // Tag console + network errors with the active phase.
+    page.on("console", (msg) => {
+      if (msg.type() === "error") {
+        // eslint-disable-next-line no-console
+        console.log(`[entitlement-e2e][attempt=${attempt}][phase=${currentPhase}] console.error: ${msg.text()}`);
+      }
+    });
+    page.on("requestfailed", (req) => {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[entitlement-e2e][attempt=${attempt}][phase=${currentPhase}] requestfailed: ${req.method()} ${req.url()} — ${req.failure()?.errorText}`,
+      );
+    });
+    page.on("response", (res) => {
+      const u = res.url();
+      if (u.includes("/rest/v1/rpc/check_product_access_by_curriculum") || u.includes("/auth/v1/token")) {
+        // eslint-disable-next-line no-console
+        console.log(`[entitlement-e2e][attempt=${attempt}][phase=${currentPhase}] ${res.status()} ${u}`);
+      }
+    });
+    testInfo.attach("entitlement-phase-on-fail", {
+      body: Buffer.from(`will be overwritten on failure`),
+      contentType: "text/plain",
+    }).catch(() => {});
+
+    try {
+    phase("provision-grant");
     // 1. Pick a sellable course and ensure grant exists for the test learner.
     const sellableResp = await e2eHelper<{ ok: boolean; courses: any[] }>({ op: "sellable_courses" });
     const sellable = sellableResp?.courses ?? [];
