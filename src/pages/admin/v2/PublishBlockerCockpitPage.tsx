@@ -33,6 +33,7 @@ import L2EnforceReadinessCard from '@/components/admin/publish-blockers/L2Enforc
 import LaunchReadinessDashboardCard from '@/components/admin/publish-blockers/LaunchReadinessDashboardCard';
 import SoftLaunchPromotionCard from '@/components/admin/publish-blockers/SoftLaunchPromotionCard';
 import LaunchQueueAlertsCard from '@/components/admin/publish-blockers/LaunchQueueAlertsCard';
+import LaunchAlertSenderStatusCard from '@/components/admin/publish-blockers/LaunchAlertSenderStatusCard';
 
 type BlockedRow = {
   log_id: string;
@@ -157,6 +158,7 @@ export default function PublishBlockerCockpitPage() {
 
       {/* ── Launch Readiness Overall ── */}
       <LaunchReadinessDashboardCard />
+      <LaunchAlertSenderStatusCard />
       <LaunchQueueAlertsCard />
       <SoftLaunchPromotionCard />
 
