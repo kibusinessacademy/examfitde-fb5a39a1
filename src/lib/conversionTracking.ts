@@ -44,7 +44,12 @@ export type FunnelEventType =
   | "exam_attempt"
   // ── Funnel-Tiefen-Events ──
   | "page_view"
-  | "add_to_cart";
+  | "add_to_cart"
+  // ── Heatmap / CTA-Sichtbarkeit (Loop A Optimierung) ──
+  | "heatmap_click"
+  | "heatmap_scroll_depth"
+  | "cta_visible"
+  | "cta_clicked";
 
 const ANON_KEY = "ef_anon_id";
 const SESSION_KEY = "ef_session_id";

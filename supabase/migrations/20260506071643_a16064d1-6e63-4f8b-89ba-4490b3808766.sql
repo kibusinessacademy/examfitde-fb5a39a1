@@ -1,0 +1,18 @@
+ALTER TABLE public.conversion_events DROP CONSTRAINT IF EXISTS conversion_events_event_type_v2_chk;
+
+ALTER TABLE public.conversion_events ADD CONSTRAINT conversion_events_event_type_v2_chk CHECK (
+  event_type = ANY (ARRAY[
+    'hero_cta_click','pricing_view','checkout_start','checkout_complete','lead_magnet_download','quiz_complete',
+    'paywall_view','cta_click','checkout_started','checkout_completed','dismissed',
+    'pricing_hero_view','pricing_hero_primary_click','pricing_hero_secondary_click',
+    'optin_submit','doi_confirmed','b2b_form_submit','course_open','exam_attempt',
+    'product_search','product_filter','product_view','product_select','shop_view',
+    'lead_magnet_view','quiz_start','lead_capture','lernplan_view',
+    'quiz_started','quiz_completed','lead_capture_submitted','lernplan_viewed','bundle_cta_clicked',
+    'page_view','add_to_cart','quiz_cta_clicked',
+    'landing_view','lead_gate_shown','lead_gate_start_diagnosis','lead_gate_skip_to_checkout',
+    'quiz_result_viewed','result_cta_clicked',
+    -- NEU: Heatmap + CTA-Sichtbarkeits-Events (Loop A Optimierung)
+    'heatmap_click','heatmap_scroll_depth','cta_visible','cta_clicked'
+  ])
+);

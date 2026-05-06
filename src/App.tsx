@@ -16,6 +16,7 @@ import { useNativeApp } from "@/hooks/useNativeApp";
 import { useTrailingSlashNormalizer } from "@/hooks/useTrailingSlashNormalizer";
 import AppRoutes from "@/routes/AppRoutes";
 import { AccessDebugPanel } from "@/components/debug/AccessDebugPanel";
+import { useHeatmapTracking } from "@/features/analytics/useHeatmapTracking";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,6 +86,7 @@ function AppChrome() {
 
   usePointerLockRecovery();
   useTrailingSlashNormalizer();
+  useHeatmapTracking({ source: "site" });
 
   // Detect partner referral params on landing
   useEffect(() => {
