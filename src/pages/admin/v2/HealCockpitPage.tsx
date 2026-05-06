@@ -311,6 +311,7 @@ export default function HealCockpitPage() {
             <StuckPatternsCard />
             <HealStatusCard />
             <StaleDraftsCard />
+            <LearningIntegrityExecutiveCard />
             <ContentGapTopupCard />
             <StaleDoneStepsCard />
             <ContinuationFailuresCard />
