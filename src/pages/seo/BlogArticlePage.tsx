@@ -8,6 +8,7 @@ import { Clock, ArrowLeft, Calendar, Tag, BookOpen, AlertTriangle, Lightbulb } f
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { GrowthBrandFooter } from '@/components/seo/GrowthBrandFooter';
+import { QuizCTA } from '@/components/quiz/QuizCTA';
 
 const SITE_URL = 'https://examfit.de';
 
@@ -257,6 +258,10 @@ export default function BlogArticlePage() {
           {/* Article Content */}
           <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-primary prose-img:rounded-lg">
             <ReactMarkdown>{article.content_md}</ReactMarkdown>
+          </div>
+
+          <div className="my-8">
+            <QuizCTA location="mid" cluster="blog_article" />
           </div>
 
           {/* FAQ Section */}
