@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     action_type: 'launch_alert_email_flush',
     target_type: 'system',
     result_status: results.every(r => r.ok) ? 'success' : 'partial',
-    metadata: { processed: results.length, recipients, results },
+    metadata: { processed: results.length, recipients, results, from: fromInfo.from, from_verified: fromInfo.verified, configured_email: fromInfo.email },
   });
 
   return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
