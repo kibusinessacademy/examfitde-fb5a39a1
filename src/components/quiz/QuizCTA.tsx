@@ -110,6 +110,22 @@ export function QuizCTA({
   }, [cluster, location, quizSlug, abVariant, sourcePage]);
 
   const handleClick = () => {
+    // Bridge: persistiert Origin-Kontext für LeadQuizRunner → quiz_started
+    try {
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(
+          "ef_quiz_origin",
+          JSON.stringify({
+            quiz_slug: quizSlug,
+            cta_location: location,
+            source_page: sourcePage,
+            source: cluster,
+            variant: abVariant,
+            ts: Date.now(),
+          })
+        );
+      }
+    } catch {/* ignore */}
     emitFunnelEvent("QUIZ_CTA_CLICKED", {
       quiz_slug: quizSlug,
       cta_location: location,
