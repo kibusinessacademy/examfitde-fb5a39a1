@@ -33,6 +33,7 @@ export function HealCockpitTabContent() {
         </Button>
       </div>
       <MorningBriefing />
+      <ProducerNoiseTrendCard />
       <BronzeReviewCard />
       <CouplingHealV4Card />
       <HealClusterExplanationPanel />
