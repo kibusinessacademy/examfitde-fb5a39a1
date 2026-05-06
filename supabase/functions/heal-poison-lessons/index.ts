@@ -6,6 +6,8 @@ import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { DEPTH_SELF_CHECK, REGULATORY_GUARD, runV2QualityGate, getRequiredDepth, mapToDifficultyLevel } from "../_shared/prompt-kit.ts";
 import type { DifficultyLevel } from "../_shared/prompt-kit.ts";
 import { canonicalStepKey } from "../_shared/step-keys.ts";
+import { validateAuth, unauthorizedResponse, forbiddenResponse } from "../_shared/auth.ts";
+import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 /**
  * heal-poison-lessons — Auto-Heal for persistently failing lessons
@@ -65,12 +67,19 @@ const MINICHECK_TOOL = {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*" } });
-  }
+  const origin = req.headers.get("origin");
+  const pre = handleCorsPreflightRequest(req);
+  if (pre) return pre;
 
   const json = (body: unknown, status = 200) =>
-    new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    new Response(JSON.stringify(body), { status, headers: { ...getCorsHeaders(origin), "Content-Type": "application/json" } });
+
+  // Require admin or internal job-runner secret — function uses service role and triggers expensive LLM calls.
+  const auth = await validateAuth(req, true);
+  if (auth.error) {
+    if (auth.error === 'Admin access required') return forbiddenResponse(auth.error, origin || undefined);
+    return unauthorizedResponse(auth.error, origin || undefined);
+  }
 
   try {
     const p = await req.json();

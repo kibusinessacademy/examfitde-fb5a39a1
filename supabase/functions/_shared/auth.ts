@@ -24,12 +24,19 @@ export async function validateAuth(
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-  // Internal edge-to-edge bypass: validated via dedicated shared secret (NOT the service role key).
-  // Set EDGE_INTERNAL_SHARED_SECRET in Cloud secrets. Falls back to service role key for migration period.
-  const internalSecret = Deno.env.get('EDGE_INTERNAL_SHARED_SECRET') || supabaseServiceKey;
+  // Internal edge-to-edge bypass: validated via dedicated shared secret ONLY.
+  // The previous service-role-key fallback was removed — if EDGE_INTERNAL_SHARED_SECRET
+  // is not configured, internal calls must use createClient(url, serviceRoleKey) directly
+  // instead of the x-job-runner-key header.
+  const internalSecret = Deno.env.get('EDGE_INTERNAL_SHARED_SECRET');
   const jobRunnerKey = req.headers.get('x-job-runner-key');
   if (jobRunnerKey && internalSecret && jobRunnerKey === internalSecret) {
     return { user: { id: 'job-runner' }, error: null, isAdmin: true, isServiceRole: true };
+  }
+  // Reject any attempt to pass the service role key as the internal token.
+  if (jobRunnerKey && jobRunnerKey === supabaseServiceKey) {
+    console.warn('[Auth] BLOCKED: Attempt to use service role key as x-job-runner-key');
+    return { user: null, error: 'Invalid internal token', isAdmin: false, isServiceRole: false };
   }
 
   const authHeader = req.headers.get('Authorization');
