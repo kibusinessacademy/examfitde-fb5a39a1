@@ -99873,6 +99873,20 @@ export type Database = {
         }
         Relationships: []
       }
+      v_lxi_no_lessons_report: {
+        Row: {
+          avg_score: number | null
+          blocks_24h: number | null
+          last_block_at: string | null
+          last_repair_enqueued_at: string | null
+          no_lessons_but_not_applicable: number | null
+          published_total: number | null
+          report_generated_at: string | null
+          still_no_lessons: number | null
+          track: string | null
+        }
+        Relationships: []
+      }
       v_lxi_no_lessons_targets: {
         Row: {
           active_lesson_jobs: number | null
@@ -112618,6 +112632,26 @@ export type Database = {
         }
       }
       admin_get_learning_integrity_summary: { Args: never; Returns: Json }
+      admin_get_lxi_no_lessons_report: {
+        Args: never
+        Returns: {
+          avg_score: number | null
+          blocks_24h: number | null
+          last_block_at: string | null
+          last_repair_enqueued_at: string | null
+          no_lessons_but_not_applicable: number | null
+          published_total: number | null
+          report_generated_at: string | null
+          still_no_lessons: number | null
+          track: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_lxi_no_lessons_report"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_lxi_no_lessons_targets: {
         Args: never
         Returns: {
