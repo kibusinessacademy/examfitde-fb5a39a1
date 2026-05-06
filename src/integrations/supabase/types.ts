@@ -111524,6 +111524,10 @@ export type Database = {
         Args: { _job_id: string; _reason?: string }
         Returns: Json
       }
+      admin_mark_sender_verified_and_smoke: {
+        Args: { p_note?: string; p_verified?: boolean }
+        Returns: Json
+      }
       admin_merge_duplicate_certification_products: {
         Args: { p_apply?: boolean }
         Returns: {
