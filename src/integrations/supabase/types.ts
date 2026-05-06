@@ -109286,7 +109286,8 @@ export type Database = {
           grant_entitlement_drift: number | null
           paid_orders_without_grant: number | null
           sellable_published_packages: number | null
-          zombie_with_approved_questions: number | null
+          zombie_eligible_for_unblock: number | null
+          zombie_total: number | null
         }
         Relationships: []
       }
@@ -114760,6 +114761,7 @@ export type Database = {
       fn_heal_remaining_packages_by_class: { Args: never; Returns: Json }
       fn_heal_track_step_drift: { Args: never; Returns: Json }
       fn_heal_upstream_hotspots: { Args: never; Returns: Json }
+      fn_is_admin_or_service_role: { Args: { _uid: string }; Returns: boolean }
       fn_is_bronze_locked: { Args: { p_package_id: string }; Returns: boolean }
       fn_is_package_progress_blocked: {
         Args: { p_package_id: string }
