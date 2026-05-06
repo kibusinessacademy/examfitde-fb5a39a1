@@ -225,7 +225,8 @@ export function QuizCTA({
           </Link>
         </Button>
       </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
