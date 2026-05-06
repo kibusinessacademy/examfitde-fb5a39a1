@@ -300,6 +300,7 @@ export function PricingHealAuditCard() {
               );
             })}
           </div>
+          </>
         )}
 
         <div className="space-y-2">
