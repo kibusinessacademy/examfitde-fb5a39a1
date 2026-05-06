@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'X-Connection-Api-Key': RESEND_API_KEY,
         },
-        body: JSON.stringify({ from: FROM_ADDRESS, to: recipients, subject, html }),
+        body: JSON.stringify({ from: fromInfo.from, to: recipients, subject, html }),
       });
       const body = await resp.json();
       if (!resp.ok) {
