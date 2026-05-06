@@ -131,6 +131,9 @@ const STATUS_TONE: Record<string, string> = {
 export function PricingHealAuditCard() {
   const [expandedTrack, setExpandedTrack] = useState<string | null>(null);
   const [detailPkg, setDetailPkg] = useState<string | null>(null);
+  const [filterCluster, setFilterCluster] = useState<string>("all");
+  const [filterReason, setFilterReason] = useState<string>("all");
+  const [filterPkg, setFilterPkg] = useState<string>("");
 
   const gapsQ = useQuery({
     queryKey: ["pricing-gap-by-track"],
@@ -153,12 +156,42 @@ export function PricingHealAuditCard() {
   });
 
   const totalGaps = gapsQ.data?.total_gaps ?? 0;
+  const allRows = gapsQ.data?.by_track_gate ?? [];
+  const reasonOptions = Array.from(new Set(allRows.map(r => r.gap_type))).sort();
+  const trackOptions = Array.from(new Set(allRows.map(r => r.track))).sort();
+
+  const filteredRows: GapRow[] = allRows
+    .filter(r => filterCluster === "all" || r.track === filterCluster)
+    .filter(r => filterReason === "all" || r.gap_type === filterReason)
+    .map(r => ({
+      ...r,
+      packages: filterPkg
+        ? r.packages.filter(p => p.title.toLowerCase().includes(filterPkg.toLowerCase()) || p.id.includes(filterPkg))
+        : r.packages,
+    }))
+    .filter(r => r.packages.length > 0);
+
+  const filteredTotal = filteredRows.reduce((s, r) => s + r.packages.length, 0);
   const runs = runsQ.data?.runs ?? [];
   const byTrack = new Map<string, GapRow[]>();
-  (gapsQ.data?.by_track_gate ?? []).forEach(r => {
+  filteredRows.forEach(r => {
     const arr = byTrack.get(r.track) ?? [];
     arr.push(r); byTrack.set(r.track, arr);
   });
+
+  const exportCsv = () => {
+    const header = ["track", "gap_type", "package_id", "package_title", "package_status"];
+    const lines = [header.join(",")];
+    filteredRows.forEach(r => r.packages.forEach(p => {
+      const row = [r.track, r.gap_type, p.id, `"${(p.title ?? "").replace(/"/g, '""')}"`, p.status];
+      lines.push(row.join(","));
+    }));
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `pricing-gaps-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
 
   return (
     <Card className="shadow-elev-1">
