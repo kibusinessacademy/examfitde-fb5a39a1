@@ -4,8 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { Loader2, PlayCircle, FlaskConical } from "lucide-react";
 
 type Target = {
   package_id: string;
@@ -29,9 +41,13 @@ type DispatchResult = {
   results: Array<{ package_id: string; title: string; action: string; reason?: string; job_id?: string }>;
 };
 
+type ConfirmKind = "dry" | "real" | null;
+
 export function LxiNoLessonsRepairCard() {
   const qc = useQueryClient();
   const [lastResult, setLastResult] = useState<DispatchResult | null>(null);
+  const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; mode: "dry" | "real" } | null>(null);
 
   const targets = useQuery({
     queryKey: ["lxi-no-lessons-targets"],
@@ -43,7 +59,7 @@ export function LxiNoLessonsRepairCard() {
     refetchInterval: 60_000,
   });
 
-  const dispatch = useMutation({
+  const dispatchSingle = useMutation({
     mutationFn: async ({ pkg, dry }: { pkg?: string; dry: boolean }) => {
       const { data, error } = await supabase.rpc(
         "admin_dispatch_lxi_no_lessons_repair" as any,
@@ -66,6 +82,58 @@ export function LxiNoLessonsRepairCard() {
       toast({ title: "Repair-Dispatch fehlgeschlagen", description: err.message, variant: "destructive" });
     },
   });
+
+  const eligibleTargets = (targets.data ?? []).filter((t) => t.active_lesson_jobs === 0);
+  const eligibleCount = eligibleTargets.length;
+
+  async function runBulk(mode: "dry" | "real") {
+    const list = eligibleTargets;
+    if (list.length === 0) return;
+    setBulkProgress({ done: 0, total: list.length, mode });
+    const aggregate: DispatchResult = {
+      dry_run: mode === "dry",
+      correlation_id: `bulk-${Date.now()}`,
+      dispatched: 0,
+      skipped: 0,
+      results: [],
+    };
+    try {
+      for (let i = 0; i < list.length; i++) {
+        const t = list[i];
+        try {
+          const { data, error } = await supabase.rpc(
+            "admin_dispatch_lxi_no_lessons_repair" as any,
+            { _package_id: t.package_id, _dry_run: mode === "dry" }
+          );
+          if (error) throw error;
+          const res = data as DispatchResult;
+          aggregate.dispatched += res.dispatched;
+          aggregate.skipped += res.skipped;
+          aggregate.results.push(...res.results);
+        } catch (e) {
+          aggregate.results.push({
+            package_id: t.package_id,
+            title: t.title,
+            action: "error",
+            reason: (e as Error).message,
+          });
+        }
+        setBulkProgress({ done: i + 1, total: list.length, mode });
+      }
+      setLastResult(aggregate);
+      toast({
+        title: mode === "dry" ? "Dry-Run alle abgeschlossen" : "Repair alle abgeschlossen",
+        description: `dispatched=${aggregate.dispatched}, skipped=${aggregate.skipped}`,
+      });
+      qc.invalidateQueries({ queryKey: ["lxi-no-lessons-targets"] });
+      qc.invalidateQueries({ queryKey: ["learning-integrity-summary"] });
+      qc.invalidateQueries({ queryKey: ["learning-integrity-audit"] });
+    } finally {
+      setTimeout(() => setBulkProgress(null), 1500);
+    }
+  }
+
+  const isBusy = dispatchSingle.isPending || bulkProgress !== null;
 
   return (
     <Card className="shadow-elev-1">
@@ -106,8 +174,8 @@ export function LxiNoLessonsRepairCard() {
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={t.active_lesson_jobs > 0 || dispatch.isPending}
-                    onClick={() => dispatch.mutate({ pkg: t.package_id, dry: false })}
+                    disabled={t.active_lesson_jobs > 0 || isBusy}
+                    onClick={() => dispatchSingle.mutate({ pkg: t.package_id, dry: false })}
                   >
                     Repair
                   </Button>
@@ -121,18 +189,33 @@ export function LxiNoLessonsRepairCard() {
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
-                disabled={dispatch.isPending || (targets.data?.length ?? 0) === 0}
-                onClick={() => dispatch.mutate({ dry: true })}
+                disabled={isBusy || eligibleCount === 0}
+                onClick={() => setConfirmKind("dry")}
               >
-                Dry-Run alle
+                <FlaskConical className="h-4 w-4" />
+                Dry-Run alle ({eligibleCount})
               </Button>
               <Button
-                disabled={dispatch.isPending || (targets.data?.length ?? 0) === 0}
-                onClick={() => dispatch.mutate({ dry: false })}
+                disabled={isBusy || eligibleCount === 0}
+                onClick={() => setConfirmKind("real")}
               >
-                Repair alle ({targets.data?.filter((t) => t.active_lesson_jobs === 0).length ?? 0})
+                <PlayCircle className="h-4 w-4" />
+                Repair alle ({eligibleCount})
               </Button>
             </div>
+
+            {bulkProgress && (
+              <div className="rounded-md border border-border-subtle p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs text-text-muted">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {bulkProgress.mode === "dry" ? "Dry-Run" : "Repair"} läuft… {bulkProgress.done} / {bulkProgress.total}
+                </div>
+                <Progress
+                  value={bulkProgress.total === 0 ? 0 : Math.round((bulkProgress.done / bulkProgress.total) * 100)}
+                  aria-label="Fortschritt Bulk-Dispatch"
+                />
+              </div>
+            )}
 
             {lastResult && (
               <div className="rounded-md border border-border-subtle p-3 text-xs">
@@ -157,6 +240,38 @@ export function LxiNoLessonsRepairCard() {
             )}
           </>
         )}
+
+        <AlertDialog open={confirmKind !== null} onOpenChange={(o) => !o && setConfirmKind(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {confirmKind === "dry" ? "Dry-Run für alle Pakete starten?" : "Repair für alle Pakete starten?"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {confirmKind === "dry" ? (
+                  <>Es wird kein Job enqueued. Es wird nur simuliert, was passieren würde — für {eligibleCount} Paket(e).</>
+                ) : (
+                  <>
+                    Es werden <strong>{eligibleCount}</strong> Lesson-Generation-Jobs enqueued. Idempotent —
+                    Pakete mit aktivem Job werden übersprungen. Keine Status-Änderung, kein Demote.
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  const kind = confirmKind;
+                  setConfirmKind(null);
+                  if (kind) void runBulk(kind === "dry" ? "dry" : "real");
+                }}
+              >
+                {confirmKind === "dry" ? "Dry-Run starten" : "Repair starten"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );
