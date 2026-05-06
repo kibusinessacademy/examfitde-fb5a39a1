@@ -27,6 +27,7 @@ const LlmVisibilityCard = lazy(() => import('@/features/admin/components/LlmVisi
 const SeoDeadEndDriftCard = lazy(() => import('@/features/admin/components/SeoDeadEndDriftCard').then(m => ({ default: m.SeoDeadEndDriftCard })));
 const SeoCanonicalParityCard = lazy(() => import('@/components/admin/growth/SeoCanonicalParityCard'));
 const FunnelDropoffHeatmapCard = lazy(() => import('@/components/admin/growth/FunnelDropoffHeatmapCard'));
+const CtaPerformanceCard = lazy(() => import('@/components/admin/growth/CtaPerformanceCard'));
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
 const GrowthLoopManager = lazy(() => import('@/components/admin/growth/GrowthLoopManager'));
 const PromoCodesPanel = lazy(() => import('@/components/admin/marketing/AdminPromoCodesPanel'));
@@ -119,6 +120,7 @@ export default function GrowthPage() {
         <TabsContent value="dashboard" className="mt-4 space-y-4">
           <Suspense fallback={<Loading />}><GrowthDashboardOverview onTabSwitch={setTab} /></Suspense>
           <Suspense fallback={<Loading />}><FunnelAnalyticsCard /></Suspense>
+          <Suspense fallback={<Loading />}><CtaPerformanceCard /></Suspense>
           <Suspense fallback={<Loading />}><FunnelDropoffHeatmapCard /></Suspense>
           <Suspense fallback={<Loading />}><PlatformIntegrityCard /></Suspense>
           <Suspense fallback={<Loading />}><FunnelIntegrityCard /></Suspense>
