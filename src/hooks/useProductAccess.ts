@@ -41,16 +41,26 @@ export function useProductAccessByCurriculum(
   curriculumId: string | undefined,
   feature?: 'learning_course' | 'exam_trainer' | 'ai_tutor' | 'oral_trainer'
 ) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
+  const userId = user?.id;
+
+  // After auth flips from anonymous → authenticated, drop any stale `false`
+  // cached under user=null so we re-fetch with the real session.
+  useEffect(() => {
+    if (userId) {
+      queryClient.invalidateQueries({ queryKey: ['product-access-curriculum'] });
+    }
+  }, [userId, queryClient]);
 
   return useQuery({
-    queryKey: ['product-access-curriculum', user?.id, curriculumId, feature],
+    queryKey: ['product-access-curriculum', userId ?? 'anon', curriculumId ?? 'none', feature ?? 'any'],
     queryFn: async () => {
-      if (!user || !curriculumId) return false;
+      if (!userId || !curriculumId) return false;
 
       const { data, error } = await supabase
         .rpc('check_product_access_by_curriculum' as any, {
-          p_user_id: user.id,
+          p_user_id: userId,
           p_curriculum_id: curriculumId,
           p_feature: feature || null,
         });
@@ -61,8 +71,12 @@ export function useProductAccessByCurriculum(
       }
       return data as boolean;
     },
-    enabled: !!user && !!curriculumId,
-    staleTime: 60 * 1000,
+    // Only run once we have BOTH a confirmed authenticated user AND a curriculum.
+    // Skip while auth is still hydrating to avoid caching `false` under user=null.
+    enabled: !authLoading && !!userId && !!curriculumId,
+    staleTime: 30 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 }
 
