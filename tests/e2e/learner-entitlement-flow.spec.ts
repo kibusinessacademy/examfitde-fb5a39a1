@@ -78,6 +78,7 @@ test.describe("Entitlement → CTA → Lesson (launch gate)", () => {
     });
     expect(grantResp?.grant?.ok, `grant failed: ${JSON.stringify(grantResp)}`).toBe(true);
 
+    phase("ui-login");
     // 2. Login as grant user via UI — wait for the form to be hydrated first.
     await page.goto("/auth", { waitUntil: "domcontentloaded" });
     const emailInput = page.locator('input[type="email"]');
@@ -89,24 +90,29 @@ test.describe("Entitlement → CTA → Lesson (launch gate)", () => {
       page.click('button[type="submit"]'),
     ]);
 
+    phase("course-detail-rpc");
     // 3. Open course detail page and wait for entitlement RPC to settle.
     await page.goto(`/course/${target.course_id}`, { waitUntil: "domcontentloaded" });
-    await page
+    const rpcResp = await page
       .waitForResponse(
         (r) => r.url().includes("/rest/v1/rpc/check_product_access_by_curriculum") && r.ok(),
         { timeout: 20_000 },
       )
-      .catch(() => {
-        // RPC may be cached / served from another response — fall through to UI assertion.
-      });
+      .catch(() => null);
+    if (!rpcResp) {
+      // eslint-disable-next-line no-console
+      console.log(`[entitlement-e2e][attempt=${attempt}] ⚠ no access RPC observed within 20s — falling through to UI assertion`);
+    }
     await page.waitForLoadState("networkidle").catch(() => {});
 
+    phase("cta-assert");
     // 4. CTA assertions: continue-button must be visible, enroll-CTA must NOT.
     const continueBtn = page.getByTestId("course-continue-btn");
     await expect(continueBtn).toBeVisible({ timeout: 20_000 });
     await expect(continueBtn).toHaveText(/training fortsetzen|lektion starten/i);
     await expect(page.getByRole("button", { name: /jetzt einschreiben/i })).toHaveCount(0);
 
+    phase("lesson-open");
     // 5. Click → land on lesson player + LessonPlayer renders.
     await Promise.all([
       page.waitForURL(/\/lesson\//, { timeout: 20_000 }),
@@ -114,10 +120,21 @@ test.describe("Entitlement → CTA → Lesson (launch gate)", () => {
     ]);
     await expect(page.getByTestId("lesson-player")).toBeVisible({ timeout: 25_000 });
 
+    phase("lesson-reload-persist");
     // 6. Reload and assert lesson player still renders (progress hook re-hydrates).
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("lesson-player")).toBeVisible({ timeout: 25_000 });
     expect(page.url()).toMatch(/\/lesson\//);
+    phase("done");
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.log(`[entitlement-e2e][attempt=${attempt}] ✖ FAIL in phase=${currentPhase}: ${(err as Error).message}`);
+      await testInfo.attach("entitlement-fail-phase.txt", {
+        body: Buffer.from(`attempt=${attempt}\nphase=${currentPhase}\nurl=${page.url()}\nerror=${(err as Error).message}`),
+        contentType: "text/plain",
+      }).catch(() => {});
+      throw err;
+    }
   });
 
   test("anonymous visitor cannot reach LessonPlayer", async ({ browser }) => {
