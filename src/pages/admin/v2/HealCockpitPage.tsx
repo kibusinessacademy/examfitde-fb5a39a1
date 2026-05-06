@@ -58,6 +58,7 @@ import { StuckPatternsCard } from "@/components/admin/heal/cards/StuckPatternsCa
 import { HealStatusCard } from "@/components/admin/heal/cards/HealStatusCard";
 import { ExamPoolDriftLogCard } from "@/components/admin/heal/cards/ExamPoolDriftLogCard";
 import { StaleDraftsCard } from "@/components/admin/heal/cards/StaleDraftsCard";
+import { ContentGapTopupCard } from "@/components/admin/heal/cards/ContentGapTopupCard";
 import { StaleDoneStepsCard } from "@/components/admin/heal/cards/StaleDoneStepsCard";
 import { ContinuationFailuresCard } from "@/components/admin/heal/cards/ContinuationFailuresCard";
 import { ForcePublishLogPanel } from "@/components/admin/heal/ForcePublishLogPanel";
