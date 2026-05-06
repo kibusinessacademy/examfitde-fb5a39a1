@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     if (userError || !user?.email) {
       throw new Error("User not authenticated or email not available");
     }
-    logStep("User authenticated", { userId: user.id, email: user.email });
+    logStep("User authenticated", { userId: user.id });
 
     // Parse request
     const body = await req.json() as CheckoutRequest;
