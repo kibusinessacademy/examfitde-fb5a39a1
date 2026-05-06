@@ -3,31 +3,45 @@
  * ──────────────────────────────────────────────────────────────────────
  * Monitoring für Phase-2 Hard-Block (matrix-aware effective gates).
  * Quelle: admin_get_lxi_publish_block_summary(p_hours).
+ * Schwellen pro (track,gate) konfigurierbar via Tabelle lxi_block_thresholds.
+ * Heal-Aktion pro Cluster via admin_heal_lxi_block_cluster(track,gate,hours).
  */
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShieldAlert, AlertTriangle } from "lucide-react";
+import { ShieldAlert, AlertTriangle, Wrench, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
+type Severity = "ok" | "warning" | "critical";
+
+interface SeverityCluster { track: string; gate: string; count: number; severity: Severity }
+interface TopCluster { package_id: string; track: string; attempts: number; last_attempt: string }
 interface Summary {
   window_hours: number;
   total_blocks: number;
   by_track: Record<string, number>;
   by_gate: Record<string, number>;
-  top_clusters: Array<{ package_id: string; track: string; attempts: number; last_attempt: string }>;
+  top_clusters: TopCluster[];
   trend_hourly: Array<{ hour_bucket: string; blocks: number }>;
+  severity_per_cluster: SeverityCluster[];
+  global_severity: Severity;
   generated_at: string;
 }
 
 const fmtTime = (s: string) =>
   new Date(s).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
+const sevVariant = (s: Severity) =>
+  s === "critical" ? "destructive" : s === "warning" ? "secondary" : "outline";
+
 export function LxiPublishBlockMonitorCard() {
   const [hours, setHours] = useState("24");
+  const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["lxi-publish-block-summary", hours],
@@ -42,9 +56,27 @@ export function LxiPublishBlockMonitorCard() {
     refetchInterval: 60_000,
   });
 
+  const heal = useMutation({
+    mutationFn: async (vars: { track: string; gate: string }) => {
+      const { data, error } = await supabase.rpc(
+        "admin_heal_lxi_block_cluster" as never,
+        { p_track: vars.track, p_gate: vars.gate, p_hours: Number(hours), p_limit: 20 } as never,
+      );
+      if (error) throw error;
+      return data as { dispatched: number; skipped: number };
+    },
+    onSuccess: (res, vars) => {
+      toast.success(`Heal: ${vars.track}/${vars.gate}`, {
+        description: `${res.dispatched} dispatched · ${res.skipped} skipped`,
+      });
+      qc.invalidateQueries({ queryKey: ["lxi-publish-block-summary"] });
+    },
+    onError: (e: Error) => toast.error(`Heal fehlgeschlagen: ${e.message}`),
+  });
+
+  const severity: Severity = data?.global_severity ?? "ok";
   const total = data?.total_blocks ?? 0;
   const peak = (data?.trend_hourly ?? []).reduce((m, t) => Math.max(m, t.blocks), 0);
-  const severity: "ok" | "warning" | "critical" = total === 0 ? "ok" : total > 20 ? "critical" : "warning";
 
   return (
     <Card className="border-border-subtle">
@@ -53,10 +85,7 @@ export function LxiPublishBlockMonitorCard() {
           <CardTitle className="text-sm flex items-center gap-2">
             <ShieldAlert className="h-4 w-4 text-destructive" />
             LXI Publish-Block Monitor (matrix-aware)
-            <Badge
-              variant={severity === "ok" ? "outline" : severity === "critical" ? "destructive" : "secondary"}
-              className="text-[10px]"
-            >
+            <Badge variant={sevVariant(severity)} className="text-[10px]">
               {severity === "ok" ? "stable" : severity}
             </Badge>
           </CardTitle>
@@ -89,18 +118,30 @@ export function LxiPublishBlockMonitorCard() {
               </div>
             ) : (
               <>
-                <Section title="By Track">
-                  <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(data?.by_track ?? {}).map(([k, n]) => (
-                      <Badge key={k} variant="secondary" className="text-[10px] font-mono">{k} · {n}</Badge>
-                    ))}
-                  </div>
-                </Section>
-
-                <Section title="By Gate">
-                  <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(data?.by_gate ?? {}).map(([k, n]) => (
-                      <Badge key={k} variant="outline" className="text-[10px] font-mono">{k} · {n}</Badge>
+                <Section title="Severity per Track × Gate (Schwellen aus lxi_block_thresholds)">
+                  <div className="space-y-1">
+                    {(data?.severity_per_cluster ?? []).map((c) => (
+                      <div key={`${c.track}-${c.gate}`}
+                           className="flex items-center justify-between gap-2 border border-border-subtle rounded px-2 py-1 text-[11px]">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                          <Badge variant={sevVariant(c.severity)} className="text-[10px]">{c.severity}</Badge>
+                          <Badge variant="outline" className="text-[10px] font-mono">{c.track}</Badge>
+                          <span className="font-mono text-muted-foreground truncate">{c.gate}</span>
+                          <Badge variant="secondary" className="text-[10px]">{c.count}×</Badge>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-[10px] shrink-0"
+                          disabled={heal.isPending}
+                          onClick={() => heal.mutate({ track: c.track, gate: c.gate })}
+                        >
+                          {heal.isPending && heal.variables?.track === c.track && heal.variables?.gate === c.gate
+                            ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            : <Wrench className="h-3 w-3 mr-1" />}
+                          Heal jetzt
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 </Section>
@@ -108,7 +149,8 @@ export function LxiPublishBlockMonitorCard() {
                 <Section title="Top-Cluster (häufigste Pakete)">
                   <div className="space-y-1">
                     {(data?.top_clusters ?? []).map((c) => (
-                      <div key={c.package_id} className="text-[11px] flex items-center justify-between gap-2 border border-border-subtle rounded px-2 py-1">
+                      <div key={c.package_id}
+                           className="text-[11px] flex items-center justify-between gap-2 border border-border-subtle rounded px-2 py-1">
                         <div className="flex items-center gap-2 min-w-0">
                           <Badge variant="destructive" className="text-[10px]">{c.attempts}×</Badge>
                           <Badge variant="outline" className="text-[10px]">{c.track}</Badge>
@@ -124,8 +166,8 @@ export function LxiPublishBlockMonitorCard() {
                   <div className="flex items-start gap-2 rounded border border-destructive/40 bg-status-bg-subtle p-2 text-xs">
                     <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                     <span>
-                      Hohes Block-Volumen ({total} in {hours}h). Prüfe ob Applicability-Matrix kalibriert oder Producer
-                      Phantom-Publishes triggern.
+                      Critical-Schwelle überschritten. Prüfe Producer-Phantom-Publishes oder echte Content-Lücken.
+                      Schwellen anpassbar in <code className="font-mono">lxi_block_thresholds</code>.
                     </span>
                   </div>
                 )}
