@@ -1881,6 +1881,13 @@ export type Database = {
             foreignKeyName: "ai_tutor_context_index_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "ai_tutor_context_index_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -5872,6 +5879,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "blueprint_targets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -11633,6 +11647,13 @@ export type Database = {
             foreignKeyName: "council_sessions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -13091,6 +13112,13 @@ export type Database = {
             foreignKeyName: "course_heal_plans_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_heal_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -14199,6 +14227,13 @@ export type Database = {
             foreignKeyName: "course_package_build_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_build_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -14993,6 +15028,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_locks_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -15814,6 +15856,13 @@ export type Database = {
             foreignKeyName: "course_package_outputs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_outputs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -16623,6 +16672,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_plans_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -17450,6 +17506,13 @@ export type Database = {
             columns: ["course_package_id"]
             isOneToOne: true
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_package_reviews_course_package_id_fkey"
+            columns: ["course_package_id"]
+            isOneToOne: true
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -18959,6 +19022,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "course_regulatory_status_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -20734,6 +20804,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "curriculum_discovery_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -24998,6 +25075,13 @@ export type Database = {
             foreignKeyName: "duplicate_detection_log_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "duplicate_detection_log_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -26672,6 +26756,13 @@ export type Database = {
             foreignKeyName: "exam_blueprints_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -27638,6 +27729,13 @@ export type Database = {
             foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -28483,6 +28581,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_validation_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -29849,6 +29954,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_questions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -33066,6 +33178,13 @@ export type Database = {
             foreignKeyName: "heal_snapshots_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -33911,6 +34030,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "heal_verification_reports_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -39603,6 +39729,13 @@ export type Database = {
             foreignKeyName: "minicheck_questions_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "minicheck_questions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -42056,6 +42189,13 @@ export type Database = {
             foreignKeyName: "oral_exam_blueprints_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -43045,6 +43185,13 @@ export type Database = {
             foreignKeyName: "oral_exam_session_templates_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_session_templates_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -43991,6 +44138,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "oral_exam_sessionsets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -46453,6 +46607,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -47298,6 +47459,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_leases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -48403,6 +48571,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -49197,6 +49372,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_tags_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -51300,6 +51482,13 @@ export type Database = {
             foreignKeyName: "pipeline_lock_active_package_id_fkey"
             columns: ["active_package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "pipeline_lock_active_package_id_fkey"
+            columns: ["active_package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -52559,6 +52748,13 @@ export type Database = {
             foreignKeyName: "premium_upgrade_runs_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "premium_upgrade_runs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -53587,6 +53783,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "priority_scores_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -55057,6 +55260,13 @@ export type Database = {
             foreignKeyName: "product_persona_overlays_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "product_persona_overlays_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -56038,6 +56248,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: true
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "product_pricing_overrides_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -57064,6 +57281,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "production_quality_snapshots_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -60658,6 +60882,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "question_blueprints_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -66469,6 +66700,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -73848,6 +74086,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -75826,6 +76071,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -76904,6 +77156,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -77865,6 +78124,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -78659,6 +78925,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -79468,6 +79741,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -80409,6 +80689,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -81438,6 +81725,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -82366,6 +82660,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -83732,6 +84033,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -84636,6 +84944,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -85682,6 +85997,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -86551,6 +86873,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -87341,6 +87670,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -88225,6 +88561,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "council_sessions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -89128,6 +89471,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -89921,6 +90271,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -91016,6 +91373,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -93090,6 +93454,13 @@ export type Database = {
             foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: true
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "exam_pool_fallback_state_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: true
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -94783,6 +95154,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -99494,6 +99872,93 @@ export type Database = {
         }
         Relationships: []
       }
+      v_lxi_no_lessons_targets: {
+        Row: {
+          active_lesson_jobs: number | null
+          approved_exam_question_count: number | null
+          bronze_badge: string | null
+          curriculum_id: string | null
+          learning_integrity_score: number | null
+          oral_blueprint_count: number | null
+          package_id: string | null
+          package_key: string | null
+          product_id: string | null
+          title: string | null
+          tutor_context_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curricula"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "elite_readiness_per_curriculum"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "ops_curriculum_quality_dashboard_mv"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_backlog_age"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_ops_qc_promotion_funnel"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "v_orphan_blueprint_audit"
+            referencedColumns: ["curriculum_id"]
+          },
+          {
+            foreignKeyName: "course_packages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_packages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "v_public_sellable_courses"
+            referencedColumns: ["product_id"]
+          },
+        ]
+      }
       v_minicheck_curriculum_drift: {
         Row: {
           competency_id: string | null
@@ -100360,6 +100825,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -101347,6 +101819,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -102460,6 +102939,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -103425,6 +103911,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -104434,6 +104927,13 @@ export type Database = {
             foreignKeyName: "package_content_shards_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_content_shards_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -105339,6 +105839,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -106131,6 +106638,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -106934,6 +107448,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -109249,6 +109770,13 @@ export type Database = {
             foreignKeyName: "package_steps_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "package_steps_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
             referencedRelation: "v_ops_auto_publish_blockers"
             referencedColumns: ["package_id"]
           },
@@ -110112,6 +110640,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "v_learning_integrity_audit"
+            referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "standalone_artifact_versions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_lxi_no_lessons_targets"
             referencedColumns: ["package_id"]
           },
           {
@@ -111271,6 +111806,10 @@ export type Database = {
         Args: { p_action_id: string }
         Returns: undefined
       }
+      admin_dispatch_lxi_no_lessons_repair: {
+        Args: { _dry_run?: boolean; _package_id?: string }
+        Returns: Json
+      }
       admin_drain_queue_backlog: {
         Args: {
           p_dry_run?: boolean
@@ -112076,6 +112615,28 @@ export type Database = {
         }
       }
       admin_get_learning_integrity_summary: { Args: never; Returns: Json }
+      admin_get_lxi_no_lessons_targets: {
+        Args: never
+        Returns: {
+          active_lesson_jobs: number | null
+          approved_exam_question_count: number | null
+          bronze_badge: string | null
+          curriculum_id: string | null
+          learning_integrity_score: number | null
+          oral_blueprint_count: number | null
+          package_id: string | null
+          package_key: string | null
+          product_id: string | null
+          title: string | null
+          tutor_context_count: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_lxi_no_lessons_targets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_get_minicheck_jobs_for_course: {
         Args: { _course_id: string }
         Returns: {
