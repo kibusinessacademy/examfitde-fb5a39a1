@@ -10,11 +10,18 @@
  *
  * Source: public.admin_settings + public.launch_alert_email_outbox (admin RLS).
  */
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, AlertTriangle, Mail, Clock, XCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle, DialogTrigger,
+} from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { CheckCircle2, AlertTriangle, Mail, Clock, XCircle, ShieldCheck, Loader2 } from 'lucide-react';
 
 type FromSetting = {
   email?: string;
