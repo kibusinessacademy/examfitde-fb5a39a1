@@ -34,6 +34,7 @@ export function HealCockpitTabContent() {
         </Button>
       </div>
       <MorningBriefing />
+      <LxiPublishBlockMonitorCard />
       <ProducerNoiseTrendCard />
       <BronzeReviewCard />
       <CouplingHealV4Card />
