@@ -27,19 +27,32 @@ const JOB_STATUS_TONE: Record<string, string> = {
 };
 
 function PackageDetailDialog({ packageId, onClose }: { packageId: string | null; onClose: () => void }) {
+  const visible = !!packageId;
   const q = useQuery({
     queryKey: ["pricing-pkg-detail", packageId],
-    enabled: !!packageId,
+    enabled: visible,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_get_pricing_package_detail", { p_package_id: packageId! });
       if (error) throw error;
       return data as any;
     },
-    refetchInterval: (q) => (q.state.data ? 10_000 : false),
+    // Live-Refresh nur bei sichtbarem Dialog + erfolgreich geladenem Datensatz.
+    // Exponential-Backoff bei Fehlern: 10s → 20s → 40s → 80s → max 5min, stop nach 6 Fehlern.
+    refetchInterval: (query) => {
+      if (!visible) return false;
+      const errs = query.state.errorUpdateCount ?? 0;
+      if (errs >= 6) return false;
+      if (errs > 0) return Math.min(10_000 * 2 ** errs, 300_000);
+      return query.state.data ? 10_000 : false;
+    },
+    retry: (failureCount) => failureCount < 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000),
   });
   const d = q.data;
   const pkg = d?.package;
-  const lastJob = d?.auto_publish_jobs?.[0];
+  const jobsAll: any[] = d?.auto_publish_jobs ?? [];
+  const jobsRecent = jobsAll.slice(0, 10);
+  const lastJob = jobsRecent[0];
   return (
     <Dialog open={!!packageId} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -125,19 +138,38 @@ function PackageDetailDialog({ packageId, onClose }: { packageId: string | null;
                 )}
             </div>
             <div>
-              <h5 className="font-semibold mb-1">Auto-Publish-Jobs ({d.auto_publish_jobs.length})</h5>
-              {d.auto_publish_jobs.length === 0
+              <h5 className="font-semibold mb-1">
+                Auto-Publish-Jobs (letzte {jobsRecent.length}{jobsAll.length > jobsRecent.length ? ` von ${jobsAll.length}` : ""})
+              </h5>
+              {jobsRecent.length === 0
                 ? <p className="text-text-muted">Keine Jobs.</p>
                 : (
-                  <ul className="space-y-0.5">
-                    {d.auto_publish_jobs.map((j: any) => (
-                      <li key={j.id} className="flex justify-between">
-                        <span>{new Date(j.created_at).toLocaleString("de-DE")}</span>
-                        <span><Badge variant="outline" className="text-[10px] mr-1">{j.status}</Badge>{j.enqueue_source ?? "—"}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <table className="w-full">
+                    <thead><tr className="text-text-muted border-b border-border-subtle">
+                      <th className="text-left py-1">Wann</th>
+                      <th className="text-left py-1">Status</th>
+                      <th className="text-left py-1">Quelle</th>
+                    </tr></thead>
+                    <tbody>
+                      {jobsRecent.map((j: any) => (
+                        <tr key={j.id} className="border-b border-border-subtle/40">
+                          <td className="py-1 whitespace-nowrap">{new Date(j.created_at).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}</td>
+                          <td className="py-1">
+                            <Badge variant="outline" className={`text-[10px] ${JOB_STATUS_TONE[j.status] ?? JOB_STATUS_TONE.pending}`}>
+                              {j.status}
+                            </Badge>
+                          </td>
+                          <td className="py-1 text-text-muted">{j.enqueue_source ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
+              {q.isError && (
+                <p className="text-[11px] text-status-danger mt-1">
+                  Fehler beim Live-Refresh — Backoff aktiv ({q.errorUpdateCount}/6).
+                </p>
+              )}
             </div>
           </div>
         )}
