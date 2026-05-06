@@ -15,25 +15,36 @@ name: Soft Launch Gate
 on:
   workflow_dispatch:
     inputs:
-      base_url:
-        description: "Base URL to test against"
+      target:
+        description: "Named target: production | preview | local"
         required: false
-        default: "https://examfitde.lovable.app"
+        default: "preview"
+        type: choice
+        options: [production, preview, local]
+      base_url:
+        description: "Override base URL (wins over `target`)"
+        required: false
+        default: ""
   repository_dispatch:
     types: [soft_launch_gate]
+  # Auto-trigger after a successful deployment so each Publish runs the gate.
+  deployment_status:
 
 permissions: read-all
 
 concurrency:
-  group: soft-launch-gate
+  group: soft-launch-gate-${{ github.event.client_payload.base_url || inputs.base_url || inputs.target || 'preview' }}
   cancel-in-progress: false
 
 jobs:
   gate:
+    # Only run on successful deployments (skip pending/in_progress/failure noise).
+    if: github.event_name != 'deployment_status' || github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      BASE_URL: ${{ github.event.client_payload.base_url || inputs.base_url || 'https://examfitde.lovable.app' }}
+      E2E_TARGET: ${{ inputs.target || 'preview' }}
+      BASE_URL: ${{ github.event.client_payload.base_url || inputs.base_url || github.event.deployment_status.target_url || '' }}
       VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

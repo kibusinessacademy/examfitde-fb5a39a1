@@ -1,7 +1,22 @@
 // playwright.config.ts – ExamFit E2E Configuration
 import { defineConfig, devices } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || process.env.STAGING_URL || 'https://examfitde.lovable.app';
+// Resolve base URL with explicit named targets:
+//   E2E_TARGET=production  → https://www.examfit.de
+//   E2E_TARGET=preview     → preview deployment URL
+//   E2E_TARGET=local       → http://localhost:8080
+// Direct overrides (BASE_URL/STAGING_URL) still win for ad-hoc runs.
+const TARGETS: Record<string, string> = {
+  production: process.env.PRODUCTION_URL || 'https://www.examfit.de',
+  preview: process.env.PREVIEW_URL || 'https://examfitde.lovable.app',
+  local: process.env.LOCAL_URL || 'http://localhost:8080',
+};
+const target = (process.env.E2E_TARGET || '').toLowerCase();
+const BASE_URL =
+  process.env.BASE_URL ||
+  process.env.STAGING_URL ||
+  (target && TARGETS[target]) ||
+  TARGETS.preview;
 
 export default defineConfig({
   testDir: './tests/e2e',

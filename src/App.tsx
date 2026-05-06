@@ -15,6 +15,7 @@ import { NativeTabBar } from "@/components/native/NativeTabBar";
 import { useNativeApp } from "@/hooks/useNativeApp";
 import { useTrailingSlashNormalizer } from "@/hooks/useTrailingSlashNormalizer";
 import AppRoutes from "@/routes/AppRoutes";
+import { AccessDebugPanel } from "@/components/debug/AccessDebugPanel";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,6 +100,7 @@ function AppChrome() {
       {showNativeTabBar ? <NativeTabBar /> : null}
       <InstallPrompt />
       {showNativeTabBar ? <div className="h-20" /> : null}
+      <AccessDebugPanel />
     </>
   );
 }
