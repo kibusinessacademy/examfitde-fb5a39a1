@@ -122,6 +122,11 @@ jobs:
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
           if [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ]; then exit 0; else exit $rc; fi
 
+      # ── Aggregated phase + status summary (JSON + TXT) ──────
+      - name: Soft-Launch Summary (phases + verdict)
+        if: always()
+        run: node scripts/ci/soft-launch-summary.mjs || true
+
       # ── Verdict ─────────────────────────────────────────────
       - name: Soft-Launch Verdict
         if: always()
