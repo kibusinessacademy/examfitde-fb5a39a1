@@ -45,6 +45,10 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Load FROM-address (with fallback while domain unverified)
+  const { data: fromSetting } = await sb.from('admin_settings').select('value').eq('key', 'launch_alert_from_address').maybeSingle();
+  const fromInfo = buildFromAddress(fromSetting);
+
   // Pending alerts (cap 20/run)
   const { data: pending, error } = await sb
     .from('launch_alert_email_outbox')
