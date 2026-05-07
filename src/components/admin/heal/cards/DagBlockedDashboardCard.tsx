@@ -289,6 +289,11 @@ export function DagBlockedDashboardCard() {
                     <TableCell className="text-xs">{j.parent_step_status ?? "—"}</TableCell>
                     <TableCell className="text-xs">{j.block_reason}</TableCell>
                     <TableCell className="text-right font-mono text-xs">{j.minutes_blocked}</TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="ghost" onClick={() => setDrillJobId(j.job_id)}>
+                        <Search className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -296,6 +301,80 @@ export function DagBlockedDashboardCard() {
           </div>
         )}
       </CardContent>
+
+      <Dialog open={!!drillJobId} onOpenChange={(o) => !o && setDrillJobId(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+          <DialogHeader><DialogTitle>Job-Drilldown</DialogTitle></DialogHeader>
+          {drilldown.isLoading && <div className="text-sm text-muted-foreground">Lade…</div>}
+          {drilldown.data && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div><span className="text-muted-foreground">Kurs:</span> {drilldown.data.package_title}</div>
+                <div><span className="text-muted-foreground">Step:</span> <code>{drilldown.data.step_key}</code></div>
+                <div><span className="text-muted-foreground">Status:</span> {drilldown.data.job_status}</div>
+                <div><span className="text-muted-foreground">Attempts:</span> {drilldown.data.attempts}</div>
+                <div><span className="text-muted-foreground">Block-Reason:</span> <Badge variant="outline">{drilldown.data.block_reason}</Badge></div>
+                <div><span className="text-muted-foreground">Min blockiert:</span> {drilldown.data.minutes_blocked}</div>
+              </div>
+              {drilldown.data.last_error && (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Fehlergrund</div>
+                  <pre className="text-xs bg-muted p-2 rounded overflow-auto whitespace-pre-wrap">{drilldown.data.last_error}</pre>
+                </div>
+              )}
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Parent-Abhängigkeit</div>
+                <div className="rounded border p-2 text-xs space-y-0.5">
+                  <div>Step: <code>{drilldown.data.parent?.parent_step_key ?? "—"}</code></div>
+                  <div>Status: {drilldown.data.parent?.parent_step_status ?? "—"}</div>
+                  <div>Aktive Jobs: {drilldown.data.parent?.parent_active_jobs ?? 0}</div>
+                  {drilldown.data.parent?.parent_last_error && (
+                    <pre className="text-[11px] mt-1 whitespace-pre-wrap">{drilldown.data.parent.parent_last_error}</pre>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Letzte Heal-Versuche</div>
+                <div className="rounded border max-h-48 overflow-auto">
+                  {(drilldown.data.recent_heal_log ?? []).map((l: any, i: number) => (
+                    <div key={i} className="text-xs p-1.5 border-b last:border-0">
+                      <span className="text-muted-foreground">{new Date(l.created_at).toLocaleString()}</span> · <code>{l.action_type}</code> · <Badge variant="outline" className="text-[10px]">{l.result_status}</Badge>
+                    </div>
+                  ))}
+                  {(drilldown.data.recent_heal_log ?? []).length === 0 && <div className="text-xs p-2 text-muted-foreground">Keine Einträge</div>}
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button size="sm" onClick={() => { setReenqueuePkg({ id: drilldown.data.package_id, title: drilldown.data.package_title }); setReenqueueStep(drilldown.data.parent?.parent_step_key ?? drilldown.data.step_key); setDrillJobId(null); }}>
+                  <Send className="h-3.5 w-3.5 mr-1" /> Re-Enqueue (Bronze-Override)
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!reenqueuePkg} onOpenChange={(o) => !o && setReenqueuePkg(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Step manuell re-enqueuen</DialogTitle></DialogHeader>
+          {reenqueuePkg && (
+            <div className="space-y-3 text-sm">
+              <div><span className="text-muted-foreground">Kurs:</span> {reenqueuePkg.title}</div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Step-Key (z.B. quality_council, run_integrity_check)</label>
+                <Input value={reenqueueStep} onChange={(e) => setReenqueueStep(e.target.value.trim().toLowerCase())} placeholder="quality_council" />
+              </div>
+              <p className="text-xs text-muted-foreground">Verwendet <code>bronze_lock_override=true</code>. Audit in <code>auto_heal_log</code> mit Admin-ID.</p>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setReenqueuePkg(null)}>Abbrechen</Button>
+                <Button onClick={() => reenqueue.mutate({ pkgId: reenqueuePkg.id, stepKey: reenqueueStep })} disabled={!reenqueueStep || reenqueue.isPending}>
+                  Re-Enqueue
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
