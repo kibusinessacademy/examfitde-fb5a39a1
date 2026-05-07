@@ -77,6 +77,7 @@ export function LxiQueuedNoLessonsReinitCard() {
   const [lastRealResult, setLastRealResult] = useState<BatchResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [detailPkg, setDetailPkg] = useState<string | null>(null);
+  const [attemptsPkg, setAttemptsPkg] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "eligible" | "skipped">("eligible");
   const [skipReasonFilter, setSkipReasonFilter] = useState<string>("__all__");
   const [sortKey, setSortKey] = useState<"priority" | "track" | "skipped" | "reset">("priority");
