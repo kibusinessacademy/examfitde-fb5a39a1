@@ -415,25 +415,56 @@ export function LxiQueuedNoLessonsReinitCard() {
         {/* Candidate table */}
         {dryResult && (dryResult.results?.length ?? 0) > 0 && (
           <div className="rounded-lg border border-border">
-            <div className="border-b border-border bg-surface-subtle px-3 py-2 text-xs font-medium text-text-muted">
-              Kandidaten (klickbar für Detaildialog)
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface-subtle px-3 py-2 text-xs text-text-muted">
+              <span className="font-medium">
+                Kandidaten ({visibleRows.length} sichtbar / {dryResult.results.length} gesamt)
+              </span>
+              <div className="flex items-center gap-2">
+                <Select value={filterMode} onValueChange={(v) => setFilterMode(v as typeof filterMode)}>
+                  <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="eligible">Nur eligible</SelectItem>
+                    <SelectItem value="skipped">Nur skipped</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={skipReasonFilter} onValueChange={setSkipReasonFilter}>
+                  <SelectTrigger className="h-7 w-[180px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Alle Skip-Reasons</SelectItem>
+                    {skipReasonOptions.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="max-h-96 overflow-y-auto">
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-surface text-text-muted">
                   <tr>
                     <th className="px-2 py-1 text-left">Paket</th>
-                    <th className="px-2 py-1 text-left">Track</th>
-                    <th className="px-2 py-1 text-right">Skipped</th>
+                    <th className="cursor-pointer px-2 py-1 text-left" onClick={() => toggleSort("track")}>
+                      Track {sortIcon("track")}
+                    </th>
+                    <th className="cursor-pointer px-2 py-1 text-right" onClick={() => toggleSort("priority")}>
+                      Prio {sortIcon("priority")}
+                    </th>
+                    <th className="cursor-pointer px-2 py-1 text-right" onClick={() => toggleSort("skipped")}>
+                      Skipped {sortIcon("skipped")}
+                    </th>
                     <th className="px-2 py-1 text-right">N/A</th>
-                    <th className="px-2 py-1 text-right">Reset</th>
+                    <th className="cursor-pointer px-2 py-1 text-right" onClick={() => toggleSort("reset")}>
+                      Reset {sortIcon("reset")}
+                    </th>
                     <th className="px-2 py-1 text-left">First-Step</th>
                     <th className="px-2 py-1 text-left">Skip-Reason</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {dryResult.results.map((r) => {
+                  {visibleRows.map((r) => {
                     const title = pkgTitles.data?.get(r.package_id)?.title ?? r.package_id;
+                    const prio = priorityLabel(r._priority);
                     return (
                       <tr
                         key={r.package_id}
@@ -442,19 +473,16 @@ export function LxiQueuedNoLessonsReinitCard() {
                       >
                         <td className="px-2 py-1 font-medium">{title}</td>
                         <td className="px-2 py-1 text-text-muted">{r.track ?? "—"}</td>
+                        <td className={`px-2 py-1 text-right ${prio.tone}`}>
+                          {prio.label} <span className="text-text-muted">({r._priority})</span>
+                        </td>
                         <td className="px-2 py-1 text-right">{r.skipped_steps_total ?? 0}</td>
                         <td className="px-2 py-1 text-right">{r.non_applicable_steps ?? 0}</td>
-                        <td className="px-2 py-1 text-right">
-                          {r.reset_candidates?.length ?? 0}
-                        </td>
-                        <td className="px-2 py-1 text-text-muted">
-                          {r.expected_first_step ?? "—"}
-                        </td>
+                        <td className="px-2 py-1 text-right">{r.reset_candidates?.length ?? 0}</td>
+                        <td className="px-2 py-1 text-text-muted">{r.expected_first_step ?? "—"}</td>
                         <td className="px-2 py-1">
                           {r.skip_reason ? (
-                            <Badge variant="outline" className="font-mono text-[10px]">
-                              {r.skip_reason}
-                            </Badge>
+                            <Badge variant="outline" className="font-mono text-[10px]">{r.skip_reason}</Badge>
                           ) : (
                             <span className="text-success">eligible</span>
                           )}
@@ -462,11 +490,15 @@ export function LxiQueuedNoLessonsReinitCard() {
                       </tr>
                     );
                   })}
+                  {visibleRows.length === 0 && (
+                    <tr><td colSpan={8} className="px-2 py-4 text-center text-text-muted">Keine Treffer für aktuelle Filter</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         )}
+
 
         {/* Live job & log breakdown after real-run */}
         {lastRealResult && (
