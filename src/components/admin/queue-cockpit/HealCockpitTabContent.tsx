@@ -16,6 +16,7 @@ import { BronzeReviewCard } from "@/components/admin/heal/cards/BronzeReviewCard
 import { ProducerNoiseTrendCard } from "@/components/admin/heal/cards/ProducerNoiseTrendCard";
 import { LxiPublishBlockMonitorCard } from "@/components/admin/heal/cards/LxiPublishBlockMonitorCard";
 import { LxiQueuedNoLessonsReinitCard } from "@/components/admin/heal/cards/LxiQueuedNoLessonsReinitCard";
+import { ForensicAuditRunnerCard } from "@/components/admin/heal/cards/ForensicAuditRunnerCard";
 import { PricingHealAuditCard } from "@/components/admin/heal/cards/PricingHealAuditCard";
 
 export function HealCockpitTabContent() {
@@ -36,6 +37,7 @@ export function HealCockpitTabContent() {
         </Button>
       </div>
       <MorningBriefing />
+      <ForensicAuditRunnerCard />
       <LxiPublishBlockMonitorCard />
       <LxiQueuedNoLessonsReinitCard />
       <PricingHealAuditCard />
