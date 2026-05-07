@@ -36,10 +36,32 @@ type HumorQCRow = {
   draft_count: number;
   rejected_count: number;
   avg_quality: number;
+  avg_lrs: number | null;
   pct_no_competence: number;
   pct_no_lesson: number;
+  pct_no_blueprint: number;
+  hard_gate_violations: number;
   type_distribution: Record<string, number>;
+  level_distribution: Record<string, number>;
+  phase_distribution: Record<string, number>;
   duplicate_suspect_count: number;
+};
+
+const LEVEL_LABELS: Record<string, string> = {
+  engagement: 'L1 Engagement',
+  memory: 'L2 Memory',
+  insider: 'L3 Insider',
+  scenario: 'L4 Scenario',
+  reinforcement: 'L5 Reinforcement',
+  unset: '⚠ Unset',
+};
+
+const PHASE_LABELS: Record<string, string> = {
+  pre_exam: 'Vor Prüfung',
+  learning: 'Lernphase',
+  post_error: 'Nach Fehler',
+  general: 'Allgemein',
+  unset: '⚠ Unset',
 };
 
 type KPIRow = {
@@ -159,23 +181,32 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
   const totalDraft = data?.reduce((s, r) => s + r.draft_count, 0) ?? 0;
   const totalRejected = data?.reduce((s, r) => s + r.rejected_count, 0) ?? 0;
   const totalDupes = data?.reduce((s, r) => s + r.duplicate_suspect_count, 0) ?? 0;
+  const totalHardGate = data?.reduce((s, r) => s + (r.hard_gate_violations ?? 0), 0) ?? 0;
   const avgQuality = data && data.length > 0
     ? (data.reduce((s, r) => s + (r.avg_quality ?? 0), 0) / data.length).toFixed(1) : '–';
+  const avgLrs = data && data.length > 0
+    ? (data.reduce((s, r) => s + Number(r.avg_lrs ?? 0), 0) / data.length).toFixed(1) : '–';
   const coveragePct = data && data.length > 0
     ? Math.round((data.filter(r => r.approved_count >= TARGET).length / data.length) * 100) : 0;
 
   const handleAiAnalyze = async () => {
     setShowAi(true);
     const ctx = JSON.stringify({
-      totalApproved, totalDraft, totalRejected, totalDupes, avgQuality, coveragePct,
+      totalApproved, totalDraft, totalRejected, totalDupes, totalHardGate,
+      avgQuality, avgLrs, coveragePct,
       certifications: data?.map(r => ({
         title: r.certification_title,
         approved: r.approved_count,
         target: TARGET,
         quality: r.avg_quality,
+        lrs: r.avg_lrs,
         dupes: r.duplicate_suspect_count,
         noCompetence: r.pct_no_competence,
+        noBlueprint: r.pct_no_blueprint,
+        hardGate: r.hard_gate_violations,
         typeDistribution: r.type_distribution,
+        levelDistribution: r.level_distribution,
+        phaseDistribution: r.phase_distribution,
       })),
     });
     await ai.invoke('humor_qc', 'analyze_quality', ctx);
@@ -191,7 +222,7 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground">Approved</CardTitle></CardHeader>
           <CardContent className="px-3 pb-3"><span className="text-2xl font-bold text-green-600">{totalApproved}</span></CardContent></Card>
         <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground">Drafts</CardTitle></CardHeader>
@@ -200,6 +231,10 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
           <CardContent className="px-3 pb-3"><span className="text-2xl font-bold text-destructive">{totalRejected}</span></CardContent></Card>
         <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground">Ø Quality</CardTitle></CardHeader>
           <CardContent className="px-3 pb-3"><span className="text-2xl font-bold">{avgQuality}</span></CardContent></Card>
+        <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground" title="Learning Reinforcement Score">Ø LRS</CardTitle></CardHeader>
+          <CardContent className="px-3 pb-3"><span className="text-2xl font-bold text-primary">{avgLrs}</span></CardContent></Card>
+        <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground flex items-center gap-1"><Shield className="h-3 w-3" /> Hard-Gate</CardTitle></CardHeader>
+          <CardContent className="px-3 pb-3"><span className={`text-2xl font-bold ${totalHardGate > 0 ? 'text-destructive' : 'text-green-600'}`}>{totalHardGate}</span></CardContent></Card>
         <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Dubletten</CardTitle></CardHeader>
           <CardContent className="px-3 pb-3"><span className={`text-2xl font-bold ${totalDupes > 0 ? 'text-destructive' : ''}`}>{totalDupes}</span></CardContent></Card>
         <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground">Coverage</CardTitle></CardHeader>
@@ -220,6 +255,8 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
                   <TableHead className="text-right">Ziel</TableHead>
                   <TableHead>Fortschritt</TableHead>
                   <TableHead className="text-right">Ø Score</TableHead>
+                  <TableHead className="text-right">Ø LRS</TableHead>
+                  <TableHead className="text-right">Hard-Gate</TableHead>
                   <TableHead className="text-right">Dubletten</TableHead>
                   <TableHead className="text-right">% ohne Kompetenz</TableHead>
                 </TableRow>
@@ -244,6 +281,12 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
                         </div>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{row.avg_quality}</TableCell>
+                      <TableCell className="text-right tabular-nums font-medium text-primary">{row.avg_lrs ?? '–'}</TableCell>
+                      <TableCell className="text-right">
+                        {(row.hard_gate_violations ?? 0) > 0
+                          ? <Badge variant="destructive" className="text-xs">{row.hard_gate_violations}</Badge>
+                          : <span className="text-muted-foreground">0</span>}
+                      </TableCell>
                       <TableCell className="text-right">
                         {row.duplicate_suspect_count > 0 ? <Badge variant="destructive" className="text-xs">{row.duplicate_suspect_count}</Badge> : <span className="text-muted-foreground">0</span>}
                       </TableCell>
