@@ -181,8 +181,11 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
   const totalDraft = data?.reduce((s, r) => s + r.draft_count, 0) ?? 0;
   const totalRejected = data?.reduce((s, r) => s + r.rejected_count, 0) ?? 0;
   const totalDupes = data?.reduce((s, r) => s + r.duplicate_suspect_count, 0) ?? 0;
+  const totalHardGate = data?.reduce((s, r) => s + (r.hard_gate_violations ?? 0), 0) ?? 0;
   const avgQuality = data && data.length > 0
     ? (data.reduce((s, r) => s + (r.avg_quality ?? 0), 0) / data.length).toFixed(1) : '–';
+  const avgLrs = data && data.length > 0
+    ? (data.reduce((s, r) => s + Number(r.avg_lrs ?? 0), 0) / data.length).toFixed(1) : '–';
   const coveragePct = data && data.length > 0
     ? Math.round((data.filter(r => r.approved_count >= TARGET).length / data.length) * 100) : 0;
 
