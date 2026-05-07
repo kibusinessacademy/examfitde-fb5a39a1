@@ -242,6 +242,65 @@ export function LxiQueuedNoLessonsReinitCard() {
   const drySkipped = (dryResult?.results ?? []).filter((r) => !!r.skip_reason);
   const wipWarn = (wip.data ?? 0) >= 60;
 
+  // Priority score: deterministic. Higher = better real-run candidate.
+  // - eligible (no skip_reason) → +100
+  // - has bootstrap reset_candidate → +50
+  // - more reset_candidates → +5 each (cap 25)
+  // - fewer skipped_steps_total = closer to clean → minor bonus
+  // - non_applicable just gives confidence (track-aware), small bonus
+  function priorityFor(r: ReinitOne): number {
+    if (r.skip_reason) return 0;
+    let p = 100;
+    p += (r.reset_candidates?.length ?? 0) > 0 ? 50 : 0;
+    p += Math.min(25, (r.reset_candidates?.length ?? 0) * 5);
+    p += Math.max(0, 30 - (r.skipped_steps_total ?? 0));
+    p += Math.min(10, (r.non_applicable_steps ?? 0) * 2);
+    return p;
+  }
+  function priorityLabel(p: number): { label: string; tone: string } {
+    if (p >= 170) return { label: "hoch", tone: "text-success" };
+    if (p >= 130) return { label: "mittel", tone: "text-warning" };
+    if (p > 0) return { label: "niedrig", tone: "text-text-muted" };
+    return { label: "—", tone: "text-text-muted" };
+  }
+
+  const skipReasonOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of dryResult?.results ?? []) if (r.skip_reason) s.add(r.skip_reason);
+    return Array.from(s).sort();
+  }, [dryResult]);
+
+  const visibleRows = useMemo(() => {
+    let rows = (dryResult?.results ?? []).map((r) => ({ ...r, _priority: priorityFor(r) }));
+    if (filterMode === "eligible") rows = rows.filter((r) => !r.skip_reason);
+    else if (filterMode === "skipped") rows = rows.filter((r) => !!r.skip_reason);
+    if (skipReasonFilter !== "__all__") rows = rows.filter((r) => r.skip_reason === skipReasonFilter);
+    const dir = sortDir === "asc" ? 1 : -1;
+    rows.sort((a, b) => {
+      const va =
+        sortKey === "track" ? (a.track ?? "") :
+        sortKey === "skipped" ? (a.skipped_steps_total ?? 0) :
+        sortKey === "reset" ? (a.reset_candidates?.length ?? 0) :
+        a._priority;
+      const vb =
+        sortKey === "track" ? (b.track ?? "") :
+        sortKey === "skipped" ? (b.skipped_steps_total ?? 0) :
+        sortKey === "reset" ? (b.reset_candidates?.length ?? 0) :
+        b._priority;
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+    return rows;
+  }, [dryResult, filterMode, skipReasonFilter, sortKey, sortDir]);
+
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir(key === "track" ? "asc" : "desc"); }
+  }
+  const sortIcon = (key: typeof sortKey) =>
+    sortKey === key ? (sortDir === "asc" ? <ArrowUp className="inline h-3 w-3" /> : <ArrowDown className="inline h-3 w-3" />) : null;
+
   return (
     <Card className="shadow-elev-1">
       <CardHeader>
