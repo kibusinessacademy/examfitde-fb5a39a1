@@ -81,6 +81,30 @@ async function rpc(fn, body = {}) {
       );
     }
 
+    const status = breaches.length === 0 ? 'ok' : 'warn';
+
+    // Write artifacts
+    const fs = await import('node:fs');
+    const report = { status, metrics: m, breaches, samples, thresholds: TH, computed_at: new Date().toISOString() };
+    fs.writeFileSync('keyword-graph-sync-report.json', JSON.stringify(report, null, 2));
+    const md = [
+      `## Keyword Graph Sync — ${status === 'ok' ? '✅ OK' : '⚠️ WARN'}`,
+      '',
+      '| Metric | Value |',
+      '| --- | ---: |',
+      `| nodes_with_keyword_slug | ${m.nodes_with_keyword_slug ?? 0} |`,
+      `| keywords_registered | ${m.keywords_registered ?? 0} |`,
+      `| missing_keyword_registry | ${m.missing_keyword_registry ?? 0} |`,
+      `| keyword_owner_mismatch | ${m.keyword_owner_mismatch ?? 0} |`,
+      `| duplicate_active_keyword_owner | ${m.duplicate_active_keyword_owner ?? 0} |`,
+      `| ok_count | ${m.ok_count ?? 0} |`,
+      '',
+      breaches.length ? `### Breaches\n${breaches.map((b) => `- ${b}`).join('\n')}` : '_No drift detected._',
+      '',
+      `<sub>warn-only · STRICT=${STRICT ? '1' : '0'} · ${report.computed_at}</sub>`,
+    ].join('\n');
+    fs.writeFileSync('keyword-graph-sync-report.md', md);
+
     if (breaches.length === 0) {
       console.log('\n✅ Keyword Graph in sync.');
       process.exit(0);
