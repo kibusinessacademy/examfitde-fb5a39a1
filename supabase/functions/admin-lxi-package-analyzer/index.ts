@@ -18,6 +18,72 @@ import { requireAdmin } from "../_shared/adminGuard.ts";
 
 interface AnalysisRequest {
   package_id: string;
+  force_refresh?: boolean;
+}
+
+// ── In-memory cache (per edge instance, 5 min TTL) ──────
+type CacheEntry = { at: number; payload: unknown };
+const CACHE = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+function cacheGet(key: string) {
+  const e = CACHE.get(key);
+  if (!e) return null;
+  if (Date.now() - e.at > CACHE_TTL_MS) { CACHE.delete(key); return null; }
+  return e.payload;
+}
+function cacheSet(key: string, payload: unknown) {
+  CACHE.set(key, { at: Date.now(), payload });
+  // simple LRU: cap at 200
+  if (CACHE.size > 200) {
+    const firstKey = CACHE.keys().next().value;
+    if (firstKey) CACHE.delete(firstKey);
+  }
+}
+
+// ── AI fetch with timeout + retry ───────────────────────
+async function callAiWithRetry(body: unknown, apiKey: string, attempts = 3): Promise<{ ok: boolean; status: number; data?: any; error?: string }> {
+  let lastStatus = 0;
+  let lastErr = "";
+  for (let i = 0; i < attempts; i++) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 25_000);
+    try {
+      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ctl.signal,
+      });
+      clearTimeout(timer);
+      lastStatus = r.status;
+      // 429/402 → no retry, return as-is
+      if (r.status === 429 || r.status === 402) {
+        return { ok: false, status: r.status, error: r.status === 429 ? "rate_limited" : "ai_credits_exhausted" };
+      }
+      if (r.ok) {
+        const data = await r.json();
+        return { ok: true, status: 200, data };
+      }
+      lastErr = await r.text().catch(() => "");
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = String((e as Error)?.message ?? e);
+    }
+    // backoff 400ms, 1200ms
+    if (i < attempts - 1) await new Promise((res) => setTimeout(res, 400 * Math.pow(3, i)));
+  }
+  return { ok: false, status: lastStatus || 500, error: lastErr || "ai_unavailable" };
+}
+
+// ── Validate AI response shape ──────────────────────────
+function validateAiContent(raw: unknown): { ok: boolean; text: string; reason?: string } {
+  if (!raw || typeof raw !== "object") return { ok: false, text: "", reason: "non_object" };
+  const choices = (raw as any).choices;
+  if (!Array.isArray(choices) || choices.length === 0) return { ok: false, text: "", reason: "no_choices" };
+  const text = choices[0]?.message?.content;
+  if (typeof text !== "string" || text.trim().length < 10) return { ok: false, text: "", reason: "empty_or_too_short" };
+  return { ok: true, text };
 }
 
 Deno.serve(async (req) => {
