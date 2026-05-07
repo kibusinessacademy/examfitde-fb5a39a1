@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { GitBranch, RefreshCw, AlertTriangle, Eye, CheckCircle2, Loader2 } from 'lucide-react';
+import { GitBranch, RefreshCw, AlertTriangle, Eye, CheckCircle2, Loader2, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -51,6 +51,16 @@ type EdgePlan = {
   nodes: NodeRow[];
   note: string;
 };
+type ApplyResult = {
+  dry_run: boolean;
+  requested: number;
+  inserted: number;
+  skipped: number;
+  would_insert: number;
+  would_skip_existing: number;
+  errors_count: number;
+  errors: Array<{ edge: unknown; error: string }>;
+};
 
 type FlatProposal = Proposal & { from_node_id: string; from_slug: string; from_asset: string };
 
@@ -71,6 +81,11 @@ export default function GrowthGraphEdgePlanCard() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [dryResult, setDryResult] = useState<ApplyResult | null>(null);
+  const [lastResult, setLastResult] = useState<ApplyResult | null>(null);
+  // Selection signature → invalidate dryResult when selection changes
+  const selectionSig = useMemo(() => Array.from(selected).sort().join('|'), [selected]);
+  const [dryForSig, setDryForSig] = useState<string>('');
 
   const planQ = useQuery({
     queryKey: ['growth-graph-edge-plan'],
@@ -86,7 +101,7 @@ export default function GrowthGraphEdgePlanCard() {
   });
 
   const applyM = useMutation({
-    mutationFn: async (vars: { edges: FlatProposal[]; reason: string }) => {
+    mutationFn: async (vars: { edges: FlatProposal[]; reason: string; dryRun: boolean }) => {
       const payload = vars.edges.map((e) => ({
         from_node_id: e.from_node_id,
         to_node_id: e.to_node_id,
@@ -97,23 +112,32 @@ export default function GrowthGraphEdgePlanCard() {
       const { data, error } = await supabase.rpc('admin_apply_content_graph_edges', {
         p_edges: payload as never,
         p_reason: vars.reason,
+        p_dry_run: vars.dryRun,
       });
       if (error) throw error;
-      return data as { inserted: number; skipped: number; errors_count: number };
+      return data as unknown as ApplyResult;
     },
     onSuccess: (res) => {
-      toast.success(`Edges applied: ${res.inserted} new, ${res.skipped} skipped, ${res.errors_count} errors`);
-      setSelected(new Set());
-      setConfirmOpen(false);
-      setReason('');
-      qc.invalidateQueries({ queryKey: ['growth-graph-edge-plan'] });
-      qc.invalidateQueries({ queryKey: ['growth-graph-summary'] });
-      qc.invalidateQueries({ queryKey: ['growth-graph-orphans'] });
+      if (res.dry_run) {
+        setDryResult(res);
+        setDryForSig(selectionSig);
+        toast.success(`Dry-Run: ${res.would_insert} would insert, ${res.would_skip_existing} skip, ${res.errors_count} errors`);
+      } else {
+        setLastResult(res);
+        toast.success(`Applied: ${res.inserted} new, ${res.skipped} skipped, ${res.errors_count} errors`);
+        setSelected(new Set());
+        setDryResult(null);
+        setDryForSig('');
+        setConfirmOpen(false);
+        setReason('');
+        qc.invalidateQueries({ queryKey: ['growth-graph-edge-plan'] });
+        qc.invalidateQueries({ queryKey: ['growth-graph-summary'] });
+        qc.invalidateQueries({ queryKey: ['growth-graph-orphans'] });
+      }
     },
-    onError: (e: Error) => toast.error(`Apply failed: ${e.message}`),
+    onError: (e: Error) => toast.error(`Failed: ${e.message}`),
   });
 
-  // Flatten Top 25 proposals across all nodes
   const flatTop: FlatProposal[] = useMemo(
     () =>
       (planQ.data?.nodes ?? [])
@@ -136,7 +160,15 @@ export default function GrowthGraphEdgePlanCard() {
 
   const selectedEdges = flatTop.filter((p) => selected.has(edgeKey(p)));
   const selectedCount = selectedEdges.length;
-  const canApply = selectedCount > 0 && selectedCount <= MAX_APPLY;
+  const canDryRun = selectedCount > 0 && selectedCount <= MAX_APPLY && !applyM.isPending;
+  const dryFresh = dryResult !== null && dryForSig === selectionSig;
+  const canRealApply = canDryRun && dryFresh;
+
+  // Selection summary
+  const sumMoney = selectedEdges.filter((e) => e.edge_type === 'money_page').length;
+  const sumFunnel = selectedEdges.filter((e) => e.edge_type === 'funnel_next').length;
+  const sumDistinctFrom = new Set(selectedEdges.map((e) => e.from_node_id)).size;
+  const sumDistinctTo = new Set(selectedEdges.map((e) => e.to_node_id)).size;
 
   const toggle = (p: FlatProposal) => {
     if (p.confidence !== 'high') return;
@@ -158,13 +190,20 @@ export default function GrowthGraphEdgePlanCard() {
     else setSelected(new Set(highKeys.slice(0, MAX_APPLY)));
   };
 
+  const openConfirm = () => {
+    if (!canDryRun) return;
+    setDryResult(null);
+    setLastResult(null);
+    setConfirmOpen(true);
+  };
+
   return (
     <div className="rounded-lg border border-border/60 bg-surface-subtle p-3 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs font-medium text-foreground">
           <GitBranch className="h-3.5 w-3.5 text-primary" />
           Phase 2F · Edge Plan & Apply
-          <Badge variant="outline" className="text-[10px]">high-conf only · max {MAX_APPLY}</Badge>
+          <Badge variant="outline" className="text-[10px]">dry-run-first · max {MAX_APPLY}</Badge>
         </div>
         <Button size="sm" variant="ghost" onClick={() => planQ.refetch()} disabled={planQ.isFetching} className="h-7 gap-1">
           <RefreshCw className={`h-3 w-3 ${planQ.isFetching ? 'animate-spin' : ''}`} />
@@ -219,8 +258,14 @@ export default function GrowthGraphEdgePlanCard() {
 
           <div className="rounded border border-primary/30 bg-primary/5 p-2 text-[11px] text-muted-foreground flex items-start gap-2">
             <Eye className="h-3 w-3 mt-0.5 shrink-0 text-primary" />
-            <span>Nur <strong>high-confidence</strong> Vorschläge sind auswählbar. Medium/Low bleiben deaktiviert. Max {MAX_APPLY} Edges pro Run, idempotent.</span>
+            <span>Nur <strong>high-confidence</strong> auswählbar. Pflicht-Workflow: <strong>Dry-Run zuerst</strong> → Real-Apply danach freigeschaltet. Max {MAX_APPLY}/Run, idempotent, audited.</span>
           </div>
+
+          {lastResult && !lastResult.dry_run && (
+            <div className="rounded border border-success/30 bg-success-bg-subtle p-2 text-[11px] text-success">
+              Letzter Apply: <strong>{lastResult.inserted}</strong> inserted · {lastResult.skipped} skipped · {lastResult.errors_count} errors
+            </div>
+          )}
 
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs font-medium text-foreground">Top 25 Vorschläge</div>
@@ -237,12 +282,12 @@ export default function GrowthGraphEdgePlanCard() {
               <Button
                 size="sm"
                 variant="default"
-                onClick={() => setConfirmOpen(true)}
-                disabled={!canApply || applyM.isPending}
+                onClick={openConfirm}
+                disabled={!canDryRun}
                 className="h-7 gap-1"
               >
-                {applyM.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                Apply ({selectedCount})
+                <FlaskConical className="h-3 w-3" />
+                Dry-Run ({selectedCount})
               </Button>
             </div>
           </div>
@@ -296,32 +341,84 @@ export default function GrowthGraphEdgePlanCard() {
       )}
 
       <Dialog open={confirmOpen} onOpenChange={(o) => !applyM.isPending && setConfirmOpen(o)}>
-        <DialogContent>
+        <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Apply {selectedCount} high-confidence Edges?</DialogTitle>
+            <DialogTitle>Apply {selectedCount} high-confidence Edges</DialogTitle>
             <DialogDescription>
-              Schreibt {selectedCount} Edge(s) idempotent in den Content-Graph. Audit in <code>auto_heal_log</code>.
-              Reason ist Pflicht (min 3 Zeichen).
+              Pflicht-Reason (≥3 Zeichen). <strong>Erst Dry-Run</strong>, dann Real-Apply (idempotent, audited).
             </DialogDescription>
           </DialogHeader>
+
+          {/* Selection Summary */}
+          <div className="rounded border border-border/60 bg-surface-subtle p-2 text-xs space-y-1">
+            <div className="font-medium text-foreground">Selection Summary</div>
+            <div className="grid grid-cols-2 gap-1 text-muted-foreground">
+              <div>Selected total: <span className="font-semibold text-foreground tabular-nums">{selectedCount}</span></div>
+              <div>money_page: <span className="font-semibold text-foreground tabular-nums">{sumMoney}</span></div>
+              <div>funnel_next: <span className="font-semibold text-foreground tabular-nums">{sumFunnel}</span></div>
+              <div>distinct sources: <span className="font-semibold text-foreground tabular-nums">{sumDistinctFrom}</span></div>
+              <div>distinct targets: <span className="font-semibold text-foreground tabular-nums">{sumDistinctTo}</span></div>
+            </div>
+          </div>
+
           <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason (z.B. 'Manueller Closeout high-confidence money_page Vorschläge KW19')"
             disabled={applyM.isPending}
-            rows={3}
+            rows={2}
           />
-          <DialogFooter>
+
+          {/* Dry-Run Result */}
+          {dryResult && dryFresh && (
+            <div className="rounded border border-info/30 bg-info-bg-subtle p-2 text-xs space-y-1">
+              <div className="font-medium text-info flex items-center gap-1"><FlaskConical className="h-3 w-3" /> Dry-Run Result</div>
+              <div className="grid grid-cols-3 gap-1 text-muted-foreground">
+                <div>would_insert: <span className="font-semibold text-success tabular-nums">{dryResult.would_insert}</span></div>
+                <div>would_skip: <span className="font-semibold text-foreground tabular-nums">{dryResult.would_skip_existing}</span></div>
+                <div>errors: <span className={`font-semibold tabular-nums ${dryResult.errors_count > 0 ? 'text-destructive' : 'text-foreground'}`}>{dryResult.errors_count}</span></div>
+              </div>
+              {dryResult.errors_count > 0 && (
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-destructive">Error details ({dryResult.errors_count})</summary>
+                  <ScrollArea className="h-[120px] mt-1 rounded border border-border/40 bg-background p-2">
+                    <ul className="space-y-1">
+                      {dryResult.errors.map((er, i) => (
+                        <li key={i} className="font-mono text-[10px] text-destructive">• {er.error}</li>
+                      ))}
+                    </ul>
+                  </ScrollArea>
+                </details>
+              )}
+            </div>
+          )}
+          {dryResult && !dryFresh && (
+            <div className="rounded border border-warning/30 bg-warning-bg-subtle p-2 text-[11px] text-warning">
+              Auswahl geändert — bitte erneut Dry-Run ausführen.
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setConfirmOpen(false)} disabled={applyM.isPending}>
               Abbrechen
             </Button>
             <Button
-              variant="default"
-              onClick={() => applyM.mutate({ edges: selectedEdges, reason: reason.trim() })}
-              disabled={reason.trim().length < 3 || applyM.isPending || !canApply}
+              variant="outline"
+              onClick={() => applyM.mutate({ edges: selectedEdges, reason: reason.trim(), dryRun: true })}
+              disabled={reason.trim().length < 3 || applyM.isPending || !canDryRun}
+              className="gap-1"
             >
-              {applyM.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-              Bestätigen & Apply
+              {applyM.isPending && applyM.variables?.dryRun ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              Dry-Run
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => applyM.mutate({ edges: selectedEdges, reason: reason.trim(), dryRun: false })}
+              disabled={reason.trim().length < 3 || applyM.isPending || !canRealApply}
+              className="gap-1"
+            >
+              {applyM.isPending && applyM.variables?.dryRun === false ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+              Real Apply
             </Button>
           </DialogFooter>
         </DialogContent>
