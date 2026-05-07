@@ -38,6 +38,7 @@ export function HealCockpitTabContent() {
         </Button>
       </div>
       <MorningBriefing />
+      <DagBlockedDashboardCard />
       <ForensicAuditRunnerCard />
       <LxiPublishBlockMonitorCard />
       <LxiQueuedNoLessonsReinitCard />
