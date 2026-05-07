@@ -102,6 +102,7 @@ function num(v, fb = 0) {
     console.log(JSON.stringify(metrics, null, 2));
 
     const breaches = [];
+    // populated below; written to artifacts at end
     if (orphan_rate > TH.ORPHAN_RATE) {
       breaches.push(
         `orphan_rate ${(orphan_rate * 100).toFixed(1)}% > ${(TH.ORPHAN_RATE * 100).toFixed(0)}%`,
