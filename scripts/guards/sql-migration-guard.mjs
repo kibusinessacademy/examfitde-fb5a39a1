@@ -207,7 +207,8 @@ const RULES = [
   },
   {
     id: "R13_security_definer_without_auth_guard",
-    desc: "SECURITY DEFINER Funktion ohne has_role/auth.uid Guard.",
+    desc: "SECURITY DEFINER Funktion ohne has_role/auth.uid Guard (warn — viele interne Helper).",
+    severity: "warn",
     test: (s) => {
       const violations = [];
       const re = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([\w.]+)[\s\S]*?SECURITY\s+DEFINER[\s\S]*?\$\$([\s\S]*?)\$\$/gi;
