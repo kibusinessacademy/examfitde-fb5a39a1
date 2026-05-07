@@ -274,7 +274,16 @@ function changedMigrations() {
 // ──────────────────────────────────────────────────────────────────────────
 // Optional: shadow DB execution
 // ──────────────────────────────────────────────────────────────────────────
-async function runShadowSmoke(files) {
+//
+// Modes:
+//   - default:  Apply ALL migrations in chronological order (filename sort)
+//               so dependency errors surface even when only a late file
+//               changed. Each migration is committed (not rolled back) so
+//               later ones see prior schema.
+//   - per-file: When SHADOW_PER_FILE_ROLLBACK=1, each file is wrapped in
+//               BEGIN/ROLLBACK independently (legacy behavior).
+//
+async function runShadowReplay(changedFiles) {
   const url = process.env.SHADOW_DATABASE_URL;
   if (!url) {
     console.log("ℹ️  SHADOW_DATABASE_URL not set — skipping shadow execution.");
@@ -289,27 +298,105 @@ async function runShadowSmoke(files) {
   }
   const { Client } = pg.default ?? pg;
   const client = new Client({ connectionString: url });
+
+  const perFileRollback = process.env.SHADOW_PER_FILE_ROLLBACK === "1";
+  const all = listAllMigrations().sort(); // filename = timestamp prefix
+  const changedSet = new Set(changedFiles.map((f) => resolve(f)));
+
+  // Determine target: latest changed file, or last of all if none changed
+  const lastChangedIdx = all.reduce(
+    (acc, f, i) => (changedSet.has(resolve(f)) ? i : acc),
+    -1,
+  );
+  const targetIdx = lastChangedIdx >= 0 ? lastChangedIdx : all.length - 1;
+  const sequence = all.slice(0, targetIdx + 1);
+
+  console.log(
+    `\n🌑 Shadow replay: applying ${sequence.length} migrations in order ` +
+      `(target = ${sequence[sequence.length - 1]?.replace(ROOT + "/", "")}, ` +
+      `mode = ${perFileRollback ? "per-file rollback" : "cumulative replay"})`,
+  );
+
   try {
     await client.connect();
-    for (const f of files) {
+    let appliedCount = 0;
+    for (const f of sequence) {
       const sql = readFileSync(f, "utf8");
-      console.log(`  ↳ exec ${f}`);
-      await client.query("BEGIN");
+      const rel = f.replace(ROOT + "/", "");
+      const isChanged = changedSet.has(resolve(f));
+      const tag = isChanged ? "🟡 CHANGED" : "  prior  ";
       try {
-        await client.query(sql);
-        // Generic smoke checks — never throw, just collect
-        await client.query("SELECT 1");
-        await client.query("ROLLBACK");
+        if (perFileRollback) {
+          await client.query("BEGIN");
+          await client.query(sql);
+          await client.query("ROLLBACK");
+        } else {
+          await client.query(sql);
+        }
+        appliedCount++;
+        if (isChanged || appliedCount % 25 === 0 || f === sequence[sequence.length - 1]) {
+          console.log(`  ${tag}  ${rel}`);
+        }
       } catch (err) {
         await client.query("ROLLBACK").catch(() => {});
-        console.error(`  ✖ shadow exec failed on ${f}: ${err.message}`);
-        return { ran: true, ok: false, error: err.message, file: f };
+        console.error(`  ✖ shadow exec failed on ${rel}: ${err.message}`);
+        return { ran: true, ok: false, error: err.message, file: rel };
       }
     }
-    return { ran: true, ok: true };
+    // Generic post-replay smoke
+    await client.query("SELECT 1");
+    return { ran: true, ok: true, applied: appliedCount };
   } finally {
     await client.end().catch(() => {});
   }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// RPC contract drift — cross-file scan
+// ──────────────────────────────────────────────────────────────────────────
+function rpcContractCheck() {
+  const violations = [];
+  // Collect defined functions from all migrations
+  const defined = new Set();
+  for (const f of listAllMigrations()) {
+    const sql = stripCommentsAndStrings(readFileSync(f, "utf8"));
+    const re = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?([a-z_][\w]*)\s*\(/gi;
+    let m;
+    while ((m = re.exec(sql))) defined.add(m[1].toLowerCase());
+  }
+  // Scan src/ and supabase/functions/ for supabase.rpc('name')
+  const callers = [];
+  const walk = (dir) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir)) {
+      const p = join(dir, entry);
+      const st = statSync(p);
+      if (st.isDirectory()) {
+        if (/node_modules|\.git|dist|build/.test(entry)) continue;
+        walk(p);
+      } else if (/\.(ts|tsx|js|mjs)$/.test(entry)) {
+        const txt = readFileSync(p, "utf8");
+        const re = /\.rpc\s*\(\s*['"`]([a-z_][\w]*)['"`]/gi;
+        let m;
+        while ((m = re.exec(txt))) callers.push({ name: m[1].toLowerCase(), file: p });
+      }
+    }
+  };
+  walk(resolve(ROOT, "src"));
+  walk(resolve(ROOT, "supabase/functions"));
+
+  const missing = new Map();
+  for (const c of callers) {
+    if (!defined.has(c.name)) {
+      const arr = missing.get(c.name) ?? [];
+      arr.push(c.file.replace(ROOT + "/", ""));
+      missing.set(c.name, arr);
+    }
+  }
+  for (const [name, files] of missing) {
+    violations.push(`rpc('${name}') called but no CREATE FUNCTION found — files: ${files.slice(0, 3).join(", ")}${files.length > 3 ? ` (+${files.length - 3})` : ""}`);
+  }
+  return violations;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -329,7 +416,8 @@ async function main() {
 
   console.log(`SQL Migration Guard — scanning ${files.length} file(s)\n`);
 
-  let violations = 0;
+  let hardViolations = 0;
+  let warnViolations = 0;
   for (const f of files) {
     const findings = lintFile(f);
     const rel = f.replace(ROOT + "/", "");
@@ -337,28 +425,42 @@ async function main() {
       console.log(`✓ ${rel}`);
       continue;
     }
-    violations += findings.length;
     console.log(`✖ ${rel}`);
     for (const v of findings) {
-      console.log(`   • [${v.rule}] ${v.desc}`);
+      const rule = RULES.find((r) => r.id === v.rule);
+      const isWarn = rule?.severity === "warn";
+      if (isWarn) warnViolations += v.hits.length;
+      else hardViolations += v.hits.length;
+      console.log(`   • [${v.rule}${isWarn ? " WARN" : ""}] ${v.desc}`);
       for (const h of v.hits.slice(0, 5)) console.log(`       - ${h}`);
     }
   }
 
-  if (violations > 0) {
-    console.log(`\n${violations} guardrail violation(s) — blocking merge.`);
+  // Cross-file RPC contract drift (warn only)
+  const rpcDrift = rpcContractCheck();
+  if (rpcDrift.length) {
+    console.log(`\n⚠ R14_rpc_contract_drift WARN — ${rpcDrift.length} caller(s) without matching FUNCTION:`);
+    for (const r of rpcDrift.slice(0, 20)) console.log(`   - ${r}`);
+    warnViolations += rpcDrift.length;
+  }
+
+  if (hardViolations > 0) {
+    console.log(`\n${hardViolations} hard violation(s), ${warnViolations} warn — blocking merge.`);
     console.log("See mem://constraints/migration-discipline-v1 for the full ruleset.");
     process.exit(1);
   }
+  if (warnViolations > 0) {
+    console.log(`\n✓ No hard violations. ${warnViolations} warning(s) — review recommended.`);
+  } else {
+    console.log("\n✓ All static guardrails passed.\n");
+  }
 
-  console.log("\n✓ All static guardrails passed.\n");
-
-  const smoke = await runShadowSmoke(files);
+  const smoke = await runShadowReplay(files);
   if (smoke.ran && !smoke.ok) {
-    console.log(`\n✖ Shadow DB smoke failure: ${smoke.error}`);
+    console.log(`\n✖ Shadow DB replay failure on ${smoke.file}: ${smoke.error}`);
     process.exit(2);
   }
-  if (smoke.ran) console.log("✓ Shadow DB smoke passed.");
+  if (smoke.ran) console.log(`✓ Shadow replay passed (${smoke.applied} migrations applied).`);
   process.exit(0);
 }
 
