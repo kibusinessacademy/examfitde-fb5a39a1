@@ -146,6 +146,89 @@ const RULES = [
     desc: "ALTER DATABASE postgres ist auf Supabase nicht erlaubt.",
     test: (s) => (/ALTER\s+DATABASE\s+postgres/i.test(s) ? ["ALTER DATABASE postgres found"] : null),
   },
+  {
+    id: "R9_select_into_missing_projection",
+    desc: "SELECT INTO benötigt Projektion (z.B. SELECT * INTO v_row FROM ...).",
+    test: (s) => {
+      const m = [...s.matchAll(/\bSELECT\s+INTO\s+[a-z_][a-z0-9_]*\s+FROM\b/gi)];
+      return m.length ? m.map((x) => `SELECT INTO without projection near offset ${x.index}`) : null;
+    },
+  },
+  {
+    id: "R10_unknown_status_literals",
+    desc: "Verdächtige freie Status-Literale erkannt (job_queue/package_steps Status-Enum).",
+    test: (s) => {
+      const allowed = new Set([
+        "queued","pending","processing","done","failed","cancelled",
+        "skipped","retry_scheduled","blocked","building","draft","published",
+        "review_required","approved","rejected","active","inactive","paid",
+        "refunded","completed","ready","running","success","error","unknown",
+        "deferred","claimed",
+      ]);
+      const re = /\bstatus\s*(?:=|<>|!=)\s*'([^']+)'/gi;
+      const violations = [];
+      let m;
+      while ((m = re.exec(s))) {
+        if (!allowed.has(m[1].toLowerCase())) {
+          violations.push(`unknown status literal '${m[1]}' near offset ${m.index}`);
+        }
+      }
+      return violations.length ? violations : null;
+    },
+  },
+  {
+    id: "R11_trigger_updates_same_table",
+    desc: "Trigger-Funktion enthält UPDATE — Rekursionsrisiko, manuelles Review nötig (warn).",
+    severity: "warn",
+    test: (s) => {
+      const violations = [];
+      const re = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([\w.]+)[\s\S]*?RETURNS\s+TRIGGER[\s\S]*?\$\$([\s\S]*?)\$\$/gi;
+      let m;
+      while ((m = re.exec(s))) {
+        const fn = m[1];
+        const body = m[2];
+        const upd = [...body.matchAll(/\bUPDATE\s+([a-z_][\w.]*)/gi)];
+        for (const u of upd) {
+          violations.push(`trigger function ${fn} updates table ${u[1]} — recursion review required`);
+        }
+      }
+      return violations.length ? violations : null;
+    },
+  },
+  {
+    id: "R12_session_replication_role",
+    desc: "session_replication_role darf nur in expliziten manuellen Heals verwendet werden (warn).",
+    severity: "warn",
+    test: (s) =>
+      /session_replication_role/i.test(s)
+        ? ["session_replication_role usage requires manual review"]
+        : null,
+  },
+  {
+    id: "R13_security_definer_without_auth_guard",
+    desc: "SECURITY DEFINER Funktion ohne has_role/auth.uid Guard.",
+    test: (s) => {
+      const violations = [];
+      const re = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([\w.]+)[\s\S]*?SECURITY\s+DEFINER[\s\S]*?\$\$([\s\S]*?)\$\$/gi;
+      let m;
+      while ((m = re.exec(s))) {
+        const fn = m[1];
+        const body = m[2];
+        // Internal/system functions exempted: triggers, fn_*, _internal_*, validators
+        if (/RETURNS\s+TRIGGER/i.test(m[0])) continue;
+        if (!/has_role\s*\(/i.test(body) && !/auth\.uid\s*\(/i.test(body) && !/is_e2e_smoke_user\s*\(/i.test(body)) {
+          violations.push(`${fn} missing auth guard (has_role/auth.uid)`);
+        }
+      }
+      return violations.length ? violations : null;
+    },
+  },
+  {
+    id: "R14_rpc_contract_drift",
+    desc: "supabase.rpc('xyz') wird gegen vorhandene CREATE FUNCTION Definitionen geprüft (warn).",
+    severity: "warn",
+    test: () => null, // Cross-file check — handled separately in main()
+  },
 ];
 
 function lintFile(path) {
