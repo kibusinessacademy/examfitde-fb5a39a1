@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import GrowthGraphBackfillControl from './GrowthGraphBackfillControl';
+import GrowthGraphEdgePlanCard from './GrowthGraphEdgePlanCard';
 
 type Summary = {
   generated_at: string;
@@ -238,6 +239,7 @@ export default function GrowthGraphLeitstelleCard() {
         )}
 
         <GrowthGraphBackfillControl />
+        <GrowthGraphEdgePlanCard />
       </CardContent>
     </Card>
   );
