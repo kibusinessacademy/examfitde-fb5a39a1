@@ -237,6 +237,37 @@ export function LxiQueuedNoLessonsReinitCard() {
       toast({ title: "Real-Run fehlgeschlagen", description: e.message, variant: "destructive" }),
   });
 
+  // Single-package retry — runs the per-pkg RPC directly (real-run, no batch cap)
+  const singleReinit = useMutation({
+    mutationFn: async (packageId: string) => {
+      const { data, error } = await supabase.rpc(
+        "admin_lxi_reinit_skipped_steps_for_lesson_track" as never,
+        { p_package_id: packageId, p_dry_run: false } as never,
+      );
+      if (error) throw error;
+      return data as unknown as ReinitOne & { attempt_id?: string };
+    },
+    onSuccess: (data) => {
+      if (data?.ok) {
+        toast({
+          title: "Reset angewandt",
+          description: data.attempt_id ? `attempt=${data.attempt_id.slice(0, 8)}…` : "ok",
+        });
+      } else {
+        toast({
+          title: "Reset ohne Wirkung",
+          description: data?.skip_reason ?? "no_effect",
+          variant: "destructive",
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["lxi-gate-no-lessons-status"] });
+      qc.invalidateQueries({ queryKey: ["lxi-recent-heal-log"] });
+      qc.invalidateQueries({ queryKey: ["lxi-heal-attempts"] });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Reset fehlgeschlagen", description: e.message, variant: "destructive" }),
+  });
+
   const dryEligible = (dryResult?.results ?? []).filter(
     (r) => !r.skip_reason && (r.reset_candidates?.length ?? 0) > 0,
   );
