@@ -157,6 +157,7 @@ const RULES = [
   {
     id: "R10_unknown_status_literals",
     desc: "Verdächtige freie Status-Literale erkannt (job_queue/package_steps Status-Enum).",
+    severity: "warn",
     test: (s) => {
       const allowed = new Set([
         "queued","pending","processing","done","failed","cancelled",
