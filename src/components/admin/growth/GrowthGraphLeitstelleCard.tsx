@@ -239,6 +239,7 @@ export default function GrowthGraphLeitstelleCard() {
         )}
 
         <GrowthGraphBackfillControl />
+        <GrowthGraphEdgePlanCard />
       </CardContent>
     </Card>
   );
