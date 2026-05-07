@@ -212,10 +212,17 @@ Deno.serve(async (req) => {
       heuristic: { recommendation, confidence, reasoning },
     };
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    // ── Cache lookup (skip on force_refresh) ──
+    const cacheKey = `pkg:${body.package_id}`;
+    if (!body.force_refresh) {
+      const cached = cacheGet(cacheKey);
+      if (cached) {
+        return new Response(JSON.stringify({ ...(cached as object), cached: true }), { status: 200, headers });
+      }
+    }
+
+    const aiResult = await callAiWithRetry(
+      {
         model: "google/gemini-3-flash-preview",
         messages: [
           {
@@ -233,29 +240,46 @@ Deno.serve(async (req) => {
               "FAKTEN (JSON):\n" + JSON.stringify(facts, null, 2),
           },
         ],
-      }),
-    });
+      },
+      LOVABLE_API_KEY,
+    );
 
-    if (!aiResp.ok) {
-      const status = aiResp.status;
-      if (status === 429)
-        return new Response(JSON.stringify({ error: "rate_limited", facts, heuristic: facts.heuristic }), { status: 429, headers });
-      if (status === 402)
-        return new Response(JSON.stringify({ error: "ai_credits_exhausted", facts, heuristic: facts.heuristic }), { status: 402, headers });
-      return new Response(JSON.stringify({ error: "ai_gateway_error", facts, heuristic: facts.heuristic }), { status: 500, headers });
-    }
-
-    const aiData = await aiResp.json();
-    const diagnosis = aiData?.choices?.[0]?.message?.content ?? "";
-
-    return new Response(
-      JSON.stringify({
-        diagnosis,
+    // ── Safe fallback when AI unavailable ──
+    if (!aiResult.ok) {
+      const fallback = {
+        diagnosis:
+          `⚠️ KI-Analyse derzeit nicht verfügbar (${aiResult.error}). Heuristik liefert: ` +
+          `**${recommendation}** (confidence=${confidence}). ${reasoning}`,
         heuristic: { recommendation, confidence, reasoning },
         facts,
-      }),
-      { status: 200, headers },
-    );
+        ai_unavailable: true,
+        ai_error: aiResult.error,
+      };
+      const httpStatus = aiResult.status === 429 || aiResult.status === 402 ? aiResult.status : 200;
+      return new Response(JSON.stringify(fallback), { status: httpStatus, headers });
+    }
+
+    const validated = validateAiContent(aiResult.data);
+    if (!validated.ok) {
+      const fallback = {
+        diagnosis:
+          `⚠️ KI-Antwort ungültig (${validated.reason}). Heuristik: **${recommendation}** ` +
+          `(confidence=${confidence}). ${reasoning}`,
+        heuristic: { recommendation, confidence, reasoning },
+        facts,
+        ai_unavailable: true,
+        ai_error: `invalid_response:${validated.reason}`,
+      };
+      return new Response(JSON.stringify(fallback), { status: 200, headers });
+    }
+
+    const payload = {
+      diagnosis: validated.text,
+      heuristic: { recommendation, confidence, reasoning },
+      facts,
+    };
+    cacheSet(cacheKey, payload);
+    return new Response(JSON.stringify(payload), { status: 200, headers });
   } catch (e) {
     console.error("[admin-lxi-package-analyzer] Error:", e);
     return new Response(JSON.stringify({ error: String((e as Error)?.message ?? e) }), { status: 500, headers });
