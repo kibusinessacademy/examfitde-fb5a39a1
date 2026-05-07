@@ -27,6 +27,7 @@ const LlmVisibilityCard = lazy(() => import('@/features/admin/components/LlmVisi
 const SeoDeadEndDriftCard = lazy(() => import('@/features/admin/components/SeoDeadEndDriftCard').then(m => ({ default: m.SeoDeadEndDriftCard })));
 const SeoCanonicalParityCard = lazy(() => import('@/components/admin/growth/SeoCanonicalParityCard'));
 const GrowthGraphLeitstelleCard = lazy(() => import('@/components/admin/growth/GrowthGraphLeitstelleCard'));
+const GrowthGraphHealthStatusCard = lazy(() => import('@/components/admin/growth/GrowthGraphHealthStatusCard'));
 const FunnelDropoffHeatmapCard = lazy(() => import('@/components/admin/growth/FunnelDropoffHeatmapCard'));
 const CtaPerformanceCard = lazy(() => import('@/components/admin/growth/CtaPerformanceCard'));
 const SEODiscoveryManager = lazy(() => import('@/components/admin/growth/SEODiscoveryManager'));
@@ -134,6 +135,7 @@ export default function GrowthPage() {
         <TabsContent value="pages" className="mt-4"><Suspense fallback={<Loading />}><ContentPageEditor /></Suspense></TabsContent>
         <TabsContent value="links" className="mt-4"><Suspense fallback={<Loading />}><InternalLinkManager /></Suspense></TabsContent>
         <TabsContent value="audit" className="mt-4 space-y-4">
+          <Suspense fallback={<Loading />}><GrowthGraphHealthStatusCard /></Suspense>
           <Suspense fallback={<Loading />}><GrowthGraphLeitstelleCard /></Suspense>
           <Suspense fallback={<Loading />}><SeoCanonicalParityCard /></Suspense>
           <Suspense fallback={<Loading />}><SeoDeadEndDriftCard /></Suspense>
