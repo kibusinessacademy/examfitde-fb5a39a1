@@ -674,6 +674,39 @@ function PackageDetailDialog({
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] pr-3">
           <div className="space-y-4 text-xs">
+            {/* AI analysis */}
+            <section className="rounded-lg border border-border bg-surface-subtle p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-text-muted">
+                  <Sparkles className="h-3 w-3" /> KI-Diagnose
+                </div>
+                {!aiOpen ? (
+                  <Button size="sm" variant="outline" onClick={() => setAiOpen(true)} disabled={!packageId}>
+                    Analyse starten
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="ghost" onClick={() => aiAnalysis.refetch()} disabled={aiAnalysis.isFetching}>
+                    {aiAnalysis.isFetching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  </Button>
+                )}
+              </div>
+              {!aiOpen ? (
+                <p className="text-text-muted">Klicke auf „Analyse starten“ für KI-gestützte Empfehlung (Lovable AI).</p>
+              ) : aiAnalysis.isLoading ? (
+                <Skeleton className="h-20 w-full" />
+              ) : aiAnalysis.isError ? (
+                <span className="text-destructive">Fehler: {(aiAnalysis.error as Error).message}</span>
+              ) : aiAnalysis.data ? (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">Empfehlung: {aiAnalysis.data.heuristic.recommendation}</Badge>
+                    <Badge variant="outline">Confidence: {aiAnalysis.data.heuristic.confidence}</Badge>
+                  </div>
+                  <p className="text-text-muted italic">{aiAnalysis.data.heuristic.reasoning}</p>
+                  <pre className="whitespace-pre-wrap rounded bg-surface p-2 text-[11px]">{aiAnalysis.data.diagnosis}</pre>
+                </div>
+              ) : null}
+            </section>
             <section>
               <div className="mb-1 text-[10px] uppercase tracking-wide text-text-muted">
                 Bootstrap-Step
