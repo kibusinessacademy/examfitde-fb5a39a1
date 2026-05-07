@@ -58,6 +58,9 @@ const severityColor: Record<string, string> = {
 export function DagBlockedDashboardCard() {
   const qc = useQueryClient();
   const [showDetails, setShowDetails] = useState(false);
+  const [drillJobId, setDrillJobId] = useState<string | null>(null);
+  const [reenqueuePkg, setReenqueuePkg] = useState<{ id: string; title: string } | null>(null);
+  const [reenqueueStep, setReenqueueStep] = useState<string>("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["dag-blocked-overview"],
@@ -67,6 +70,45 @@ export function DagBlockedDashboardCard() {
       return data as unknown as Overview;
     },
     refetchInterval: 30_000,
+  });
+
+  const history = useQuery({
+    queryKey: ["dag-blocked-history"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_get_dag_blocked_history" as never, { p_hours: 24 } as never);
+      if (error) throw error;
+      return (data as unknown as Array<{
+        captured_at: string; total: number; severity: string; oldest_minutes: number | null;
+        by_reason: Record<string, number>;
+      }>) ?? [];
+    },
+    refetchInterval: 60_000,
+  });
+
+  const drilldown = useQuery({
+    queryKey: ["dag-blocked-drilldown", drillJobId],
+    enabled: !!drillJobId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_get_dag_blocked_drilldown" as never, { p_job_id: drillJobId } as never);
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  const reenqueue = useMutation({
+    mutationFn: async ({ pkgId, stepKey }: { pkgId: string; stepKey: string }) => {
+      const { data, error } = await supabase.rpc("admin_manual_reenqueue_step" as never, {
+        p_package_id: pkgId, p_step_key: stepKey, p_reason: "manual_dashboard_reenqueue",
+      } as never);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Step re-enqueued (Bronze-Override) · auditiert");
+      setReenqueuePkg(null); setReenqueueStep("");
+      qc.invalidateQueries({ queryKey: ["dag-blocked-overview"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const healAll = useMutation({
