@@ -386,6 +386,14 @@ export function QueueActionCockpit() {
             const Icon = meta.icon;
             const isPrimary = idx === 0;
             const isManual = a.recommended_strategy === 'manual_review_required';
+            // Hard-Guard (Defense-in-Depth zur Server-Whitelist):
+            // Blockiert generische "heal_other" / nicht-registrierte Action-Keys, falls
+            // ein älterer RPC-Cache oder ein Bypass jemals eine ungültige Empfehlung liefern sollte.
+            const UNSAFE_KEYS = new Set(['heal_other','heal_unknown','heal_quality_threshold_not_met']);
+            const isBlockedByGuard =
+              a.is_executable === false ||
+              UNSAFE_KEYS.has(a.action_key) ||
+              !a.action_key?.startsWith('heal_') && a.action_key !== 'mark_requeue_loop_terminal';
             const isExecutingThis = execute.isPending && confirmAction?.action_key === a.action_key;
 
             return (
