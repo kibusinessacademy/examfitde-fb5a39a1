@@ -222,7 +222,7 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground">Approved</CardTitle></CardHeader>
           <CardContent className="px-3 pb-3"><span className="text-2xl font-bold text-green-600">{totalApproved}</span></CardContent></Card>
         <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground">Drafts</CardTitle></CardHeader>
@@ -231,6 +231,10 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
           <CardContent className="px-3 pb-3"><span className="text-2xl font-bold text-destructive">{totalRejected}</span></CardContent></Card>
         <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground">Ø Quality</CardTitle></CardHeader>
           <CardContent className="px-3 pb-3"><span className="text-2xl font-bold">{avgQuality}</span></CardContent></Card>
+        <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground" title="Learning Reinforcement Score">Ø LRS</CardTitle></CardHeader>
+          <CardContent className="px-3 pb-3"><span className="text-2xl font-bold text-primary">{avgLrs}</span></CardContent></Card>
+        <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground flex items-center gap-1"><Shield className="h-3 w-3" /> Hard-Gate</CardTitle></CardHeader>
+          <CardContent className="px-3 pb-3"><span className={`text-2xl font-bold ${totalHardGate > 0 ? 'text-destructive' : 'text-green-600'}`}>{totalHardGate}</span></CardContent></Card>
         <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Dubletten</CardTitle></CardHeader>
           <CardContent className="px-3 pb-3"><span className={`text-2xl font-bold ${totalDupes > 0 ? 'text-destructive' : ''}`}>{totalDupes}</span></CardContent></Card>
         <Card><CardHeader className="pb-1 pt-3 px-3"><CardTitle className="text-xs text-muted-foreground">Coverage</CardTitle></CardHeader>
