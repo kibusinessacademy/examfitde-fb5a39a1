@@ -1,0 +1,63 @@
+name: SQL Migration Guard
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**.sql'
+      - 'scripts/guards/sql-migration-guard.mjs'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Scan mode'
+        type: choice
+        options: [changed, all]
+        default: changed
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint:
+    name: Static guardrails + Shadow-DB smoke
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: supabase/postgres:15.1.1.78
+        env:
+          POSTGRES_PASSWORD: shadow
+          POSTGRES_DB: shadow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pg client (optional, for shadow exec)
+        run: npm install --no-save pg@8
+
+      - name: Run static guardrails
+        run: |
+          if [ "${{ inputs.mode }}" = "all" ]; then
+            node scripts/guards/sql-migration-guard.mjs --all
+          else
+            node scripts/guards/sql-migration-guard.mjs
+          fi
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+
+      - name: Run Shadow-DB smoke (if migrations changed)
+        if: success()
+        env:
+          SHADOW_DATABASE_URL: postgres://postgres:shadow@localhost:5432/shadow
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: node scripts/guards/sql-migration-guard.mjs
