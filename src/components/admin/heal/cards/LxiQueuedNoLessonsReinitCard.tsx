@@ -37,9 +37,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { AlertTriangle, FlaskConical, Loader2, PlayCircle, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, FlaskConical, Loader2, PlayCircle, RefreshCw, Sparkles } from "lucide-react";
 
 type ReinitOne = {
   ok?: boolean;
@@ -76,6 +77,10 @@ export function LxiQueuedNoLessonsReinitCard() {
   const [lastRealResult, setLastRealResult] = useState<BatchResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [detailPkg, setDetailPkg] = useState<string | null>(null);
+  const [filterMode, setFilterMode] = useState<"all" | "eligible" | "skipped">("eligible");
+  const [skipReasonFilter, setSkipReasonFilter] = useState<string>("__all__");
+  const [sortKey, setSortKey] = useState<"priority" | "track" | "skipped" | "reset">("priority");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   // Live counts post-action
   const gateStatus = useQuery({
@@ -237,6 +242,65 @@ export function LxiQueuedNoLessonsReinitCard() {
   const drySkipped = (dryResult?.results ?? []).filter((r) => !!r.skip_reason);
   const wipWarn = (wip.data ?? 0) >= 60;
 
+  // Priority score: deterministic. Higher = better real-run candidate.
+  // - eligible (no skip_reason) → +100
+  // - has bootstrap reset_candidate → +50
+  // - more reset_candidates → +5 each (cap 25)
+  // - fewer skipped_steps_total = closer to clean → minor bonus
+  // - non_applicable just gives confidence (track-aware), small bonus
+  function priorityFor(r: ReinitOne): number {
+    if (r.skip_reason) return 0;
+    let p = 100;
+    p += (r.reset_candidates?.length ?? 0) > 0 ? 50 : 0;
+    p += Math.min(25, (r.reset_candidates?.length ?? 0) * 5);
+    p += Math.max(0, 30 - (r.skipped_steps_total ?? 0));
+    p += Math.min(10, (r.non_applicable_steps ?? 0) * 2);
+    return p;
+  }
+  function priorityLabel(p: number): { label: string; tone: string } {
+    if (p >= 170) return { label: "hoch", tone: "text-success" };
+    if (p >= 130) return { label: "mittel", tone: "text-warning" };
+    if (p > 0) return { label: "niedrig", tone: "text-text-muted" };
+    return { label: "—", tone: "text-text-muted" };
+  }
+
+  const skipReasonOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of dryResult?.results ?? []) if (r.skip_reason) s.add(r.skip_reason);
+    return Array.from(s).sort();
+  }, [dryResult]);
+
+  const visibleRows = useMemo(() => {
+    let rows = (dryResult?.results ?? []).map((r) => ({ ...r, _priority: priorityFor(r) }));
+    if (filterMode === "eligible") rows = rows.filter((r) => !r.skip_reason);
+    else if (filterMode === "skipped") rows = rows.filter((r) => !!r.skip_reason);
+    if (skipReasonFilter !== "__all__") rows = rows.filter((r) => r.skip_reason === skipReasonFilter);
+    const dir = sortDir === "asc" ? 1 : -1;
+    rows.sort((a, b) => {
+      const va =
+        sortKey === "track" ? (a.track ?? "") :
+        sortKey === "skipped" ? (a.skipped_steps_total ?? 0) :
+        sortKey === "reset" ? (a.reset_candidates?.length ?? 0) :
+        a._priority;
+      const vb =
+        sortKey === "track" ? (b.track ?? "") :
+        sortKey === "skipped" ? (b.skipped_steps_total ?? 0) :
+        sortKey === "reset" ? (b.reset_candidates?.length ?? 0) :
+        b._priority;
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+    return rows;
+  }, [dryResult, filterMode, skipReasonFilter, sortKey, sortDir]);
+
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir(key === "track" ? "asc" : "desc"); }
+  }
+  const sortIcon = (key: typeof sortKey) =>
+    sortKey === key ? (sortDir === "asc" ? <ArrowUp className="inline h-3 w-3" /> : <ArrowDown className="inline h-3 w-3" />) : null;
+
   return (
     <Card className="shadow-elev-1">
       <CardHeader>
@@ -351,25 +415,56 @@ export function LxiQueuedNoLessonsReinitCard() {
         {/* Candidate table */}
         {dryResult && (dryResult.results?.length ?? 0) > 0 && (
           <div className="rounded-lg border border-border">
-            <div className="border-b border-border bg-surface-subtle px-3 py-2 text-xs font-medium text-text-muted">
-              Kandidaten (klickbar für Detaildialog)
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface-subtle px-3 py-2 text-xs text-text-muted">
+              <span className="font-medium">
+                Kandidaten ({visibleRows.length} sichtbar / {dryResult.results.length} gesamt)
+              </span>
+              <div className="flex items-center gap-2">
+                <Select value={filterMode} onValueChange={(v) => setFilterMode(v as typeof filterMode)}>
+                  <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="eligible">Nur eligible</SelectItem>
+                    <SelectItem value="skipped">Nur skipped</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={skipReasonFilter} onValueChange={setSkipReasonFilter}>
+                  <SelectTrigger className="h-7 w-[180px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Alle Skip-Reasons</SelectItem>
+                    {skipReasonOptions.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="max-h-96 overflow-y-auto">
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-surface text-text-muted">
                   <tr>
                     <th className="px-2 py-1 text-left">Paket</th>
-                    <th className="px-2 py-1 text-left">Track</th>
-                    <th className="px-2 py-1 text-right">Skipped</th>
+                    <th className="cursor-pointer px-2 py-1 text-left" onClick={() => toggleSort("track")}>
+                      Track {sortIcon("track")}
+                    </th>
+                    <th className="cursor-pointer px-2 py-1 text-right" onClick={() => toggleSort("priority")}>
+                      Prio {sortIcon("priority")}
+                    </th>
+                    <th className="cursor-pointer px-2 py-1 text-right" onClick={() => toggleSort("skipped")}>
+                      Skipped {sortIcon("skipped")}
+                    </th>
                     <th className="px-2 py-1 text-right">N/A</th>
-                    <th className="px-2 py-1 text-right">Reset</th>
+                    <th className="cursor-pointer px-2 py-1 text-right" onClick={() => toggleSort("reset")}>
+                      Reset {sortIcon("reset")}
+                    </th>
                     <th className="px-2 py-1 text-left">First-Step</th>
                     <th className="px-2 py-1 text-left">Skip-Reason</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {dryResult.results.map((r) => {
+                  {visibleRows.map((r) => {
                     const title = pkgTitles.data?.get(r.package_id)?.title ?? r.package_id;
+                    const prio = priorityLabel(r._priority);
                     return (
                       <tr
                         key={r.package_id}
@@ -378,19 +473,16 @@ export function LxiQueuedNoLessonsReinitCard() {
                       >
                         <td className="px-2 py-1 font-medium">{title}</td>
                         <td className="px-2 py-1 text-text-muted">{r.track ?? "—"}</td>
+                        <td className={`px-2 py-1 text-right ${prio.tone}`}>
+                          {prio.label} <span className="text-text-muted">({r._priority})</span>
+                        </td>
                         <td className="px-2 py-1 text-right">{r.skipped_steps_total ?? 0}</td>
                         <td className="px-2 py-1 text-right">{r.non_applicable_steps ?? 0}</td>
-                        <td className="px-2 py-1 text-right">
-                          {r.reset_candidates?.length ?? 0}
-                        </td>
-                        <td className="px-2 py-1 text-text-muted">
-                          {r.expected_first_step ?? "—"}
-                        </td>
+                        <td className="px-2 py-1 text-right">{r.reset_candidates?.length ?? 0}</td>
+                        <td className="px-2 py-1 text-text-muted">{r.expected_first_step ?? "—"}</td>
                         <td className="px-2 py-1">
                           {r.skip_reason ? (
-                            <Badge variant="outline" className="font-mono text-[10px]">
-                              {r.skip_reason}
-                            </Badge>
+                            <Badge variant="outline" className="font-mono text-[10px]">{r.skip_reason}</Badge>
                           ) : (
                             <span className="text-success">eligible</span>
                           )}
@@ -398,11 +490,15 @@ export function LxiQueuedNoLessonsReinitCard() {
                       </tr>
                     );
                   })}
+                  {visibleRows.length === 0 && (
+                    <tr><td colSpan={8} className="px-2 py-4 text-center text-text-muted">Keine Treffer für aktuelle Filter</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         )}
+
 
         {/* Live job & log breakdown after real-run */}
         {lastRealResult && (
@@ -500,6 +596,20 @@ function PackageDetailDialog({
   onClose: () => void;
 }) {
   const open = !!packageId;
+  const [aiOpen, setAiOpen] = useState(false);
+
+  const aiAnalysis = useQuery({
+    queryKey: ["lxi-pkg-ai", packageId],
+    enabled: open && aiOpen && !!packageId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("admin-lxi-package-analyzer", {
+        body: { package_id: packageId },
+      });
+      if (error) throw error;
+      return data as { diagnosis: string; heuristic: { recommendation: string; confidence: string; reasoning: string } };
+    },
+  });
 
   const steps = useQuery({
     queryKey: ["pkg-steps", packageId],
@@ -564,6 +674,39 @@ function PackageDetailDialog({
         </DialogHeader>
         <ScrollArea className="max-h-[70vh] pr-3">
           <div className="space-y-4 text-xs">
+            {/* AI analysis */}
+            <section className="rounded-lg border border-border bg-surface-subtle p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-text-muted">
+                  <Sparkles className="h-3 w-3" /> KI-Diagnose
+                </div>
+                {!aiOpen ? (
+                  <Button size="sm" variant="outline" onClick={() => setAiOpen(true)} disabled={!packageId}>
+                    Analyse starten
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="ghost" onClick={() => aiAnalysis.refetch()} disabled={aiAnalysis.isFetching}>
+                    {aiAnalysis.isFetching ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  </Button>
+                )}
+              </div>
+              {!aiOpen ? (
+                <p className="text-text-muted">Klicke auf „Analyse starten“ für KI-gestützte Empfehlung (Lovable AI).</p>
+              ) : aiAnalysis.isLoading ? (
+                <Skeleton className="h-20 w-full" />
+              ) : aiAnalysis.isError ? (
+                <span className="text-destructive">Fehler: {(aiAnalysis.error as Error).message}</span>
+              ) : aiAnalysis.data ? (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">Empfehlung: {aiAnalysis.data.heuristic.recommendation}</Badge>
+                    <Badge variant="outline">Confidence: {aiAnalysis.data.heuristic.confidence}</Badge>
+                  </div>
+                  <p className="text-text-muted italic">{aiAnalysis.data.heuristic.reasoning}</p>
+                  <pre className="whitespace-pre-wrap rounded bg-surface p-2 text-[11px]">{aiAnalysis.data.diagnosis}</pre>
+                </div>
+              ) : null}
+            </section>
             <section>
               <div className="mb-1 text-[10px] uppercase tracking-wide text-text-muted">
                 Bootstrap-Step
