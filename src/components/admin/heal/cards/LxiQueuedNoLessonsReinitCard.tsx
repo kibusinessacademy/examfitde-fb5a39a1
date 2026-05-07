@@ -77,6 +77,7 @@ export function LxiQueuedNoLessonsReinitCard() {
   const [lastRealResult, setLastRealResult] = useState<BatchResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [detailPkg, setDetailPkg] = useState<string | null>(null);
+  const [attemptsPkg, setAttemptsPkg] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "eligible" | "skipped">("eligible");
   const [skipReasonFilter, setSkipReasonFilter] = useState<string>("__all__");
   const [sortKey, setSortKey] = useState<"priority" | "track" | "skipped" | "reset">("priority");
@@ -234,6 +235,37 @@ export function LxiQueuedNoLessonsReinitCard() {
     },
     onError: (e: Error) =>
       toast({ title: "Real-Run fehlgeschlagen", description: e.message, variant: "destructive" }),
+  });
+
+  // Single-package retry — runs the per-pkg RPC directly (real-run, no batch cap)
+  const singleReinit = useMutation({
+    mutationFn: async (packageId: string) => {
+      const { data, error } = await supabase.rpc(
+        "admin_lxi_reinit_skipped_steps_for_lesson_track" as never,
+        { p_package_id: packageId, p_dry_run: false } as never,
+      );
+      if (error) throw error;
+      return data as unknown as ReinitOne & { attempt_id?: string };
+    },
+    onSuccess: (data) => {
+      if (data?.ok) {
+        toast({
+          title: "Reset angewandt",
+          description: data.attempt_id ? `attempt=${data.attempt_id.slice(0, 8)}…` : "ok",
+        });
+      } else {
+        toast({
+          title: "Reset ohne Wirkung",
+          description: data?.skip_reason ?? "no_effect",
+          variant: "destructive",
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["lxi-gate-no-lessons-status"] });
+      qc.invalidateQueries({ queryKey: ["lxi-recent-heal-log"] });
+      qc.invalidateQueries({ queryKey: ["lxi-heal-attempts"] });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Reset fehlgeschlagen", description: e.message, variant: "destructive" }),
   });
 
   const dryEligible = (dryResult?.results ?? []).filter(
@@ -459,12 +491,14 @@ export function LxiQueuedNoLessonsReinitCard() {
                     </th>
                     <th className="px-2 py-1 text-left">First-Step</th>
                     <th className="px-2 py-1 text-left">Skip-Reason</th>
+                    <th className="px-2 py-1 text-right">Aktionen</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visibleRows.map((r) => {
                     const title = pkgTitles.data?.get(r.package_id)?.title ?? r.package_id;
                     const prio = priorityLabel(r._priority);
+                    const eligible = !r.skip_reason;
                     return (
                       <tr
                         key={r.package_id}
@@ -487,11 +521,36 @@ export function LxiQueuedNoLessonsReinitCard() {
                             <span className="text-success">eligible</span>
                           )}
                         </td>
+                        <td className="px-2 py-1 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[10px]"
+                              disabled={!eligible || singleReinit.isPending}
+                              onClick={() => singleReinit.mutate(r.package_id)}
+                              title="Reset für dieses Paket erneut versuchen"
+                            >
+                              {singleReinit.isPending && singleReinit.variables === r.package_id
+                                ? <Loader2 className="h-3 w-3 animate-spin" />
+                                : <RefreshCw className="h-3 w-3" />}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-[10px]"
+                              onClick={() => setAttemptsPkg(r.package_id)}
+                              title="Audit-Log + Rollback"
+                            >
+                              Audit
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
                   {visibleRows.length === 0 && (
-                    <tr><td colSpan={8} className="px-2 py-4 text-center text-text-muted">Keine Treffer für aktuelle Filter</td></tr>
+                    <tr><td colSpan={9} className="px-2 py-4 text-center text-text-muted">Keine Treffer für aktuelle Filter</td></tr>
                   )}
                 </tbody>
               </table>
@@ -564,6 +623,13 @@ export function LxiQueuedNoLessonsReinitCard() {
         packageId={detailPkg}
         title={detailPkg ? pkgTitles.data?.get(detailPkg)?.title ?? null : null}
         onClose={() => setDetailPkg(null)}
+      />
+
+      {/* Audit + Rollback */}
+      <HealAttemptsDialog
+        packageId={attemptsPkg}
+        title={attemptsPkg ? pkgTitles.data?.get(attemptsPkg)?.title ?? null : null}
+        onClose={() => setAttemptsPkg(null)}
       />
     </Card>
   );
@@ -787,6 +853,184 @@ function PackageDetailDialog({
               )}
             </section>
           </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ──────────────────────────────────────────────────────────
+// Heal-Attempts Dialog: lists past reinit attempts for the package
+// with before/after diff and rollback action.
+// ──────────────────────────────────────────────────────────
+type AttemptRow = {
+  id: string;
+  package_id: string;
+  package_title: string | null;
+  action_type: string;
+  status: string;
+  step_key: string | null;
+  created_at: string;
+  rolled_back_at: string | null;
+  rollback_reason: string | null;
+  can_rollback: boolean;
+};
+
+function HealAttemptsDialog({
+  packageId,
+  title,
+  onClose,
+}: {
+  packageId: string | null;
+  title: string | null;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [openDiff, setOpenDiff] = useState<string | null>(null);
+
+  const attempts = useQuery({
+    queryKey: ["lxi-heal-attempts", packageId],
+    enabled: !!packageId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_lxi_list_heal_attempts" as never,
+        { p_limit: 50, p_package_id: packageId } as never,
+      );
+      if (error) throw error;
+      return (data ?? []) as unknown as AttemptRow[];
+    },
+  });
+
+  const diff = useQuery({
+    queryKey: ["lxi-heal-attempt-diff", openDiff],
+    enabled: !!openDiff,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_lxi_get_heal_attempt_diff" as never,
+        { p_attempt_id: openDiff } as never,
+      );
+      if (error) throw error;
+      return data as unknown as Record<string, unknown>;
+    },
+  });
+
+  const rollback = useMutation({
+    mutationFn: async (attemptId: string) => {
+      const reason = window.prompt("Rollback-Grund (optional):") ?? null;
+      const { data, error } = await supabase.rpc(
+        "admin_lxi_rollback_heal_attempt" as never,
+        { p_attempt_id: attemptId, p_reason: reason } as never,
+      );
+      if (error) throw error;
+      return data as unknown as { ok: boolean; error?: string; cancelled_jobs?: number };
+    },
+    onSuccess: (data) => {
+      if (data?.ok) {
+        toast({ title: "Rollback ausgeführt", description: `cancelled_jobs=${data.cancelled_jobs ?? 0}` });
+      } else {
+        toast({ title: "Rollback abgelehnt", description: data?.error ?? "unbekannt", variant: "destructive" });
+      }
+      qc.invalidateQueries({ queryKey: ["lxi-heal-attempts", packageId] });
+      qc.invalidateQueries({ queryKey: ["lxi-gate-no-lessons-status"] });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Rollback fehlgeschlagen", description: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <Dialog open={!!packageId} onOpenChange={(v) => { if (!v) { onClose(); setOpenDiff(null); } }}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle className="text-sm">Heal-Audit: {title ?? packageId}</DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="max-h-[60vh]">
+          {attempts.isLoading && <Skeleton className="h-24 w-full" />}
+          {!attempts.isLoading && (attempts.data?.length ?? 0) === 0 && (
+            <div className="text-center text-text-muted text-xs py-6">
+              Noch keine Heal-Versuche für dieses Paket.
+            </div>
+          )}
+          {!attempts.isLoading && (attempts.data?.length ?? 0) > 0 && (
+            <table className="w-full text-xs">
+              <thead className="text-text-muted">
+                <tr>
+                  <th className="px-2 py-1 text-left">Wann</th>
+                  <th className="px-2 py-1 text-left">Aktion</th>
+                  <th className="px-2 py-1 text-left">Step</th>
+                  <th className="px-2 py-1 text-left">Status</th>
+                  <th className="px-2 py-1 text-right">Aktion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(attempts.data ?? []).map((a) => (
+                  <tr key={a.id} className="border-t border-border-subtle">
+                    <td className="px-2 py-1 text-text-muted">
+                      {new Date(a.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-2 py-1 font-mono text-[10px]">{a.action_type}</td>
+                    <td className="px-2 py-1 font-mono text-[10px]">{a.step_key ?? "—"}</td>
+                    <td className="px-2 py-1">
+                      {a.rolled_back_at ? (
+                        <Badge variant="outline">rolled_back</Badge>
+                      ) : a.can_rollback ? (
+                        <Badge variant="outline" className="text-success">applied</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-text-muted">expired</Badge>
+                      )}
+                    </td>
+                    <td className="px-2 py-1 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-[10px]"
+                          onClick={() => setOpenDiff(a.id)}
+                        >
+                          Diff
+                        </Button>
+                        {a.can_rollback && !a.rolled_back_at && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-[10px]"
+                            disabled={rollback.isPending}
+                            onClick={() => rollback.mutate(a.id)}
+                          >
+                            {rollback.isPending && rollback.variables === a.id
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : "Rollback"}
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {openDiff && (
+            <div className="mt-4 border-t border-border-subtle pt-3">
+              <div className="text-xs font-medium mb-2">Before / After Diff</div>
+              {diff.isLoading && <Skeleton className="h-24 w-full" />}
+              {diff.data && (
+                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                  <div>
+                    <div className="text-text-muted mb-1">BEFORE</div>
+                    <pre className="bg-surface-sunken p-2 rounded overflow-x-auto max-h-64">
+                      {JSON.stringify((diff.data as any).before, null, 2)}
+                    </pre>
+                  </div>
+                  <div>
+                    <div className="text-text-muted mb-1">AFTER</div>
+                    <pre className="bg-surface-sunken p-2 rounded overflow-x-auto max-h-64">
+                      {JSON.stringify((diff.data as any).after, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </ScrollArea>
       </DialogContent>
     </Dialog>

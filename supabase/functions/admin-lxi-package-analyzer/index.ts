@@ -18,6 +18,72 @@ import { requireAdmin } from "../_shared/adminGuard.ts";
 
 interface AnalysisRequest {
   package_id: string;
+  force_refresh?: boolean;
+}
+
+// ── In-memory cache (per edge instance, 5 min TTL) ──────
+type CacheEntry = { at: number; payload: unknown };
+const CACHE = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+function cacheGet(key: string) {
+  const e = CACHE.get(key);
+  if (!e) return null;
+  if (Date.now() - e.at > CACHE_TTL_MS) { CACHE.delete(key); return null; }
+  return e.payload;
+}
+function cacheSet(key: string, payload: unknown) {
+  CACHE.set(key, { at: Date.now(), payload });
+  // simple LRU: cap at 200
+  if (CACHE.size > 200) {
+    const firstKey = CACHE.keys().next().value;
+    if (firstKey) CACHE.delete(firstKey);
+  }
+}
+
+// ── AI fetch with timeout + retry ───────────────────────
+async function callAiWithRetry(body: unknown, apiKey: string, attempts = 3): Promise<{ ok: boolean; status: number; data?: any; error?: string }> {
+  let lastStatus = 0;
+  let lastErr = "";
+  for (let i = 0; i < attempts; i++) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 25_000);
+    try {
+      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ctl.signal,
+      });
+      clearTimeout(timer);
+      lastStatus = r.status;
+      // 429/402 → no retry, return as-is
+      if (r.status === 429 || r.status === 402) {
+        return { ok: false, status: r.status, error: r.status === 429 ? "rate_limited" : "ai_credits_exhausted" };
+      }
+      if (r.ok) {
+        const data = await r.json();
+        return { ok: true, status: 200, data };
+      }
+      lastErr = await r.text().catch(() => "");
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = String((e as Error)?.message ?? e);
+    }
+    // backoff 400ms, 1200ms
+    if (i < attempts - 1) await new Promise((res) => setTimeout(res, 400 * Math.pow(3, i)));
+  }
+  return { ok: false, status: lastStatus || 500, error: lastErr || "ai_unavailable" };
+}
+
+// ── Validate AI response shape ──────────────────────────
+function validateAiContent(raw: unknown): { ok: boolean; text: string; reason?: string } {
+  if (!raw || typeof raw !== "object") return { ok: false, text: "", reason: "non_object" };
+  const choices = (raw as any).choices;
+  if (!Array.isArray(choices) || choices.length === 0) return { ok: false, text: "", reason: "no_choices" };
+  const text = choices[0]?.message?.content;
+  if (typeof text !== "string" || text.trim().length < 10) return { ok: false, text: "", reason: "empty_or_too_short" };
+  return { ok: true, text };
 }
 
 Deno.serve(async (req) => {
@@ -146,10 +212,17 @@ Deno.serve(async (req) => {
       heuristic: { recommendation, confidence, reasoning },
     };
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    // ── Cache lookup (skip on force_refresh) ──
+    const cacheKey = `pkg:${body.package_id}`;
+    if (!body.force_refresh) {
+      const cached = cacheGet(cacheKey);
+      if (cached) {
+        return new Response(JSON.stringify({ ...(cached as object), cached: true }), { status: 200, headers });
+      }
+    }
+
+    const aiResult = await callAiWithRetry(
+      {
         model: "google/gemini-3-flash-preview",
         messages: [
           {
@@ -167,29 +240,46 @@ Deno.serve(async (req) => {
               "FAKTEN (JSON):\n" + JSON.stringify(facts, null, 2),
           },
         ],
-      }),
-    });
+      },
+      LOVABLE_API_KEY,
+    );
 
-    if (!aiResp.ok) {
-      const status = aiResp.status;
-      if (status === 429)
-        return new Response(JSON.stringify({ error: "rate_limited", facts, heuristic: facts.heuristic }), { status: 429, headers });
-      if (status === 402)
-        return new Response(JSON.stringify({ error: "ai_credits_exhausted", facts, heuristic: facts.heuristic }), { status: 402, headers });
-      return new Response(JSON.stringify({ error: "ai_gateway_error", facts, heuristic: facts.heuristic }), { status: 500, headers });
-    }
-
-    const aiData = await aiResp.json();
-    const diagnosis = aiData?.choices?.[0]?.message?.content ?? "";
-
-    return new Response(
-      JSON.stringify({
-        diagnosis,
+    // ── Safe fallback when AI unavailable ──
+    if (!aiResult.ok) {
+      const fallback = {
+        diagnosis:
+          `⚠️ KI-Analyse derzeit nicht verfügbar (${aiResult.error}). Heuristik liefert: ` +
+          `**${recommendation}** (confidence=${confidence}). ${reasoning}`,
         heuristic: { recommendation, confidence, reasoning },
         facts,
-      }),
-      { status: 200, headers },
-    );
+        ai_unavailable: true,
+        ai_error: aiResult.error,
+      };
+      const httpStatus = aiResult.status === 429 || aiResult.status === 402 ? aiResult.status : 200;
+      return new Response(JSON.stringify(fallback), { status: httpStatus, headers });
+    }
+
+    const validated = validateAiContent(aiResult.data);
+    if (!validated.ok) {
+      const fallback = {
+        diagnosis:
+          `⚠️ KI-Antwort ungültig (${validated.reason}). Heuristik: **${recommendation}** ` +
+          `(confidence=${confidence}). ${reasoning}`,
+        heuristic: { recommendation, confidence, reasoning },
+        facts,
+        ai_unavailable: true,
+        ai_error: `invalid_response:${validated.reason}`,
+      };
+      return new Response(JSON.stringify(fallback), { status: 200, headers });
+    }
+
+    const payload = {
+      diagnosis: validated.text,
+      heuristic: { recommendation, confidence, reasoning },
+      facts,
+    };
+    cacheSet(cacheKey, payload);
+    return new Response(JSON.stringify(payload), { status: 200, headers });
   } catch (e) {
     console.error("[admin-lxi-package-analyzer] Error:", e);
     return new Response(JSON.stringify({ error: String((e as Error)?.message ?? e) }), { status: 500, headers });
