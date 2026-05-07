@@ -281,6 +281,12 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
                         </div>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{row.avg_quality}</TableCell>
+                      <TableCell className="text-right tabular-nums font-medium text-primary">{row.avg_lrs ?? '–'}</TableCell>
+                      <TableCell className="text-right">
+                        {(row.hard_gate_violations ?? 0) > 0
+                          ? <Badge variant="destructive" className="text-xs">{row.hard_gate_violations}</Badge>
+                          : <span className="text-muted-foreground">0</span>}
+                      </TableCell>
                       <TableCell className="text-right">
                         {row.duplicate_suspect_count > 0 ? <Badge variant="destructive" className="text-xs">{row.duplicate_suspect_count}</Badge> : <span className="text-muted-foreground">0</span>}
                       </TableCell>
