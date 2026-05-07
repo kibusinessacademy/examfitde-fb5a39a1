@@ -241,6 +241,7 @@ export default function GrowthGraphLeitstelleCard() {
 
         <GrowthGraphBackfillControl />
         <GrowthGraphEdgePlanCard />
+        <GrowthGraphAuditLogCard />
       </CardContent>
     </Card>
   );
