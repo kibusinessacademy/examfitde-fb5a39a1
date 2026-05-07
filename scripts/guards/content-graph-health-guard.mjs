@@ -115,6 +115,30 @@ function num(v, fb = 0) {
       breaches.push(`missing_funnel_next ${missing_funnel_next} > ${TH.MISSING_FUNNEL_NEXT}`);
     }
 
+    const status = breaches.length === 0 ? 'ok' : 'warn';
+
+    // Write artifacts (JSON + Markdown)
+    const fs = await import('node:fs');
+    const report = { status, metrics, breaches, thresholds: TH, computed_at: new Date().toISOString() };
+    fs.writeFileSync('content-graph-health-report.json', JSON.stringify(report, null, 2));
+    const md = [
+      `## Content Graph Health — ${status === 'ok' ? '✅ OK' : '⚠️ WARN'}`,
+      '',
+      '| Metric | Value |',
+      '| --- | ---: |',
+      `| nodes_total | ${metrics.nodes_total} |`,
+      `| edges_total | ${metrics.edges_total} |`,
+      `| orphan_count | ${metrics.orphan_count} |`,
+      `| orphan_rate | ${(metrics.orphan_rate * 100).toFixed(1)}% |`,
+      `| missing_money_page | ${metrics.missing_money_page} |`,
+      `| missing_funnel_next | ${metrics.missing_funnel_next} |`,
+      '',
+      breaches.length ? `### Breaches\n${breaches.map((b) => `- ${b}`).join('\n')}` : '_No threshold breaches._',
+      '',
+      `<sub>warn-only · STRICT=${STRICT ? '1' : '0'} · ${report.computed_at}</sub>`,
+    ].join('\n');
+    fs.writeFileSync('content-graph-health-report.md', md);
+
     if (breaches.length === 0) {
       console.log('\n✅ All health thresholds within limits.');
       process.exit(0);
