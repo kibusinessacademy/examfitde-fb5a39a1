@@ -131,11 +131,13 @@ const RULES = [
     desc: "Keine DDL auf auth/storage/realtime/supabase_functions/vault Schemas.",
     test: (s) => {
       const violations = [];
-      const re = /\b(CREATE|ALTER|DROP)\s+(?:TABLE|TRIGGER|FUNCTION|POLICY|VIEW|INDEX|TYPE)[^;]*?\b(auth|storage|realtime|supabase_functions|vault)\./gi;
+      // Only flag when reserved schema is the *target* of a TABLE/TRIGGER/POLICY/VIEW/INDEX/TYPE/FUNCTION DDL.
+      // Function/policy calls like auth.uid() are excluded by requiring an identifier (no '(') right after schema.
+      const re = /\b(CREATE|ALTER|DROP)\s+(?:TABLE|TRIGGER|FUNCTION|VIEW|INDEX|TYPE)\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(auth|storage|realtime|supabase_functions|vault)\.[a-z_][a-z0-9_]*/gi;
       let m;
-      while ((m = re.exec(s))) {
-        violations.push(`${m[1]} on reserved schema ${m[2]}`);
-      }
+      while ((m = re.exec(s))) violations.push(`${m[1]} on reserved schema ${m[2]}`);
+      const reP = /\bCREATE\s+POLICY\s+[^;]*?\bON\s+(auth|storage|realtime|supabase_functions|vault)\./gi;
+      while ((m = reP.exec(s))) violations.push(`CREATE POLICY on reserved schema ${m[1]}`);
       return violations.length ? violations : null;
     },
   },
