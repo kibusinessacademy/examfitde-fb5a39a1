@@ -85,6 +85,19 @@ export function DagBlockedDashboardCard() {
     refetchInterval: 60_000,
   });
 
+  const suggestions = useQuery({
+    queryKey: ["dag-reenqueue-suggestions"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_get_reenqueue_suggestions" as never);
+      if (error) throw error;
+      return data as unknown as {
+        rules: Array<{ step_key: string; enabled: boolean; allow_bronze_override: boolean; stagnation_threshold_min: number; max_attempts: number; notes?: string }>;
+        suggestions: Array<{ package_id: string; package_title: string; step_key: string; job_id: string; minutes_blocked: number; block_reason: string; allow_bronze_override: boolean; threshold_min: number }>;
+      };
+    },
+    refetchInterval: 60_000,
+  });
+
   const drilldown = useQuery({
     queryKey: ["dag-blocked-drilldown", drillJobId],
     enabled: !!drillJobId,
