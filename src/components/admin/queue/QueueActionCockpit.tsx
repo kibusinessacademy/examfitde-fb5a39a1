@@ -35,6 +35,8 @@ interface RecommendedAction {
   priority: number;
   risk_level: RiskLevel;
   is_safe: boolean;
+  /** Server-Whitelist-Flag aus heal_action_registry (Phase 1). */
+  is_executable?: boolean;
   job_count: number;
   package_count: number;
   title: string;
