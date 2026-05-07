@@ -459,12 +459,14 @@ export function LxiQueuedNoLessonsReinitCard() {
                     </th>
                     <th className="px-2 py-1 text-left">First-Step</th>
                     <th className="px-2 py-1 text-left">Skip-Reason</th>
+                    <th className="px-2 py-1 text-right">Aktionen</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visibleRows.map((r) => {
                     const title = pkgTitles.data?.get(r.package_id)?.title ?? r.package_id;
                     const prio = priorityLabel(r._priority);
+                    const eligible = !r.skip_reason;
                     return (
                       <tr
                         key={r.package_id}
@@ -487,11 +489,36 @@ export function LxiQueuedNoLessonsReinitCard() {
                             <span className="text-success">eligible</span>
                           )}
                         </td>
+                        <td className="px-2 py-1 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[10px]"
+                              disabled={!eligible || singleReinit.isPending}
+                              onClick={() => singleReinit.mutate(r.package_id)}
+                              title="Reset für dieses Paket erneut versuchen"
+                            >
+                              {singleReinit.isPending && singleReinit.variables === r.package_id
+                                ? <Loader2 className="h-3 w-3 animate-spin" />
+                                : <RefreshCw className="h-3 w-3" />}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-[10px]"
+                              onClick={() => setAttemptsPkg(r.package_id)}
+                              title="Audit-Log + Rollback"
+                            >
+                              Audit
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
                   {visibleRows.length === 0 && (
-                    <tr><td colSpan={8} className="px-2 py-4 text-center text-text-muted">Keine Treffer für aktuelle Filter</td></tr>
+                    <tr><td colSpan={9} className="px-2 py-4 text-center text-text-muted">Keine Treffer für aktuelle Filter</td></tr>
                   )}
                 </tbody>
               </table>
