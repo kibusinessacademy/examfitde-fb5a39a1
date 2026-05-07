@@ -236,6 +236,8 @@ export default function GrowthGraphLeitstelleCard() {
             </div>
           </>
         )}
+
+        <GrowthGraphBackfillControl />
       </CardContent>
     </Card>
   );
