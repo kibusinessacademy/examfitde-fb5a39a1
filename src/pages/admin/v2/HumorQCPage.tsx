@@ -36,10 +36,32 @@ type HumorQCRow = {
   draft_count: number;
   rejected_count: number;
   avg_quality: number;
+  avg_lrs: number | null;
   pct_no_competence: number;
   pct_no_lesson: number;
+  pct_no_blueprint: number;
+  hard_gate_violations: number;
   type_distribution: Record<string, number>;
+  level_distribution: Record<string, number>;
+  phase_distribution: Record<string, number>;
   duplicate_suspect_count: number;
+};
+
+const LEVEL_LABELS: Record<string, string> = {
+  engagement: 'L1 Engagement',
+  memory: 'L2 Memory',
+  insider: 'L3 Insider',
+  scenario: 'L4 Scenario',
+  reinforcement: 'L5 Reinforcement',
+  unset: '⚠ Unset',
+};
+
+const PHASE_LABELS: Record<string, string> = {
+  pre_exam: 'Vor Prüfung',
+  learning: 'Lernphase',
+  post_error: 'Nach Fehler',
+  general: 'Allgemein',
+  unset: '⚠ Unset',
 };
 
 type KPIRow = {
