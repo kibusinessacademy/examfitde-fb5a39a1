@@ -55,9 +55,12 @@ jobs:
         env:
           GITHUB_BASE_REF: ${{ github.base_ref }}
 
-      - name: Run Shadow-DB smoke (if migrations changed)
+      - name: Run Shadow-DB cumulative replay (all migrations up to target)
         if: success()
         env:
           SHADOW_DATABASE_URL: postgres://postgres:shadow@localhost:5432/shadow
           GITHUB_BASE_REF: ${{ github.base_ref }}
+          # Default = cumulative replay: apply ALL migrations chronologically up
+          # to the latest changed file so dependency drift surfaces early.
+          # Set SHADOW_PER_FILE_ROLLBACK=1 to fall back to legacy per-file mode.
         run: node scripts/guards/sql-migration-guard.mjs
