@@ -219,6 +219,33 @@ export function DagBlockedDashboardCard() {
           );
         })()}
 
+        {suggestions.data && suggestions.data.suggestions.length > 0 && (
+          <div className="rounded-lg border p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">Re-Enqueue-Vorschläge ({suggestions.data.suggestions.length})</div>
+              <div className="text-xs text-muted-foreground">
+                {suggestions.data.rules.filter(r => r.enabled).length} aktive Regeln
+              </div>
+            </div>
+            <div className="space-y-1 max-h-48 overflow-auto">
+              {suggestions.data.suggestions.slice(0, 20).map((s) => (
+                <div key={s.job_id} className="flex items-center justify-between text-xs gap-2 border-b pb-1 last:border-0">
+                  <div className="truncate flex-1" title={s.package_title}>
+                    <code>{s.step_key}</code> · {s.package_title}
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">{s.minutes_blocked}m</Badge>
+                  {s.allow_bronze_override && <Badge className="text-[10px] bg-status-warning-bg-subtle text-status-warning-fg">bronze ok</Badge>}
+                  <Button size="sm" variant="outline" className="h-6 px-2"
+                    onClick={() => reenqueue.mutate({ pkgId: s.package_id, stepKey: s.step_key })}
+                    disabled={reenqueue.isPending}>
+                    <Send className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {data && data.by_package.length > 0 && (
           <div className="rounded-lg border">
             <Table>
