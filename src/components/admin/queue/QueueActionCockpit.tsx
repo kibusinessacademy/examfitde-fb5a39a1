@@ -445,7 +445,12 @@ export function QueueActionCockpit() {
                   </div>
                 </div>
                 <div className="mt-2 flex items-center justify-end gap-1.5">
-                  {isManual ? (
+                  {isBlockedByGuard ? (
+                    <span className="text-[10px] text-destructive flex items-center gap-1" title={`action_key="${a.action_key}" ist nicht in heal_action_registry — keine sichere Aktion verfügbar.`}>
+                      <ShieldAlert className="h-3 w-3" />
+                      Keine sichere Aktion verfügbar
+                    </span>
+                  ) : isManual ? (
                     <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3" />
                       Manueller Review nötig
@@ -472,9 +477,6 @@ export function QueueActionCockpit() {
                             : undefined
                         }
                         onClick={() => {
-                          // Beide Pfade verlangen jetzt einen Bestätigungs-Schritt:
-                          // SAFE → kurzer Confirm-Dialog (safeConfirm)
-                          // MEDIUM/HIGH → Dry-Run-First, dann „Trotzdem ausführen" im Result-Dialog
                           if (a.is_safe) {
                             setSafeConfirm(a);
                           } else {
