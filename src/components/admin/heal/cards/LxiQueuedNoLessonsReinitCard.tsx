@@ -37,9 +37,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { AlertTriangle, FlaskConical, Loader2, PlayCircle, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, FlaskConical, Loader2, PlayCircle, RefreshCw, Sparkles } from "lucide-react";
 
 type ReinitOne = {
   ok?: boolean;
