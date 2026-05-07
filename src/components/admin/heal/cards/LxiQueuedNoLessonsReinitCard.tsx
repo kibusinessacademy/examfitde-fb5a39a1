@@ -624,6 +624,13 @@ export function LxiQueuedNoLessonsReinitCard() {
         title={detailPkg ? pkgTitles.data?.get(detailPkg)?.title ?? null : null}
         onClose={() => setDetailPkg(null)}
       />
+
+      {/* Audit + Rollback */}
+      <HealAttemptsDialog
+        packageId={attemptsPkg}
+        title={attemptsPkg ? pkgTitles.data?.get(attemptsPkg)?.title ?? null : null}
+        onClose={() => setAttemptsPkg(null)}
+      />
     </Card>
   );
 }
