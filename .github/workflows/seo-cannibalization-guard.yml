@@ -1,0 +1,40 @@
+name: SEO Cannibalization Guard
+on:
+  pull_request:
+    paths:
+      - 'src/pages/**'
+      - 'supabase/migrations/**.sql'
+      - 'scripts/guards/seo-cannibalization-guard.mjs'
+  schedule:
+    - cron: '0 6 * * *' # daily 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'warn (default) or strict'
+        type: choice
+        options: [warn, strict]
+        default: warn
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  scan:
+    name: Keyword ownership scan (warn-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run guard
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ "${{ inputs.mode }}" = "strict" ]; then
+            node scripts/guards/seo-cannibalization-guard.mjs --strict
+          else
+            node scripts/guards/seo-cannibalization-guard.mjs
+          fi
