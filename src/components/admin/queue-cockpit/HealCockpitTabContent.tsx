@@ -18,6 +18,7 @@ import { LxiPublishBlockMonitorCard } from "@/components/admin/heal/cards/LxiPub
 import { LxiQueuedNoLessonsReinitCard } from "@/components/admin/heal/cards/LxiQueuedNoLessonsReinitCard";
 import { ForensicAuditRunnerCard } from "@/components/admin/heal/cards/ForensicAuditRunnerCard";
 import { PricingHealAuditCard } from "@/components/admin/heal/cards/PricingHealAuditCard";
+import { DagBlockedDashboardCard } from "@/components/admin/heal/cards/DagBlockedDashboardCard";
 
 export function HealCockpitTabContent() {
   return (
