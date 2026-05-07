@@ -35,6 +35,8 @@ interface RecommendedAction {
   priority: number;
   risk_level: RiskLevel;
   is_safe: boolean;
+  /** Server-Whitelist-Flag aus heal_action_registry (Phase 1). */
+  is_executable?: boolean;
   job_count: number;
   package_count: number;
   title: string;
@@ -384,6 +386,14 @@ export function QueueActionCockpit() {
             const Icon = meta.icon;
             const isPrimary = idx === 0;
             const isManual = a.recommended_strategy === 'manual_review_required';
+            // Hard-Guard (Defense-in-Depth zur Server-Whitelist):
+            // Blockiert generische "heal_other" / nicht-registrierte Action-Keys, falls
+            // ein älterer RPC-Cache oder ein Bypass jemals eine ungültige Empfehlung liefern sollte.
+            const UNSAFE_KEYS = new Set(['heal_other','heal_unknown','heal_quality_threshold_not_met']);
+            const isBlockedByGuard =
+              a.is_executable === false ||
+              UNSAFE_KEYS.has(a.action_key) ||
+              !a.action_key?.startsWith('heal_') && a.action_key !== 'mark_requeue_loop_terminal';
             const isExecutingThis = execute.isPending && confirmAction?.action_key === a.action_key;
 
             return (
@@ -435,7 +445,12 @@ export function QueueActionCockpit() {
                   </div>
                 </div>
                 <div className="mt-2 flex items-center justify-end gap-1.5">
-                  {isManual ? (
+                  {isBlockedByGuard ? (
+                    <span className="text-[10px] text-destructive flex items-center gap-1" title={`action_key="${a.action_key}" ist nicht in heal_action_registry — keine sichere Aktion verfügbar.`}>
+                      <ShieldAlert className="h-3 w-3" />
+                      Keine sichere Aktion verfügbar
+                    </span>
+                  ) : isManual ? (
                     <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3" />
                       Manueller Review nötig
@@ -462,9 +477,6 @@ export function QueueActionCockpit() {
                             : undefined
                         }
                         onClick={() => {
-                          // Beide Pfade verlangen jetzt einen Bestätigungs-Schritt:
-                          // SAFE → kurzer Confirm-Dialog (safeConfirm)
-                          // MEDIUM/HIGH → Dry-Run-First, dann „Trotzdem ausführen" im Result-Dialog
                           if (a.is_safe) {
                             setSafeConfirm(a);
                           } else {
