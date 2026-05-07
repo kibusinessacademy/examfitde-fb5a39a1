@@ -192,15 +192,21 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
   const handleAiAnalyze = async () => {
     setShowAi(true);
     const ctx = JSON.stringify({
-      totalApproved, totalDraft, totalRejected, totalDupes, avgQuality, coveragePct,
+      totalApproved, totalDraft, totalRejected, totalDupes, totalHardGate,
+      avgQuality, avgLrs, coveragePct,
       certifications: data?.map(r => ({
         title: r.certification_title,
         approved: r.approved_count,
         target: TARGET,
         quality: r.avg_quality,
+        lrs: r.avg_lrs,
         dupes: r.duplicate_suspect_count,
         noCompetence: r.pct_no_competence,
+        noBlueprint: r.pct_no_blueprint,
+        hardGate: r.hard_gate_violations,
         typeDistribution: r.type_distribution,
+        levelDistribution: r.level_distribution,
+        phaseDistribution: r.phase_distribution,
       })),
     });
     await ai.invoke('humor_qc', 'analyze_quality', ctx);
