@@ -234,13 +234,22 @@ export function DagBlockedDashboardCard() {
                     <TableCell className="text-right font-mono">{p.oldest_minutes}m</TableCell>
                     <TableCell className="text-xs font-mono">{(p.parent_steps ?? []).join(", ") || "—"}</TableCell>
                     <TableCell>
-                      <Button
-                        size="sm" variant="outline"
-                        onClick={() => healPackage.mutate(p.package_id)}
-                        disabled={healPackage.isPending}
-                      >
-                        Heal
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm" variant="outline"
+                          onClick={() => healPackage.mutate(p.package_id)}
+                          disabled={healPackage.isPending}
+                        >
+                          Heal
+                        </Button>
+                        <Button
+                          size="sm" variant="ghost"
+                          onClick={() => { setReenqueuePkg({ id: p.package_id, title: p.package_title }); setReenqueueStep((p.parent_steps?.[0] ?? p.blocked_steps?.[0]) ?? ""); }}
+                          title="Manuell re-enqueuen (Bronze-Override)"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
