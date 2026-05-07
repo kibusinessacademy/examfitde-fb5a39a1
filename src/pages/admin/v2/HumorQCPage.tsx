@@ -255,6 +255,8 @@ function OverviewTab({ data, isLoading }: { data: HumorQCRow[] | undefined; isLo
                   <TableHead className="text-right">Ziel</TableHead>
                   <TableHead>Fortschritt</TableHead>
                   <TableHead className="text-right">Ø Score</TableHead>
+                  <TableHead className="text-right">Ø LRS</TableHead>
+                  <TableHead className="text-right">Hard-Gate</TableHead>
                   <TableHead className="text-right">Dubletten</TableHead>
                   <TableHead className="text-right">% ohne Kompetenz</TableHead>
                 </TableRow>
