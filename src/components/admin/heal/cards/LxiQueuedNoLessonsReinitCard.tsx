@@ -596,6 +596,20 @@ function PackageDetailDialog({
   onClose: () => void;
 }) {
   const open = !!packageId;
+  const [aiOpen, setAiOpen] = useState(false);
+
+  const aiAnalysis = useQuery({
+    queryKey: ["lxi-pkg-ai", packageId],
+    enabled: open && aiOpen && !!packageId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("admin-lxi-package-analyzer", {
+        body: { package_id: packageId },
+      });
+      if (error) throw error;
+      return data as { diagnosis: string; heuristic: { recommendation: string; confidence: string; reasoning: string } };
+    },
+  });
 
   const steps = useQuery({
     queryKey: ["pkg-steps", packageId],
