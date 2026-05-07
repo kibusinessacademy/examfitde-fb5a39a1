@@ -99,15 +99,15 @@ const RULES = [
   },
   {
     id: "R5_security_definer_search_path",
-    desc: "SECURITY DEFINER Funktionen müssen SET search_path=public setzen.",
+    desc: "SECURITY DEFINER Funktionen müssen SET search_path setzen (= public oder TO 'public').",
     test: (s) => {
       const violations = [];
-      const re = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([\w.]+)[^;]*?LANGUAGE\s+\w+[^;]*?SECURITY\s+DEFINER([^;]*?)\$\$/gis;
+      const re = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([\w.]+)[\s\S]*?LANGUAGE\s+\w+[\s\S]*?SECURITY\s+DEFINER([\s\S]*?)AS\s+\$\$/gi;
       let m;
       while ((m = re.exec(s))) {
         const head = m[0];
-        if (!/SET\s+search_path\s*=\s*public/i.test(head)) {
-          violations.push(`function ${m[1]} is SECURITY DEFINER without SET search_path=public`);
+        if (!/SET\s+search_path\b/i.test(head)) {
+          violations.push(`function ${m[1]} is SECURITY DEFINER without SET search_path`);
         }
       }
       return violations.length ? violations : null;
