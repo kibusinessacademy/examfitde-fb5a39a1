@@ -185,6 +185,27 @@ export function DagBlockedDashboardCard() {
           </div>
         )}
 
+        {/* Trend mini-chart 24h */}
+        {history.data && history.data.length > 1 && (() => {
+          const pts = history.data!;
+          const max = Math.max(1, ...pts.map((p) => p.total));
+          const w = 600, h = 60;
+          const step = w / Math.max(1, pts.length - 1);
+          const path = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${i * step} ${h - (p.total / max) * (h - 4) - 2}`).join(" ");
+          const last = pts[pts.length - 1];
+          return (
+            <div className="rounded-lg border p-3 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Trend 24h · {pts.length} Snapshots · max {max}</span>
+                <span className="font-mono">aktuell {last.total} ({last.severity})</span>
+              </div>
+              <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-14">
+                <path d={path} stroke="currentColor" strokeWidth={1.5} fill="none" className="text-primary" />
+              </svg>
+            </div>
+          );
+        })()}
+
         {data && data.by_package.length > 0 && (
           <div className="rounded-lg border">
             <Table>
