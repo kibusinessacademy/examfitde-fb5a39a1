@@ -279,6 +279,7 @@ export function DagBlockedDashboardCard() {
                   <TableHead>Status</TableHead>
                   <TableHead>Reason</TableHead>
                   <TableHead className="text-right">Min</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
