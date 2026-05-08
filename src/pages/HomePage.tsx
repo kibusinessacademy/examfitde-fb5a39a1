@@ -7,7 +7,7 @@ import { PRICING } from '@/config/pricing';
 import { StickyCTA } from '@/components/marketing/StickyCTA';
 import { CourseFinderSection } from '@/components/marketing/CourseFinderSection';
 import { HowExamFitWorksSection } from '@/components/landing/HowExamFitWorksSection';
-import { ProductPreviewGallery } from '@/components/landing/ProductPreviewGallery';
+import { DemoGallery } from '@/components/landing/demos/DemoGallery';
 
 import { trackConversion } from '@/lib/seo-tracking';
 import {
@@ -152,7 +152,7 @@ export default function HomePage() {
         <HowExamFitWorksSection />
 
         {/* ─── 3. Produkt-Mockups: Score, Mastery, Aufgabe, KI, Mündlich ─── */}
-        <ProductPreviewGallery />
+        <DemoGallery />
 
         {/* ─── 4. Kursfinder ─── */}
         <CourseFinderSection />
