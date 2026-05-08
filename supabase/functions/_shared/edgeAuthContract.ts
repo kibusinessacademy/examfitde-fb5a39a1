@@ -89,13 +89,11 @@ async function logSecurityEvent(functionName: string, reason: string, req: Reque
     const sb = createClient(url, sk, { auth: { persistSession: false, autoRefreshToken: false } });
     await sb.from("security_events").insert({
       event_type: "edge_auth_blocked",
-      severity: "warn",
-      details: {
-        function_name: functionName,
-        reason,
-        ip_hash: ip ? (await sha256Hex(ip)).slice(0, 16) : null,
-        ua_hash: ua ? (await sha256Hex(ua)).slice(0, 16) : null,
-      },
+      decision: "block",
+      reason,
+      ip_hash: ip ? (await sha256Hex(ip)).slice(0, 16) : null,
+      ua_hash: ua ? (await sha256Hex(ua)).slice(0, 16) : null,
+      meta: { function_name: functionName },
     });
   } catch (_e) { /* best-effort */ }
 }
