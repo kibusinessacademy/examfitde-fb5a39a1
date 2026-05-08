@@ -14,14 +14,34 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Auth: require admin JWT OR EDGE_INTERNAL_SHARED_SECRET. Without this guard
+    // any caller could enumerate package internals and burn AI credits.
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
+    const jobRunnerKey = req.headers.get("x-job-runner-key") || "";
+    const isInternal = !!internalSecret && jobRunnerKey === internalSecret;
+
+    if (!isInternal) {
+      const authHeader = req.headers.get("Authorization") || "";
+      if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+      const token = authHeader.replace("Bearer ", "");
+      if (token === SERVICE_KEY) return json({ error: "Unauthorized" }, 401);
+      const userSb = createClient(SUPABASE_URL, ANON_KEY);
+      const { data: u, error: uErr } = await userSb.auth.getUser(token);
+      if (uErr || !u?.user) return json({ error: "Unauthorized" }, 401);
+      const adminSb = createClient(SUPABASE_URL, SERVICE_KEY);
+      const { data: role } = await adminSb.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+      if (!role) return json({ error: "Admin access required" }, 403);
+    }
+
     const body = await req.json().catch(() => ({}));
     const package_id: string | undefined = body.package_id;
     if (!package_id || !/^[0-9a-f-]{36}$/i.test(package_id)) {
       return json({ error: "package_id (uuid) required" }, 400);
     }
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) return json({ error: "LOVABLE_API_KEY not configured" }, 500);
 
