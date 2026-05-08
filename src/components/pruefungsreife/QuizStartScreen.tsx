@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ShieldCheck, Clock, Sparkles } from "lucide-react";
+import { HeroAccent } from "@/components/marketing/HeroAccent";
 
 interface Props {
   contextLabel?: string | null;
