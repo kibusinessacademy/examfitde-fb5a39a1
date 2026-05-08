@@ -217,6 +217,13 @@ export default function LeitstellePage() {
         </Suspense>
       </AdminCardBoundary>
 
+      {/* ═══ Publish-Workflow Status (Drift-Detektor) ═══ */}
+      <AdminCardBoundary label="Publish-Workflow Status">
+        <Suspense fallback={null}>
+          <PublishWorkflowStatusCard />
+        </Suspense>
+      </AdminCardBoundary>
+
       {/* ═══ Realtime Pulse + Predictive Alerts ═══ */}
       <AdminCardBoundary label="Realtime Pulse">
         <Suspense fallback={null}>
