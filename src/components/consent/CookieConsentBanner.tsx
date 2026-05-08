@@ -103,7 +103,56 @@ export function CookieConsentBanner() {
               </Link>
             </p>
           </div>
-...
+
+          {details && (
+            <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3 text-sm">
+              <label className="flex items-center justify-between gap-3">
+                <span>
+                  <strong>Notwendig</strong>
+                  <span className="block text-xs text-muted-foreground">
+                    Login, Sicherheit, Grundfunktionen
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked
+                  disabled
+                  className="h-4 w-4 accent-primary"
+                  aria-label="Notwendige Cookies (immer aktiv)"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span>
+                  <strong>Statistik / Analyse</strong>
+                  <span className="block text-xs text-muted-foreground">
+                    Google Analytics 4 (GA4) – anonymisierte Nutzungsdaten
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={analytics}
+                  onChange={(e) => setAnalytics(e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                  aria-label="Analyse-Cookies"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span>
+                  <strong>Marketing</strong>
+                  <span className="block text-xs text-muted-foreground">
+                    Werbe-Personalisierung, Conversion-Tracking
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={ad}
+                  onChange={(e) => setAd(e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                  aria-label="Marketing-Cookies"
+                />
+              </label>
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-row sm:items-center sm:justify-end">
             <Button
               variant="ghost"
