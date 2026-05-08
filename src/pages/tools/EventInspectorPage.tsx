@@ -215,7 +215,7 @@ export default function EventInspectorPage() {
           if (a && typeof a === "object" && !Array.isArray(a)) {
             setPushes((prev) =>
               [
-                { ...(a as Record<string, unknown>), _ts: Date.now(), _origin_capture: "realtime" },
+                { ...(a as Record<string, unknown>), _ts: Date.now(), _origin_capture: "realtime" as const },
                 ...prev,
               ].slice(0, 50),
             );
