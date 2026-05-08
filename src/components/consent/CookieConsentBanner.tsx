@@ -27,6 +27,7 @@ export function CookieConsentBanner() {
   const [details, setDetails] = useState(false);
   const [analytics, setAnalytics] = useState(true);
   const [ad, setAd] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (getStoredConsent() === null) {
@@ -36,15 +37,42 @@ export function CookieConsentBanner() {
     }
   }, []);
 
+  // Broadcast height + visibility so sticky CTAs can lift above the banner.
+  useEffect(() => {
+    if (!visible) {
+      broadcastBannerState(false, 0);
+      return;
+    }
+    const node = containerRef.current;
+    if (!node) return;
+
+    const measure = () =>
+      broadcastBannerState(true, Math.ceil(node.getBoundingClientRect().height));
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [visible, details]);
+
+  // On unmount → ensure listeners know banner is gone.
+  useEffect(() => () => broadcastBannerState(false, 0), []);
+
   const decide = (decision: ConsentDecision) => {
     setConsent(decision);
     setVisible(false);
+    broadcastBannerState(false, 0);
   };
 
   if (!visible) return null;
 
   return (
     <div
+      ref={containerRef}
       role="dialog"
       aria-modal="false"
       aria-label="Cookie-Einstellungen"
