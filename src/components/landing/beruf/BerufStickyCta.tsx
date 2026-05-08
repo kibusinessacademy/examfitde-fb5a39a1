@@ -27,6 +27,7 @@ export function BerufStickyCta({ visible, beruf, quizHref, onCtaClick }: Props) 
         bottom: `calc(env(safe-area-inset-bottom) + ${bottomOffset}px)`,
       }}
       aria-hidden={!visible}
+      data-testid="sticky-cta"
     >
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
