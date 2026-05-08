@@ -8,6 +8,7 @@ import { StickyCTA } from '@/components/marketing/StickyCTA';
 import { CourseFinderSection } from '@/components/marketing/CourseFinderSection';
 import { HowExamFitWorksSection } from '@/components/landing/HowExamFitWorksSection';
 import { DemoGallery } from '@/components/landing/demos/DemoGallery';
+import { HeroAccent } from '@/components/marketing/HeroAccent';
 
 import { trackConversion } from '@/lib/seo-tracking';
 import {
