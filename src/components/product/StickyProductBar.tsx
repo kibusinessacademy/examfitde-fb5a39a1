@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Clock } from 'lucide-react';
 import type { ProductPageSSOT } from '@/types/product-page';
+import { useConsentBannerVisible } from '@/hooks/useConsentBannerVisible';
 
 interface Props {
   product: ProductPageSSOT;
