@@ -8,17 +8,19 @@ import { QuizQuestionCard } from "./QuizQuestionCard";
 import { QuizProgressBar } from "./QuizProgressBar";
 import { QuizResultScreen } from "./QuizResultScreen";
 import { QUESTIONS, classifyScore, type CategoryKey } from "./types";
+import { usePackageResolverForSlug } from "./usePackageResolver";
+import { devTrackingContractCheck } from "./devTrackingCheck";
 
 type Phase = "start" | "running" | "result";
 
 /**
- * Tracking-Vertrag (Phase D.1):
- *  - Edge `track-funnel-event` erlaubt nur ALLOWED_EVENTS.
- *  - `quiz_started` / `quiz_completed` sind STRICT (package_id Pflicht).
- *  - Der Prüfungsreife-Check ist paket-agnostisch → wir verwenden bewusst
- *    `lead_magnet_view` (non-strict, GTM-gemappt) und unterscheiden Phasen
- *    via metadata.stage. So entsteht kein 400/Drift im Edge.
- *  - Klicks: `cta_click` (legacy-allowed). `checkout_start` für Bundle-CTA.
+ * Tracking-Vertrag (Phase D.2):
+ *  - Mit auflösbarer package_id (slug → catalog → packageId UUID):
+ *      Start → quiz_started, Completion → quiz_completed (strict, GTM-conversion).
+ *  - Ohne package_id (direkter Aufruf oder slug ohne published package):
+ *      Start/Completion → lead_magnet_view mit metadata.stage (non-strict, kein 400).
+ *  - Klicks: cta_click (allowed legacy) + checkout_start für Bundle-CTA.
+ *  - Resolver lädt async; Check ist nicht blockiert (Tracking-Decision erst beim Klick).
  */
 export default function PruefungsreifeCheckPage() {
   const [params] = useSearchParams();
@@ -26,9 +28,11 @@ export default function PruefungsreifeCheckPage() {
   const slug = params.get("slug");
   const isBerufContext = source === "beruf" && !!slug;
 
-  const contextLabel = isBerufContext ? slug?.replace(/-/g, " ") : null;
+  const resolver = usePackageResolverForSlug(isBerufContext ? slug : null);
+
+  const contextLabel = isBerufContext ? slug?.replace(/-/g, " ") ?? null : null;
   const primaryHref = isBerufContext ? `/bundle/${slug}` : "/shop";
-  const secondaryHref = "/berufe";
+  const secondaryHref = isBerufContext ? `/berufe/${slug}` : "/berufe";
 
   const { track } = useTrackGrowthEvent();
 
@@ -41,26 +45,66 @@ export default function PruefungsreifeCheckPage() {
       ? window.location.pathname + window.location.search
       : null;
 
-  const trackingMeta = useMemo(
+  const baseMeta = useMemo(
     () => ({
+      source_page: sourcePage,
+      page_path: typeof window !== "undefined" ? window.location.pathname : null,
+      slug: slug ?? null,
+      source: source ?? "direct",
+      quiz: "pruefungsreife_check",
+    }),
+    [sourcePage, slug, source],
+  );
+
+  const REQUIRED_KEYS = ["source_page", "page_path", "slug", "source"];
+
+  function emit(
+    canonical: "quiz_started" | "quiz_completed",
+    extraMetadata: Record<string, unknown>,
+  ) {
+    const packageId = resolver.packageId;
+    const metadata = { ...baseMeta, ...extraMetadata };
+
+    if (packageId) {
+      devTrackingContractCheck({
+        eventType: canonical,
+        packageId,
+        metadata,
+        requiredMetadataKeys: REQUIRED_KEYS,
+      });
+      track(canonical, {
+        sourcePage,
+        packageId,
+        curriculumId: resolver.curriculumId,
+        persona: resolver.persona ?? (isBerufContext ? "azubi" : null),
+        metadata,
+      });
+      return;
+    }
+
+    // Fallback (kein package_id) → non-strict event, contract-clean.
+    const fallbackMeta = { ...metadata, stage: canonical };
+    devTrackingContractCheck({
+      eventType: "lead_magnet_view",
+      packageId: null,
+      metadata: fallbackMeta,
+      requiredMetadataKeys: REQUIRED_KEYS,
+    });
+    track("lead_magnet_view", {
       sourcePage,
       persona: isBerufContext ? "azubi" : null,
-      metadata: {
-        check_source: source ?? "direct",
-        slug: slug ?? null,
-        page_path: typeof window !== "undefined" ? window.location.pathname : null,
-      },
-    }),
-    [source, slug, isBerufContext, sourcePage],
-  );
+      metadata: fallbackMeta,
+    });
+  }
 
   const handleStart = () => {
     setPhase("running");
     setCurrent(0);
     setAnswers([]);
-    track("lead_magnet_view", {
-      ...trackingMeta,
-      metadata: { ...trackingMeta.metadata, stage: "quiz_started", quiz: "pruefungsreife_check" },
+    emit("quiz_started", {
+      score: null,
+      risk_level: null,
+      weakest_categories: null,
     });
   };
 
@@ -72,16 +116,10 @@ export default function PruefungsreifeCheckPage() {
       const weakest = computeWeakest(next);
       const meta = classifyScore(total);
       setPhase("result");
-      track("lead_magnet_view", {
-        ...trackingMeta,
-        metadata: {
-          ...trackingMeta.metadata,
-          stage: "quiz_completed",
-          quiz: "pruefungsreife_check",
-          score: total,
-          risk_level: meta.level,
-          weakest_categories: weakest,
-        },
+      emit("quiz_completed", {
+        score: total,
+        risk_level: meta.level,
+        weakest_categories: weakest,
       });
     } else {
       setAnswers(next);
@@ -105,40 +143,52 @@ export default function PruefungsreifeCheckPage() {
   const weakest = phase === "result" ? computeWeakest(answers) : [];
   const riskMeta = classifyScore(totalScore);
 
-  const handlePrimary = () => {
+  function emitClick(location: "primary" | "secondary", target: string) {
+    const metadata = {
+      ...baseMeta,
+      location: `pruefungscheck_result_${location}`,
+      target,
+      score: totalScore,
+      risk_level: riskMeta.level,
+      weakest_categories: weakest,
+    };
+    devTrackingContractCheck({
+      eventType: "cta_click",
+      packageId: resolver.packageId,
+      metadata,
+      requiredMetadataKeys: REQUIRED_KEYS,
+    });
     track("cta_click", {
-      ...trackingMeta,
-      metadata: {
-        ...trackingMeta.metadata,
-        location: "pruefungscheck_result_primary",
-        target: primaryHref,
-        score: totalScore,
-        risk_level: riskMeta.level,
-      },
+      sourcePage,
+      packageId: resolver.packageId,
+      persona: resolver.persona ?? (isBerufContext ? "azubi" : null),
+      metadata,
+    });
+  }
+
+  const handlePrimary = () => {
+    emitClick("primary", primaryHref);
+    const metadata = {
+      ...baseMeta,
+      location: "pruefungscheck_result_primary",
+      score: totalScore,
+      risk_level: riskMeta.level,
+    };
+    devTrackingContractCheck({
+      eventType: "checkout_start",
+      packageId: resolver.packageId,
+      metadata,
+      requiredMetadataKeys: REQUIRED_KEYS,
     });
     track("checkout_start", {
-      ...trackingMeta,
-      metadata: {
-        ...trackingMeta.metadata,
-        location: "pruefungscheck_result_primary",
-        score: totalScore,
-        risk_level: riskMeta.level,
-      },
+      sourcePage,
+      packageId: resolver.packageId,
+      persona: resolver.persona ?? (isBerufContext ? "azubi" : null),
+      metadata,
     });
   };
 
-  const handleSecondary = () => {
-    track("cta_click", {
-      ...trackingMeta,
-      metadata: {
-        ...trackingMeta.metadata,
-        location: "pruefungscheck_result_secondary",
-        target: secondaryHref,
-        score: totalScore,
-        risk_level: riskMeta.level,
-      },
-    });
-  };
+  const handleSecondary = () => emitClick("secondary", secondaryHref);
 
   return (
     <>
