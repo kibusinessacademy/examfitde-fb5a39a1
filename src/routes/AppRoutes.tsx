@@ -89,7 +89,7 @@ const PersonaLandingPage = lazyRetry(() => import('@/pages/landing/PersonaLandin
 const PersonaLandingHubPage = lazyRetry(() => import('@/pages/landing/PersonaLandingHubPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
 const EnterpriseDemoPage = lazyRetry(() => import('@/pages/seo/EnterpriseDemoPage'));
-const PruefungsreifeCheck = lazyRetry(() => import('@/components/marketing/PruefungsreifeCheck'));
+const PruefungsreifeCheck = lazyRetry(() => import('@/components/pruefungsreife/PruefungsreifeCheckPage'));
 const LeadQuizPage = lazyRetry(() => import('@/pages/quiz/LeadQuizPage'));
 const LernplanPage = lazyRetry(() => import('@/pages/quiz/LernplanPage'));
 const QuizResultPage = lazyRetry(() => import('@/pages/quiz/QuizResultPage'));
