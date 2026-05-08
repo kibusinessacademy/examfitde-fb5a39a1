@@ -17,6 +17,8 @@ import { useTrailingSlashNormalizer } from "@/hooks/useTrailingSlashNormalizer";
 import AppRoutes from "@/routes/AppRoutes";
 import { AccessDebugPanel } from "@/components/debug/AccessDebugPanel";
 import { useHeatmapTracking } from "@/features/analytics/useHeatmapTracking";
+import { useGtmPageView } from "@/hooks/useGtmPageView";
+import { CookieConsentBanner } from "@/components/consent/CookieConsentBanner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
