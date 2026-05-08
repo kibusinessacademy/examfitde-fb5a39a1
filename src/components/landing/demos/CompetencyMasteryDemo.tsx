@@ -24,7 +24,7 @@ const COMPS: Comp[] = [
     name: "Kosten- und Leistungsrechnung",
     status: "partial",
     weakness: "Verständnis der Vollkostenrechnung lückenhaft.",
-    recommendation: "MiniCheck Kapitel 3 + 2 Übungsaufgaben Stufe „Mittel".",
+    recommendation: 'MiniCheck Kapitel 3 + 2 Übungsaufgaben Stufe „Mittel".',
   },
   {
     id: "c3",
