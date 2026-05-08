@@ -114,21 +114,40 @@ export default function H5PPlayer({ contentId, curriculumId, onCompleted, onProg
     // Handle xAPI statements from H5P content
     if (event.data?.context === 'h5p' && event.data?.statement) {
       const statement = event.data.statement as XAPIStatement;
-      
-      // Check for completion
-      if (statement.verb?.id?.includes('completed') || 
-          statement.verb?.id?.includes('answered')) {
-        
-        const score = statement.result?.score?.raw;
-        const maxScore = statement.result?.score?.max;
-        
+      const verbId = statement.verb?.id ?? '';
+      const score = statement.result?.score?.raw ?? null;
+      const maxScore = statement.result?.score?.max ?? null;
+      const scaled = statement.result?.score?.scaled;
+      const progressPct = scaled !== undefined ? Math.round(scaled * 100) : null;
+
+      // GA4: per-answer event
+      if (verbId.includes('answered')) {
+        trackH5P('h5p_answered', {
+          contentId,
+          curriculumId,
+          score,
+          maxScore,
+          progressPct,
+          success: statement.result?.success ?? null,
+        });
+      }
+
+      if (verbId.includes('completed') || verbId.includes('answered')) {
         if (statement.result?.completion) {
-          onCompleted?.(score, maxScore);
+          trackH5P('h5p_completed', {
+            contentId,
+            curriculumId,
+            score,
+            maxScore,
+            progressPct,
+            success: statement.result?.success ?? null,
+          });
+          onCompleted?.(score ?? undefined, maxScore ?? undefined);
         }
-        
-        // Calculate progress
-        if (statement.result?.score?.scaled !== undefined) {
-          onProgress?.(statement.result.score.scaled * 100);
+
+        if (scaled !== undefined) {
+          trackH5P('h5p_progress', { contentId, curriculumId, progressPct });
+          onProgress?.(scaled * 100);
         }
       }
     }
