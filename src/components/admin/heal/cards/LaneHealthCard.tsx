@@ -43,7 +43,9 @@ interface WorkerHB { any_alive_5m: boolean; pipeline_alive_5m: number; pipeline_
 
 // SSOT-Soll-Lanes — werden auch dann gerendert, wenn aktuell idle (0 jobs).
 // Quelle: derive_job_lane + ops_job_type_registry + tatsächlich beobachtete Lanes der letzten 24h.
-const EXPECTED_LANES = ["control", "content", "research", "tutor", "finalize", "generation", "recovery", "marketing"] as const;
+// SSOT: Lanes, die tatsächlich von derive_job_lane / ops_job_type_registry emittiert werden.
+// research/tutor/finalize sind keine Lane-Werte (Job-Typen, kein Pool) — entfernt, sonst dauerhafte 0-Platzhalter.
+const EXPECTED_LANES = ["control", "content", "core", "generation", "recovery", "marketing"] as const;
 
 export function LaneHealthCard() {
   const [showAll, setShowAll] = useState(true);
