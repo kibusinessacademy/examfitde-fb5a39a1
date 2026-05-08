@@ -31,6 +31,26 @@ const json = (b: unknown, s = 200) =>
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Auth: require admin JWT or EDGE_INTERNAL_SHARED_SECRET. Without this guard
+  // anyone could read funnel/CRM metrics or inject fake orders via ?mode=simulate.
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
+  const jobRunnerKey = req.headers.get("x-job-runner-key") || "";
+  const isInternal = !!internalSecret && jobRunnerKey === internalSecret;
+
+  if (!isInternal) {
+    const authHeader = req.headers.get("Authorization") || "";
+    if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+    const token = authHeader.replace("Bearer ", "");
+    if (token === SERVICE_KEY) return json({ error: "Unauthorized" }, 401);
+    const userSb = createClient(SUPABASE_URL, ANON_KEY);
+    const { data: u, error: uErr } = await userSb.auth.getUser(token);
+    if (uErr || !u?.user) return json({ error: "Unauthorized" }, 401);
+    const guardSb = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data: role } = await guardSb.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+    if (!role) return json({ error: "Admin access required" }, 403);
+  }
+
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") ?? "audit";
