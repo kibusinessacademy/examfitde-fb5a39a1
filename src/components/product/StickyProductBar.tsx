@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Clock } from 'lucide-react';
 import type { ProductPageSSOT } from '@/types/product-page';
+import { useConsentBannerVisible } from '@/hooks/useConsentBannerVisible';
 
 interface Props {
   product: ProductPageSSOT;
@@ -14,12 +15,16 @@ function formatPrice(amount: number, currency: string): string {
 }
 
 export function StickyProductBar({ product, visible, onBuyClick, isLoading }: Props) {
+  const consent = useConsentBannerVisible();
   if (!visible) return null;
 
   const priceLabel = product.ctas.stickyPriceLabel || formatPrice(product.pricing.amount, product.pricing.currency);
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-50 bg-card/95 backdrop-blur-md border-t border-border px-4 py-3 safe-bottom">
+    <div
+      className="fixed inset-x-0 z-50 bg-card/95 backdrop-blur-md border-t border-border px-4 py-3 transition-[bottom] duration-base"
+      style={{ bottom: consent.visible ? `calc(env(safe-area-inset-bottom) + ${consent.height + 12}px)` : `env(safe-area-inset-bottom)` }}
+    >
       <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
         <div className="flex flex-col min-w-0">
           <span className="text-lg font-bold text-foreground">{priceLabel}</span>

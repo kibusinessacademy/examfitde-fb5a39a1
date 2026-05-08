@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Search, X } from 'lucide-react';
 import { trackConversion } from '@/lib/seo-tracking';
+import { useConsentBannerVisible } from '@/hooks/useConsentBannerVisible';
 
 const EXCLUDED_ROUTES = ['/shop', '/checkout', '/auth', '/pruefungsreife-check', '/berufe'];
 const SCROLL_THRESHOLD = 0.35;
@@ -13,6 +14,7 @@ export function StickyCTA() {
   const [dismissed, setDismissed] = useState(false);
   const [tracked, setTracked] = useState(false);
   const location = useLocation();
+  const consent = useConsentBannerVisible();
 
   const isExcluded = EXCLUDED_ROUTES.some(r => location.pathname.startsWith(r));
 
@@ -66,7 +68,10 @@ export function StickyCTA() {
   };
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-50 p-3 sm:p-4 animate-fade-in">
+    <div
+      className="fixed inset-x-0 z-50 p-3 sm:p-4 animate-fade-in transition-[bottom] duration-base"
+      style={{ bottom: consent.visible ? `calc(env(safe-area-inset-bottom) + ${consent.height + 12}px)` : 0 }}
+    >
       <div className="container mx-auto max-w-2xl">
         <div className="rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shadow-elev-3 border border-petrol-200 bg-surface-raised/95 backdrop-blur-md">
           <div className="flex items-center gap-3 min-w-0">
