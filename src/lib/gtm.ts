@@ -211,6 +211,12 @@ const FUNNEL_TO_GTM_EVENT: Record<string, string> = {
   exam_attempt: "exam_attempt",
   heatmap_click: "heatmap_click",
   heatmap_scroll_depth: "scroll_depth",
+  // Legacy-Aliase (DB akzeptiert weiterhin) — explizit gemappt, damit
+  // GTM-Event-Mapping-Guard nicht fault. Nicht mehr neu emittieren.
+  lead_capture: "lead_captured",
+  lernplan_view: "lernplan_viewed",
+  optin_submit: "lead_captured",
+  b2b_form_submit: "lead_captured",
 };
 
 export type FunnelDataLayerPayload = {
