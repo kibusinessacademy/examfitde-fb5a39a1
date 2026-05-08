@@ -11,7 +11,7 @@ export function QuizProgressBar({ current, total }: Props) {
           Frage {Math.min(current + 1, total)} von {total}
         </span>
         <span className="text-xs font-medium text-text-secondary">
-          {Math.round((current / total) * 100)} %
+          {Math.round(((current + 1) / total) * 100)} %
         </span>
       </div>
       <div className="flex gap-1">
