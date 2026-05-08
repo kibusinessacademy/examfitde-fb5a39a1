@@ -10,12 +10,14 @@ on:
     paths:
       - "src/lib/conversionTracking.ts"
       - "src/lib/gtm.ts"
+      - "docs/analytics/funnel-events.schema.json"
       - "scripts/guards/gtm-event-mapping-guard.mjs"
       - ".github/workflows/gtm-event-mapping-guard.yml"
   pull_request:
     paths:
       - "src/lib/conversionTracking.ts"
       - "src/lib/gtm.ts"
+      - "docs/analytics/funnel-events.schema.json"
       - "scripts/guards/gtm-event-mapping-guard.mjs"
   workflow_dispatch:
 

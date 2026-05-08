@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "$id": "https://examfit.de/schemas/funnel-events.schema.json",
+  "title": "ExamFit Funnel Events SSOT",
+  "description": "Single source of truth for FunnelEventType -> canonical GTM event name -> required DataLayer fields. Keep in sync with src/lib/conversionTracking.ts (FunnelEventType) and src/lib/gtm.ts (FUNNEL_TO_GTM_EVENT). Required fields MUST be present (value may be null) on every DataLayer push made via gtmEmitFunnel.",
+  "version": "1.0.0",
+  "requiredDataLayerFieldsForAllFunnelEvents": [
+    "event",
+    "funnel_event",
+    "package_id",
+    "persona",
+    "curriculum_id",
+    "source_page",
+    "page_path"
+  ],
+  "events": {
+    "hero_cta_click":         { "ga4": "cta_clicked",          "strict": false, "conversion": false },
+    "cta_clicked":            { "ga4": "cta_clicked",          "strict": false, "conversion": false },
+    "cta_visible":            { "ga4": "cta_visible",          "strict": false, "conversion": false },
+    "pricing_view":           { "ga4": "pricing_view",         "strict": false, "conversion": false },
+    "page_view":              { "ga4": "landing_view",         "strict": false, "conversion": false },
+    "add_to_cart":            { "ga4": "add_to_cart",          "strict": false, "conversion": false },
+    "checkout_start":         { "ga4": "checkout_started",     "strict": true,  "conversion": true  },
+    "checkout_complete":      { "ga4": "purchase_completed",   "strict": true,  "conversion": true  },
+    "lead_magnet_view":       { "ga4": "lead_magnet_viewed",   "strict": false, "conversion": false },
+    "lead_magnet_download":   { "ga4": "lead_magnet_downloaded","strict": false, "conversion": false },
+    "quiz_started":           { "ga4": "quiz_started",         "strict": true,  "conversion": false },
+    "quiz_completed":         { "ga4": "quiz_completed",       "strict": true,  "conversion": true  },
+    "quiz_cta_clicked":       { "ga4": "cta_clicked",          "strict": false, "conversion": false },
+    "bundle_cta_clicked":     { "ga4": "cta_clicked",          "strict": false, "conversion": false },
+    "lead_capture_submitted": { "ga4": "lead_captured",        "strict": true,  "conversion": false },
+    "lernplan_viewed":        { "ga4": "lernplan_viewed",      "strict": false, "conversion": false },
+    "doi_confirmed":          { "ga4": "doi_confirmed",        "strict": false, "conversion": false },
+    "course_open":            { "ga4": "course_opened",        "strict": false, "conversion": false },
+    "exam_attempt":           { "ga4": "exam_attempt",         "strict": false, "conversion": false },
+    "heatmap_click":          { "ga4": "heatmap_click",        "strict": false, "conversion": false },
+    "heatmap_scroll_depth":   { "ga4": "scroll_depth",         "strict": false, "conversion": false },
+    "quiz_start":             { "ga4": "quiz_started",         "strict": true,  "conversion": false, "deprecated": true, "alias_of": "quiz_started" },
+    "quiz_complete":          { "ga4": "quiz_completed",       "strict": true,  "conversion": true,  "deprecated": true, "alias_of": "quiz_completed" },
+    "lead_capture":           { "ga4": "lead_captured",        "strict": false, "conversion": false, "deprecated": true, "alias_of": "lead_capture_submitted" },
+    "lernplan_view":          { "ga4": "lernplan_viewed",      "strict": false, "conversion": false, "deprecated": true, "alias_of": "lernplan_viewed" },
+    "optin_submit":           { "ga4": "lead_captured",        "strict": false, "conversion": false, "deprecated": true, "alias_of": "lead_capture_submitted" },
+    "b2b_form_submit":        { "ga4": "lead_captured",        "strict": false, "conversion": false, "deprecated": true }
+  },
+  "ga4Conversions": ["quiz_completed", "checkout_started", "purchase_completed"],
+  "notes": [
+    "strict=true: server (track_conversion_event_v2) requires package_id; DataLayer push will still fire but with null and DEV warns.",
+    "GA4 conversions are configured in the GA4 property; this list is informational and used by validators.",
+    "Add new entries here BEFORE adding to FunnelEventType union — CI guard enforces parity."
+  ]
+}

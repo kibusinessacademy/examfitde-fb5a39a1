@@ -1,20 +1,37 @@
 #!/usr/bin/env node
 /**
- * GTM Event Mapping Guard
+ * GTM Event Mapping Guard (v2)
  * --------------------------------------------------------------
- * Verifies every FunnelEventType in src/lib/conversionTracking.ts has an
- * explicit entry in FUNNEL_TO_GTM_EVENT (src/lib/gtm.ts).
+ * Verifies:
+ *  1. Every FunnelEventType in src/lib/conversionTracking.ts is mapped
+ *     in FUNNEL_TO_GTM_EVENT (src/lib/gtm.ts).
+ *  2. Every FunnelEventType is documented in
+ *     docs/analytics/funnel-events.schema.json (and vice-versa).
+ *  3. The schema's GA4 event name matches FUNNEL_TO_GTM_EVENT for each event.
+ *  4. gtmEmitFunnel(...) pushes ALL required Top-Level fields
+ *     (event, funnel_event, package_id, persona, curriculum_id,
+ *      source_page, page_path).
  *
- * Rule: GTM ist Fan-out-Schicht. Jedes neue Funnel-Event muss explizit
- * gemappt werden — kein impliziter Fallback (sonst entstehen GA4-Events
- * mit Snake-Case-Drift, die niemand im Container verkabelt hat).
+ * Rule: GTM ist Fan-out-Schicht. Drift in Mapping ODER Pflichtfeldern
+ * bricht GA4-Auswertung — daher hartes CI-Gate.
  *
  * Exit 1 on drift.
  */
 import { readFileSync } from "node:fs";
 
-const CT_PATH = "src/lib/conversionTracking.ts";
-const GTM_PATH = "src/lib/gtm.ts";
+const CT_PATH     = "src/lib/conversionTracking.ts";
+const GTM_PATH    = "src/lib/gtm.ts";
+const SCHEMA_PATH = "docs/analytics/funnel-events.schema.json";
+
+const REQUIRED_FIELDS = [
+  "event",
+  "funnel_event",
+  "package_id",
+  "persona",
+  "curriculum_id",
+  "source_page",
+  "page_path",
+];
 
 function extractFunnelEventTypes(src) {
   const m = src.match(/export\s+type\s+FunnelEventType\s*=([\s\S]*?);/);
@@ -22,35 +39,89 @@ function extractFunnelEventTypes(src) {
   return [...m[1].matchAll(/"([a-z0-9_]+)"/g)].map((x) => x[1]);
 }
 
-function extractMappedKeys(src) {
+function extractMapping(src) {
   const m = src.match(/FUNNEL_TO_GTM_EVENT[^=]*=\s*{([\s\S]*?)};/);
   if (!m) throw new Error("FUNNEL_TO_GTM_EVENT not found in " + GTM_PATH);
-  return [...m[1].matchAll(/^\s*([a-z0-9_]+)\s*:/gm)].map((x) => x[1]);
+  const out = {};
+  for (const x of m[1].matchAll(/^\s*([a-z0-9_]+)\s*:\s*"([a-z0-9_]+)"/gm)) {
+    out[x[1]] = x[2];
+  }
+  return out;
 }
 
-const ct = readFileSync(CT_PATH, "utf8");
-const gtm = readFileSync(GTM_PATH, "utf8");
+function extractEmitFunnelBody(src) {
+  const m = src.match(
+    /export\s+function\s+gtmEmitFunnel[\s\S]*?gtmPush\(\s*{([\s\S]*?)}\s*\)/
+  );
+  if (!m) throw new Error("gtmEmitFunnel(...) gtmPush body not found in " + GTM_PATH);
+  return m[1];
+}
 
-const events = extractFunnelEventTypes(ct);
-const mapped = new Set(extractMappedKeys(gtm));
+const ct      = readFileSync(CT_PATH,     "utf8");
+const gtm     = readFileSync(GTM_PATH,    "utf8");
+const schema  = JSON.parse(readFileSync(SCHEMA_PATH, "utf8"));
 
-const missing = events.filter((e) => !mapped.has(e));
+const events       = extractFunnelEventTypes(ct);
+const mapping      = extractMapping(gtm);
+const mappedKeys   = new Set(Object.keys(mapping));
+const schemaEvents = schema.events ?? {};
+const schemaKeys   = new Set(Object.keys(schemaEvents));
+const emitBody     = extractEmitFunnelBody(gtm);
 
-if (missing.length > 0) {
-  console.error("\n❌ GTM Event Mapping Guard: drift detected\n");
-  console.error("The following FunnelEventType values are NOT mapped in");
-  console.error("FUNNEL_TO_GTM_EVENT (src/lib/gtm.ts):\n");
-  for (const e of missing) console.error("  - " + e);
+const errors = [];
+
+// 1. Mapping coverage
+for (const e of events) {
+  if (!mappedKeys.has(e))
+    errors.push(`FunnelEventType "${e}" missing in FUNNEL_TO_GTM_EVENT (src/lib/gtm.ts)`);
+}
+
+// 2. Schema coverage (both directions)
+for (const e of events) {
+  if (!schemaKeys.has(e))
+    errors.push(`FunnelEventType "${e}" missing in docs/analytics/funnel-events.schema.json`);
+}
+for (const e of schemaKeys) {
+  if (!events.includes(e))
+    errors.push(`Schema documents "${e}" but it is NOT in FunnelEventType union (stale schema entry)`);
+}
+
+// 3. GA4 name parity (schema.ga4 === FUNNEL_TO_GTM_EVENT[e])
+for (const e of events) {
+  const codeGa4   = mapping[e];
+  const schemaGa4 = schemaEvents[e]?.ga4;
+  if (codeGa4 && schemaGa4 && codeGa4 !== schemaGa4) {
+    errors.push(
+      `GA4 name drift for "${e}": code="${codeGa4}" vs schema="${schemaGa4}"`
+    );
+  }
+}
+
+// 4. Required Top-Level fields in gtmEmitFunnel push body
+for (const f of REQUIRED_FIELDS) {
+  // accept `event:`, `event :`, or `...event,` (rare)
+  const re = new RegExp(`(^|[\\s,{])${f}\\s*:`, "m");
+  if (!re.test(emitBody)) {
+    errors.push(`gtmEmitFunnel push body missing required Top-Level field "${f}"`);
+  }
+}
+
+if (errors.length > 0) {
+  console.error("\n❌ GTM Event Mapping Guard v2: drift detected\n");
+  for (const e of errors) console.error("  - " + e);
   console.error(
-    "\nFix: add an explicit entry to FUNNEL_TO_GTM_EVENT mapping the funnel event"
+    "\nFix: synchronize src/lib/conversionTracking.ts (FunnelEventType) ↔"
   );
   console.error(
-    "to its canonical GTM event name (snake_case, present-tense past-particle"
+    "src/lib/gtm.ts (FUNNEL_TO_GTM_EVENT + gtmEmitFunnel push body) ↔"
   );
-  console.error("for completed actions, e.g. `purchase_completed`).\n");
+  console.error(
+    "docs/analytics/funnel-events.schema.json. See docs/analytics/README.md.\n"
+  );
   process.exit(1);
 }
 
 console.log(
-  `✅ GTM Event Mapping Guard: all ${events.length} funnel events mapped.`
+  `✅ GTM Event Mapping Guard v2: ${events.length} funnel events, ` +
+  `${REQUIRED_FIELDS.length} required fields, schema in sync.`
 );

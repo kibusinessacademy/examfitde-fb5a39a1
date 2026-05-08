@@ -208,6 +208,9 @@ const HandbookPage = lazyRetry(() => import('@/pages/HandbookPage'));
 const HandbookChapterPage = lazyRetry(() => import('@/pages/HandbookChapterPage'));
 const HandbookLandingPage = lazyRetry(() => import('@/pages/seo/HandbookLandingPage'));
 
+// Internal Tools (noindex)
+const EventInspectorPage = lazyRetry(() => import('@/pages/tools/EventInspectorPage'));
+
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -223,6 +226,7 @@ const AppRoutes = () => {
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/installieren" element={<InstallPage />} />
+        <Route path="/tools/event-inspector" element={<EventInspectorPage />} />
         <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />
         <Route path="/quiz/:slug" element={<LeadQuizPage />} />
         <Route path="/lernplan/:slug" element={<LernplanPage />} />
