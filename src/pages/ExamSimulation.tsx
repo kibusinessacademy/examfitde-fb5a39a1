@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { recordLearningEvent, snapshotExamReadiness } from '@/lib/learning-telemetry';
+import { trackExamStarted, trackExamCompleted } from '@/lib/gtm';
 import { 
   useExamSimulation, 
   useExamBlueprints, 
@@ -102,6 +103,12 @@ export default function ExamSimulation() {
   // Handle start exam
   const handleStartExam = async (blueprintId: string, mode: 'simulation' | 'practice' | 'timed_exam' | 'adaptive') => {
     const newSessionId = await startExam.mutateAsync({ blueprintId, mode });
+    trackExamStarted({
+      blueprintId,
+      mode,
+      sessionId: newSessionId,
+      curriculumId: blueprints?.find((b: any) => b.id === blueprintId)?.curriculum_id ?? null,
+    });
     navigate(`/exam-simulation/${newSessionId}`);
   };
   
@@ -130,6 +137,16 @@ export default function ExamSimulation() {
           exam_session_id: currentSessionId,
           passed: typeof result === 'object' ? (result as any).passed : undefined,
         },
+      });
+      // GA4 Conversion: pruefung_abgeschlossen + bestanden / nicht_bestanden
+      const r = (typeof result === 'object' && result !== null) ? (result as any) : {};
+      trackExamCompleted({
+        sessionId: currentSessionId ?? null,
+        curriculumId: curriculumId ?? null,
+        scorePct: scorePercentage,
+        passed: typeof r.passed === 'boolean' ? r.passed : null,
+        totalQuestions: r.total_questions ?? null,
+        correctAnswers: r.correct_answers ?? null,
       });
       if (curriculumId) {
         snapshotExamReadiness(curriculumId);

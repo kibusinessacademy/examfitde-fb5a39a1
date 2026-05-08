@@ -17,6 +17,8 @@ import { useTrailingSlashNormalizer } from "@/hooks/useTrailingSlashNormalizer";
 import AppRoutes from "@/routes/AppRoutes";
 import { AccessDebugPanel } from "@/components/debug/AccessDebugPanel";
 import { useHeatmapTracking } from "@/features/analytics/useHeatmapTracking";
+import { useGtmPageView } from "@/hooks/useGtmPageView";
+import { CookieConsentBanner } from "@/components/consent/CookieConsentBanner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -87,6 +89,7 @@ function AppChrome() {
   usePointerLockRecovery();
   useTrailingSlashNormalizer();
   useHeatmapTracking({ source: "site" });
+  useGtmPageView();
 
   // Detect partner referral params on landing
   useEffect(() => {
@@ -103,6 +106,7 @@ function AppChrome() {
       <InstallPrompt />
       {showNativeTabBar ? <div className="h-20" /> : null}
       <AccessDebugPanel />
+      <CookieConsentBanner />
     </>
   );
 }
