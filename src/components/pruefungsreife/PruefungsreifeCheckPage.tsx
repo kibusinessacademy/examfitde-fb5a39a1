@@ -7,10 +7,19 @@ import { QuizStartScreen } from "./QuizStartScreen";
 import { QuizQuestionCard } from "./QuizQuestionCard";
 import { QuizProgressBar } from "./QuizProgressBar";
 import { QuizResultScreen } from "./QuizResultScreen";
-import { QUESTIONS, CATEGORY_LABELS, classifyScore, type CategoryKey } from "./types";
+import { QUESTIONS, classifyScore, type CategoryKey } from "./types";
 
 type Phase = "start" | "running" | "result";
 
+/**
+ * Tracking-Vertrag (Phase D.1):
+ *  - Edge `track-funnel-event` erlaubt nur ALLOWED_EVENTS.
+ *  - `quiz_started` / `quiz_completed` sind STRICT (package_id Pflicht).
+ *  - Der Prüfungsreife-Check ist paket-agnostisch → wir verwenden bewusst
+ *    `lead_magnet_view` (non-strict, GTM-gemappt) und unterscheiden Phasen
+ *    via metadata.stage. So entsteht kein 400/Drift im Edge.
+ *  - Klicks: `cta_click` (legacy-allowed). `checkout_start` für Bundle-CTA.
+ */
 export default function PruefungsreifeCheckPage() {
   const [params] = useSearchParams();
   const source = params.get("source");
@@ -18,8 +27,8 @@ export default function PruefungsreifeCheckPage() {
   const isBerufContext = source === "beruf" && !!slug;
 
   const contextLabel = isBerufContext ? slug?.replace(/-/g, " ") : null;
-  const primaryHref = "/bundle";
-  const secondaryHref = isBerufContext ? "/berufe" : "/berufe";
+  const primaryHref = isBerufContext ? `/bundle/${slug}` : "/shop";
+  const secondaryHref = "/berufe";
 
   const { track } = useTrackGrowthEvent();
 
@@ -27,7 +36,10 @@ export default function PruefungsreifeCheckPage() {
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Array<0 | 1 | 2 | 3>>([]);
 
-  const sourcePage = typeof window !== "undefined" ? window.location.pathname + window.location.search : null;
+  const sourcePage =
+    typeof window !== "undefined"
+      ? window.location.pathname + window.location.search
+      : null;
 
   const trackingMeta = useMemo(
     () => ({
@@ -35,7 +47,8 @@ export default function PruefungsreifeCheckPage() {
       persona: isBerufContext ? "azubi" : null,
       metadata: {
         check_source: source ?? "direct",
-        beruf_slug: slug ?? null,
+        slug: slug ?? null,
+        page_path: typeof window !== "undefined" ? window.location.pathname : null,
       },
     }),
     [source, slug, isBerufContext, sourcePage],
@@ -45,27 +58,33 @@ export default function PruefungsreifeCheckPage() {
     setPhase("running");
     setCurrent(0);
     setAnswers([]);
-    track("quiz_started", trackingMeta);
+    track("lead_magnet_view", {
+      ...trackingMeta,
+      metadata: { ...trackingMeta.metadata, stage: "quiz_started", quiz: "pruefungsreife_check" },
+    });
   };
 
   const handleAnswer = (score: 0 | 1 | 2 | 3) => {
     const next = [...answers, score];
-    setAnswers(next);
-    if (current + 1 >= QUESTIONS.length) {
+    if (next.length >= QUESTIONS.length) {
+      setAnswers(next);
       const total = computeScore(next);
       const weakest = computeWeakest(next);
       const meta = classifyScore(total);
       setPhase("result");
-      track("quiz_completed", {
+      track("lead_magnet_view", {
         ...trackingMeta,
         metadata: {
           ...trackingMeta.metadata,
+          stage: "quiz_completed",
+          quiz: "pruefungsreife_check",
           score: total,
           risk_level: meta.level,
           weakest_categories: weakest,
         },
       });
     } else {
+      setAnswers(next);
       setCurrent((c) => c + 1);
     }
   };
@@ -82,24 +101,42 @@ export default function PruefungsreifeCheckPage() {
     setAnswers([]);
   };
 
-  const totalScore = computeScore(answers);
-  const weakest = computeWeakest(answers);
+  const totalScore = phase === "result" ? computeScore(answers) : 0;
+  const weakest = phase === "result" ? computeWeakest(answers) : [];
+  const riskMeta = classifyScore(totalScore);
 
   const handlePrimary = () => {
     track("cta_click", {
       ...trackingMeta,
-      metadata: { ...trackingMeta.metadata, location: "pruefungscheck_result_primary", target: primaryHref, score: totalScore },
+      metadata: {
+        ...trackingMeta.metadata,
+        location: "pruefungscheck_result_primary",
+        target: primaryHref,
+        score: totalScore,
+        risk_level: riskMeta.level,
+      },
     });
     track("checkout_start", {
       ...trackingMeta,
-      metadata: { ...trackingMeta.metadata, location: "pruefungscheck_result_primary", score: totalScore },
+      metadata: {
+        ...trackingMeta.metadata,
+        location: "pruefungscheck_result_primary",
+        score: totalScore,
+        risk_level: riskMeta.level,
+      },
     });
   };
 
   const handleSecondary = () => {
     track("cta_click", {
       ...trackingMeta,
-      metadata: { ...trackingMeta.metadata, location: "pruefungscheck_result_secondary", target: secondaryHref, score: totalScore },
+      metadata: {
+        ...trackingMeta.metadata,
+        location: "pruefungscheck_result_secondary",
+        target: secondaryHref,
+        score: totalScore,
+        risk_level: riskMeta.level,
+      },
     });
   };
 
@@ -166,13 +203,9 @@ function computeWeakest(answers: Array<0 | 1 | 2 | 3>): CategoryKey[] {
     buckets[cat].sum += score;
     buckets[cat].count += 1;
   });
-  const ranked = Object.values(buckets)
+  return Object.values(buckets)
     .map((b) => ({ cat: b.cat, avg: b.sum / b.count }))
     .sort((a, b) => a.avg - b.avg)
     .slice(0, 3)
     .map((r) => r.cat);
-  return ranked;
 }
-
-// touch reference so CATEGORY_LABELS isn't dead-imported (used in subcomponents)
-void CATEGORY_LABELS;

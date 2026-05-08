@@ -64,6 +64,7 @@ export function QuizResultScreen({
       <ResultCtaBlock
         primaryHref={primaryHref}
         secondaryHref={secondaryHref}
+        secondaryLabel={contextLabel ? "Beruf wechseln" : "Berufe ansehen"}
         onPrimary={onPrimary}
         onSecondary={onSecondary}
       />

@@ -1,10 +1,11 @@
 import type { ResultMeta } from "./types";
 
+// Token-Hygiene: kein `danger`-Token im Tailwind-Theme — nutze `destructive`.
 const TONE_CLASS: Record<ResultMeta["tone"], string> = {
-  danger: "bg-danger-bg-subtle text-danger border-danger/30",
-  warning: "bg-warning-bg-subtle text-warning border-warning/30",
-  info: "bg-info-bg-subtle text-info border-info/30",
-  success: "bg-success-bg-subtle text-success border-success/30",
+  danger: "bg-destructive/10 text-destructive border-destructive/30",
+  warning: "bg-warning-bg-subtle text-warning border-warning-border",
+  info: "bg-info-bg-subtle text-info border-info-border",
+  success: "bg-success-bg-subtle text-success border-success-border",
 };
 
 export function QuizRiskBadge({ meta }: { meta: ResultMeta }) {
