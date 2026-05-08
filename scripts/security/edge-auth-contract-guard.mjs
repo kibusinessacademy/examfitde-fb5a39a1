@@ -23,6 +23,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 const FN_DIR = "supabase/functions";
+const BASELINE_PATH = "scripts/security/edge-auth-contract-baseline.json";
+
+// Functions known to predate the contract (legacy debt). New violations beyond
+// this set HARD FAIL. Removing a name (i.e. fixing it) is always allowed.
+const BASELINE = new Set(
+  fs.existsSync(BASELINE_PATH) ? JSON.parse(fs.readFileSync(BASELINE_PATH, "utf-8")) : [],
+);
 
 // Webhooks / public endpoints that intentionally do not require admin auth.
 // Each MUST validate signatures or be otherwise safe.
