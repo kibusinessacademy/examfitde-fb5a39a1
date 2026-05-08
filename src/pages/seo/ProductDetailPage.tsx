@@ -71,9 +71,15 @@ function BundleDetailPageComponent() {
   if (!beruf) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center">
+        <div className="text-center max-w-sm">
           <h1 className="text-2xl font-bold mb-4">Bundle nicht gefunden</h1>
-          <Button asChild><Link to="/berufe">Alle Berufe anzeigen</Link></Button>
+          <p className="text-sm text-muted-foreground mb-6">
+            Dieses Bundle ist nicht verfügbar. Sieh dir alle Berufe an oder gehe zurück zur Startseite.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <Button asChild><Link to="/berufe">Alle Berufe anzeigen</Link></Button>
+            <Button asChild variant="outline"><Link to="/">Zur Startseite</Link></Button>
+          </div>
         </div>
       </div>
     );
