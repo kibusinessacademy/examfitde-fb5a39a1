@@ -65,6 +65,9 @@ function toMinutesAgo(ts: string | null | undefined): number {
 }
 
 function inferHealthSignal(status: string, attempts: number, maxAttempts: number, lastError: string | null, startedAt?: string | null): QueueHealthSignal {
+  // Terminal verdicts FIRST — must override exhausted/retriable so Smart-NBA
+  // and Bulk-Requeue do not treat them as transient.
+  if (isTerminalFailure(lastError)) return 'terminal';
   if (status === 'failed' && maxAttempts > 0 && attempts >= maxAttempts) return 'exhausted';
   if (status === 'failed') return 'retriable';
   if (status === 'processing') {
