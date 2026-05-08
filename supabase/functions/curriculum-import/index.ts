@@ -124,28 +124,19 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  // Auth — internal batch continuations use x-internal-key header
-  // Also allow batch action to be triggered without user auth (it creates its own service role client)
-  const internalKey = req.headers.get('x-internal-key');
-  const isInternalCall = internalKey === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-  // Pre-parse body to check action
+  // Auth — accept EDGE_INTERNAL_SHARED_SECRET (x-job-runner-key) for cron/batch
+  // continuations OR a validated admin JWT. The legacy isBatchAction bypass has
+  // been removed (any unauth caller could supply {action:'batch'} and gain
+  // service-role access).
   const bodyText = await req.text();
   const body = JSON.parse(bodyText);
   const { action } = body;
-  const isBatchAction = action === 'batch';
 
-  let auth: { user: { id: string; email?: string } | null; error: string | null; isAdmin: boolean; isServiceRole: boolean };
-  if (isInternalCall || isBatchAction) {
-    // Batch and internal calls run as system — auth is handled by service role client
-    auth = { user: { id: 'system-batch' }, error: null, isAdmin: true, isServiceRole: true };
-  } else {
-    auth = await validateAuth(req, true);
-    if (auth.error) {
-      return auth.error === 'Admin access required'
-        ? forbiddenResponse(auth.error)
-        : unauthorizedResponse(auth.error);
-    }
+  const auth = await validateAuth(req, true);
+  if (auth.error) {
+    return auth.error === 'Admin access required'
+      ? forbiddenResponse(auth.error)
+      : unauthorizedResponse(auth.error);
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
