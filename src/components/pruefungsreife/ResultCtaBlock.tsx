@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Brain, ClipboardCheck, MessagesSquare, Sparkles, Target, Timer } from "lucide-react";
 import { PRICING } from "@/config/pricing";
 
+const PRICE_DISPLAY = PRICING.defaultPrice;
+
 interface Props {
   primaryHref: string;
   secondaryHref: string;
@@ -19,7 +21,6 @@ const FEATURES = [
 ];
 
 export function ResultCtaBlock({ primaryHref, secondaryHref, onPrimary, onSecondary }: Props) {
-  const price = PRICING.bundle?.price_eur ?? 24.9;
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-border bg-surface p-4 sm:p-5">
@@ -45,7 +46,7 @@ export function ResultCtaBlock({ primaryHref, secondaryHref, onPrimary, onSecond
       <div className="flex flex-col gap-3">
         <Link to={primaryHref} onClick={onPrimary} className="block">
           <Button variant="petrol" size="xl" className="w-full rounded-xl group">
-            Mit ExamFit gezielt vorbereiten – {price.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+            Mit ExamFit gezielt vorbereiten – {PRICE_DISPLAY}
             <ArrowRight className="h-5 w-5 ml-1 group-hover:translate-x-1 transition-transform" />
           </Button>
         </Link>
