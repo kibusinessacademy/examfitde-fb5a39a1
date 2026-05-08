@@ -86,11 +86,11 @@ test('FAIL: body.source === "ci" bypass', () => {
   );
 });
 
-test('FAIL: inline { source: "dashboard" } bypass', () => {
+test("FAIL: skipAuth: true flag", () => {
   expectFail(
     "bad-3b",
-    `${BASE_SERVICE}\nconst trusted = { source: "dashboard", reason: "ops" };`,
-    "bypass",
+    `${BASE_SERVICE}\nconst opts = { skipAuth: true };`,
+    "skipAuth",
   );
 });
 
