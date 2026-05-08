@@ -1,0 +1,41 @@
+name: mobile-funnel-screenshots
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/consent/**'
+      - 'src/components/marketing/HeroAccent.tsx'
+      - 'src/components/landing/**'
+      - 'src/components/pruefungsreife/**'
+      - 'src/pages/HomePage.tsx'
+      - 'src/pages/seo/**'
+      - 'src/pages/landing/**'
+      - 'tests/e2e/mobile-funnel-screenshots.spec.ts'
+      - 'playwright.config.ts'
+      - '.github/workflows/mobile-funnel-screenshots.yml'
+  workflow_dispatch:
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_TARGET: preview
+      PREVIEW_URL: ${{ secrets.PREVIEW_URL || 'https://examfitde.lovable.app' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with: { bun-version: latest }
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - name: Run mobile-funnel-screenshots
+        run: bunx playwright test --project=mobile-screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-funnel-screenshots
+          path: |
+            artifacts/mobile-funnel-screenshots
+            playwright-report
+            test-results
+          retention-days: 14

@@ -3,6 +3,7 @@ import { CompetencyMasteryDemo } from "./CompetencyMasteryDemo";
 import { ExamQuestionDemo } from "./ExamQuestionDemo";
 import { AiTutorDemo } from "./AiTutorDemo";
 import { OralExamDemo } from "./OralExamDemo";
+import { HeroAccent } from "@/components/marketing/HeroAccent";
 
 /**
  * Phase E — Interaktive Produkt-Mockups.
@@ -15,11 +16,11 @@ export function DemoGallery() {
     <section className="py-12 sm:py-20 bg-background">
       <div className="container px-4 mx-auto max-w-6xl">
         <header className="text-center mb-10 sm:mb-14 max-w-2xl mx-auto">
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-3">
+          <span className="inline-flex items-center px-3 py-1 mb-3 rounded-full bg-petrol-100 text-petrol-700 text-xs font-semibold uppercase tracking-wider">
             Live ausprobieren
-          </p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-text-primary mb-3">
-            So fühlt sich ExamFit an.
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-bold text-text-primary mb-3 leading-tight">
+            So fühlt sich <HeroAccent>ExamFit</HeroAccent> an.
           </h2>
           <p className="text-base text-text-secondary">
             Klick dich in 30 Sekunden durch die fünf Kernmodule — vom Score über die
