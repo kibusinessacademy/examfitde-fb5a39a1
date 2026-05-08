@@ -67,6 +67,7 @@ import { ForcePublishLogPanel } from "@/components/admin/heal/ForcePublishLogPan
 import { CouncilDeferredCard } from "@/components/admin/heal/cards/CouncilDeferredCard";
 import { SystemIntentsKpiCard } from "@/components/admin/heal/cards/SystemIntentsKpiCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
+import { SnapshotDriftCard } from "@/components/admin/heal/cards/SnapshotDriftCard";
 import { QueueDrainCard } from "@/components/admin/heal/cards/QueueDrainCard";
 import { BlockedPackagesCard } from "@/components/admin/heal/cards/BlockedPackagesCard";
 import { TriageCards } from "@/components/admin/heal/cards/TriageCards";
