@@ -73,5 +73,10 @@ export default defineConfig({
       testMatch: /funnel-bridge-.*\.spec\.ts/,
       timeout: 90_000,
     },
+    {
+      name: 'event-inspector',
+      testMatch: /event-inspector\.spec\.ts/,
+      timeout: 60_000,
+    },
   ],
 });

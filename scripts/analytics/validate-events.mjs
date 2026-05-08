@@ -115,6 +115,23 @@ function validate(p, idx) {
       `#${idx} (${p.event}): strict event requires non-null package_id`
     );
   }
+
+  // Pixel-conversion conditional fields (Meta + Google Ads fan-out).
+  const pixel = schema.pixelConversions?.derive?.[p.event];
+  if (pixel) {
+    const need = new Set([
+      ...(pixel.meta?.required ?? []),
+      ...(pixel.ads?.required ?? []),
+    ]);
+    for (const f of need) {
+      const v = p[f];
+      if (v == null || v === "") {
+        errs.push(
+          `#${idx} (${p.event}): pixel conversion requires "${f}" (Meta/Ads fan-out)`
+        );
+      }
+    }
+  }
   return errs;
 }
 
