@@ -22,6 +22,34 @@ interface RunBody {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // Auth: require admin JWT or EDGE_INTERNAL_SHARED_SECRET. Backfill performs
+  // mass updates with service-role privileges and must not be public.
+  const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
+  const jobRunnerKey = req.headers.get("x-job-runner-key") || "";
+  const isInternal = !!internalSecret && jobRunnerKey === internalSecret;
+
+  if (!isInternal) {
+    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const authHeader = req.headers.get("Authorization") || "";
+    if (!authHeader.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const token = authHeader.replace("Bearer ", "");
+    if (token === SERVICE_ROLE) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const userSb = createClient(SUPABASE_URL, ANON_KEY);
+    const { data: u, error: uErr } = await userSb.auth.getUser(token);
+    if (uErr || !u?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const adminSb = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const { data: role } = await adminSb.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+    if (!role) {
+      return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+  }
+
   const body: RunBody = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const maxChunks = Math.max(1, Math.min(50, body.max_chunks ?? 8));
   const chunkSize = Math.max(100, Math.min(5000, body.chunk_size ?? 2000));
