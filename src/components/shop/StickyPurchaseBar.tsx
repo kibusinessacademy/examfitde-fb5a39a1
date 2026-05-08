@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight, Shield, Clock } from 'lucide-react';
 import { PRICING } from '@/config/pricing';
 import { Link } from 'react-router-dom';
+import { useConsentBannerVisible } from '@/hooks/useConsentBannerVisible';
 
 interface Props {
   priceDisplay: string;
