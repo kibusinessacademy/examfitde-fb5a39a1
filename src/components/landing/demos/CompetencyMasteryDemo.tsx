@@ -84,8 +84,9 @@ export function CompetencyMasteryDemo() {
               <button
                 type="button"
                 onClick={() => setOpenId(open ? null : c.id)}
-                className="w-full text-left rounded-xl border border-border bg-surface px-4 py-3 hover:border-primary transition-colors"
+                className="w-full text-left rounded-xl border border-border bg-surface px-4 py-3 hover:border-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-expanded={open}
+                aria-label={`${c.name} – Status ${meta.label}`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">

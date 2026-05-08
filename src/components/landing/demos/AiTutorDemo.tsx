@@ -42,7 +42,8 @@ export function AiTutorDemo() {
             key={p.id}
             type="button"
             onClick={() => setActive(p)}
-            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
+            aria-pressed={active.id === p.id}
+            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               active.id === p.id
                 ? "border-primary bg-primary/10 text-primary"
                 : "border-border bg-surface text-text-secondary hover:border-primary"

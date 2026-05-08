@@ -51,7 +51,8 @@ export function ExamQuestionDemo() {
               type="button"
               disabled={showFeedback}
               onClick={() => setPicked(opt.id)}
-              className={`w-full text-left flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${cls}`}
+              aria-pressed={isPicked}
+              className={`w-full text-left flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${cls}`}
             >
               <span className="flex-1 text-text-primary">{opt.text}</span>
               {showFeedback && isCorrect && <Check className="h-4 w-4 text-success" />}
@@ -63,6 +64,14 @@ export function ExamQuestionDemo() {
         })}
       </div>
 
+      <div aria-live="polite" className="sr-only">
+        {showFeedback
+          ? picked === correctId
+            ? "Richtig. " + QUESTION.explanation
+            : "Falsch. " + QUESTION.explanation
+          : ""}
+      </div>
+
       {showFeedback && (
         <div className="rounded-lg bg-info-bg-subtle border border-info-border p-3 mb-4 text-sm text-info">
           {QUESTION.explanation}
@@ -70,14 +79,14 @@ export function ExamQuestionDemo() {
       )}
 
       <Link
-        to="/bundle"
+        to="/shop"
         onClick={() =>
           trackEvent({
             eventName: "cta_click",
-            metadata: { location: "demo_exam_question", target: "/bundle" },
+            metadata: { location: "demo_exam_question", target: "/shop" },
           })
         }
-        className="block"
+        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
       >
         <Button variant="petrol" size="lg" className="w-full rounded-xl group">
           Mehr Prüfungsfragen trainieren

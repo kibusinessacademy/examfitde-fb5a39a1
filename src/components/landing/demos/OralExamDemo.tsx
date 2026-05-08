@@ -54,7 +54,8 @@ export function OralExamDemo() {
             key={q}
             type="button"
             onClick={() => setQuality(q)}
-            className={`px-2 py-2 rounded-lg border text-xs font-medium transition-colors ${
+            aria-pressed={quality === q}
+            className={`px-2 py-2 rounded-lg border text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               quality === q
                 ? "border-primary bg-primary/10 text-primary"
                 : "border-border bg-surface text-text-secondary hover:border-primary"
