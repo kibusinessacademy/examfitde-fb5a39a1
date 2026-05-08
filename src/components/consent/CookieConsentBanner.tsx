@@ -76,6 +76,7 @@ export function CookieConsentBanner() {
       role="dialog"
       aria-modal="false"
       aria-label="Cookie-Einstellungen"
+      data-testid="cookie-banner"
       className="fixed inset-x-0 bottom-0 z-[100] p-3 sm:p-4"
     >
       <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-card text-card-foreground shadow-elev-3 p-4 sm:p-5">
