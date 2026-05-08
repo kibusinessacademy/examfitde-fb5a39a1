@@ -14,6 +14,7 @@ export function StickyCTA() {
   const [dismissed, setDismissed] = useState(false);
   const [tracked, setTracked] = useState(false);
   const location = useLocation();
+  const consent = useConsentBannerVisible();
 
   const isExcluded = EXCLUDED_ROUTES.some(r => location.pathname.startsWith(r));
 
