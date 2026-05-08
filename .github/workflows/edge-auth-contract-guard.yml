@@ -1,0 +1,24 @@
+name: Edge Auth Contract Guard
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - "scripts/security/edge-auth-contract-guard.mjs"
+      - "scripts/security/edge-auth-contract-baseline.json"
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Run edge-auth-contract guard
+        run: node scripts/security/edge-auth-contract-guard.mjs

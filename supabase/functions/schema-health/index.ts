@@ -21,33 +21,13 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
-    // Auth: require EDGE_INTERNAL_SHARED_SECRET (CI/cron) OR admin JWT.
-    // The legacy trustedSources string-bypass was removed (any caller could
-    // POST {source:"ci"} to read drift data and write to schema_drift_log).
-    const authHeader = req.headers.get("Authorization");
+    // Auth via shared contract (internal-secret | service-role bearer | admin JWT).
+    const { assertAdmin } = await import("../_shared/edgeAuthContract.ts");
+    const authR = await assertAdmin(req, "schema-health");
+    if (!authR.ok) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: authR.status, headers });
+    }
     const body = await req.json().catch(() => ({}));
-    const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
-    const jobRunnerKey = req.headers.get("x-job-runner-key") || "";
-    let authorized = !!internalSecret && jobRunnerKey === internalSecret;
-
-    if (!authorized && authHeader) {
-      if (authHeader.includes(serviceKey)) {
-        authorized = true;
-      } else {
-        const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-        const token = authHeader.replace(/^Bearer\s+/i, "");
-        const uc = createClient(supabaseUrl, anonKey);
-        const { data: { user } } = await uc.auth.getUser(token);
-        if (user) {
-          const { data: role } = await sb.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
-          if (role) authorized = true;
-        }
-      }
-    }
-
-    if (!authorized) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
-    }
 
     // Run drift check
     const { data: drift, error } = await sb.rpc("check_schema_drift");

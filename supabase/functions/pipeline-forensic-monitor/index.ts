@@ -37,19 +37,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth check — allow both service-role (cron) and user JWT
-    const authHeader = req.headers.get("Authorization");
+    // Auth via shared contract.
+    const { assertAdmin } = await import("../_shared/edgeAuthContract.ts");
+    const authR = await assertAdmin(req, "pipeline-forensic-monitor");
+    if (!authR.ok) return json({ error: "Unauthorized" }, authR.status);
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    if (authHeader && !authHeader.includes(serviceKey)) {
-      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user }, error: authErr } = await userClient.auth.getUser();
-      if (authErr || !user) return json({ error: "Unauthorized" }, 401);
-    }
-
     const sb = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json().catch(() => ({}));

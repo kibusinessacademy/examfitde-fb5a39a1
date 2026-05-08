@@ -36,18 +36,10 @@ Deno.serve(async (req) => {
 
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
-    // Auth: admin (verify_jwt is off; we accept service-role calls + user JWT with admin role).
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const isServiceRole = authHeader.includes(SERVICE_ROLE);
-    if (!isServiceRole) {
-      const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user } } = await userClient.auth.getUser();
-      if (!user) return json({ error: "unauthorized" }, 401);
-      const { data: isAdmin } = await sb.rpc("has_role", { _user_id: user.id, _role: "admin" });
-      if (!isAdmin) return json({ error: "forbidden" }, 403);
-    }
+    // Auth via shared contract (internal-secret | service-role bearer | admin JWT).
+    const { assertAdmin } = await import("../_shared/edgeAuthContract.ts");
+    const authR = await assertAdmin(req, "course-heal-plan-generate");
+    if (!authR.ok) return json({ error: "unauthorized" }, authR.status);
 
     // Gather context
     const { data: pkg } = await sb
