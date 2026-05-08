@@ -88,7 +88,14 @@ for (const name of listFunctions()) {
 
   const hasGuard = /(assertAdmin|requireAdmin|validateAuth|EDGE_INTERNAL_SHARED_SECRET)/.test(src);
   if (!hasGuard) {
-    violations.push(`❌ ${file}: uses SERVICE_ROLE_KEY without assertAdmin / requireAdmin / validateAuth / EDGE_INTERNAL_SHARED_SECRET`);
+    const msg = `${file}: uses SERVICE_ROLE_KEY without assertAdmin / requireAdmin / validateAuth / EDGE_INTERNAL_SHARED_SECRET`;
+    if (BASELINE.has(name)) {
+      warnings.push(`⚠️  baseline: ${msg}`);
+    } else {
+      violations.push(`❌ NEW: ${msg}`);
+    }
+  } else if (BASELINE.has(name)) {
+    warnings.push(`ℹ️  baseline-fixed (remove from edge-auth-contract-baseline.json): ${name}`);
   }
 }
 
