@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Search, X } from 'lucide-react';
 import { trackConversion } from '@/lib/seo-tracking';
+import { useConsentBannerVisible } from '@/hooks/useConsentBannerVisible';
 
 const EXCLUDED_ROUTES = ['/shop', '/checkout', '/auth', '/pruefungsreife-check', '/berufe'];
 const SCROLL_THRESHOLD = 0.35;
