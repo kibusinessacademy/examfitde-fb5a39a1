@@ -25,7 +25,7 @@ export function BundleHero({ beruf, priceDisplay, onCtaClick }: Props) {
 
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold leading-tight mb-3 md:mb-4">
           Alles, was du für deine Prüfung brauchst —{' '}
-          <span className="text-gradient">in einem System.</span>
+          <HeroAccent>in einem System.</HeroAccent>
         </h1>
 
         <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-6 leading-snug">
