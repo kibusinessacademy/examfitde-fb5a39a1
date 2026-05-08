@@ -5,6 +5,7 @@ on:
     paths:
       - "supabase/functions/**"
       - "scripts/security/edge-auth-contract-guard.mjs"
+      - "scripts/security/edge-auth-contract-guard.test.mjs"
       - "scripts/security/edge-auth-contract-baseline.json"
   push:
     branches: [main]
@@ -20,5 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Guard regression tests
+        run: node --test scripts/security/edge-auth-contract-guard.test.mjs
       - name: Run edge-auth-contract guard
         run: node scripts/security/edge-auth-contract-guard.mjs
