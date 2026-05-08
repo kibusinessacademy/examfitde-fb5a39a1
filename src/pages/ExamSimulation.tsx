@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { recordLearningEvent, snapshotExamReadiness } from '@/lib/learning-telemetry';
+import { trackExamStarted, trackExamCompleted } from '@/lib/gtm';
 import { 
   useExamSimulation, 
   useExamBlueprints, 
