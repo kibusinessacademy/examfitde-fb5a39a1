@@ -1,0 +1,2078 @@
+# RLS-Audit Report
+Generated: 2026-05-08T16:42:35.567Z
+Mode: **warn-only**
+Policies live: 1580, baseline: 0
+## Risky patterns
+- `admin_patch_plans::service_role_admin_patch_plans` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `admin_search_index::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `admin_search_index::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_budget_policies::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_cost_budgets::service_role_all_budgets` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_generation_cache::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_generation_policies::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_generation_requests::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_generations::service_role_insert_ai_generations` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_governance_reviews::Service role full access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_quality_gates::service_role_insert_ai_quality_gates` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_tutor_audit::ai_tutor_audit_service_insert` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_usage_log::service_role_insert_ai_usage_log` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ai_validations::service_role_insert_ai_validations` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `anthropic_batch_requests::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `anthropic_batches::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `api_rate_limits::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `api_rate_limits::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `asset_optimization_scores::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `asset_optimization_scores::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `audit_remediation_actions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `authority_decisions::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `authority_decisions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `auto_heal_log::service_role_auto_heal_log` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `auto_heal_policies::service_role_auto_heal_policies` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `azav_compliance_checks::All read compliance checks` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `azav_fachbereiche::All authenticated read fachbereiche` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `b2b_leads::Service role full access on b2b_leads` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `backpressure_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `backup_snapshots::Service role inserts backups` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `backup_snapshots::service_role_insert_backups` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `beruf_aliases::Beruf-Aliases öffentlich lesbar` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `beruf_dokumente::Berufsdokumente sind öffentlich lesbar` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `beruf_market_data::Authenticated users can read market data` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `beruf_market_data::Service role can manage market data` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `beruf_market_match_map::Service role manages match map` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `berufe::Berufe sind öffentlich lesbar` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `blog_posts::service_role_all_bp` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `blog_posts::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `blueprint_versions::service_role_blueprint_versions` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `business_kpi_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `campaign_asset_queue::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `campaign_asset_queue::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `campaign_assets::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `campaign_assets::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `campaign_automation_runs::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `campaign_automation_runs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `campaign_launch_plans::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `campaign_launch_plans::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `campaign_performance_snapshots::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `campaign_performance_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `canary_releases::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `canary_releases::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ceo_daily_kpis::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ceo_daily_kpis::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `certification_blueprint_templates::cert_blueprint_templates_read_authenticated` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `certification_catalog::Anyone can read certification_catalog` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `certification_cost_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `certification_dominance_snapshots::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `certification_dominance_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `certification_profiles::certification_profiles_read_authenticated` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `certifications::certifications_read_authenticated` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `channel_performance_profiles::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `channel_performance_profiles::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `channel_unit_economics::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `cluster_dominance_snapshots::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `cluster_dominance_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `cms_media::Media is publicly readable` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `competency_performance_stats::service_role_all_cps` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `competency_performance_stats::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `compliance_audits::Service role full access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `compliance_frameworks::Service role full access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `compliance_kpi_snapshots::Service role full access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `concurrency_snapshots::service_role_insert_concurrency` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `content_assets::service_role_all_ca` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `content_assets::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `content_generation_jobs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `content_hooks::Service role full access on content_hooks` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `content_jobs::Service role full access on content_jobs` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `content_pages::service_role_all_cp` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `content_pages::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `content_performance::Service role full access on content_performance` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `content_research_cache::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `content_ssot_context::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `control_plane_actions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `control_plane_alerts::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `control_plane_cost_signals::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `control_plane_policies::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `control_plane_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `conversion_events::Service role full access on conversion_events` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `course_health_snapshots::service_role_course_health_snapshots` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `course_inquiries::Anyone can insert course inquiries` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `course_pipeline_events::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `course_pipeline_events::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `course_regulatory_status::Learners can view regulatory status` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `course_title_aliases::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `course_track_overrides::service_role_all_overrides` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `course_upgrade_decisions::Service insert upgrade decisions` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `course_upgrade_scores::Service insert upgrade scores` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `course_upgrade_scores::Service update upgrade scores` (UPDATE) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `curriculum_gtm_scores::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_gtm_scores::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_intake_candidates::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_intake_jobs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_intake_parsed::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_intake_promotion_log::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_intelligence_scores::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_launch_recommendations::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_launch_recommendations::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_market_signals::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_priority_recommendations::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_revenue_runs::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_revenue_runs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_revenue_signals::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_revenue_signals::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_scaling_signals::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_scaling_signals::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_signal_runs::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_source_documents::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_source_registry::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `curriculum_unit_economics::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `deep_audit_config::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `deep_audit_config::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `deep_audit_results::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `deep_audit_results::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `difficulty_distribution_targets::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `difficulty_distribution_targets::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `disallowed_keywords::service_role_disallowed_keywords` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_channel_configs::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_channel_configs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_delivery_logs::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_delivery_logs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_jobs::Service role full access on distribution_jobs` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_publications::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_publications::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_queue::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_queue::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_runs::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_runs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_targets::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `distribution_targets::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dom_blueprint_coverage::auth_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `dom_blueprint_coverage::svc_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dom_blueprint_domains::auth_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `dom_blueprint_domains::svc_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dom_blueprint_parts::auth_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `dom_blueprint_parts::svc_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dom_blueprint_snapshots::auth_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `dom_blueprint_snapshots::svc_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dom_blueprint_subtopics::auth_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `dom_blueprint_subtopics::svc_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dom_blueprint_topics::auth_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `dom_blueprint_topics::svc_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dom_blueprint_type_mix::auth_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `dom_blueprint_type_mix::svc_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dom_blueprints::auth_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `dom_blueprints::svc_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dominance_control::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dominance_control::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `drift_snapshots::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `drift_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `dsgvo_processing_records::Service role full access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `duplicate_detection_log::service_role_ddl` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `email_delivery_queue::Service role full access on email_delivery_queue` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `email_sequences::Service role full access on email_sequences` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `escalation_log::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_ai_feedback::service_role_insert_feedback` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_part_mappings::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_part_mappings::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_pool_dlq::Service insert DLQ` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_pool_dlq::service_role_insert_dlq` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_pool_validation_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_promotion_audit::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_question_elite_annotations::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_question_elite_annotations::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_question_variants::Service role full access on variants` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_questions::Service role full access to exam_questions` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `exam_readiness_snapshots::Service role full access on readiness` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `executive_budget_caps::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `executive_kill_switches::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `executive_portfolio_allocations::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `executive_portfolio_decisions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `executive_rebalance_runs::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `executive_summary_reports::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `factory_autonomy_policies::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `factory_intake_queue::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `fi_core_lf_equivalence::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `forbidden_db_indexes::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `german_certification_master::public_read_cert_master` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `german_certification_master::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `german_certification_master::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `golden_exam_sets::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `golden_exam_sets::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `growth_content_graph_edges::growth_edges_service_only` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `growth_content_graph_nodes::growth_nodes_service_only` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `growth_content_jobs::Service role full access on growth_content_jobs` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `growth_metrics::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `humor_asset_reviews::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `humor_asset_reviews::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `humor_generation_jobs::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `humor_generation_jobs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `intake_raw_documents::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `integrity_check_history::Service role insert integrity history` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `job_costs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `job_queue_dead_letter::service_role full access dlq` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `job_type_policies::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `jobtype_limits::srv_jobtype_limits` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `knowledge_graph_edges::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `knowledge_graph_enrichment_queue::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `knowledge_graph_nodes::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `lead_magnets::Service role full access on lead_magnets` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `leads::Service role full access on leads` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `learning_events::Service role full access on learning_events` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `learning_field_elite_policies::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `learning_field_songs::Service role full access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ledger_entries::service_role_insert_ledger_entries` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `lesson_content_backups::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `lesson_minicheck_questions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `llm_batch_requests::service_role_all_llm_batch_requests` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `llm_batches::service_role_all_llm_batches` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `llm_cost_events::srv_llm_cost` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `llm_provider_cooldowns::service_role_only` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `llm_provider_routing_policies::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `llm_visibility_probes::Service role writes probes` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `lti_deployments::service_role_full_access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `lti_grade_passback_queue::service_role_full_access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `lti_launch_sessions::service_role_full_access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `lti_platform_registrations::service_role_full_access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `lti_resource_mappings::service_role_full_access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `market_clusters::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `market_clusters::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `marketing_assets::service_role_marketing_assets` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `marketing_budget_requests::service_role_marketing_budget_requests` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `marketing_campaigns::service_role_marketing_campaigns` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `marketing_experiments::service_role_marketing_experiments` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `marketing_learnings::service_role_marketing_learnings` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `marketing_plans::service_role_marketing_plans` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `media_assets::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `media_assets::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `minicheck_audit_log::Service role can manage audit logs` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `mobile_store_products::service_role_full` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `mobile_store_purchase_events::service_role_full` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `mobile_store_receipt_links::service_role_full` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `mobile_store_sync_log::service_role_full` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `model_routing_rules::model_routing_rules_service_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `newsletter_campaigns::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `nightly_audit_findings::svc_audit_findings` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `nightly_audit_runs::svc_audit_runs` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `offers::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ops_alert_events::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ops_alert_events::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ops_budget_exhausted_log::service_role_all_budget_log` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ops_ddl_audit::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ops_health_snapshots::service_role_insert_ops_health_snapshots` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ops_job_type_registry::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ops_nightly_audit_results::service_role_all_audit_results` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ops_pipeline_config::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ops_runtime_signals::srv_ops_signals` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ops_worker_heartbeats::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `optimization_actions::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `optimization_actions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `optimization_observations::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `optimization_observations::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `optimization_runs::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `optimization_runs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `oral_exam_session_templates::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `oral_exam_session_templates::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `oral_exam_turns::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `oral_exam_turns::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `orchestrator_leases::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `org_intervention_events::srv_full_intervention_events` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `org_intervention_rules::srv_full_intervention_rules` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `org_interventions::srv_full_interventions` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `org_memberships::service_role_org_memberships` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `outcome_tracking::service_role_manage_outcomes` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `outcome_tracking::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `package_content_shards::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `package_progress_drift_audit::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `package_quality_reports::srv_pqr` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `package_quality_scores::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `package_quality_scores::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `package_quality_summary::service_role_all_pqs` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `package_quality_summary::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `package_tags::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `package_tags::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `partner_audit_events::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pass_calculator_sessions::Anyone can create calculator sessions` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `paywall_experiments::service_role_paywall_experiments` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `paywall_variants::service_role_paywall_variants` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `performance_metrics::service_role_all_perf` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `phantom_step_e2e_runs::Authenticated users can read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `phantom_step_e2e_runs::Service role full access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pipeline_active_packages::srv_pipeline_active` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pipeline_capacity::srv_pipeline_cap` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pipeline_dag_edges::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pipeline_health_events::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pipeline_lock::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pipeline_settings::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pipeline_step_order::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pipeline_step_order::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `platform_risk_scores::service_role_risk_scores` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `portfolio_priority::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `portfolio_priority::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `post_validation_results::service_role_post_validation_results` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `premium_upgrade_runs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pricing_plans::Service role full access on pricing_plans` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `pricing_rules::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_artifact_mappings::Anyone can read artifact mappings` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `product_bundles::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_categories::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `product_categories::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_channel_configs::Anyone can read channel configs` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `product_factory_specs::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_factory_specs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_features::product_features_service_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_landing_profiles::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `product_landing_profiles::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_module_configs::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `product_module_configs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_price_tiers::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `product_price_tiers::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_prices::Service role can manage prices` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_pricing_configs::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `product_pricing_configs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_subcategories::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `product_subcategories::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_tags::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `product_tags::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `product_versions::Anyone can read product versions` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `production_quality_snapshots::service_role_pqs` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `production_wave_items::Service role full access on production_wave_items` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `production_waves::Service role full access on production_waves` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `products::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `products::public_read_products` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `products::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `products::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `profession_glossaries::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `profession_glossaries::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `profession_profiles::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `profession_profiles::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `profession_profiles::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `programs::Programs are readable by authenticated users` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `provider_intent_affinity::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `provider_job_affinity::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `provider_performance::service_role_pp` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `provider_pricing::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `provider_status::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `provider_usage_history::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qc_run_results::service_role_insert_qc_run_results` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_blueprint_profiles::service_role_all_qbp` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_candidates::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_catalog::service_role_all_qualification_catalog` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_curriculum_drafts::service_role_all_qual_drafts` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_curriculum_map::service_role_all_qcm` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_discovery_patterns::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_draft_sections::service_role_all_qds` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_fetch_queue::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_question_seed_runs::service_role_all_qqsr` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_search_results::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_search_runs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_source_registry::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `qualification_wave_candidates::service_role_all_qual_wave` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `quality_audit_snapshots::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `quality_audit_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `quality_gate_results::service_role_quality_gate_results` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `quality_rules::srv_quality_rules` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `quality_score_versions::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `quality_score_versions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `question_attempts::Service role can insert attempts` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `question_discrimination_stats::service_role_write_disc` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `question_discrimination_stats::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `question_quality_metrics::service_role_all_qqm` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `question_quality_metrics::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `question_skill_map::service_role_write_qsm` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `question_skill_map::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `question_variant_stats::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `question_variant_stats::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `referral_invites::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `retention_actions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `revenue_metrics_daily::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `roi_decision_rules::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `rollout_control::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `rollout_control::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `runbook_entries::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `runbook_entries::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `runner_health_log::service_role_all_runner_health` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `sales_leads::Service role full access on sales_leads` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `schema_contract_expectations::service_role full` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `schema_drift_audit::service_role full` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `security_audit_snapshots::service_role_security_audit` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `security_finding_exception_history::Service role full access exception history` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `security_finding_exceptions::Service role full access finding exceptions` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `seo_content_pages::Service role full access on seo_content_pages` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `seo_documents::service_role_seo_documents` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `seo_generation_jobs::service_role_seo_generation_jobs` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `seo_redirects::public_read_redirects` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `seo_redirects::service_role_all_sr` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `seo_redirects::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `seo_templates::service_role_seo_templates` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `skill_nodes::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `skill_nodes::service_role_write_skills` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `skill_nodes::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `slo_metrics::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `slo_metrics::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_artifact_versions::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_artifact_versions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_backup_targets::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_backup_targets::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_backups::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_backups::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_license_devices::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_license_devices::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_license_events::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_license_events::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_licenses::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_licenses::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_restore_events::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `standalone_restore_events::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `step_dag_edges::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `step_dag_edges::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `step_job_mapping::step_job_mapping_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `step_metrics::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `store_policy_flags::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `store_policy_flags::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `store_receipts::Service can manage receipts` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `support_ai_responses::service_role_insert_support_ai_responses` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `synthetic_test_results::service_role_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `synthetic_test_results::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_audit_actions::service_role_full_access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_audit_findings::service_role_full_access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_audit_runs::service_role_full_access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_contract_registry::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_contract_violations::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_cron_executions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_cron_registry::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_cron_runs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_enum_registry::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_execution_leases::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_heal_log::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_health_assertions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_intents::service_role_full_access_system_intents` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_optimization_reports::service_role_all_opt` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_orphan_executions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_probe_alerts::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_probe_definitions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_probe_results::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_probe_runs::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_regression_snapshots::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_retry_policies::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_runner_registry::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_scheduler_guardrails::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `system_ssot_mappings::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `tag_groups::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `tag_groups::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `tech_council_findings::service_role_tech_council_findings` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `tenant_release_gates::service_role_tenant_gates` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `test_results::Service can manage test_results` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `test_runs::Service can manage test_runs` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `track_step_applicability::track_step_applicability_read_all` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `tracking_events::Anon users can insert tracking events` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `tracking_events::Authenticated users can insert tracking events` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `tracking_events::Service role can read all tracking events` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `trap_distribution_rules::Service role full access` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `ugc_content::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `urgency_signals::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `user_badges::Service role inserts badges` (INSERT) — WITH CHECK (true) — keine Insert/Update-Restriktion
+- `user_recommendations::Service role full access on recommendations` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `user_revenue_profile::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `user_skill_scores::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `video_jobs::Service role full access on video_jobs` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `viral_hooks::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `wave_governance_decisions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_affiliate_clicks::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_affiliate_payouts::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_affiliates::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_brand_themes::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `work_brand_themes::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_bundle_purchases::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_corporate_commerce::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_coupon_redemptions::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_coupons::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_cover_assets::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `work_cover_assets::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_email_outbox::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `work_pdf_templates::pub_read` (SELECT) — Policy USING (true) — alle authenticated/anon können lesen/schreiben
+- `work_pdf_templates::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `worker_scaling_policies::sr_all` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+- `zombie_log_throttle::service_role_full_access_zombie_throttle` (ALL) — Policy USING (true) — alle authenticated/anon können lesen/schreiben; WITH CHECK (true) — keine Insert/Update-Restriktion
+## Drift vs baseline
+- Added: 1580
+- Removed: 0
+- Changed: 0
+### Added
+- `admin_action_throttle::p_throttle_admin` (SELECT)
+- `admin_actions::No delete on admin_actions` (DELETE)
+- `admin_actions::No update on admin_actions` (UPDATE)
+- `admin_actions::admin_actions_read` (SELECT)
+- `admin_ai_analysis_log::admin_ai_analysis_log_admin_insert` (INSERT)
+- `admin_ai_analysis_log::admin_ai_analysis_log_admin_select` (SELECT)
+- `admin_course_auto_heal_queue::Admins can insert auto heal queue` (INSERT)
+- `admin_course_auto_heal_queue::Admins can read auto heal queue` (SELECT)
+- `admin_course_auto_heal_queue::Admins can update auto heal queue` (UPDATE)
+- `admin_course_test_runs::Admins can insert admin_course_test_runs` (INSERT)
+- `admin_course_test_runs::Admins can read admin_course_test_runs` (SELECT)
+- `admin_matrix_pins::Service role only` (ALL)
+- `admin_notifications::Admins can manage notifications` (ALL)
+- `admin_notifications::admin_read_notifications` (SELECT)
+- `admin_notifications::admin_update_notifications` (UPDATE)
+- `admin_patch_plans::admin_read_admin_patch_plans` (SELECT)
+- `admin_patch_plans::service_role_admin_patch_plans` (ALL)
+- `admin_pins::own_pins` (ALL)
+- `admin_reaper_audit::admins read reaper audit` (SELECT)
+- `admin_recent_pages::own_recents` (ALL)
+- `admin_search_index::admin_read` (SELECT)
+- `admin_search_index::admin_read_search` (SELECT)
+- `admin_search_index::service_role_all` (ALL)
+- `admin_search_index::sr_all` (ALL)
+- `admin_settings::admins read admin_settings` (SELECT)
+- `admin_settings::admins write admin_settings` (ALL)
+- `affiliate_payouts::Admins have full access to affiliate_payouts` (ALL)
+- `affiliate_payouts::Affiliates can view own payouts` (SELECT)
+- `affiliate_referrals::Admins have full access to affiliate_referrals` (ALL)
+- `affiliate_referrals::Affiliates can view own referrals` (SELECT)
+- `affiliates::Admins have full access to affiliates` (ALL)
+- `affiliates::Affiliates can view own data` (SELECT)
+- `ai_budget_policies::admin_read` (SELECT)
+- `ai_budget_policies::sr_all` (ALL)
+- `ai_cost_budgets::admin_manage_cost_budgets` (ALL)
+- `ai_cost_budgets::service_role_all_budgets` (ALL)
+- `ai_generation_cache::admin_read` (SELECT)
+- `ai_generation_cache::sr_all` (ALL)
+- `ai_generation_policies::admin_read` (SELECT)
+- `ai_generation_policies::sr_all` (ALL)
+- `ai_generation_requests::admin_read` (SELECT)
+- `ai_generation_requests::sr_all` (ALL)
+- `ai_generations::Admins full access on ai_generations` (ALL)
+- `ai_generations::Users read own tutor generations` (SELECT)
+- `ai_generations::service_role_insert_ai_generations` (INSERT)
+- `ai_governance_reviews::Admins can read ai_gov` (SELECT)
+- `ai_governance_reviews::Service role full access` (ALL)
+- `ai_interaction_logs::Admins can view all ai_interaction_logs` (SELECT)
+- `ai_interaction_logs::System can insert ai_interaction_logs` (INSERT)
+- `ai_interaction_logs::Users can view own ai_interaction_logs` (SELECT)
+- `ai_quality_gates::Admins full access on ai_quality_gates` (ALL)
+- `ai_quality_gates::service_role_insert_ai_quality_gates` (INSERT)
+- `ai_tutor_audit::ai_tutor_audit_owner_select` (SELECT)
+- `ai_tutor_audit::ai_tutor_audit_service_insert` (INSERT)
+- `ai_tutor_context_index::deny_all_ai_tutor_context_index` (ALL)
+- `ai_tutor_logs::ai_tutor_logs_admin_select` (SELECT)
+- `ai_tutor_logs::ai_tutor_logs_no_client_insert` (INSERT)
+- `ai_tutor_logs::ai_tutor_logs_select_own` (SELECT)
+- `ai_tutor_messages::Users can create own tutor messages` (INSERT)
+- `ai_tutor_messages::Users can view own tutor messages` (SELECT)
+- `ai_tutor_policies::deny_all_ai_tutor_policies` (ALL)
+- `ai_tutor_sessions::Users can create own tutor sessions` (INSERT)
+- `ai_tutor_sessions::Users can delete own tutor sessions` (DELETE)
+- `ai_tutor_sessions::Users can update own tutor sessions` (UPDATE)
+- `ai_tutor_sessions::Users can view own tutor sessions` (SELECT)
+- `ai_usage_log::admin_read_usage_log` (SELECT)
+- `ai_usage_log::service_role_insert_ai_usage_log` (INSERT)
+- `ai_validation_rules::Admins full access on ai_validation_rules` (ALL)
+- `ai_validations::Admins full access on ai_validations` (ALL)
+- `ai_validations::service_role_insert_ai_validations` (INSERT)
+- `ai_worker_policies::Admins can manage worker policies` (ALL)
+- `ai_worker_usage_daily::Admins can manage usage data` (ALL)
+- `anthropic_batch_requests::admin_read` (SELECT)
+- `anthropic_batch_requests::sr_all` (ALL)
+- `anthropic_batches::admin_read` (SELECT)
+- `anthropic_batches::sr_all` (ALL)
+- `api_key_events::Admin insert api_key_events` (INSERT)
+- `api_key_events::Admin read api_key_events` (SELECT)
+- `api_keys::Admin insert api_keys` (INSERT)
+- `api_keys::Admin read api_keys` (SELECT)
+- `api_keys::Admin update api_keys` (UPDATE)
+- `api_rate_limits::admin_read` (SELECT)
+- `api_rate_limits::service_role_all` (ALL)
+- `api_rate_limits::sr_all` (ALL)
+- `artifact_orphan_cleanup_log::admin can read orphan cleanup log` (SELECT)
+- `asset_optimization_scores::admin_read` (SELECT)
+- `asset_optimization_scores::service_role_all` (ALL)
+- `asset_optimization_scores::sr_all` (ALL)
+- `audit_dead_columns_snapshot::admin_read_dead_cols` (SELECT)
+- `audit_orphan_functions_snapshot::admin_read_orphan_funcs` (SELECT)
+- `audit_remediation_actions::admin_read` (SELECT)
+- `audit_remediation_actions::sr_all` (ALL)
+- `authority_decisions::admin_read` (SELECT)
+- `authority_decisions::admin_read_authority` (SELECT)
+- `authority_decisions::service_role_all` (ALL)
+- `authority_decisions::sr_all` (ALL)
+- `auto_heal_config::Admin read auto_heal_config` (SELECT)
+- `auto_heal_config::Admin update auto_heal_config` (UPDATE)
+- `auto_heal_log::No delete on auto_heal_log` (DELETE)
+- `auto_heal_log::No update on auto_heal_log` (UPDATE)
+- `auto_heal_log::admin_read_auto_heal_log` (SELECT)
+- `auto_heal_log::service_role_auto_heal_log` (ALL)
+- `auto_heal_policies::Admins can manage auto_heal_policies` (ALL)
+- `auto_heal_policies::admin_read_auto_heal_policies` (SELECT)
+- `auto_heal_policies::service_role_auto_heal_policies` (ALL)
+- `autofix_runs::Admins can delete autofix_runs` (DELETE)
+- `autofix_runs::Admins can insert autofix_runs` (INSERT)
+- `autofix_runs::Admins can select autofix_runs` (SELECT)
+- `autofix_runs::Admins can update autofix_runs` (UPDATE)
+- `azav_audit_log::Admins full access audit_log` (ALL)
+- `azav_compliance_checks::Admins manage compliance checks` (ALL)
+- `azav_compliance_checks::All read compliance checks` (SELECT)
+- `azav_compliance_results::Admins manage compliance results` (ALL)
+- `azav_fachbereiche::Admins manage fachbereiche` (ALL)
+- `azav_fachbereiche::All authenticated read fachbereiche` (SELECT)
+- `azav_massnahmen_zulassungen::Admins manage massnahmen` (ALL)
+- `azav_massnahmen_zulassungen::Authenticated read zugelassene massnahmen` (SELECT)
+- `b2b_leads::Service role full access on b2b_leads` (ALL)
+- `backfill_chunk_audit::admin reads backfill audit` (SELECT)
+- `backlinks::Admins have full access to backlinks` (ALL)
+- `backpressure_snapshots::admin_read` (SELECT)
+- `backpressure_snapshots::sr_all` (ALL)
+- `backup_snapshots::Admins can view backups` (SELECT)
+- `backup_snapshots::Service role inserts backups` (INSERT)
+- `backup_snapshots::service_role_insert_backups` (INSERT)
+- `beruf_aliases::Admins können Beruf-Aliases verwalten` (ALL)
+- `beruf_aliases::Beruf-Aliases öffentlich lesbar` (SELECT)
+- `beruf_dokumente::Admins können Berufsdokumente verwalten` (ALL)
+- `beruf_dokumente::Berufsdokumente sind öffentlich lesbar` (SELECT)
+- `beruf_market_data::Authenticated users can read market data` (SELECT)
+- `beruf_market_data::Service role can manage market data` (ALL)
+- `beruf_market_match_map::Service role manages match map` (ALL)
+- `berufe::Admins können Berufe verwalten` (ALL)
+- `berufe::Berufe sind öffentlich lesbar` (SELECT)
+- `billing_accounts::billing_accounts_insert_privileged` (INSERT)
+- `billing_accounts::billing_accounts_select_members` (SELECT)
+- `billing_accounts::billing_accounts_update_privileged` (UPDATE)
+- `blog_articles::Public can read published blog articles` (SELECT)
+- `blog_articles::Published blog articles are public` (SELECT)
+- `blog_articles::Published blog articles are publicly readable` (SELECT)
+- `blog_posts::admin_all` (ALL)
+- `blog_posts::admin_manage_blog_posts` (ALL)
+- `blog_posts::pub_read_published` (SELECT)
+- `blog_posts::service_role_all_bp` (ALL)
+- `blog_posts::sr_all` (ALL)
+- `blog_publishing_events::Service role only` (ALL)
+- `blueprint_audit_log::Admins can view audit log` (SELECT)
+- `blueprint_constraints::Admins can manage constraints` (ALL)
+- `blueprint_correct_answers::Admins can manage correct answers` (ALL)
+- `blueprint_distractors::Admins can manage distractors` (ALL)
+- `blueprint_param_sets::Admins can manage blueprint_param_sets` (ALL)
+- `blueprint_quality_constraints::Admin access to quality constraints` (ALL)
+- `blueprint_targets::Admins can manage blueprint_targets` (ALL)
+- `blueprint_variables::Admins can manage variables` (ALL)
+- `blueprint_variant_inventory::Admin read blueprint_variant_inventory` (SELECT)
+- `blueprint_variant_inventory::Admin write blueprint_variant_inventory` (ALL)
+- `blueprint_variants::Admins can manage variants` (ALL)
+- `blueprint_versions::admin_read_blueprint_versions` (SELECT)
+- `blueprint_versions::service_role_blueprint_versions` (ALL)
+- `bookkeeping_entries::Admins full access bookkeeping_entries` (ALL)
+- `bulk_import_jobs::Admins can manage bulk imports` (ALL)
+- `business_brain_action_queue::admin_insert_bb_actions` (INSERT)
+- `business_brain_action_queue::admin_select_bb_actions` (SELECT)
+- `business_brain_action_queue::admin_update_bb_actions` (UPDATE)
+- `business_brain_decisions::admin_insert_bb_decisions` (INSERT)
+- `business_brain_decisions::admin_select_bb_decisions` (SELECT)
+- `business_brain_decisions::admin_update_bb_decisions` (UPDATE)
+- `business_brain_goals::admin_delete_bb_goals` (DELETE)
+- `business_brain_goals::admin_insert_bb_goals` (INSERT)
+- `business_brain_goals::admin_select_bb_goals` (SELECT)
+- `business_brain_goals::admin_update_bb_goals` (UPDATE)
+- `business_brain_jobs::admin_insert_bb_jobs` (INSERT)
+- `business_brain_jobs::admin_select_bb_jobs` (SELECT)
+- `business_brain_jobs::admin_update_bb_jobs` (UPDATE)
+- `business_brain_outcomes::admin_insert_bb_outcomes` (INSERT)
+- `business_brain_outcomes::admin_select_bb_outcomes` (SELECT)
+- `business_brain_recommendations::admin_insert_bb_recs` (INSERT)
+- `business_brain_recommendations::admin_select_bb_recs` (SELECT)
+- `business_brain_recommendations::admin_update_bb_recs` (UPDATE)
+- `business_brain_snapshots::admin_insert_bb_snapshots` (INSERT)
+- `business_brain_snapshots::admin_select_bb_snapshots` (SELECT)
+- `business_kpi_snapshots::admin_read` (SELECT)
+- `business_kpi_snapshots::sr_all` (ALL)
+- `campaign_asset_queue::admin_read` (SELECT)
+- `campaign_asset_queue::service_role_all` (ALL)
+- `campaign_asset_queue::sr_all` (ALL)
+- `campaign_assets::admin_read` (SELECT)
+- `campaign_assets::service_role_all` (ALL)
+- `campaign_assets::sr_all` (ALL)
+- `campaign_automation_runs::admin_read` (SELECT)
+- `campaign_automation_runs::service_role_all` (ALL)
+- `campaign_automation_runs::sr_all` (ALL)
+- `campaign_launch_plans::admin_read` (SELECT)
+- `campaign_launch_plans::service_role_all` (ALL)
+- `campaign_launch_plans::sr_all` (ALL)
+- `campaign_performance_snapshots::admin_read` (SELECT)
+- `campaign_performance_snapshots::service_role_all` (ALL)
+- `campaign_performance_snapshots::sr_all` (ALL)
+- `canary_releases::admin_read` (SELECT)
+- `canary_releases::admin_read_canary` (SELECT)
+- `canary_releases::service_role_all` (ALL)
+- `canary_releases::sr_all` (ALL)
+- `ceo_daily_kpis::admin_read` (SELECT)
+- `ceo_daily_kpis::admin_read_ceo_kpis` (SELECT)
+- `ceo_daily_kpis::service_role_all` (ALL)
+- `ceo_daily_kpis::sr_all` (ALL)
+- `certification_blueprint_templates::cert_blueprint_templates_read_authenticated` (SELECT)
+- `certification_catalog::Anyone can read certification_catalog` (SELECT)
+- `certification_cost_snapshots::admin_read` (SELECT)
+- `certification_cost_snapshots::sr_all` (ALL)
+- `certification_documents::Admin read cert docs` (SELECT)
+- `certification_documents::Admin write cert docs` (ALL)
+- `certification_dominance_snapshots::admin_read` (SELECT)
+- `certification_dominance_snapshots::service_role_all` (ALL)
+- `certification_dominance_snapshots::sr_all` (ALL)
+- `certification_profiles::certification_profiles_read_authenticated` (SELECT)
+- `certification_seo_pages::Published SEO pages are publicly readable` (SELECT)
+- `certification_seo_pages::Service role manages certification SEO pages` (ALL)
+- `certifications::certifications_read_authenticated` (SELECT)
+- `channel_performance_profiles::admin_read` (SELECT)
+- `channel_performance_profiles::service_role_all` (ALL)
+- `channel_performance_profiles::sr_all` (ALL)
+- `channel_unit_economics::service_role_all` (ALL)
+- `churn_predictions::admin_only_churn_predictions` (ALL)
+- `class_memberships::Class members can view own membership` (SELECT)
+- `class_memberships::Org admins can manage class memberships` (ALL)
+- `class_memberships::Platform admins full access to class memberships` (ALL)
+- `cluster_dominance_snapshots::admin_read` (SELECT)
+- `cluster_dominance_snapshots::service_role_all` (ALL)
+- `cluster_dominance_snapshots::sr_all` (ALL)
+- `cms_media::Admins can manage cms_media` (ALL)
+- `cms_media::Media is publicly readable` (SELECT)
+- `cms_page_blocks::Admins can manage cms_page_blocks` (ALL)
+- `cms_page_blocks::Published page blocks are public` (SELECT)
+- `cms_page_versions::Admins can manage cms_page_versions` (ALL)
+- `cms_pages::Admins can manage cms_pages` (ALL)
+- `cms_pages::Published pages are public` (SELECT)
+- `cms_templates::Admins can manage cms_templates` (ALL)
+- `cockpit_daily_snapshots::admins_read_cockpit_snapshots` (SELECT)
+- `companies::company_admin_full_access` (ALL)
+- `companies::company_admin_select` (SELECT)
+- `companies::company_admin_update` (UPDATE)
+- `companies::company_member_select` (SELECT)
+- `companies::deny_anon_companies` (ALL)
+- `company_members::company_admin_manage_members` (ALL)
+- `company_members::deny_anon_company_members` (ALL)
+- `company_members::global_admin_company_members` (ALL)
+- `company_members::members_see_own_company` (SELECT)
+- `competencies::Admins can manage competencies` (ALL)
+- `competencies::Users can view competencies` (SELECT)
+- `competency_performance_stats::admin_read` (SELECT)
+- `competency_performance_stats::admin_read_competency_stats` (SELECT)
+- `competency_performance_stats::service_role_all_cps` (ALL)
+- `competency_performance_stats::sr_all` (ALL)
+- `compliance_audits::Admins can read audits` (SELECT)
+- `compliance_audits::Service role full access` (ALL)
+- `compliance_documents::Admin full access to compliance_documents` (ALL)
+- `compliance_documents::Admins can manage compliance_documents` (ALL)
+- `compliance_findings::admin_compliance_findings` (ALL)
+- `compliance_frameworks::Admins can read frameworks` (SELECT)
+- `compliance_frameworks::Service role full access` (ALL)
+- `compliance_gate_rules::admin_all_compliance_gate_rules` (ALL)
+- `compliance_gate_rules::deny_all_compliance_gate_rules` (ALL)
+- `compliance_kpi_snapshots::Admins can read kpis` (SELECT)
+- `compliance_kpi_snapshots::Service role full access` (ALL)
+- `compliance_reports::admin_compliance_reports` (ALL)
+- `concurrency_snapshots::Admin read concurrency` (SELECT)
+- `concurrency_snapshots::service_role_insert_concurrency` (INSERT)
+- `content_assets::admin_all` (ALL)
+- `content_assets::admin_manage_content_assets` (ALL)
+- `content_assets::service_role_all_ca` (ALL)
+- `content_assets::sr_all` (ALL)
+- `content_effectiveness::admin_content_effectiveness` (ALL)
+- `content_generation_jobs::admin_read` (SELECT)
+- `content_generation_jobs::sr_all` (ALL)
+- `content_hooks::Service role full access on content_hooks` (ALL)
+- `content_jobs::Service role full access on content_jobs` (ALL)
+- `content_optimization::Admins have full access to content_optimization` (ALL)
+- `content_packages::Admins can manage content packages` (ALL)
+- `content_packages::Entitled users can view content packages` (SELECT)
+- `content_pages::admin_all` (ALL)
+- `content_pages::admin_manage_content_pages` (ALL)
+- `content_pages::service_role_all_cp` (ALL)
+- `content_pages::sr_all` (ALL)
+- `content_performance::Service role full access on content_performance` (ALL)
+- `content_quality_audit_findings::Admins can manage audit findings` (ALL)
+- `content_quality_audit_runs::Admins can manage audit runs` (ALL)
+- `content_research_cache::admin_read` (SELECT)
+- `content_research_cache::sr_all` (ALL)
+- `content_ssot_context::admin_read` (SELECT)
+- `content_ssot_context::sr_all` (ALL)
+- `content_versions::admin_content_versions` (ALL)
+- `control_plane_actions::admin_read` (SELECT)
+- `control_plane_actions::sr_all` (ALL)
+- `control_plane_alerts::admin_read` (SELECT)
+- `control_plane_alerts::sr_all` (ALL)
+- `control_plane_cost_signals::admin_read` (SELECT)
+- `control_plane_cost_signals::sr_all` (ALL)
+- `control_plane_policies::admin_read` (SELECT)
+- `control_plane_policies::sr_all` (ALL)
+- `control_plane_snapshots::admin_read` (SELECT)
+- `control_plane_snapshots::sr_all` (ALL)
+- `controlling_snapshots::admin_controlling_snapshots` (ALL)
+- `conversion_event_violations::admins_select_conversion_event_violations` (SELECT)
+- `conversion_events::Service role full access on conversion_events` (ALL)
+- `conversion_events::Users can insert own conversion events` (INSERT)
+- `conversion_events::ce_admin_select` (SELECT)
+- `conversion_events::ce_user_insert_own` (INSERT)
+- `council_activity_log::Admins can manage council_activity_log` (ALL)
+- `council_automations::Admin only council_automations` (ALL)
+- `council_autopilot_settings::Admin only council_autopilot_settings` (ALL)
+- `council_decisions::Admins can manage council_decisions` (ALL)
+- `council_defer_log::Admins read council defer log` (SELECT)
+- `council_escalations::Admins can manage council_escalations` (ALL)
+- `council_events::Admin only council_events` (ALL)
+- `council_kill_switches::Admins can manage council_kill_switches` (ALL)
+- `council_kpis::Admins can manage council_kpis` (ALL)
+- `council_messages::admin_council_messages` (ALL)
+- `council_recommendations::Admin only council_recommendations` (ALL)
+- `council_sessions::Admins can manage council_sessions` (ALL)
+- `council_sessions::No anon access to council_sessions` (ALL)
+- `council_sessions::deny_all_council_sessions` (ALL)
+- `council_states::Admin only council_states` (ALL)
+- `council_verdicts::admin_council_verdicts` (ALL)
+- `council_votes::admin_council_votes` (ALL)
+- `councils::Admins can manage councils` (ALL)
+- `coupling_heal_v4_runs::admins_read_coupling_runs` (SELECT)
+- `course_bundles::Admins have full access to course_bundles` (ALL)
+- `course_bundles::Users can view active bundles` (SELECT)
+- `course_enrollments::Admins can enroll in any course` (INSERT)
+- `course_enrollments::Admins can view all enrollments` (SELECT)
+- `course_enrollments::Users can enroll themselves` (INSERT)
+- `course_enrollments::Users can update their enrollments` (UPDATE)
+- `course_enrollments::Users can view their own enrollments` (SELECT)
+- `course_evidence_packs::Admins can create evidence packs` (INSERT)
+- `course_evidence_packs::Admins can view evidence packs` (SELECT)
+- `course_generation_locks::Service role only for generation locks` (ALL)
+- `course_heal_plans::admins_read_heal_plans` (SELECT)
+- `course_heal_plans::service_write_heal_plans` (ALL)
+- `course_health_snapshots::Admins can view health snapshots` (SELECT)
+- `course_health_snapshots::admin_read_course_health_snapshots` (SELECT)
+- `course_health_snapshots::service_role_course_health_snapshots` (ALL)
+- `course_inquiries::Admins can view inquiries` (SELECT)
+- `course_inquiries::Anyone can insert course inquiries` (INSERT)
+- `course_notes::Users can manage own notes` (ALL)
+- `course_package_build_steps_legacy::Admins can manage build_steps` (ALL)
+- `course_package_build_steps_legacy::deny_all_course_package_build_steps` (ALL)
+- `course_package_locks::deny_all_course_package_locks` (ALL)
+- `course_package_outputs::deny_all_course_package_outputs` (ALL)
+- `course_package_plans::deny_all_course_package_plans` (ALL)
+- `course_package_reviews::admin_read_reviews` (SELECT)
+- `course_package_reviews::admin_update_reviews` (UPDATE)
+- `course_packages::Admins can manage course_packages` (ALL)
+- `course_packages::No anon delete course_packages` (DELETE)
+- `course_packages::No anon write to course_packages` (UPDATE)
+- `course_pipeline_events::admin_read` (SELECT)
+- `course_pipeline_events::admin_read_cpe` (SELECT)
+- `course_pipeline_events::service_role_all` (ALL)
+- `course_pipeline_events::sr_all` (ALL)
+- `course_production_forecasts::admin_forecast_all` (ALL)
+- `course_quality_audits::admin_only_delete_quality_audits` (DELETE)
+- `course_quality_audits::admin_only_insert_quality_audits` (INSERT)
+- `course_quality_audits::admin_only_select_quality_audits` (SELECT)
+- `course_quality_audits::admin_only_update_quality_audits` (UPDATE)
+- `course_regulatory_status::Admin full access on course_regulatory_status` (ALL)
+- `course_regulatory_status::Learners can view regulatory status` (SELECT)
+- `course_reviews::Anyone can view published reviews` (SELECT)
+- `course_reviews::Users can create reviews` (INSERT)
+- `course_reviews::Users can update own reviews` (UPDATE)
+- `course_title_aliases::service_role_all` (ALL)
+- `course_track_overrides::admin_insert_overrides` (INSERT)
+- `course_track_overrides::admin_read_overrides` (SELECT)
+- `course_track_overrides::service_role_all_overrides` (ALL)
+- `course_upgrade_decisions::Admin read upgrade decisions` (SELECT)
+- `course_upgrade_decisions::Service insert upgrade decisions` (INSERT)
+- `course_upgrade_scores::Admin read upgrade scores` (SELECT)
+- `course_upgrade_scores::Service insert upgrade scores` (INSERT)
+- `course_upgrade_scores::Service update upgrade scores` (UPDATE)
+- `courses::Admins can manage courses` (ALL)
+- `courses::Admins can view all courses` (SELECT)
+- `courses::Anyone can view published courses` (SELECT)
+- `courses::Users can view published courses` (SELECT)
+- `coverage_snapshots::Admin read coverage snapshots` (SELECT)
+- `coverage_snapshots::Admin write coverage snapshots` (ALL)
+- `crm_activities::Admins full access crm_activities` (ALL)
+- `crm_contacts::Admins full access crm_contacts` (ALL)
+- `crm_deals::Admins full access crm_deals` (ALL)
+- `cta_winner_decisions::admins read winners` (SELECT)
+- `curricula::Admins can manage curricula` (ALL)
+- `curricula::Anyone can view frozen curricula` (SELECT)
+- `curriculum_discovery::Admins can manage discovery` (ALL)
+- `curriculum_gtm_scores::admin_read` (SELECT)
+- `curriculum_gtm_scores::service_role_all` (ALL)
+- `curriculum_gtm_scores::sr_all` (ALL)
+- `curriculum_ingest_runs::Admin read ingest runs` (SELECT)
+- `curriculum_ingest_runs::Admin write ingest runs` (ALL)
+- `curriculum_intake_candidates::admin_read` (SELECT)
+- `curriculum_intake_candidates::sr_all` (ALL)
+- `curriculum_intake_jobs::admin_read` (SELECT)
+- `curriculum_intake_jobs::sr_all` (ALL)
+- `curriculum_intake_parsed::admin_read` (SELECT)
+- `curriculum_intake_parsed::sr_all` (ALL)
+- `curriculum_intake_promotion_log::admin_read` (SELECT)
+- `curriculum_intake_promotion_log::sr_all` (ALL)
+- `curriculum_intelligence_scores::service_role_all` (ALL)
+- `curriculum_launch_recommendations::admin_read` (SELECT)
+- `curriculum_launch_recommendations::service_role_all` (ALL)
+- `curriculum_launch_recommendations::sr_all` (ALL)
+- `curriculum_market_signals::service_role_all` (ALL)
+- `curriculum_priority_recommendations::service_role_all` (ALL)
+- `curriculum_products::Admins can manage curriculum_products` (ALL)
+- `curriculum_products::Published curriculum_products are viewable` (SELECT)
+- `curriculum_revenue_runs::admin_read` (SELECT)
+- `curriculum_revenue_runs::service_role_all` (ALL)
+- `curriculum_revenue_runs::sr_all` (ALL)
+- `curriculum_revenue_signals::admin_read` (SELECT)
+- `curriculum_revenue_signals::service_role_all` (ALL)
+- `curriculum_revenue_signals::sr_all` (ALL)
+- `curriculum_scaling_signals::admin_read` (SELECT)
+- `curriculum_scaling_signals::service_role_all` (ALL)
+- `curriculum_scaling_signals::sr_all` (ALL)
+- `curriculum_signal_runs::service_role_all` (ALL)
+- `curriculum_source_documents::admin_read` (SELECT)
+- `curriculum_source_documents::sr_all` (ALL)
+- `curriculum_source_registry::admin_read` (SELECT)
+- `curriculum_source_registry::sr_all` (ALL)
+- `curriculum_topic_coverage::Admin read topic coverage` (SELECT)
+- `curriculum_topic_coverage::Admin write topic coverage` (ALL)
+- `curriculum_topics::Admin read curriculum topics` (SELECT)
+- `curriculum_topics::Admin write curriculum topics` (ALL)
+- `curriculum_unit_economics::service_role_all` (ALL)
+- `dag_blocked_history::dag_history_admin_select` (SELECT)
+- `dag_reenqueue_rules::dag_reenqueue_rules_admin_select` (SELECT)
+- `daily_challenges::Users insert own challenges` (INSERT)
+- `daily_challenges::Users see own challenges` (SELECT)
+- `daily_challenges::Users update own challenges` (UPDATE)
+- `daily_ops_reports::Admins can read daily ops reports` (SELECT)
+- `daily_question_picks::Admins manage daily questions` (ALL)
+- `daily_question_picks::Public read for published daily questions` (SELECT)
+- `data_export_requests::Admin full access to data_export_requests` (ALL)
+- `data_export_requests::Admins can manage data_export_requests` (ALL)
+- `datev_export_config::admin_all_datev_export_config` (ALL)
+- `datev_export_config::deny_all_datev_export_config` (ALL)
+- `datev_exports::Admins full access datev_exports` (ALL)
+- `dead_letter_jobs::Admin read dead_letter_jobs` (SELECT)
+- `decision_items::Admin only decision_items` (ALL)
+- `deep_audit_config::admin_read` (SELECT)
+- `deep_audit_config::admin_read_deep_audit_config` (SELECT)
+- `deep_audit_config::service_role_all` (ALL)
+- `deep_audit_config::sr_all` (ALL)
+- `deep_audit_results::admin_read` (SELECT)
+- `deep_audit_results::admin_read_deep_audit_results` (SELECT)
+- `deep_audit_results::service_role_all` (ALL)
+- `deep_audit_results::sr_all` (ALL)
+- `difficulty_distribution_targets::admin_read` (SELECT)
+- `difficulty_distribution_targets::service_role_all` (ALL)
+- `difficulty_distribution_targets::sr_all` (ALL)
+- `disallowed_keywords::admin_manage_disallowed_keywords` (ALL)
+- `disallowed_keywords::service_role_disallowed_keywords` (ALL)
+- `distribution_channel_configs::admin_read` (SELECT)
+- `distribution_channel_configs::service_role_all` (ALL)
+- `distribution_channel_configs::sr_all` (ALL)
+- `distribution_delivery_logs::admin_read` (SELECT)
+- `distribution_delivery_logs::service_role_all` (ALL)
+- `distribution_delivery_logs::sr_all` (ALL)
+- `distribution_jobs::Service role full access on distribution_jobs` (ALL)
+- `distribution_publications::admin_read` (SELECT)
+- `distribution_publications::service_role_all` (ALL)
+- `distribution_publications::sr_all` (ALL)
+- `distribution_queue::admin_read` (SELECT)
+- `distribution_queue::service_role_all` (ALL)
+- `distribution_queue::sr_all` (ALL)
+- `distribution_runs::admin_read` (SELECT)
+- `distribution_runs::service_role_all` (ALL)
+- `distribution_runs::sr_all` (ALL)
+- `distribution_targets::admin_read` (SELECT)
+- `distribution_targets::service_role_all` (ALL)
+- `distribution_targets::sr_all` (ALL)
+- `dom_blueprint_coverage::auth_read` (SELECT)
+- `dom_blueprint_coverage::svc_all` (ALL)
+- `dom_blueprint_domains::auth_read` (SELECT)
+- `dom_blueprint_domains::svc_all` (ALL)
+- `dom_blueprint_parts::auth_read` (SELECT)
+- `dom_blueprint_parts::svc_all` (ALL)
+- `dom_blueprint_snapshots::auth_read` (SELECT)
+- `dom_blueprint_snapshots::svc_all` (ALL)
+- `dom_blueprint_subtopics::auth_read` (SELECT)
+- `dom_blueprint_subtopics::svc_all` (ALL)
+- `dom_blueprint_topics::auth_read` (SELECT)
+- `dom_blueprint_topics::svc_all` (ALL)
+- `dom_blueprint_type_mix::auth_read` (SELECT)
+- `dom_blueprint_type_mix::svc_all` (ALL)
+- `dom_blueprints::auth_read` (SELECT)
+- `dom_blueprints::svc_all` (ALL)
+- `dominance_control::admin_read` (SELECT)
+- `dominance_control::admin_read_dominance` (SELECT)
+- `dominance_control::service_role_all` (ALL)
+- `dominance_control::sr_all` (ALL)
+- `drift_snapshots::admin_read` (SELECT)
+- `drift_snapshots::admin_read_drift` (SELECT)
+- `drift_snapshots::service_role_all` (ALL)
+- `drift_snapshots::sr_all` (ALL)
+- `dsgvo_processing_records::Admins can read dsgvo` (SELECT)
+- `dsgvo_processing_records::Service role full access` (ALL)
+- `duplicate_detection_log::admin_read_ddl` (SELECT)
+- `duplicate_detection_log::service_role_ddl` (ALL)
+- `elite_hardening_items::Admin full access on elite_hardening_items` (ALL)
+- `elite_hardening_runs::Admin full access on elite_hardening_runs` (ALL)
+- `email_campaigns::Admins have full access to email_campaigns` (ALL)
+- `email_delivery_queue::Admins read email_delivery_queue` (SELECT)
+- `email_delivery_queue::Service role full access on email_delivery_queue` (ALL)
+- `email_sequences::Service role full access on email_sequences` (ALL)
+- `email_templates::Admins have full access to email_templates` (ALL)
+- `entitlements::Admins can view all entitlements` (SELECT)
+- `entitlements::Users can view entitlements via learner identity` (SELECT)
+- `entitlements::Users can view own entitlements` (SELECT)
+- `entitlements::Users can view their own entitlements` (SELECT)
+- `entitlements::deny_direct_entitlement_delete` (DELETE)
+- `entitlements::deny_direct_entitlement_insert` (INSERT)
+- `entitlements::deny_direct_entitlement_update` (UPDATE)
+- `error_patterns::Admins have full access to error_patterns` (ALL)
+- `escalation_log::admin_read` (SELECT)
+- `escalation_log::sr_all` (ALL)
+- `exam_ai_feedback::Users insert own feedback` (INSERT)
+- `exam_ai_feedback::Users see own feedback` (SELECT)
+- `exam_ai_feedback::service_role_insert_feedback` (INSERT)
+- `exam_anxiety_sessions::Users can manage own anxiety sessions` (ALL)
+- `exam_anxiety_sessions::Users can view own anxiety sessions` (SELECT)
+- `exam_attempts::No anon access to attempts` (ALL)
+- `exam_attempts::No direct updates to attempts` (UPDATE)
+- `exam_attempts::Users can create their own attempts` (INSERT)
+- `exam_attempts::Users can read own attempts` (SELECT)
+- `exam_attempts::Users can update their own attempts` (UPDATE)
+- `exam_attempts::Users can view their own attempts` (SELECT)
+- `exam_blueprints::Admins can manage blueprints` (ALL)
+- `exam_blueprints::Users can view frozen blueprints` (SELECT)
+- `exam_part_mappings::admin_read` (SELECT)
+- `exam_part_mappings::service_role_all` (ALL)
+- `exam_part_mappings::sr_all` (ALL)
+- `exam_pool_dlq::Admin read DLQ` (SELECT)
+- `exam_pool_dlq::Service insert DLQ` (INSERT)
+- `exam_pool_dlq::service_role_insert_dlq` (INSERT)
+- `exam_pool_fallback_state::admins_read_fallback_state` (SELECT)
+- `exam_pool_fallback_state::service_write_fallback_state` (ALL)
+- `exam_pool_validation_snapshots::admin_read` (SELECT)
+- `exam_pool_validation_snapshots::sr_all` (ALL)
+- `exam_promotion_audit::admin_read` (SELECT)
+- `exam_promotion_audit::sr_all` (ALL)
+- `exam_question_elite_annotations::admin_read` (SELECT)
+- `exam_question_elite_annotations::service_role_all` (ALL)
+- `exam_question_elite_annotations::sr_all` (ALL)
+- `exam_question_variants::Only admins can view variants` (SELECT)
+- `exam_question_variants::Service role full access on variants` (ALL)
+- `exam_questions::Admins can manage questions` (ALL)
+- `exam_questions::Only admins can directly access exam_questions` (SELECT)
+- `exam_questions::Only admins can view questions with answers` (SELECT)
+- `exam_questions::Service role full access to exam_questions` (ALL)
+- `exam_readiness_snapshots::Service role full access on readiness` (ALL)
+- `exam_readiness_snapshots::Users read own readiness` (SELECT)
+- `exam_session_questions::Admins can view all session questions` (SELECT)
+- `exam_session_questions::Users can manage their own session questions` (ALL)
+- `exam_sessions::Admins can view all sessions` (SELECT)
+- `exam_sessions::Users can manage their own sessions` (ALL)
+- `executive_budget_caps::admin_read` (SELECT)
+- `executive_budget_caps::sr_all` (ALL)
+- `executive_kill_switches::admin_read` (SELECT)
+- `executive_kill_switches::sr_all` (ALL)
+- `executive_portfolio_allocations::admin_read` (SELECT)
+- `executive_portfolio_allocations::sr_all` (ALL)
+- `executive_portfolio_decisions::admin_read` (SELECT)
+- `executive_portfolio_decisions::sr_all` (ALL)
+- `executive_rebalance_runs::service_role_all` (ALL)
+- `executive_summary_reports::admin_read` (SELECT)
+- `executive_summary_reports::sr_all` (ALL)
+- `expected_trigger_bindings::Service role only` (ALL)
+- `experiment_assignments::Admins manage experiment_assignments` (ALL)
+- `experiment_assignments::ea_user_select_own` (SELECT)
+- `experiment_events::Admins manage experiment_events` (ALL)
+- `experiment_events::Users insert own experiment_events` (INSERT)
+- `experiments::Admins manage experiments` (ALL)
+- `export_jobs::export_jobs_admin_insert` (INSERT)
+- `export_jobs::export_jobs_admin_select` (SELECT)
+- `export_jobs::export_jobs_admin_update` (UPDATE)
+- `factory_autonomy_policies::admin_read` (SELECT)
+- `factory_autonomy_policies::sr_all` (ALL)
+- `factory_intake_queue::admin_read` (SELECT)
+- `factory_intake_queue::sr_all` (ALL)
+- `fi_core_lf_equivalence::admin_read` (SELECT)
+- `fi_core_lf_equivalence::sr_all` (ALL)
+- `finance_exports::admin_all_finance_exports` (ALL)
+- `finance_exports::deny_all_finance_exports` (ALL)
+- `finance_ledger::admin_all_finance_ledger` (ALL)
+- `finance_ledger::deny_all_finance_ledger` (ALL)
+- `forbidden_db_indexes::service_role_all` (ALL)
+- `force_run_audit_log::admins_insert_force_run_audit` (INSERT)
+- `force_run_audit_log::admins_read_force_run_audit` (SELECT)
+- `gdpr_deletion_requests::Admins manage deletion requests` (ALL)
+- `gdpr_deletion_requests::Users can cancel own pending deletion` (UPDATE)
+- `gdpr_deletion_requests::Users can create own deletion request` (INSERT)
+- `gdpr_deletion_requests::Users can view own deletion requests` (SELECT)
+- `german_certification_master::admin_read` (SELECT)
+- `german_certification_master::public_read_cert_master` (SELECT)
+- `german_certification_master::service_role_all` (ALL)
+- `german_certification_master::sr_all` (ALL)
+- `golden_exam_sets::admin_read` (SELECT)
+- `golden_exam_sets::service_role_all` (ALL)
+- `golden_exam_sets::sr_all` (ALL)
+- `growth_actions::admin_all_growth_actions` (ALL)
+- `growth_actions::deny_all_growth_actions` (ALL)
+- `growth_content_graph_edges::growth_edges_service_only` (ALL)
+- `growth_content_graph_nodes::growth_nodes_service_only` (ALL)
+- `growth_content_jobs::Service role full access on growth_content_jobs` (ALL)
+- `growth_content_queue::Admins manage content queue` (ALL)
+- `growth_metrics::admin_read` (SELECT)
+- `growth_metrics::sr_all` (ALL)
+- `growth_risk_scores::admin_all_growth_risk_scores` (ALL)
+- `growth_risk_scores::deny_all_growth_risk_scores` (ALL)
+- `handbook_chapters::Admins can manage handbook chapters` (ALL)
+- `handbook_chapters::Handbook chapters are publicly readable` (SELECT)
+- `handbook_exercise_responses::Users can create own exercise responses` (INSERT)
+- `handbook_exercise_responses::Users can update own exercise responses` (UPDATE)
+- `handbook_exercise_responses::Users can view own exercise responses` (SELECT)
+- `handbook_exercises::Admins can manage handbook exercises` (ALL)
+- `handbook_exercises::Handbook exercises are publicly readable` (SELECT)
+- `handbook_progress::Users can modify own handbook progress` (UPDATE)
+- `handbook_progress::Users can update own handbook progress` (INSERT)
+- `handbook_progress::Users can view own handbook progress` (SELECT)
+- `handbook_recommendations::Admins can manage handbook recommendations` (ALL)
+- `handbook_recommendations::Handbook recommendations are publicly readable` (SELECT)
+- `handbook_sections::Admins can manage handbook sections` (ALL)
+- `handbook_sections::Handbook sections are publicly readable` (SELECT)
+- `heal_action_registry::admins read heal registry` (SELECT)
+- `heal_audit_layers::heal_audit_layers admin read` (SELECT)
+- `heal_pattern_recommendations::heal_pattern_recs_admin_select` (SELECT)
+- `heal_pattern_recommendations::heal_pattern_recs_admin_update` (UPDATE)
+- `heal_pattern_recommendations::heal_pattern_recs_service_insert` (INSERT)
+- `heal_pattern_snoozes::admin read snoozes` (SELECT)
+- `heal_permanent_fix_tasks::admin_all_heal_pf_tasks` (ALL)
+- `heal_snapshots::Admins manage heal snapshots` (ALL)
+- `heal_verification_reports::Admins read heal verification reports` (SELECT)
+- `heal_verification_reports::Admins write heal verification reports` (INSERT)
+- `humor_asset_reviews::admin_read` (SELECT)
+- `humor_asset_reviews::service_role_all` (ALL)
+- `humor_asset_reviews::sr_all` (ALL)
+- `humor_daily_pick::humor_daily_pick_admin_select` (SELECT)
+- `humor_delivery_events::Users can insert own delivery events` (INSERT)
+- `humor_delivery_events::Users can update own delivery reaction` (UPDATE)
+- `humor_delivery_events::Users can view own delivery events` (SELECT)
+- `humor_feedback::humor_feedback_insert_own` (INSERT)
+- `humor_feedback::humor_feedback_select_own` (SELECT)
+- `humor_feedback::humor_feedback_update_own` (UPDATE)
+- `humor_generation_jobs::admin_read` (SELECT)
+- `humor_generation_jobs::service_role_all` (ALL)
+- `humor_generation_jobs::sr_all` (ALL)
+- `humor_items::Public can read approved humor items` (SELECT)
+- `humor_items::humor_items_admin_delete` (DELETE)
+- `humor_items::humor_items_admin_insert` (INSERT)
+- `humor_items::humor_items_admin_select` (SELECT)
+- `humor_items::humor_items_admin_update` (UPDATE)
+- `humor_qc_gate_violations::admins read humor gate violations` (SELECT)
+- `humor_shares::Users can insert their own shares` (INSERT)
+- `humor_shares::Users can view their own shares` (SELECT)
+- `idempotency_keys::deny_all_idempotency` (ALL)
+- `instructor_assignments::Instructors can view own assignments` (SELECT)
+- `instructor_assignments::Org admins can manage instructor assignments` (ALL)
+- `instructor_assignments::Platform admins full access to instructor assignments` (ALL)
+- `intake_raw_documents::admin_read` (SELECT)
+- `intake_raw_documents::sr_all` (ALL)
+- `integrity_check_history::Admins can read integrity history` (SELECT)
+- `integrity_check_history::Service role insert integrity history` (INSERT)
+- `invoice_items::Admins full access invoice_items` (ALL)
+- `invoices::Users can view their own invoices` (SELECT)
+- `job_costs::admin_read` (SELECT)
+- `job_costs::sr_all` (ALL)
+- `job_queue::Admins can manage jobs` (ALL)
+- `job_queue_dead_letter::admin read dlq` (SELECT)
+- `job_queue_dead_letter::service_role full access dlq` (ALL)
+- `job_retry_decisions::p_retry_dec_admin` (SELECT)
+- `job_status_transitions::admins read job transitions` (SELECT)
+- `job_type_policies::admin_read` (SELECT)
+- `job_type_policies::sr_all` (ALL)
+- `job_type_quarantine::admins_read_job_type_quarantine` (SELECT)
+- `jobtype_limits::srv_jobtype_limits` (ALL)
+- `knowledge_graph_edges::admin_read` (SELECT)
+- `knowledge_graph_edges::sr_all` (ALL)
+- `knowledge_graph_enrichment_queue::admin_read` (SELECT)
+- `knowledge_graph_enrichment_queue::sr_all` (ALL)
+- `knowledge_graph_nodes::admin_read` (SELECT)
+- `knowledge_graph_nodes::sr_all` (ALL)
+- `kpi_daily_rollup::Admins can read kpi_daily_rollup` (SELECT)
+- `kpi_daily_rollup::kpi_rollup_admin` (SELECT)
+- `kpi_snapshots::Admins have full access to kpi_snapshots` (ALL)
+- `launch_alert_email_outbox::admin_read_outbox` (SELECT)
+- `launch_readiness_snapshots::admin_read_snapshots` (SELECT)
+- `lead_magnets::Service role full access on lead_magnets` (ALL)
+- `lead_quizzes::lead_quizzes_admin_all` (ALL)
+- `lead_quizzes::lead_quizzes_public_read_active` (SELECT)
+- `leads::Service role full access on leads` (ALL)
+- `learner_course_grants::learner_grants_admin_all` (ALL)
+- `learner_course_grants::learner_grants_owner_select` (SELECT)
+- `learner_diagnostics::Users can insert own diagnostics` (INSERT)
+- `learner_diagnostics::Users can update own diagnostics` (UPDATE)
+- `learner_diagnostics::Users can view own diagnostics` (SELECT)
+- `learner_gates::System can manage gates` (ALL)
+- `learner_gates::Users can view own gates` (SELECT)
+- `learner_identities::Users can read own learner identity` (SELECT)
+- `learner_notes::Admins have full access to learner_notes` (ALL)
+- `learner_profiles::admin_learner_profiles` (ALL)
+- `learner_profiles::own_learner_profile` (SELECT)
+- `learner_referrals::admin_learner_referrals` (ALL)
+- `learner_referrals::own_referrals_insert` (INSERT)
+- `learner_referrals::own_referrals_select` (SELECT)
+- `learner_segments::Admins have full access to learner_segments` (ALL)
+- `learner_tags::Admins have full access to learner_tags` (ALL)
+- `learning_events::Service role full access on learning_events` (ALL)
+- `learning_events::Users insert own events` (INSERT)
+- `learning_events::Users read own events` (SELECT)
+- `learning_field_elite_policies::admin_read` (SELECT)
+- `learning_field_elite_policies::sr_all` (ALL)
+- `learning_field_songs::Admins can manage songs` (ALL)
+- `learning_field_songs::Learners can read uploaded songs` (SELECT)
+- `learning_field_songs::Service role full access` (ALL)
+- `learning_fields::Admins can manage learning fields` (ALL)
+- `learning_fields::Users can view learning fields of frozen curricula` (SELECT)
+- `learning_progress::Admins can view all learning progress` (SELECT)
+- `learning_progress::Users can manage their own progress` (ALL)
+- `learning_progress::Users can view their own progress` (SELECT)
+- `ledger_entries::Admins can view ledger` (SELECT)
+- `ledger_entries::service_role_insert_ledger_entries` (INSERT)
+- `lesson_answer_keys::Admins can manage answer keys` (ALL)
+- `lesson_answer_keys::Authenticated users can read answer keys` (SELECT)
+- `lesson_content_backups::admin_read` (SELECT)
+- `lesson_content_backups::sr_all` (ALL)
+- `lesson_improvement_suggestions::Admins can read improvement suggestions` (SELECT)
+- `lesson_minicheck_questions::admin_read` (SELECT)
+- `lesson_minicheck_questions::sr_all` (ALL)
+- `lesson_outcomes::Admins can view all lesson outcomes` (SELECT)
+- `lesson_outcomes::Admins can view all outcomes` (SELECT)
+- `lesson_outcomes::Users can manage their own outcomes` (ALL)
+- `lesson_quality_audits::Admins can read lesson audits` (SELECT)
+- `lesson_revisions::Admins can read lesson revisions` (SELECT)
+- `lessons::Admins can manage lessons` (ALL)
+- `lessons::Admins can view all lessons` (SELECT)
+- `lessons::Anyone can view lessons of published courses` (SELECT)
+- `lessons::No anon delete lessons` (DELETE)
+- `lessons::No anon write to lessons` (UPDATE)
+- `lessons::Users can view lessons` (SELECT)
+- `license_code_lockouts::admin_all_license_code_lockouts` (ALL)
+- `license_code_lockouts::deny_all_license_code_lockouts` (ALL)
+- `license_packages::Admins can view all packages` (SELECT)
+- `license_packages::Service role can insert packages` (INSERT)
+- `license_packages::Users can view their own packages` (SELECT)
+- `license_seats::deny_anon_license_seats` (ALL)
+- `license_seats::seats_buyer_select` (SELECT)
+- `license_seats::seats_buyer_update` (UPDATE)
+- `license_seats::seats_company_admin_select` (SELECT)
+- `license_seats::seats_global_admin` (ALL)
+- `license_seats::seats_self_select` (SELECT)
+- `llm_batch_requests::service_role_all_llm_batch_requests` (ALL)
+- `llm_batches::service_role_all_llm_batches` (ALL)
+- `llm_budget::admin_only_llm_budget` (ALL)
+- `llm_cost_events::Admins can read llm_cost_events` (SELECT)
+- `llm_cost_events::srv_llm_cost` (ALL)
+- `llm_provider_cooldowns::service_role_only` (ALL)
+- `llm_provider_routing_policies::admin_read` (SELECT)
+- `llm_provider_routing_policies::sr_all` (ALL)
+- `llm_rate_limits::admin_only_llm_rate_limits` (ALL)
+- `llm_visibility_probes::Admins read probes` (SELECT)
+- `llm_visibility_probes::Service role writes probes` (ALL)
+- `llm_visibility_queries::Admins read queries` (SELECT)
+- `llm_visibility_queries::Admins write queries` (ALL)
+- `lti_deployments::service_role_full_access` (ALL)
+- `lti_grade_passback_queue::service_role_full_access` (ALL)
+- `lti_launch_sessions::service_role_full_access` (ALL)
+- `lti_launch_sessions::user_read_own_sessions` (SELECT)
+- `lti_platform_registrations::service_role_full_access` (ALL)
+- `lti_resource_mappings::service_role_full_access` (ALL)
+- `lxi_block_thresholds::lxi_block_thresholds_admin_select` (SELECT)
+- `lxi_block_thresholds::lxi_block_thresholds_admin_write` (ALL)
+- `lxi_heal_attempts::admins_select_lxi_heal_attempts` (SELECT)
+- `management_alerts::admin_management_alerts` (ALL)
+- `market_clusters::admin_read` (SELECT)
+- `market_clusters::service_role_all` (ALL)
+- `market_clusters::sr_all` (ALL)
+- `marketing_assets::admin_manage_marketing_assets` (ALL)
+- `marketing_assets::service_role_marketing_assets` (ALL)
+- `marketing_budget_requests::admin_manage_marketing_budget_requests` (ALL)
+- `marketing_budget_requests::service_role_marketing_budget_requests` (ALL)
+- `marketing_campaigns::admin_manage_marketing_campaigns` (ALL)
+- `marketing_campaigns::service_role_marketing_campaigns` (ALL)
+- `marketing_experiments::admin_manage_marketing_experiments` (ALL)
+- `marketing_experiments::service_role_marketing_experiments` (ALL)
+- `marketing_learnings::admin_manage_marketing_learnings` (ALL)
+- `marketing_learnings::service_role_marketing_learnings` (ALL)
+- `marketing_plans::admin_manage_marketing_plans` (ALL)
+- `marketing_plans::service_role_marketing_plans` (ALL)
+- `media_assets::admin_all_media` (ALL)
+- `media_assets::pub_read` (SELECT)
+- `media_assets::sr_all` (ALL)
+- `minicheck_attempts::Users can insert own attempts` (INSERT)
+- `minicheck_attempts::Users can read own attempts` (SELECT)
+- `minicheck_audit_log::Admins can view audit logs` (SELECT)
+- `minicheck_audit_log::Service role can manage audit logs` (ALL)
+- `minicheck_questions::Admins manage minicheck_questions` (ALL)
+- `minicheck_questions::Learners read minicheck_questions` (SELECT)
+- `minicheck_set_items::admin_all_minicheck_items` (ALL)
+- `minicheck_sets::admin_all_minicheck_sets` (ALL)
+- `mobile_store_products::auth_read_active` (SELECT)
+- `mobile_store_products::service_role_full` (ALL)
+- `mobile_store_purchase_events::service_role_full` (ALL)
+- `mobile_store_purchase_events::user_read_own` (SELECT)
+- `mobile_store_receipt_links::service_role_full` (ALL)
+- `mobile_store_sync_log::service_role_full` (ALL)
+- `model_routing_rules::model_routing_rules_admin_read` (SELECT)
+- `model_routing_rules::model_routing_rules_service_all` (ALL)
+- `modules::Admins can manage modules` (ALL)
+- `modules::Admins can view all modules` (SELECT)
+- `modules::Anyone can view modules of published courses` (SELECT)
+- `modules::Users can view modules of published courses` (SELECT)
+- `newsletter_campaigns::admin_read` (SELECT)
+- `newsletter_campaigns::sr_all` (ALL)
+- `newsletter_doi_tokens::doi_admin_select` (SELECT)
+- `newsletter_subscribers::Admins have full access to newsletter_subscribers` (ALL)
+- `newsletter_subscribers::Users can manage own subscriptions` (ALL)
+- `nightly_audit_findings::svc_audit_findings` (ALL)
+- `nightly_audit_runs::svc_audit_runs` (ALL)
+- `offers::admin_read` (SELECT)
+- `offers::sr_all` (ALL)
+- `ops_alert_events::admin_read` (SELECT)
+- `ops_alert_events::admin_read_alert_events` (SELECT)
+- `ops_alert_events::service_role_all` (ALL)
+- `ops_alert_events::sr_all` (ALL)
+- `ops_alerts::Admins can acknowledge ops_alerts` (UPDATE)
+- `ops_alerts::Admins can view ops_alerts` (SELECT)
+- `ops_alerts::Only service role can insert ops_alerts` (INSERT)
+- `ops_budget_exhausted_log::admin_read_budget_log` (SELECT)
+- `ops_budget_exhausted_log::service_role_all_budget_log` (ALL)
+- `ops_ddl_audit::admin_read` (SELECT)
+- `ops_ddl_audit::sr_all` (ALL)
+- `ops_forensic_findings::Admins can manage forensic findings` (ALL)
+- `ops_forensic_reports::Admins can manage forensic reports` (ALL)
+- `ops_guardrail_events::Admins can read guardrail events` (SELECT)
+- `ops_guardrail_events::Service role full access` (ALL)
+- `ops_health_snapshots::Admins can read ops snapshots` (SELECT)
+- `ops_health_snapshots::service_role_insert_ops_health_snapshots` (INSERT)
+- `ops_job_type_registry::service_role_all` (ALL)
+- `ops_nightly_audit_results::admin_read_audit_results` (SELECT)
+- `ops_nightly_audit_results::service_role_all_audit_results` (ALL)
+- `ops_pipeline_config::admin_read` (SELECT)
+- `ops_pipeline_config::sr_all` (ALL)
+- `ops_runtime_signals::srv_ops_signals` (ALL)
+- `ops_worker_heartbeats::admin_read` (SELECT)
+- `ops_worker_heartbeats::sr_all` (ALL)
+- `optimization_actions::admin_read` (SELECT)
+- `optimization_actions::service_role_all` (ALL)
+- `optimization_actions::sr_all` (ALL)
+- `optimization_observations::admin_read` (SELECT)
+- `optimization_observations::service_role_all` (ALL)
+- `optimization_observations::sr_all` (ALL)
+- `optimization_runs::admin_read` (SELECT)
+- `optimization_runs::service_role_all` (ALL)
+- `optimization_runs::sr_all` (ALL)
+- `oral_exam_blueprints::deny_all_oral_exam_blueprints` (ALL)
+- `oral_exam_questions::Users can create oral exam questions in their sessions` (INSERT)
+- `oral_exam_questions::Users can update oral exam questions in their sessions` (UPDATE)
+- `oral_exam_questions::Users can view their own oral exam questions` (SELECT)
+- `oral_exam_session_templates::Service role manages templates` (ALL)
+- `oral_exam_session_templates::pub_read` (SELECT)
+- `oral_exam_session_templates::sr_all` (ALL)
+- `oral_exam_sessions::Users can create their own oral exam sessions` (INSERT)
+- `oral_exam_sessions::Users can update their own oral exam sessions` (UPDATE)
+- `oral_exam_sessions::Users can view their own oral exam sessions` (SELECT)
+- `oral_exam_sessionsets::deny_all_oral_exam_sessionsets` (ALL)
+- `oral_exam_turns::admin_read` (SELECT)
+- `oral_exam_turns::service_role_all` (ALL)
+- `oral_exam_turns::sr_all` (ALL)
+- `oral_exam_turns::user_read_own` (SELECT)
+- `orchestrator_leases::admin_read` (SELECT)
+- `orchestrator_leases::sr_all` (ALL)
+- `order_items::Users can view their own order items` (SELECT)
+- `orders::Users can view own orders` (SELECT)
+- `orders::Users can view their own orders` (SELECT)
+- `org_audit_events::No direct client inserts on org_audit_events` (INSERT)
+- `org_audit_events::Org members can view own org audit events` (SELECT)
+- `org_audit_events::Platform admins can view all org audit events` (SELECT)
+- `org_entity_accounting_defaults::org_entity_defaults_insert_billing` (INSERT)
+- `org_entity_accounting_defaults::org_entity_defaults_select_members` (SELECT)
+- `org_entity_accounting_defaults::org_entity_defaults_update_billing` (UPDATE)
+- `org_import_job_rows::org_import_rows_select` (SELECT)
+- `org_import_jobs::org_import_jobs_insert` (INSERT)
+- `org_import_jobs::org_import_jobs_select` (SELECT)
+- `org_import_jobs::org_import_jobs_update` (UPDATE)
+- `org_intervention_events::org_admin_insert_events` (INSERT)
+- `org_intervention_events::org_admin_read_events` (SELECT)
+- `org_intervention_events::srv_full_intervention_events` (ALL)
+- `org_intervention_rules::org_admin_read_rules` (SELECT)
+- `org_intervention_rules::srv_full_intervention_rules` (ALL)
+- `org_interventions::org_admin_read_interventions` (SELECT)
+- `org_interventions::org_admin_update_interventions` (UPDATE)
+- `org_interventions::srv_full_interventions` (ALL)
+- `org_invoice_coding::org_invoice_coding_insert_billing` (INSERT)
+- `org_invoice_coding::org_invoice_coding_select_billing` (SELECT)
+- `org_invoice_coding::org_invoice_coding_update_billing` (UPDATE)
+- `org_license_assignments::Users can read own assignments` (SELECT)
+- `org_license_invites::Org admins can create invites` (INSERT)
+- `org_license_invites::Org members can view their org invites` (SELECT)
+- `org_license_seats::Org admins manage seats` (ALL)
+- `org_license_seats::Users see own seats` (SELECT)
+- `org_licenses::Org members can read licenses` (SELECT)
+- `org_links::Linked org admins can view links` (SELECT)
+- `org_links::Org admins can create links` (INSERT)
+- `org_links::Org admins can delete own links` (DELETE)
+- `org_links::Org admins can update own links` (UPDATE)
+- `org_links::Platform admins full access to org links` (ALL)
+- `org_memberships::org_admins_manage_memberships` (ALL)
+- `org_memberships::service_role_org_memberships` (ALL)
+- `org_memberships::users_read_own_memberships` (SELECT)
+- `org_privacy_access::org_privacy_access_select_members` (SELECT)
+- `org_privacy_access::org_privacy_access_update_admin` (UPDATE)
+- `org_report_runs::org_report_runs_insert_members` (INSERT)
+- `org_report_runs::org_report_runs_select_members` (SELECT)
+- `organization_entities::org_entities_insert_privileged` (INSERT)
+- `organization_entities::org_entities_select_members` (SELECT)
+- `organization_entities::org_entities_update_privileged` (UPDATE)
+- `organization_learners::org_learners_select_members` (SELECT)
+- `organization_seats::org_seats_select_members` (SELECT)
+- `organization_seats::org_seats_update_privileged` (UPDATE)
+- `organizations::org_select_members` (SELECT)
+- `outcome_tracking::Users insert own outcomes` (INSERT)
+- `outcome_tracking::Users read own outcomes` (SELECT)
+- `outcome_tracking::admin_read` (SELECT)
+- `outcome_tracking::service_role_manage_outcomes` (ALL)
+- `outcome_tracking::sr_all` (ALL)
+- `package_content_quality_summary::Admins can manage quality summary` (ALL)
+- `package_content_shards::service_role_all` (ALL)
+- `package_job_quarantine::admins can read quarantines` (SELECT)
+- `package_leases::Admins can read package_leases` (SELECT)
+- `package_leases::Service role manages package_leases` (ALL)
+- `package_progress_drift_audit::service_role_all` (ALL)
+- `package_quality_reports::srv_pqr` (ALL)
+- `package_quality_scores::admin_read` (SELECT)
+- `package_quality_scores::admin_read_pq_scores` (SELECT)
+- `package_quality_scores::service_role_all` (ALL)
+- `package_quality_scores::sr_all` (ALL)
+- `package_quality_summary::admin_read` (SELECT)
+- `package_quality_summary::admin_read_pqs` (SELECT)
+- `package_quality_summary::service_role_all_pqs` (ALL)
+- `package_quality_summary::sr_all` (ALL)
+- `package_quarantine::package_quarantine admin read` (SELECT)
+- `package_release_audit_snapshots::Admins can read release snapshots` (SELECT)
+- `package_steps::Admins can read package_steps` (SELECT)
+- `package_steps::No anon access to package_steps` (ALL)
+- `package_steps::Service role manages package_steps` (ALL)
+- `package_tags::pub_read` (SELECT)
+- `package_tags::sr_all` (ALL)
+- `partner_accounts::Partners can update own account` (UPDATE)
+- `partner_accounts::Partners can view own account` (SELECT)
+- `partner_assets::Partners can view active assets` (SELECT)
+- `partner_attributions::Partners can view own attributions` (SELECT)
+- `partner_audit_events::admin_read` (SELECT)
+- `partner_audit_events::sr_all` (ALL)
+- `partner_click_events::Partners can view own clicks` (SELECT)
+- `partner_commission_rules::Authenticated can read active rules` (SELECT)
+- `partner_commissions::Partners can view own commissions` (SELECT)
+- `partner_content_jobs::Partners insert own content jobs` (INSERT)
+- `partner_content_jobs::Partners see own content jobs` (SELECT)
+- `partner_leads::Partners can insert own leads` (INSERT)
+- `partner_leads::Partners can view own leads` (SELECT)
+- `partner_payout_requests::Partners can request payouts` (INSERT)
+- `partner_payout_requests::Partners can view own payouts` (SELECT)
+- `partner_tracking_links::Partners can insert own links` (INSERT)
+- `partner_tracking_links::Partners can update own links` (UPDATE)
+- `partner_tracking_links::Partners can view own links` (SELECT)
+- `pass_calculator_sessions::Admins read all calculator sessions` (SELECT)
+- `pass_calculator_sessions::Anyone can create calculator sessions` (INSERT)
+- `pass_calculator_sessions::Users can read own sessions` (SELECT)
+- `patch_proposals::Admins manage patch_proposals` (ALL)
+- `patch_revisions::Admins manage patch_revisions` (ALL)
+- `payments::Users can view their own payments` (SELECT)
+- `paywall_experiments::auth_read_active_experiments` (SELECT)
+- `paywall_experiments::service_role_paywall_experiments` (ALL)
+- `paywall_variants::auth_read_variants` (SELECT)
+- `paywall_variants::service_role_paywall_variants` (ALL)
+- `pending_enqueue_manual_review::Admins can update manual review queue` (UPDATE)
+- `pending_enqueue_manual_review::Admins can view manual review queue` (SELECT)
+- `pending_enqueue_reschedule_log::admin_read_perl` (SELECT)
+- `performance_metrics::admin_manage_perf` (ALL)
+- `performance_metrics::service_role_all_perf` (ALL)
+- `phantom_step_e2e_runs::Authenticated users can read` (SELECT)
+- `phantom_step_e2e_runs::Service role full access` (ALL)
+- `pipeline_active_packages::srv_pipeline_active` (ALL)
+- `pipeline_alerts::admin_read_pipeline_alerts` (SELECT)
+- `pipeline_alerts::admin_write_pipeline_alerts` (ALL)
+- `pipeline_capacity::srv_pipeline_cap` (ALL)
+- `pipeline_dag_edges::service_role_all` (ALL)
+- `pipeline_health_events::admin_read` (SELECT)
+- `pipeline_health_events::sr_all` (ALL)
+- `pipeline_lock::admin_read` (SELECT)
+- `pipeline_lock::sr_all` (ALL)
+- `pipeline_settings::admin_read` (SELECT)
+- `pipeline_settings::sr_all` (ALL)
+- `pipeline_step_order::Authenticated users can read pipeline_step_order` (SELECT)
+- `pipeline_step_order::admin_read` (SELECT)
+- `pipeline_step_order::service_role_all` (ALL)
+- `pipeline_step_order::sr_all` (ALL)
+- `platform_risk_scores::admin_read_risk_scores` (SELECT)
+- `platform_risk_scores::service_role_risk_scores` (ALL)
+- `platform_skus::Admins can manage SKUs` (ALL)
+- `platform_skus::Anyone can read active SKUs` (SELECT)
+- `portfolio_priority::admin_read` (SELECT)
+- `portfolio_priority::admin_read_portfolio` (SELECT)
+- `portfolio_priority::service_role_all` (ALL)
+- `portfolio_priority::sr_all` (ALL)
+- `post_validation_results::Admins can view validation results` (SELECT)
+- `post_validation_results::admin_read_post_validation_results` (SELECT)
+- `post_validation_results::service_role_post_validation_results` (ALL)
+- `premium_upgrade_runs::admin_read` (SELECT)
+- `premium_upgrade_runs::sr_all` (ALL)
+- `pricing_plans::Anon read active pricing_plans` (SELECT)
+- `pricing_plans::Authenticated read active pricing_plans` (SELECT)
+- `pricing_plans::Service role full access on pricing_plans` (ALL)
+- `pricing_rules::admin_read` (SELECT)
+- `pricing_rules::sr_all` (ALL)
+- `pricing_tier_stripe_map::pricing_tier_stripe_map_admin_select` (SELECT)
+- `priority_score_rules::Admins can manage priority_score_rules` (ALL)
+- `priority_scores::Admins can manage priority_scores` (ALL)
+- `process_documentation::Admins have full access to process_documentation` (ALL)
+- `process_executions::Admins have full access to process_executions` (ALL)
+- `product_artifact_mappings::Anyone can read artifact mappings` (SELECT)
+- `product_bundles::admin_read` (SELECT)
+- `product_bundles::sr_all` (ALL)
+- `product_categories::pub_read` (SELECT)
+- `product_categories::sr_all` (ALL)
+- `product_channel_configs::Anyone can read channel configs` (SELECT)
+- `product_factory_specs::admin_read` (SELECT)
+- `product_factory_specs::service_role_all` (ALL)
+- `product_factory_specs::sr_all` (ALL)
+- `product_features::product_features_admin_read` (SELECT)
+- `product_features::product_features_public_read` (SELECT)
+- `product_features::product_features_service_all` (ALL)
+- `product_landing_profiles::pub_read` (SELECT)
+- `product_landing_profiles::sr_all` (ALL)
+- `product_module_configs::pub_read` (SELECT)
+- `product_module_configs::sr_all` (ALL)
+- `product_page_overrides::Admins can manage product page overrides` (ALL)
+- `product_persona_overlays::persona_overlays_admin_write` (ALL)
+- `product_persona_overlays::persona_overlays_public_read_active` (SELECT)
+- `product_price_tiers::Admins can manage price tiers` (ALL)
+- `product_price_tiers::pub_read` (SELECT)
+- `product_price_tiers::sr_all` (ALL)
+- `product_prices::Anyone can view active prices` (SELECT)
+- `product_prices::Service role can manage prices` (ALL)
+- `product_pricing_configs::pub_read` (SELECT)
+- `product_pricing_configs::sr_all` (ALL)
+- `product_pricing_overrides::overrides_admin_read` (SELECT)
+- `product_pricing_overrides::overrides_admin_write` (ALL)
+- `product_pricing_tiers::tiers_admin_read` (SELECT)
+- `product_pricing_tiers::tiers_admin_write` (ALL)
+- `product_subcategories::pub_read` (SELECT)
+- `product_subcategories::sr_all` (ALL)
+- `product_tags::pub_read` (SELECT)
+- `product_tags::sr_all` (ALL)
+- `product_versions::Anyone can read product versions` (SELECT)
+- `production_quality_snapshots::admin_read_pqs` (SELECT)
+- `production_quality_snapshots::service_role_pqs` (ALL)
+- `production_wave_items::Admins can read production_wave_items` (SELECT)
+- `production_wave_items::Service role full access on production_wave_items` (ALL)
+- `production_waves::Admins can read production_waves` (SELECT)
+- `production_waves::Service role full access on production_waves` (ALL)
+- `products::Anon can read public products` (SELECT)
+- `products::Authenticated can read public/active products` (SELECT)
+- `products::pub_read` (SELECT)
+- `products::public_read_products` (SELECT)
+- `products::service_role_all` (ALL)
+- `products::sr_all` (ALL)
+- `profession_glossaries::Service role manages glossaries` (ALL)
+- `profession_glossaries::pub_read` (SELECT)
+- `profession_glossaries::sr_all` (ALL)
+- `profession_profiles::pub_read` (SELECT)
+- `profession_profiles::service_role_all` (ALL)
+- `profession_profiles::sr_all` (ALL)
+- `profiles::deny_anon_profiles` (ALL)
+- `profiles::no_profile_delete` (DELETE)
+- `profiles::profiles_admin_select_all` (SELECT)
+- `profiles::profiles_admin_update_all` (UPDATE)
+- `profiles::profiles_insert_own` (INSERT)
+- `profiles::profiles_select_own` (SELECT)
+- `profiles::profiles_update_own` (UPDATE)
+- `programs::Programs are manageable by admins` (ALL)
+- `programs::Programs are readable by authenticated users` (SELECT)
+- `progress_narratives::admin_progress_narratives` (ALL)
+- `progress_narratives::own_progress_narratives` (SELECT)
+- `promo_code_redemptions::Admins have full access to promo_code_redemptions` (ALL)
+- `promo_codes::Admins have full access to promo_codes` (ALL)
+- `promo_codes::Users can view active promo_codes` (SELECT)
+- `provider_intent_affinity::admin_read` (SELECT)
+- `provider_intent_affinity::sr_all` (ALL)
+- `provider_job_affinity::admin_read` (SELECT)
+- `provider_job_affinity::sr_all` (ALL)
+- `provider_performance::admin_read_pp` (SELECT)
+- `provider_performance::service_role_pp` (ALL)
+- `provider_pricing::admin_read` (SELECT)
+- `provider_pricing::sr_all` (ALL)
+- `provider_status::admin_read` (SELECT)
+- `provider_status::sr_all` (ALL)
+- `provider_usage_history::admin_read` (SELECT)
+- `provider_usage_history::sr_all` (ALL)
+- `qa_budgets::admin_all_qa_budgets` (ALL)
+- `qa_budgets::deny_all_qa_budgets` (ALL)
+- `qa_findings::admin_all_qa_findings` (ALL)
+- `qa_findings::deny_all_qa_findings` (ALL)
+- `qa_gate_rules::admin_all_qa_gate_rules` (ALL)
+- `qa_gate_rules::deny_all_qa_gate_rules` (ALL)
+- `qa_h5p_smoke_writes::admin_all_qa_h5p_smoke_writes` (ALL)
+- `qa_h5p_smoke_writes::deny_all_qa_h5p_smoke_writes` (ALL)
+- `qa_risk_acceptances::admin_all_qa_risk_acceptances` (ALL)
+- `qa_risk_acceptances::deny_all_qa_risk_acceptances` (ALL)
+- `qa_route_registry::admin_all_qa_route_registry` (ALL)
+- `qa_route_registry::deny_all_qa_route_registry` (ALL)
+- `qa_runs::admin_all_qa_runs` (ALL)
+- `qa_runs::deny_all_qa_runs` (ALL)
+- `qc_run_results::admin_read_qc_run_results` (SELECT)
+- `qc_run_results::service_role_insert_qc_run_results` (INSERT)
+- `qm_documents::Admins full access qm_documents` (ALL)
+- `qm_documents::Authenticated read approved qm_documents` (SELECT)
+- `qualification_blueprint_profiles::service_role_all_qbp` (ALL)
+- `qualification_candidates::admin_read` (SELECT)
+- `qualification_candidates::sr_all` (ALL)
+- `qualification_catalog::service_role_all_qualification_catalog` (ALL)
+- `qualification_curriculum_drafts::service_role_all_qual_drafts` (ALL)
+- `qualification_curriculum_map::service_role_all_qcm` (ALL)
+- `qualification_discovery_patterns::admin_read` (SELECT)
+- `qualification_discovery_patterns::sr_all` (ALL)
+- `qualification_draft_sections::service_role_all_qds` (ALL)
+- `qualification_fetch_queue::admin_read` (SELECT)
+- `qualification_fetch_queue::sr_all` (ALL)
+- `qualification_question_seed_runs::service_role_all_qqsr` (ALL)
+- `qualification_search_results::admin_read` (SELECT)
+- `qualification_search_results::sr_all` (ALL)
+- `qualification_search_runs::admin_read` (SELECT)
+- `qualification_search_runs::sr_all` (ALL)
+- `qualification_source_registry::admin_read` (SELECT)
+- `qualification_source_registry::sr_all` (ALL)
+- `qualification_wave_candidates::service_role_all_qual_wave` (ALL)
+- `quality_audit_snapshots::admin_read` (SELECT)
+- `quality_audit_snapshots::admin_read_qa_snapshots` (SELECT)
+- `quality_audit_snapshots::service_role_all` (ALL)
+- `quality_audit_snapshots::sr_all` (ALL)
+- `quality_checks::Admins can manage quality_checks` (ALL)
+- `quality_gate_results::admin_read_quality_gate_results` (SELECT)
+- `quality_gate_results::service_role_quality_gate_results` (ALL)
+- `quality_rules::srv_quality_rules` (ALL)
+- `quality_score_versions::admin_read` (SELECT)
+- `quality_score_versions::admin_read_qsv` (SELECT)
+- `quality_score_versions::service_role_all` (ALL)
+- `quality_score_versions::sr_all` (ALL)
+- `question_attempts::Service role can insert attempts` (INSERT)
+- `question_attempts::Users can view own attempts` (SELECT)
+- `question_blueprints::Admins can manage blueprints` (ALL)
+- `question_discrimination_stats::Admin read discrimination stats` (SELECT)
+- `question_discrimination_stats::admin_read` (SELECT)
+- `question_discrimination_stats::service_role_write_disc` (ALL)
+- `question_discrimination_stats::sr_all` (ALL)
+- `question_quality_metrics::admin_read` (SELECT)
+- `question_quality_metrics::admin_read_qqm` (SELECT)
+- `question_quality_metrics::service_role_all_qqm` (ALL)
+- `question_quality_metrics::sr_all` (ALL)
+- `question_skill_map::admin_read` (SELECT)
+- `question_skill_map::service_role_write_qsm` (ALL)
+- `question_skill_map::sr_all` (ALL)
+- `question_variant_stats::admin_read` (SELECT)
+- `question_variant_stats::admin_read_variant_stats` (SELECT)
+- `question_variant_stats::service_role_all` (ALL)
+- `question_variant_stats::sr_all` (ALL)
+- `queue_health_failed_snapshot::admins read failed snapshot` (SELECT)
+- `queue_health_snapshots::admins read queue snapshots` (SELECT)
+- `queue_validation_audit::qva_admin_read` (SELECT)
+- `quiz_attempts::quiz_attempts_admin_all` (ALL)
+- `quiz_attempts::quiz_attempts_anyone_insert` (INSERT)
+- `quiz_attempts::quiz_attempts_authed_owner_update` (UPDATE)
+- `quiz_attempts::quiz_attempts_owner_select` (SELECT)
+- `quiz_leads::quiz_leads_admin_all` (ALL)
+- `quiz_leads::quiz_leads_admin_read` (SELECT)
+- `quiz_questions::quiz_questions_admin_all` (ALL)
+- `quiz_questions::quiz_questions_public_read_active` (SELECT)
+- `rate_limits::deny_all_rate_limits` (ALL)
+- `readiness_scores::Users can insert own readiness scores` (INSERT)
+- `readiness_scores::Users can view own readiness scores` (SELECT)
+- `readiness_snapshots::Users can read own readiness` (SELECT)
+- `recovery_actions::Admins have full access to recovery_actions` (ALL)
+- `referral_claims::Users can view own referral claims` (SELECT)
+- `referral_invites::Users create referrals` (INSERT)
+- `referral_invites::Users read own referrals` (SELECT)
+- `referral_invites::admin_read` (SELECT)
+- `referral_invites::sr_all` (ALL)
+- `regulatory_updates::Admin full access on regulatory_updates` (ALL)
+- `remediation_sessions::Users create own remediation` (INSERT)
+- `remediation_sessions::Users see own remediation` (SELECT)
+- `remediation_sessions::Users update own remediation` (UPDATE)
+- `retention_actions::admin_read` (SELECT)
+- `retention_actions::sr_all` (ALL)
+- `retention_events::admin_retention_events` (ALL)
+- `retention_events::own_retention_events` (SELECT)
+- `revenue_events::Admins have full access to revenue_events` (ALL)
+- `revenue_metrics_daily::admin_read` (SELECT)
+- `revenue_metrics_daily::sr_all` (ALL)
+- `risk_scores::Admin only risk_scores` (ALL)
+- `roi_decision_rules::admin_read` (SELECT)
+- `roi_decision_rules::sr_all` (ALL)
+- `rollout_control::admin_read` (SELECT)
+- `rollout_control::admin_read_rollout` (SELECT)
+- `rollout_control::service_role_all` (ALL)
+- `rollout_control::sr_all` (ALL)
+- `rpc_revoke_plan::admin_read_rpc_revoke_plan` (SELECT)
+- `rpc_version_registry::Admins can read rpc_version_registry` (SELECT)
+- `rpc_version_registry::Service role full access on rpc_version_registry` (ALL)
+- `runbook_entries::admin_read` (SELECT)
+- `runbook_entries::admin_read_runbooks` (SELECT)
+- `runbook_entries::service_role_all` (ALL)
+- `runbook_entries::sr_all` (ALL)
+- `runner_health_log::admin_read_runner_health` (SELECT)
+- `runner_health_log::service_role_all_runner_health` (ALL)
+- `runner_tick_telemetry::admins_select_runner_tick_telemetry` (SELECT)
+- `runner_tick_telemetry::service_role_all_runner_tick_telemetry` (ALL)
+- `sales_leads::Auth users can insert own sales_leads` (INSERT)
+- `sales_leads::Service role full access on sales_leads` (ALL)
+- `schema_contract_expectations::service_role full` (ALL)
+- `schema_contracts::Admin read schema_contracts` (SELECT)
+- `schema_contracts::Service role full access schema_contracts` (ALL)
+- `schema_drift_audit::service_role full` (ALL)
+- `schema_drift_log::Admin read schema_drift_log` (SELECT)
+- `schema_drift_log::Service role full access schema_drift_log` (ALL)
+- `schema_version_ledger::Admin read schema_version_ledger` (SELECT)
+- `schema_version_ledger::Service role full access schema_version_ledger` (ALL)
+- `school_classes::Instructors can view assigned classes` (SELECT)
+- `school_classes::Org admins can manage classes` (ALL)
+- `school_classes::Platform admins full access to classes` (ALL)
+- `scim_mappings::Admins can manage SCIM mappings` (ALL)
+- `scim_tokens::Admins can manage SCIM tokens` (ALL)
+- `seat_device_log::admin_all_seat_device_log` (ALL)
+- `seat_device_log::deny_all_seat_device_log` (ALL)
+- `security_anomaly_config::admin_all_security_anomaly_config` (ALL)
+- `security_anomaly_config::deny_all_security_anomaly_config` (ALL)
+- `security_anon_allowlist::Admins read allowlist` (SELECT)
+- `security_audit_snapshots::admin_read_security_audit` (SELECT)
+- `security_audit_snapshots::service_role_security_audit` (ALL)
+- `security_blocks::admin_all_security_blocks` (ALL)
+- `security_blocks::deny_all_security_blocks` (ALL)
+- `security_events::admin_all_security_events` (ALL)
+- `security_events::deny_all_security_events` (ALL)
+- `security_finding_exception_history::Admins can insert exception history` (INSERT)
+- `security_finding_exception_history::Admins can read exception history` (SELECT)
+- `security_finding_exception_history::Service role full access exception history` (ALL)
+- `security_finding_exceptions::Admins can delete finding exceptions` (DELETE)
+- `security_finding_exceptions::Admins can insert finding exceptions` (INSERT)
+- `security_finding_exceptions::Admins can read finding exceptions` (SELECT)
+- `security_finding_exceptions::Admins can update finding exceptions` (UPDATE)
+- `security_finding_exceptions::Service role full access finding exceptions` (ALL)
+- `security_otp_challenges::admin_all_security_otp_challenges` (ALL)
+- `security_otp_challenges::deny_all_security_otp_challenges` (ALL)
+- `security_rate_limits::admin_all_security_rate_limits` (ALL)
+- `security_rate_limits::deny_all_security_rate_limits` (ALL)
+- `security_reviews::admin_all_security_reviews` (ALL)
+- `security_reviews::deny_all_security_reviews` (ALL)
+- `seo_content_audits::Admins can manage content audits` (ALL)
+- `seo_content_briefs::Admins can manage content briefs` (ALL)
+- `seo_content_pages::Admins can read all seo pages` (SELECT)
+- `seo_content_pages::Public can read published seo pages` (SELECT)
+- `seo_content_pages::Service role full access on seo_content_pages` (ALL)
+- `seo_discovery_state::Admins can manage discovery state` (ALL)
+- `seo_documents::Published SEO docs are public` (SELECT)
+- `seo_documents::admin_manage_seo_documents` (ALL)
+- `seo_documents::service_role_seo_documents` (ALL)
+- `seo_generation_jobs::admin_read_seo_generation_jobs` (SELECT)
+- `seo_generation_jobs::service_role_seo_generation_jobs` (ALL)
+- `seo_internal_link_suggestions::Admins can manage link suggestions` (ALL)
+- `seo_keyword_clusters::Admins can manage keyword clusters` (ALL)
+- `seo_keywords::Admins can manage keywords` (ALL)
+- `seo_redirects::admin_all` (ALL)
+- `seo_redirects::admin_manage_redirects` (ALL)
+- `seo_redirects::public_read_redirects` (SELECT)
+- `seo_redirects::service_role_all_sr` (ALL)
+- `seo_redirects::sr_all` (ALL)
+- `seo_refresh_queue::Admins can manage refresh queue` (ALL)
+- `seo_settings::Admins have full access to seo_settings` (ALL)
+- `seo_submission_logs::Admins can manage submission logs` (ALL)
+- `seo_templates::admin_manage_seo_templates` (ALL)
+- `seo_templates::service_role_seo_templates` (ALL)
+- `share_actions::share_actions_insert_own` (INSERT)
+- `share_actions::share_actions_select_own` (SELECT)
+- `share_email_recipients::share_recipients_insert_own` (INSERT)
+- `share_email_recipients::share_recipients_select_own` (SELECT)
+- `share_email_recipients::share_recipients_update_own` (UPDATE)
+- `share_events::share_events_select_own` (SELECT)
+- `share_events::share_events_update_own` (UPDATE)
+- `share_preferences::share_prefs_insert_own` (INSERT)
+- `share_preferences::share_prefs_select_own` (SELECT)
+- `share_preferences::share_prefs_update_own` (UPDATE)
+- `shuttle_events::shuttle_events_insert_own` (INSERT)
+- `shuttle_events::shuttle_events_select_own` (SELECT)
+- `shuttle_question_state::shuttle_qstate_insert_own` (INSERT)
+- `shuttle_question_state::shuttle_qstate_select_own` (SELECT)
+- `shuttle_question_state::shuttle_qstate_update_own` (UPDATE)
+- `shuttle_sessions::shuttle_sessions_insert_own` (INSERT)
+- `shuttle_sessions::shuttle_sessions_select_own` (SELECT)
+- `shuttle_sessions::shuttle_sessions_update_own` (UPDATE)
+- `shuttle_user_stats::shuttle_user_stats_insert_own` (INSERT)
+- `shuttle_user_stats::shuttle_user_stats_select_own` (SELECT)
+- `shuttle_user_stats::shuttle_user_stats_update_own` (UPDATE)
+- `skill_nodes::pub_read` (SELECT)
+- `skill_nodes::service_role_write_skills` (ALL)
+- `skill_nodes::sr_all` (ALL)
+- `slo_metrics::admin_read` (SELECT)
+- `slo_metrics::admin_read_slo` (SELECT)
+- `slo_metrics::service_role_all` (ALL)
+- `slo_metrics::sr_all` (ALL)
+- `social_calendar_items::Admins can manage social calendar` (ALL)
+- `social_campaigns::Admins can manage social campaigns` (ALL)
+- `social_content_items::Admins can manage social content items` (ALL)
+- `social_lead_magnets::Admins can manage social lead magnets` (ALL)
+- `social_nurture_sequences::Admins can manage nurture sequences` (ALL)
+- `social_nurture_steps::Admins can manage nurture steps` (ALL)
+- `spaced_repetition_cards::Users can delete own cards` (DELETE)
+- `spaced_repetition_cards::Users can insert own cards` (INSERT)
+- `spaced_repetition_cards::Users can update own cards` (UPDATE)
+- `spaced_repetition_cards::Users can view own cards` (SELECT)
+- `spaced_repetition_reviews::Users can insert own reviews` (INSERT)
+- `spaced_repetition_reviews::Users can view own reviews` (SELECT)
+- `spaced_repetition_sessions::Users can insert own sessions` (INSERT)
+- `spaced_repetition_sessions::Users can update own sessions` (UPDATE)
+- `spaced_repetition_sessions::Users can view own sessions` (SELECT)
+- `sso_connections::Admins can manage SSO connections` (ALL)
+- `sso_login_events::Admins can read SSO events` (SELECT)
+- `sso_login_events::Service role inserts SSO events` (INSERT)
+- `ssot_validator_failure_log::ssot_validator_failure_log_admin_read` (SELECT)
+- `standalone_artifact_versions::admin_read` (SELECT)
+- `standalone_artifact_versions::service_role_all` (ALL)
+- `standalone_artifact_versions::sr_all` (ALL)
+- `standalone_backup_targets::admin_read` (SELECT)
+- `standalone_backup_targets::service_role_all` (ALL)
+- `standalone_backup_targets::sr_all` (ALL)
+- `standalone_backups::admin_read` (SELECT)
+- `standalone_backups::service_role_all` (ALL)
+- `standalone_backups::sr_all` (ALL)
+- `standalone_license_devices::admin_read` (SELECT)
+- `standalone_license_devices::service_role_all` (ALL)
+- `standalone_license_devices::sr_all` (ALL)
+- `standalone_license_events::admin_read` (SELECT)
+- `standalone_license_events::service_role_all` (ALL)
+- `standalone_license_events::sr_all` (ALL)
+- `standalone_licenses::admin_read` (SELECT)
+- `standalone_licenses::service_role_all` (ALL)
+- `standalone_licenses::sr_all` (ALL)
+- `standalone_restore_events::admin_read` (SELECT)
+- `standalone_restore_events::service_role_all` (ALL)
+- `standalone_restore_events::sr_all` (ALL)
+- `step_dag_edges::pub_read` (SELECT)
+- `step_dag_edges::sr_all` (ALL)
+- `step_done_meta_audit::step_done_audit_admin_select` (SELECT)
+- `step_job_mapping::step_job_mapping_read` (SELECT)
+- `step_metrics::admin_read` (SELECT)
+- `step_metrics::sr_all` (ALL)
+- `store_policy_flags::Admins can manage store policy flags` (ALL)
+- `store_policy_flags::pub_read` (SELECT)
+- `store_policy_flags::sr_all` (ALL)
+- `store_products::Admins can manage products` (ALL)
+- `store_products::Products are viewable by everyone` (SELECT)
+- `store_receipts::Service can manage receipts` (ALL)
+- `store_receipts::Users can view own receipts` (SELECT)
+- `stripe_event_log::admin_all_stripe_event_log` (ALL)
+- `stripe_event_log::deny_all_stripe_event_log` (ALL)
+- `stripe_price_sync_audit::stripe_price_sync_audit_admin_select` (SELECT)
+- `support_ai_responses::Admins can view all AI responses` (SELECT)
+- `support_ai_responses::Users can view their own AI responses` (SELECT)
+- `support_ai_responses::service_role_insert_support_ai_responses` (INSERT)
+- `support_faq::Admins can manage FAQs` (ALL)
+- `support_faq::Anyone can read published FAQs` (SELECT)
+- `support_feedback_loop::Admins can manage feedback loop` (ALL)
+- `support_suggestions::Admins can manage suggestions` (ALL)
+- `support_suggestions::Anyone can read active suggestions` (SELECT)
+- `support_tickets::Admins have full access to support_tickets` (ALL)
+- `support_tickets::Users can create tickets` (INSERT)
+- `support_tickets::Users can view own tickets` (SELECT)
+- `synth_cohort_runs::synth_cohort_runs_admin_all` (ALL)
+- `synth_didactic_findings::synth_didactic_findings_admin_read` (SELECT)
+- `synth_mastery_calibration::synth_mastery_calibration_admin_read` (SELECT)
+- `synth_personas::synth_personas_admin_read` (SELECT)
+- `synth_session_results::synth_session_results_admin_read` (SELECT)
+- `synthetic_test_results::admin_read` (SELECT)
+- `synthetic_test_results::admin_read_synthetic` (SELECT)
+- `synthetic_test_results::service_role_all` (ALL)
+- `synthetic_test_results::sr_all` (ALL)
+- `system_alerts::Admins have full access to system_alerts` (ALL)
+- `system_audit_actions::admin_read_audit_actions` (SELECT)
+- `system_audit_actions::service_role_full_access` (ALL)
+- `system_audit_findings::admin_read_audit_findings` (SELECT)
+- `system_audit_findings::service_role_full_access` (ALL)
+- `system_audit_runs::admin_read_audit_runs` (SELECT)
+- `system_audit_runs::service_role_full_access` (ALL)
+- `system_backups::Admins have full access to system_backups` (ALL)
+- `system_contract_registry::admin_read` (SELECT)
+- `system_contract_registry::sr_all` (ALL)
+- `system_contract_violations::admin_read` (SELECT)
+- `system_contract_violations::sr_all` (ALL)
+- `system_cron_executions::admin_read` (SELECT)
+- `system_cron_executions::sr_all` (ALL)
+- `system_cron_registry::admin_read` (SELECT)
+- `system_cron_registry::sr_all` (ALL)
+- `system_cron_runs::admin_read` (SELECT)
+- `system_cron_runs::sr_all` (ALL)
+- `system_enum_registry::admin_read` (SELECT)
+- `system_enum_registry::sr_all` (ALL)
+- `system_execution_leases::admin_read` (SELECT)
+- `system_execution_leases::sr_all` (ALL)
+- `system_heal_log::admin_read` (SELECT)
+- `system_heal_log::sr_all` (ALL)
+- `system_health_assertions::admin_read` (SELECT)
+- `system_health_assertions::sr_all` (ALL)
+- `system_health_checks::Admins have full access to system_health_checks` (ALL)
+- `system_intents::service_role_full_access_system_intents` (ALL)
+- `system_optimization_reports::admin_manage_opt_reports` (ALL)
+- `system_optimization_reports::service_role_all_opt` (ALL)
+- `system_orphan_executions::admin_read` (SELECT)
+- `system_orphan_executions::sr_all` (ALL)
+- `system_probe_alerts::admin_read` (SELECT)
+- `system_probe_alerts::sr_all` (ALL)
+- `system_probe_definitions::admin_read` (SELECT)
+- `system_probe_definitions::sr_all` (ALL)
+- `system_probe_results::admin_read` (SELECT)
+- `system_probe_results::sr_all` (ALL)
+- `system_probe_runs::admin_read` (SELECT)
+- `system_probe_runs::sr_all` (ALL)
+- `system_regression_snapshots::admin_read` (SELECT)
+- `system_regression_snapshots::sr_all` (ALL)
+- `system_retry_policies::admin_read` (SELECT)
+- `system_retry_policies::sr_all` (ALL)
+- `system_runner_registry::admin_read` (SELECT)
+- `system_runner_registry::sr_all` (ALL)
+- `system_scheduler_guardrails::admin_read` (SELECT)
+- `system_scheduler_guardrails::sr_all` (ALL)
+- `system_ssot_mappings::admin_read` (SELECT)
+- `system_ssot_mappings::sr_all` (ALL)
+- `tag_groups::pub_read` (SELECT)
+- `tag_groups::sr_all` (ALL)
+- `tech_council_findings::admin_read_tech_council_findings` (SELECT)
+- `tech_council_findings::service_role_tech_council_findings` (ALL)
+- `tenant_release_gates::admin_manage_tenant_gates` (ALL)
+- `tenant_release_gates::service_role_tenant_gates` (ALL)
+- `test_results::Admins can read test_results` (SELECT)
+- `test_results::Service can manage test_results` (ALL)
+- `test_runs::Admins can read test_runs` (SELECT)
+- `test_runs::Service can manage test_runs` (ALL)
+- `ticket_links::ticket_links_admin_all` (ALL)
+- `ticket_links::ticket_links_insert_own` (INSERT)
+- `ticket_links::ticket_links_select_own` (SELECT)
+- `ticket_messages::Admins have full access to ticket_messages` (ALL)
+- `ticket_messages::Users can add ticket messages` (INSERT)
+- `ticket_messages::Users can view own ticket messages` (SELECT)
+- `track_step_applicability::track_step_applicability_read_all` (SELECT)
+- `tracking_events::Anon users can insert tracking events` (INSERT)
+- `tracking_events::Authenticated users can insert tracking events` (INSERT)
+- `tracking_events::Service role can read all tracking events` (SELECT)
+- `trap_content_pages::Admins manage trap content` (ALL)
+- `trap_content_pages::Public read for published trap content` (SELECT)
+- `trap_distribution_rules::Service role full access` (ALL)
+- `triage_policy::Admin read triage_policy` (SELECT)
+- `tutor_assets::admin_all_tutor_assets` (ALL)
+- `tutor_assets::deny_all_tutor_assets` (ALL)
+- `ugc_content::admin_read` (SELECT)
+- `ugc_content::sr_all` (ALL)
+- `ui_content_blocks::admin_all_blocks` (ALL)
+- `ui_content_blocks::pub_read_blocks` (SELECT)
+- `urgency_signals::admin_read` (SELECT)
+- `urgency_signals::sr_all` (ALL)
+- `user_ability_profiles::Users can insert own ability profile` (INSERT)
+- `user_ability_profiles::Users can update own ability profile` (UPDATE)
+- `user_ability_profiles::Users can view own ability profile` (SELECT)
+- `user_activity_log::Admins have full access to user_activity_log` (ALL)
+- `user_badges::Service role inserts badges` (INSERT)
+- `user_badges::Users insert own badges` (INSERT)
+- `user_badges::Users read own badges` (SELECT)
+- `user_badges::Users update own badges` (UPDATE)
+- `user_competency_mastery::Users can update own mastery` (UPDATE)
+- `user_competency_mastery::Users can upsert own mastery` (INSERT)
+- `user_competency_mastery::Users can view own mastery` (SELECT)
+- `user_competency_progress::Users can insert own mastery` (INSERT)
+- `user_competency_progress::Users can read own mastery` (SELECT)
+- `user_competency_progress::Users can update own mastery` (UPDATE)
+- `user_competency_stats::Users can manage their own stats` (ALL)
+- `user_device_bindings::admin_all_user_device_bindings` (ALL)
+- `user_device_bindings::deny_all_user_device_bindings` (ALL)
+- `user_exam_skill_events::Users can read own exam skill events` (SELECT)
+- `user_humor_preferences::user_humor_prefs_insert_own` (INSERT)
+- `user_humor_preferences::user_humor_prefs_select_own` (SELECT)
+- `user_humor_preferences::user_humor_prefs_update_own` (UPDATE)
+- `user_learning_streaks::Users can manage own streaks` (ALL)
+- `user_learning_streaks::Users can view own streaks` (SELECT)
+- `user_minicheck_skill_events::Users can read own minicheck skill events` (SELECT)
+- `user_recommendations::Service role full access on recommendations` (ALL)
+- `user_recommendations::Users read own recommendations` (SELECT)
+- `user_recommendations::Users update own recommendations` (UPDATE)
+- `user_remediation_queue::System manages remediation` (ALL)
+- `user_remediation_queue::Users see own remediation` (SELECT)
+- `user_revenue_profile::admin_read` (SELECT)
+- `user_revenue_profile::sr_all` (ALL)
+- `user_roles::Admins can manage roles` (ALL)
+- `user_roles::Admins can view all roles` (SELECT)
+- `user_roles::Users can view their own roles` (SELECT)
+- `user_skill_scores::Users read own skill scores` (SELECT)
+- `user_skill_scores::admin_read` (SELECT)
+- `user_skill_scores::sr_all` (ALL)
+- `user_skill_scores::user_read_own` (SELECT)
+- `user_streaks::Users insert own streaks` (INSERT)
+- `user_streaks::Users see own streaks` (SELECT)
+- `user_streaks::Users update own streaks` (UPDATE)
+- `user_tickets::user_tickets_delete_admin` (DELETE)
+- `user_tickets::user_tickets_insert_own` (INSERT)
+- `user_tickets::user_tickets_select_admin` (SELECT)
+- `user_tickets::user_tickets_select_own` (SELECT)
+- `user_tickets::user_tickets_update_admin` (UPDATE)
+- `vark_assessments::Users can manage own vark` (ALL)
+- `vark_assessments::Users can view own vark` (SELECT)
+- `video_jobs::Service role full access on video_jobs` (ALL)
+- `video_scripts::Admins can view video scripts` (SELECT)
+- `viral_hooks::admin_read` (SELECT)
+- `viral_hooks::sr_all` (ALL)
+- `wave_governance_decisions::admin_read` (SELECT)
+- `wave_governance_decisions::sr_all` (ALL)
+- `weakness_assignments::Users can manage own weakness assignments` (ALL)
+- `weakness_assignments::Users can view own weakness assignments` (SELECT)
+- `work_affiliate_clicks::admin_read` (SELECT)
+- `work_affiliate_clicks::sr_all` (ALL)
+- `work_affiliate_payouts::admin_read` (SELECT)
+- `work_affiliate_payouts::sr_all` (ALL)
+- `work_affiliates::admin_read` (SELECT)
+- `work_affiliates::sr_all` (ALL)
+- `work_articles::Admins can manage articles` (ALL)
+- `work_articles::Public can read published articles` (SELECT)
+- `work_berufe::Admins can manage berufe` (ALL)
+- `work_berufe::Public can read published berufe` (SELECT)
+- `work_brand_themes::Admins manage themes` (ALL)
+- `work_brand_themes::pub_read` (SELECT)
+- `work_brand_themes::sr_all` (ALL)
+- `work_bundle_assets::Admins manage bundle assets` (ALL)
+- `work_bundle_purchases::admin_read` (SELECT)
+- `work_bundle_purchases::sr_all` (ALL)
+- `work_bundles::Admins manage bundles` (ALL)
+- `work_bundles::Public can read active bundles` (SELECT)
+- `work_corporate_commerce::admin_read` (SELECT)
+- `work_corporate_commerce::sr_all` (ALL)
+- `work_coupon_redemptions::admin_read` (SELECT)
+- `work_coupon_redemptions::sr_all` (ALL)
+- `work_coupons::admin_read` (SELECT)
+- `work_coupons::sr_all` (ALL)
+- `work_cover_assets::Admins manage covers` (ALL)
+- `work_cover_assets::pub_read` (SELECT)
+- `work_cover_assets::sr_all` (ALL)
+- `work_email_outbox::admin_read` (SELECT)
+- `work_email_outbox::sr_all` (ALL)
+- `work_license_events::Admins read license events` (SELECT)
+- `work_license_events::Service role inserts license events` (INSERT)
+- `work_license_keys::Admins manage license keys` (ALL)
+- `work_licenses::Admins manage licenses` (ALL)
+- `work_licenses::Org admins can read own licenses` (SELECT)
+- `work_org_members::Admins manage members` (ALL)
+- `work_org_members::Org members can read own membership` (SELECT)
+- `work_organizations::Admins manage orgs` (ALL)
+- `work_organizations::Org admins can read own org` (SELECT)
+- `work_pdf_exports::Admins manage pdf exports` (ALL)
+- `work_pdf_templates::Admins manage templates` (ALL)
+- `work_pdf_templates::pub_read` (SELECT)
+- `work_pdf_templates::sr_all` (ALL)
+- `work_produkte::Admins can manage produkte` (ALL)
+- `work_produkte::Public can read published produkte` (SELECT)
+- `work_purchases::Admins can read all purchases` (SELECT)
+- `work_purchases::Service can insert purchases` (INSERT)
+- `work_purchases::Users can read own purchases` (SELECT)
+- `worker_scaling_policies::admin_read` (SELECT)
+- `worker_scaling_policies::sr_all` (ALL)
+- `zombie_log_throttle::service_role_full_access_zombie_throttle` (ALL)

@@ -45,6 +45,7 @@ export type FunnelEventType =
   | "exam_attempt"
   // ── Funnel-Tiefen-Events ──
   | "page_view"
+  | "landing_view"
   | "add_to_cart"
   // ── Heatmap / CTA-Sichtbarkeit (Loop A Optimierung) ──
   | "heatmap_click"

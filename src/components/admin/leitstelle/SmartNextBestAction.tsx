@@ -133,6 +133,11 @@ export function SmartNextBestAction() {
     }
 
     // 4) Failed Tail (retriable)
+    //    WICHTIG: terminale Verdicts (STALE_REAP_LOOP_TERMINAL, BRONZE_LOCK,
+    //    PHANTOM_STEP_BLOCKED) sind KEINE transienten Fehler — sie wurden
+    //    bewusst hart gefailed und werden von requeue_failed_jobs() ignoriert.
+    //    Sie als "retriable" zu zählen erzeugte das berüchtigte Fehlsignal
+    //    "73 fehlgeschlagene Jobs erneut einreihen".
     const failedRetriable = jobs.filter(
       (j) => j.job_status === "failed" && j.health_signal === "retriable",
     );
@@ -140,7 +145,7 @@ export function SmartNextBestAction() {
       out.push({
         id: "failed-requeue",
         title: `${failedRetriable.length} fehlgeschlagene Jobs erneut einreihen`,
-        reason: "Transiente Fehler (HTTP 5xx, Timeouts) — Bulk-Requeue resolvet die meisten.",
+        reason: "Transiente Fehler (HTTP 5xx, Timeouts) — Bulk-Requeue resolvet die meisten. Terminale Verdicts wie STALE_REAP_LOOP_TERMINAL sind ausgeschlossen.",
         impact: "Beschleunigt Pipeline-Throughput",
         risk: "med",
         icon: RefreshCcw,

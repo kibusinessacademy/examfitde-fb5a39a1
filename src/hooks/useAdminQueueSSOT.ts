@@ -23,7 +23,27 @@ export interface AdminQueueJob {
   package_status: string | null;
   meta: Record<string, unknown> | null;
   age_minutes: number;
-  health_signal: 'zombie' | 'stale_lock' | 'exhausted' | 'retriable' | 'aging' | 'normal';
+  health_signal: 'zombie' | 'stale_lock' | 'exhausted' | 'retriable' | 'aging' | 'normal' | 'terminal';
+}
+
+/**
+ * Terminal failure markers — Jobs that the Reaper Anti-Loop or other guards
+ * have hard-failed on purpose. They MUST NOT be classified as `retriable`,
+ * because Bulk-Requeue will refuse them (auto_heal_log: terminal_skipped) and
+ * Smart-NBA otherwise mis-counts them as transient throughput losses.
+ *
+ * Add new patterns here when introducing further terminal verdicts.
+ */
+export const TERMINAL_ERROR_PATTERNS: readonly string[] = [
+  'STALE_REAP_LOOP_TERMINAL',
+  'BRONZE_LOCK_TERMINAL',
+  'PHANTOM_STEP_BLOCKED',
+] as const;
+
+export function isTerminalFailure(lastError: string | null | undefined): boolean {
+  if (!lastError) return false;
+  const upper = lastError.toUpperCase();
+  return TERMINAL_ERROR_PATTERNS.some((p) => upper.includes(p));
 }
 
 export interface QueueCounts {
@@ -45,6 +65,9 @@ function toMinutesAgo(ts: string | null | undefined): number {
 }
 
 function inferHealthSignal(status: string, attempts: number, maxAttempts: number, lastError: string | null, startedAt?: string | null): QueueHealthSignal {
+  // Terminal verdicts FIRST — must override exhausted/retriable so Smart-NBA
+  // and Bulk-Requeue do not treat them as transient.
+  if (isTerminalFailure(lastError)) return 'terminal';
   if (status === 'failed' && maxAttempts > 0 && attempts >= maxAttempts) return 'exhausted';
   if (status === 'failed') return 'retriable';
   if (status === 'processing') {
@@ -89,10 +112,16 @@ function normalizeQueueJob(row: Partial<AdminQueueJob>): AdminQueueJob {
   const lastError = typeof row.last_error === 'string' ? row.last_error : null;
   const jobStatus = typeof row.job_status === 'string' ? row.job_status : 'pending';
   const rawHealth = row.health_signal as string | undefined;
-  const healthSignal: QueueHealthSignal = rawHealth === 'ok' ? 'normal'
-    : rawHealth && ['zombie', 'stale_lock', 'exhausted', 'retriable', 'aging', 'normal'].includes(rawHealth)
+  // SSOT-Override: terminal verdicts (STALE_REAP_LOOP_TERMINAL, BRONZE_LOCK,
+  // PHANTOM_STEP_BLOCKED) müssen IMMER aus last_error abgeleitet werden,
+  // damit ein veralteter raw `retriable`-Wert aus der View nicht durchsickert.
+  const inferred = inferHealthSignal(jobStatus, attempts, maxAttempts, lastError, typeof row.started_at === 'string' ? row.started_at : null);
+  const healthSignal: QueueHealthSignal = inferred === 'terminal'
+    ? 'terminal'
+    : rawHealth === 'ok' ? 'normal'
+    : rawHealth && ['zombie', 'stale_lock', 'exhausted', 'retriable', 'aging', 'normal', 'terminal'].includes(rawHealth)
       ? (rawHealth as QueueHealthSignal)
-      : inferHealthSignal(jobStatus, attempts, maxAttempts, lastError, typeof row.started_at === 'string' ? row.started_at : null);
+      : inferred;
 
   return {
     job_id: typeof row.job_id === 'string' && row.job_id.length > 0

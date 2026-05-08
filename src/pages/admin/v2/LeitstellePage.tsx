@@ -41,6 +41,7 @@ const SalesDemoPanel = lazy(() => import('@/components/admin/enterprise/SalesDem
 
 const RepairExhaustedAlert = lazy(() => import('@/components/admin/cards/RepairExhaustedAlert').then(m => ({ default: m.RepairExhaustedAlert })));
 const SmartNextBestAction = lazy(() => import('@/components/admin/leitstelle/SmartNextBestAction').then(m => ({ default: m.SmartNextBestAction })));
+const PublishWorkflowStatusCard = lazy(() => import('@/components/admin/leitstelle/PublishWorkflowStatusCard').then(m => ({ default: m.PublishWorkflowStatusCard })));
 const RealtimePulse = lazy(() => import('@/components/admin/leitstelle/RealtimePulse').then(m => ({ default: m.RealtimePulse })));
 const BlockedPackagesCard = lazy(() => import('@/components/admin/heal/BlockedPackagesCard').then(m => ({ default: m.BlockedPackagesCard })));
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
@@ -213,6 +214,13 @@ export default function LeitstellePage() {
       <AdminCardBoundary label="Smart Next-Best-Action">
         <Suspense fallback={null}>
           <SmartNextBestAction />
+        </Suspense>
+      </AdminCardBoundary>
+
+      {/* ═══ Publish-Workflow Status (Drift-Detektor) ═══ */}
+      <AdminCardBoundary label="Publish-Workflow Status">
+        <Suspense fallback={null}>
+          <PublishWorkflowStatusCard />
         </Suspense>
       </AdminCardBoundary>
 
