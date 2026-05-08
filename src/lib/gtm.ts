@@ -177,3 +177,136 @@ export function setConsent(decision: ConsentDecision): void {
     consent_ad: decision.ad,
   });
 }
+
+// ───────────────────────── Funnel Fan-out (DataLayer-First) ─────────────────────────
+/**
+ * Maps internal FunnelEventType (conversion_events SSOT) to the canonical
+ * GTM event name used in the GTM container. Frontend keeps writing one event
+ * via `trackFunnel(...)` — this layer mirrors it to `window.dataLayer` so GTM
+ * can fan out to GA4 / Google Ads / Meta / Matomo / etc. without React-Code-Edits.
+ *
+ * Rule: Frontend pusht NUR DataLayer-Events. Pixel-Logik lebt im GTM-Container.
+ */
+const FUNNEL_TO_GTM_EVENT: Record<string, string> = {
+  hero_cta_click: "cta_clicked",
+  cta_clicked: "cta_clicked",
+  cta_visible: "cta_visible",
+  pricing_view: "pricing_view",
+  page_view: "landing_view",
+  add_to_cart: "add_to_cart",
+  checkout_start: "checkout_started",
+  checkout_complete: "purchase_completed",
+  lead_magnet_view: "lead_magnet_viewed",
+  lead_magnet_download: "lead_magnet_downloaded",
+  quiz_started: "quiz_started",
+  quiz_start: "quiz_started",
+  quiz_completed: "quiz_completed",
+  quiz_complete: "quiz_completed",
+  quiz_cta_clicked: "cta_clicked",
+  bundle_cta_clicked: "cta_clicked",
+  lead_capture_submitted: "lead_captured",
+  lernplan_viewed: "lernplan_viewed",
+  doi_confirmed: "doi_confirmed",
+  course_open: "course_opened",
+  exam_attempt: "exam_attempt",
+  heatmap_click: "heatmap_click",
+  heatmap_scroll_depth: "scroll_depth",
+};
+
+export type FunnelDataLayerPayload = {
+  package_id?: string | null;
+  persona?: string | null;
+  curriculum_id?: string | null;
+  source_page?: string | null;
+  page_path?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+/** Fan-out helper: ein FunnelEvent → DataLayer-Push mit kanonischen Top-Level-Feldern. */
+export function gtmEmitFunnel(
+  funnelEventType: string,
+  opts: FunnelDataLayerPayload = {}
+): void {
+  const gtmEvent = FUNNEL_TO_GTM_EVENT[funnelEventType] ?? funnelEventType;
+  gtmPush({
+    event: gtmEvent,
+    funnel_event: funnelEventType,
+    package_id: opts.package_id ?? null,
+    persona: opts.persona ?? null,
+    curriculum_id: opts.curriculum_id ?? null,
+    source_page: opts.source_page ?? null,
+    page_path:
+      opts.page_path ??
+      (typeof window !== "undefined" ? window.location.pathname : null),
+    ...(opts.metadata ?? {}),
+  });
+}
+
+// ───────────────────────── Standalone Catalog Helpers ─────────────────────────
+// Für Events außerhalb von trackFunnel/conversion_events (rein UX/Engagement).
+
+export function trackPersonaSelected(persona: string, source_page?: string): void {
+  gtmPush({
+    event: "persona_selected",
+    persona,
+    source_page: source_page ?? (typeof window !== "undefined" ? window.location.pathname : null),
+  });
+}
+
+export function trackAiTutorUsed(params: {
+  packageId?: string | null;
+  curriculumId?: string | null;
+  intent?: string | null;
+  hasCitations?: boolean | null;
+}): void {
+  gtmPush({
+    event: "ai_tutor_used",
+    package_id: params.packageId ?? null,
+    curriculum_id: params.curriculumId ?? null,
+    intent: params.intent ?? null,
+    has_citations: params.hasCitations ?? null,
+  });
+}
+
+export function trackOralExamStarted(params: {
+  packageId?: string | null;
+  curriculumId?: string | null;
+  sessionId?: string | null;
+}): void {
+  gtmPush({
+    event: "oral_exam_started",
+    package_id: params.packageId ?? null,
+    curriculum_id: params.curriculumId ?? null,
+    exam_session_id: params.sessionId ?? null,
+  });
+}
+
+export function trackMasteryReached(params: {
+  packageId?: string | null;
+  curriculumId?: string | null;
+  competencyId?: string | null;
+  masteryLevel: number;
+}): void {
+  gtmPush({
+    event: "mastery_reached",
+    package_id: params.packageId ?? null,
+    curriculum_id: params.curriculumId ?? null,
+    competency_id: params.competencyId ?? null,
+    mastery_level: params.masteryLevel,
+  });
+}
+
+export function trackExamSimulationStarted(params: {
+  packageId?: string | null;
+  curriculumId?: string | null;
+  blueprintId?: string | null;
+  mode?: string | null;
+}): void {
+  gtmPush({
+    event: "exam_simulation_started",
+    package_id: params.packageId ?? null,
+    curriculum_id: params.curriculumId ?? null,
+    blueprint_id: params.blueprintId ?? null,
+    exam_mode: params.mode ?? null,
+  });
+}
