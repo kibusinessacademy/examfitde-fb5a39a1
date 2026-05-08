@@ -24,7 +24,7 @@ export function BerufReadinessBlock({ beruf }: Props) {
 
       <div className="grid md:grid-cols-3 gap-4">
         {/* Readiness-Score */}
-        <Card variant="elevated">
+        <Card variant="raised">
           <CardContent className="py-6 px-5 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
@@ -44,7 +44,7 @@ export function BerufReadinessBlock({ beruf }: Props) {
         </Card>
 
         {/* Kompetenz-Mastery */}
-        <Card variant="elevated">
+        <Card variant="raised">
           <CardContent className="py-6 px-5 space-y-4">
             <span className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
               Kompetenz-Mastery
@@ -68,7 +68,7 @@ export function BerufReadinessBlock({ beruf }: Props) {
         </Card>
 
         {/* Empfohlene Aktion */}
-        <Card variant="elevated">
+        <Card variant="raised">
           <CardContent className="py-6 px-5 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">

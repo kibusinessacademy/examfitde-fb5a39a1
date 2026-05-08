@@ -74,7 +74,7 @@ export function BerufModulesBlock({ beruf, kammer }: Props) {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {MODULES.map((m) => (
-            <Card key={m.title} variant="elevated">
+            <Card key={m.title} variant="raised">
               <CardContent className="py-5 px-5 space-y-3">
                 <div className="w-9 h-9 rounded-lg bg-mint-50 dark:bg-petrol-900/40 flex items-center justify-center">
                   <m.icon className="h-4 w-4 text-petrol-600 dark:text-mint-400" />

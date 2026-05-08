@@ -46,7 +46,7 @@ export function BerufComparisonBlock() {
             </CardContent>
           </Card>
 
-          <Card variant="elevated" className="border-petrol-200 dark:border-petrol-700">
+          <Card variant="raised" className="border-petrol-200 dark:border-petrol-700">
             <CardContent className="py-6 px-5 space-y-3">
               <h3 className="font-semibold text-petrol-700 dark:text-mint-300">
                 ExamFit-Prüfungssystem

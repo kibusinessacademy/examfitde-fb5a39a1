@@ -65,7 +65,7 @@ export function BerufPersonaBranches({ beruf, quizHref, onCtaClick }: Props) {
 
       <div className="grid md:grid-cols-3 gap-4">
         {branches.map((b) => (
-          <Card key={b.key} variant="elevated" className="flex flex-col">
+          <Card key={b.key} variant="raised" className="flex flex-col">
             <CardContent className="py-6 px-5 flex flex-col h-full space-y-4">
               <div className="w-10 h-10 rounded-lg bg-mint-50 dark:bg-petrol-900/40 flex items-center justify-center">
                 <b.icon className="h-5 w-5 text-petrol-600 dark:text-mint-400" />
