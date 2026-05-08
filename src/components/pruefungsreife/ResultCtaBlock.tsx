@@ -9,6 +9,8 @@ interface Props {
   primaryHref: string;
   secondaryHref: string;
   secondaryLabel?: string;
+  /** Optionaler Beruf-Kontext für tailored Copy. */
+  bundleTitle?: string | null;
   onPrimary: () => void;
   onSecondary: () => void;
 }
@@ -21,13 +23,29 @@ const FEATURES = [
   { icon: Brain, label: "KI-Tutor mit Quellenangaben" },
 ];
 
-export function ResultCtaBlock({ primaryHref, secondaryHref, secondaryLabel, onPrimary, onSecondary }: Props) {
+export function ResultCtaBlock({
+  primaryHref,
+  secondaryHref,
+  secondaryLabel,
+  bundleTitle,
+  onPrimary,
+  onSecondary,
+}: Props) {
+  // Bundle-only SSOT: Preis ist immer derselbe — nur die Copy variiert per Beruf.
+  const ctaLabel = bundleTitle
+    ? `${bundleTitle}-Bundle starten – ${PRICE_DISPLAY}`
+    : `Mit ExamFit gezielt vorbereiten – ${PRICE_DISPLAY}`;
+
+  const headline = bundleTitle
+    ? `Genau für ${bundleTitle} zugeschnitten`
+    : "Was ExamFit jetzt für dich tut";
+
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-border bg-surface p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          Was ExamFit jetzt für dich tut
+          {headline}
         </h3>
         <ul className="grid gap-2 sm:grid-cols-2">
           {FEATURES.map(({ icon: Icon, label }) => (
@@ -40,14 +58,14 @@ export function ResultCtaBlock({ primaryHref, secondaryHref, secondaryLabel, onP
       </div>
 
       <p className="text-sm text-text-secondary">
-        Du musst nicht mehr raten, was du lernen solltest. ExamFit priorisiert genau die Themen, die deine
-        Prüfungsreife am stärksten verbessern.
+        Du musst nicht mehr raten, was du lernen solltest. ExamFit priorisiert genau die Themen, die
+        deine Prüfungsreife am stärksten verbessern.
       </p>
 
       <div className="flex flex-col gap-3">
         <Link to={primaryHref} onClick={onPrimary} className="block">
           <Button variant="petrol" size="xl" className="w-full rounded-xl group">
-            Mit ExamFit gezielt vorbereiten – {PRICE_DISPLAY}
+            {ctaLabel}
             <ArrowRight className="h-5 w-5 ml-1 group-hover:translate-x-1 transition-transform" />
           </Button>
         </Link>
