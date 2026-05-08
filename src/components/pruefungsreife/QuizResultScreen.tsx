@@ -9,10 +9,12 @@ interface Props {
   score: number;
   weakest: CategoryKey[];
   contextLabel?: string | null;
+  bundleTitle?: string | null;
   primaryHref: string;
   secondaryHref: string;
   onPrimary: () => void;
   onSecondary: () => void;
+  onWeaknessClick?: (cat: CategoryKey) => void;
   onReset: () => void;
 }
 
@@ -20,10 +22,12 @@ export function QuizResultScreen({
   score,
   weakest,
   contextLabel,
+  bundleTitle,
   primaryHref,
   secondaryHref,
   onPrimary,
   onSecondary,
+  onWeaknessClick,
   onReset,
 }: Props) {
   const meta = classifyScore(score);
@@ -49,7 +53,7 @@ export function QuizResultScreen({
         />
       </div>
 
-      <WeaknessList weakest={weakest} bundleHref={primaryHref} />
+      <WeaknessList weakest={weakest} bundleHref={primaryHref} onItemClick={onWeaknessClick} />
 
       {focusCategory && (
         <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5">
@@ -65,6 +69,7 @@ export function QuizResultScreen({
         primaryHref={primaryHref}
         secondaryHref={secondaryHref}
         secondaryLabel={contextLabel ? "Beruf wechseln" : "Berufe ansehen"}
+        bundleTitle={bundleTitle ?? null}
         onPrimary={onPrimary}
         onSecondary={onSecondary}
       />
