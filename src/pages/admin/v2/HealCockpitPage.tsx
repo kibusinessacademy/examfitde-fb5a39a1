@@ -304,6 +304,7 @@ export default function HealCockpitPage() {
             <CourseHealPlansCard />
             <ExamPoolQuarantineCard />
             <DriftOverviewCard />
+            <SnapshotDriftCard />
             <SystemIntentsKpiCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
