@@ -49,7 +49,7 @@ export function QuizResultScreen({
         />
       </div>
 
-      <WeaknessList weakest={weakest} />
+      <WeaknessList weakest={weakest} bundleHref={primaryHref} />
 
       {focusCategory && (
         <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5">
