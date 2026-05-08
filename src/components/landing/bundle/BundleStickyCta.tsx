@@ -21,6 +21,7 @@ export function BundleStickyCta({ priceDisplay, visible, onCtaClick }: Props) {
     <div
       className="fixed inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-4 py-3 md:hidden transition-[bottom] duration-base"
       style={{ bottom: `calc(env(safe-area-inset-bottom) + ${bottomOffset}px)` }}
+      data-testid="sticky-cta"
     >
       <div className="max-w-md mx-auto flex items-center justify-between gap-3">
         <div className="flex flex-col min-w-0">

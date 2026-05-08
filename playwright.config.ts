@@ -78,5 +78,10 @@ export default defineConfig({
       testMatch: /event-inspector\.spec\.ts/,
       timeout: 60_000,
     },
+    {
+      name: 'mobile-overlap',
+      testMatch: /mobile-banner-cta-overlap\.spec\.ts/,
+      timeout: 60_000,
+    },
   ],
 });

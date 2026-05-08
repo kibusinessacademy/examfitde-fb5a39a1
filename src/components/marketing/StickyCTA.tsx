@@ -71,6 +71,7 @@ export function StickyCTA() {
     <div
       className="fixed inset-x-0 z-50 p-3 sm:p-4 animate-fade-in transition-[bottom] duration-base"
       style={{ bottom: consent.visible ? `calc(env(safe-area-inset-bottom) + ${consent.height + 12}px)` : 0 }}
+      data-testid="sticky-cta"
     >
       <div className="container mx-auto max-w-2xl">
         <div className="rounded-2xl px-4 py-3 flex items-center justify-between gap-3 shadow-elev-3 border border-petrol-200 bg-surface-raised/95 backdrop-blur-md">
