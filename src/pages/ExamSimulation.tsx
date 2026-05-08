@@ -138,6 +138,16 @@ export default function ExamSimulation() {
           passed: typeof result === 'object' ? (result as any).passed : undefined,
         },
       });
+      // GA4 Conversion: pruefung_abgeschlossen + bestanden / nicht_bestanden
+      const r = (typeof result === 'object' && result !== null) ? (result as any) : {};
+      trackExamCompleted({
+        sessionId: currentSessionId ?? null,
+        curriculumId: curriculumId ?? null,
+        scorePct: scorePercentage,
+        passed: typeof r.passed === 'boolean' ? r.passed : null,
+        totalQuestions: r.total_questions ?? null,
+        correctAnswers: r.correct_answers ?? null,
+      });
       if (curriculumId) {
         snapshotExamReadiness(curriculumId);
       }
