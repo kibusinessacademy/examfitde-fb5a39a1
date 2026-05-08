@@ -103,6 +103,12 @@ export default function ExamSimulation() {
   // Handle start exam
   const handleStartExam = async (blueprintId: string, mode: 'simulation' | 'practice' | 'timed_exam' | 'adaptive') => {
     const newSessionId = await startExam.mutateAsync({ blueprintId, mode });
+    trackExamStarted({
+      blueprintId,
+      mode,
+      sessionId: newSessionId,
+      curriculumId: blueprints?.find((b: any) => b.id === blueprintId)?.curriculum_id ?? null,
+    });
     navigate(`/exam-simulation/${newSessionId}`);
   };
   
