@@ -1,0 +1,40 @@
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
+
+interface Props {
+  visible: boolean;
+  beruf: string;
+  quizHref: string;
+  onCtaClick: () => void;
+}
+
+export function BerufStickyCta({ visible, beruf, quizHref, onCtaClick }: Props) {
+  return (
+    <div
+      className={[
+        'md:hidden fixed inset-x-0 bottom-0 z-40',
+        'border-t border-border-subtle bg-background/95 backdrop-blur',
+        'pb-[env(safe-area-inset-bottom)] px-4 py-3',
+        'shadow-elev-3 transition-transform duration-base ease-out-expo',
+        visible ? 'translate-y-0' : 'translate-y-full',
+      ].join(' ')}
+      aria-hidden={!visible}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-text-tertiary truncate">{beruf}-Prüfungsreife</p>
+          <p className="text-sm font-semibold text-text-primary truncate">
+            Kostenlos in 4 Min. testen
+          </p>
+        </div>
+        <Button asChild size="sm" className="shrink-0" onClick={onCtaClick}>
+          <Link to={quizHref}>
+            Starten
+            <ArrowRight className="ml-1 h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
+    </div>
+  );
+}

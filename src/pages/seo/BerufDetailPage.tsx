@@ -1,39 +1,64 @@
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Target, Award, Clock, ExternalLink, CheckCircle, Star, Shield, Building2, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useHomepageCatalog } from '@/hooks/usePublishedCourses';
 import { getExamTarget } from '@/lib/examTargets';
-import { 
-  SEO_TEMPLATES, 
-  SITE_URL, 
+import {
+  SEO_TEMPLATES,
+  SITE_URL,
   PRODUCT_PRICES,
   generateCourseSchema,
   generateFAQSchema,
 } from '@/lib/seo';
+import { TrackingEvents } from '@/lib/tracking/track';
+import { BerufHero } from '@/components/landing/beruf/BerufHero';
+import { BerufReadinessBlock } from '@/components/landing/beruf/BerufReadinessBlock';
+import { BerufModulesBlock } from '@/components/landing/beruf/BerufModulesBlock';
+import { BerufPersonaBranches } from '@/components/landing/beruf/BerufPersonaBranches';
+import { BerufComparisonBlock } from '@/components/landing/beruf/BerufComparisonBlock';
+import { BerufStickyCta } from '@/components/landing/beruf/BerufStickyCta';
+import { ProductFAQSection } from '@/components/product/ProductFAQSection';
 
 export default function BerufDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: catalog, isLoading } = useHomepageCatalog();
-  
-  const course = catalog?.find(c => c.slug === slug);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const [stickyVisible, setStickyVisible] = useState(false);
+
+  const course = catalog?.find((c) => c.slug === slug);
+
+  useEffect(() => {
+    if (!slug || !course) return;
+    TrackingEvents.landingView(slug, 'beruf');
+  }, [slug, course]);
+
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setStickyVisible(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-petrol-600 dark:text-mint-400" />
       </div>
     );
   }
 
-  if (!course) {
+  if (!course || !slug) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Beruf nicht gefunden</h1>
+          <h1 className="text-2xl font-bold mb-4 text-text-primary">Beruf nicht gefunden</h1>
           <Button asChild>
             <Link to="/berufe">Alle Berufe anzeigen</Link>
           </Button>
@@ -47,23 +72,34 @@ export default function BerufDetailPage() {
   const duration = course.ausbildungsdauerMonate || 36;
   const examConfig = getExamTarget(duration);
   const seo = SEO_TEMPLATES.beruf(title, kammerLabel, examConfig.label);
-  
+
+  const bundleHref = `/bundle/${slug}`;
+  const quizHref = `/pruefungsreife-check?source=beruf&slug=${encodeURIComponent(slug)}`;
+
   const faqs = [
     {
-      question: `Wie lange dauert die Ausbildung ${title}?`,
-      answer: `Die Ausbildung dauert in der Regel ${duration} Monate (${Math.round(duration / 12)} Jahre).`,
+      question: `Wie bereite ich mich auf die ${kammerLabel}-Prüfung ${title} vor?`,
+      answer: `Du startest mit dem kostenlosen Prüfungsreife-Check. ExamFit erkennt deine Schwächen, baut deinen Lernplan und führt dich durch Lernkurs, Prüfungsfragen, KI-Tutor und mündliche Simulation.`,
     },
     {
-      question: `Was kostet die ${kammerLabel}-Prüfungsvorbereitung für ${title}?`,
-      answer: `Die komplette Prüfungsvorbereitung kostet einmalig ${PRODUCT_PRICES.bundle}€ – inklusive Lernkurs, Prüfungstrainer und mündlicher Prüfungssimulation. 12 Monate Zugang, kein Abo.`,
+      question: `Was kostet ExamFit für ${title}?`,
+      answer: `Das Komplett-Bundle kostet einmalig ${PRODUCT_PRICES.bundle} € – inklusive Lernkurs, Prüfungstrainer, KI-Tutor und mündlicher Simulation. 12 Monate Zugang. Kein Abo.`,
     },
     {
-      question: `Wann findet die ${kammerLabel}-Prüfung für ${title} statt?`,
-      answer: `Die ${kammerLabel}-Abschlussprüfung findet deutschlandweit zu einheitlichen Terminen statt. Die genauen Termine werden von deiner zuständigen Kammer bekanntgegeben.`,
+      question: `Gibt es eine mündliche Prüfungssimulation für ${title}?`,
+      answer: `Ja. Du übst das Fachgespräch mit einer realistischen Simulation und bekommst strukturiertes Feedback zu Fachlichkeit, Struktur, Begriffssicherheit und Praxisbezug.`,
     },
     {
-      question: `Wie bereite ich mich am besten auf die ${kammerLabel}-Prüfung vor?`,
-      answer: `ExamFit bietet eine strukturierte Vorbereitung in einem einzigen Bundle: Du lernst alle Inhalte mit den Lernmodulen, übst mit echten Prüfungsfragen im Prüfungstrainer und simulierst die mündliche Prüfung mit unserem KI-Trainer.`,
+      question: 'Ist ExamFit ein Abo?',
+      answer: 'Nein. Du zahlst einmalig und bekommst 12 Monate Zugang zu allen Modulen.',
+    },
+    {
+      question: 'Worauf basiert das Prüfungstraining?',
+      answer: `Auf dem ${kammerLabel}-Rahmenplan für ${title} und prüfungsnahen Aufgabenformaten. Inhalte sind nach Kompetenzbereichen gegliedert.`,
+    },
+    {
+      question: 'Kann ich zuerst kostenlos testen?',
+      answer: 'Ja. Der Prüfungsreife-Check dauert ca. 4 Minuten und liefert dir deinen Score sowie deine schwächsten Themen – ohne Anmeldung.',
     },
   ];
 
@@ -81,6 +117,10 @@ export default function BerufDetailPage() {
     ],
   };
 
+  const trackCta = (label: string) => {
+    void TrackingEvents.ctaPrimaryClick(slug, label, String(PRODUCT_PRICES.bundle));
+  };
+
   return (
     <>
       <SEOHead
@@ -90,195 +130,64 @@ export default function BerufDetailPage() {
         structuredData={structuredData}
       />
 
-      <div className="min-h-screen">
-        {/* Hero */}
-        <section className="relative py-16 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
-          <div className="container relative z-10">
-            <Breadcrumbs
-              items={[
-                { label: 'Berufe', href: '/berufe' },
-                { label: title },
-              ]}
-              className="mb-8"
-            />
+      <div className="min-h-screen bg-background pb-16 md:pb-0">
+        <div className="container max-w-6xl pt-4">
+          <Breadcrumbs items={[{ label: 'Berufe', href: '/berufe' }, { label: title }]} />
+        </div>
 
-            <div className="grid lg:grid-cols-3 gap-12">
-              <div className="lg:col-span-2">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-4">
-                  <Star className="h-4 w-4 text-warning fill-warning" />
-                  <span className="text-sm text-muted-foreground">98% Bestehensquote</span>
-                </div>
-                <h1 className="text-responsive-2xl md:text-responsive-3xl lg:text-responsive-4xl font-display font-bold mb-4">
-                  {title}
-                  <br />
-                  <span className="text-gradient">{kammerLabel}-Prüfung bestehen</span>
-                </h1>
-                {course.berufLang && course.berufLang !== title && (
-                  <p className="text-lg text-muted-foreground mb-4">
-                    {course.berufLang}
-                  </p>
-                )}
-                <p className="text-xl text-muted-foreground mb-6">
-                  {course.description || `Bereite dich optimal auf die ${kammerLabel}-Abschlussprüfung ${title} vor. Strukturierte Lernkurse, prüfungsrelevante Fragen und mündliche Prüfungssimulation.`}
-                </p>
+        <div ref={heroRef}>
+          <BerufHero
+            beruf={title}
+            kammer={kammerLabel}
+            description={course.description}
+            bundleHref={bundleHref}
+            quizHref={quizHref}
+            onPrimaryCta={() => trackCta('hero_quiz')}
+            onSecondaryCta={() => trackCta('hero_bundle')}
+          />
+        </div>
 
-                <div className="flex flex-wrap gap-4 mb-8">
-                  <Badge 
-                    variant="default"
-                    className="flex items-center gap-1.5 py-1.5 px-3"
-                  >
-                    <Building2 className="h-4 w-4" />
-                    {kammerLabel}
-                  </Badge>
-                  {course.ausbildungsdauerMonate && (
-                    <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
-                      <Clock className="h-4 w-4" />
-                      {course.ausbildungsdauerMonate} Monate Ausbildung
-                    </Badge>
-                  )}
-                  {course.dqrNiveau && (
-                    <Badge variant="outline" className="py-1.5 px-3">
-                      DQR-Niveau {course.dqrNiveau}
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="flex items-center gap-1.5 py-1.5 px-3">
-                    <Shield className="h-4 w-4" />
-                    {kammerLabel}-Prüfungsstandards
-                  </Badge>
-                </div>
-              </div>
+        <BerufReadinessBlock beruf={title} />
 
-              {/* Produkt-CTA Sidebar — Bundle-only (24,90 €) */}
-              <div className="lg:col-span-1">
-                <Card className="glass-card sticky top-24">
-                  <CardHeader>
-                    <CardTitle>Jetzt Prüfung vorbereiten</CardTitle>
-                    <CardDescription>
-                      Alles in einem Paket — Lernkurs, Prüfungstrainer & mündliche Simulation
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Link to={`/bundle/${slug}`} className="block">
-                      <div className="p-5 rounded-lg border-2 border-primary bg-primary/5 hover:bg-primary/10 transition-colors">
-                        <div className="flex justify-between items-center mb-3">
-                          <div className="flex items-center gap-2">
-                            <Award className="h-5 w-5 text-success" />
-                            <span className="font-semibold">Komplett-Bundle</span>
-                          </div>
-                          <span className="font-bold text-2xl">{PRODUCT_PRICES.bundle}€</span>
-                        </div>
-                        <ul className="space-y-2 text-sm text-muted-foreground">
-                          <li className="flex items-start gap-2">
-                            <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                            <span>Strukturierter Lernkurs nach Rahmenplan</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                            <span>Prüfungstrainer mit echten IHK-Fragen</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                            <span>KI-gestützte mündliche Prüfungssimulation</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                            <span>12 Monate Zugang, einmalig zahlen</span>
-                          </li>
-                        </ul>
-                        <Button className="w-full mt-4" size="sm">
-                          Jetzt für {PRODUCT_PRICES.bundle}€ starten
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      </div>
-                    </Link>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </div>
-        </section>
+        <BerufModulesBlock beruf={title} kammer={kammerLabel} />
 
-        {/* Warum ExamFit */}
-        <section className="py-16">
-          <div className="container max-w-4xl">
-            <h2 className="text-responsive-xl md:text-responsive-2xl font-display font-bold mb-8 text-center">
-              Warum ExamFit für <span className="text-gradient">{title}</span> ({kammerLabel})?
+        <BerufPersonaBranches
+          beruf={title}
+          quizHref={quizHref}
+          onCtaClick={(persona) => trackCta(`persona_${persona}`)}
+        />
+
+        <BerufComparisonBlock />
+
+        <ProductFAQSection items={faqs} />
+
+        <section className="border-t border-border-subtle">
+          <div className="container max-w-3xl py-12 md:py-16 text-center space-y-5">
+            <h2 className="text-2xl md:text-3xl font-display font-bold text-text-primary">
+              Bereit für die {title}-Prüfung?
             </h2>
-            <div className="grid md:grid-cols-3 gap-6">
-              <Card className="glass-card text-center">
-                <CardContent className="pt-6">
-                  <div className="text-4xl mb-4">🎯</div>
-                  <h3 className="font-semibold mb-2">Prüfungsorientiert</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Alle Inhalte sind auf die {kammerLabel}-Prüfung abgestimmt – kein Ballast.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="glass-card text-center">
-                <CardContent className="pt-6">
-                  <div className="text-4xl mb-4">🧠</div>
-                  <h3 className="font-semibold mb-2">Adaptiv</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Das System erkennt deine Schwächen und trainiert gezielt.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="glass-card text-center">
-                <CardContent className="pt-6">
-                  <div className="text-4xl mb-4">🎤</div>
-                  <h3 className="font-semibold mb-2">Mündlich üben</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Simuliere das Fachgespräch mit KI-Feedback.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-
-        {/* FAQ Section */}
-        <section className="py-16 bg-muted/30">
-          <div className="container max-w-4xl">
-            <h2 className="text-responsive-xl md:text-responsive-2xl font-display font-bold mb-8 text-center">
-              Häufige Fragen zur {title} {kammerLabel}-Prüfung
-            </h2>
-            <div className="space-y-6">
-              {faqs.map((faq, index) => (
-                <Card key={index} className="glass-card">
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-start gap-3">
-                      <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                      {faq.question}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 pl-11">
-                    <p className="text-muted-foreground">{faq.answer}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* CTA */}
-        <section className="py-20">
-          <div className="container text-center">
-            <h2 className="text-responsive-xl md:text-responsive-2xl lg:text-responsive-3xl font-display font-bold mb-6">
-              Bereit für die {title} {kammerLabel}-Prüfung?
-            </h2>
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Starte jetzt mit dem Komplett-Bundle für nur {PRODUCT_PRICES.bundle}€.
-              Einmalzahlung, 12 Monate Zugang, kein Abo.
+            <p className="text-text-secondary">
+              Starte in 4 Minuten mit dem kostenlosen Prüfungsreife-Check oder sichere dir
+              direkt das Komplett-Bundle für {PRODUCT_PRICES.bundle} €.
             </p>
-            <Button size="lg" className="shadow-glow" asChild>
-              <Link to={`/bundle/${slug}`}>
-                Jetzt Prüfung vorbereiten <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button asChild size="lg" onClick={() => trackCta('footer_quiz')}>
+                <Link to={quizHref}>Prüfungsreife testen</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" onClick={() => trackCta('footer_bundle')}>
+                <Link to={bundleHref}>Komplett-Bundle ansehen</Link>
+              </Button>
+            </div>
           </div>
         </section>
       </div>
+
+      <BerufStickyCta
+        visible={stickyVisible}
+        beruf={title}
+        quizHref={quizHref}
+        onCtaClick={() => trackCta('sticky_quiz')}
+      />
     </>
   );
 }
