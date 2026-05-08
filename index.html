@@ -9,7 +9,45 @@
     <meta name="HandheldFriendly" content="true" />
     
     <!-- Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com wss://*.supabase.co https://api.openai.com https://api.anthropic.com; frame-src 'self' https://*.h5p.org https://*.h5p.com; object-src 'none'; base-uri 'self'; form-action 'self';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://www.googletagmanager.com https://*.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com wss://*.supabase.co https://api.openai.com https://api.anthropic.com https://www.googletagmanager.com https://*.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com; frame-src 'self' https://*.h5p.org https://*.h5p.com https://www.googletagmanager.com; object-src 'none'; base-uri 'self'; form-action 'self';" />
+
+    <!-- Google Consent Mode v2 — default DENIED before GTM loads (EEA/DE/AT/CH) -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      window.gtag = gtag;
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        analytics_storage: 'denied',
+        functionality_storage: 'granted',
+        security_storage: 'granted',
+        wait_for_update: 500,
+        region: ['DE','AT','CH','EU']
+      });
+      // Re-apply stored decision (set by CookieConsentBanner) on subsequent visits
+      try {
+        var raw = localStorage.getItem('ef_consent_v1');
+        if (raw) {
+          var d = JSON.parse(raw);
+          gtag('consent', 'update', {
+            ad_storage: d.ad ? 'granted' : 'denied',
+            ad_user_data: d.ad ? 'granted' : 'denied',
+            ad_personalization: d.ad ? 'granted' : 'denied',
+            analytics_storage: d.analytics ? 'granted' : 'denied'
+          });
+        }
+      } catch (e) {}
+    </script>
+
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-K39CL625');</script>
+    <!-- End Google Tag Manager -->
 
     <!-- Primary Meta Tags -->
     <title>ExamFit.de – IHK-Prüfung bestehen | Prüfungstraining</title>
