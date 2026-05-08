@@ -244,14 +244,17 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     let isAuthorized = false;
 
-    const trustedSources = ["cron_nightly", "manual_agent", "verification", "dashboard"];
-    if (trustedSources.includes(body.trigger_source)) {
+    // Auth: require EDGE_INTERNAL_SHARED_SECRET (CI/cron) OR admin JWT.
+    // The legacy trustedSources string-bypass was removed (any caller could
+    // POST {trigger_source:"cron_nightly"} to gain full test-runner access).
+    const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
+    const jobRunnerKey = req.headers.get("x-job-runner-key") || "";
+    if (internalSecret && jobRunnerKey === internalSecret) {
       isAuthorized = true;
-    } else if (authHeader?.includes(serviceKey)) {
-      isAuthorized = true;
-    } else if (authHeader) {
-      const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-      const { data: { user } } = await userClient.auth.getUser();
+    } else if (authHeader && !authHeader.includes(serviceKey)) {
+      const token = authHeader.replace(/^Bearer\s+/i, "");
+      const userClient = createClient(supabaseUrl, anonKey);
+      const { data: { user } } = await userClient.auth.getUser(token);
       if (user) {
         const sb = createClient(supabaseUrl, serviceKey);
         const { data: role } = await sb.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();

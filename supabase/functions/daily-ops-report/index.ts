@@ -363,19 +363,24 @@ Deno.serve(async (req) => {
   try {
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Check if cron call (no auth header) or admin call
+    // Auth: accept EDGE_INTERNAL_SHARED_SECRET (cron) OR validated admin JWT.
+    // The legacy "no auth header == cron" + anon-key bypass was removed (the
+    // anon key is the public publishable key, so anyone could trigger this).
     const authHeader = req.headers.get("Authorization");
+    const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
+    const jobRunnerKey = req.headers.get("x-job-runner-key") || "";
+    const isCron = !!internalSecret && jobRunnerKey === internalSecret;
 
     let body: Record<string, unknown> = {};
     try { body = await req.json(); } catch {}
 
     const action = (body.action as string) || "generate";
-    const isCron = !authHeader || authHeader.includes(Deno.env.get("SUPABASE_ANON_KEY")!);
 
     // If not cron, verify admin
     if (!isCron) {
+      if (!authHeader) return json({ error: "Unauthorized" }, 401);
       const userSb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader! } },
+        global: { headers: { Authorization: authHeader } },
       });
       const { data: { user } } = await userSb.auth.getUser();
       if (!user) return json({ error: "Unauthorized" }, 401);

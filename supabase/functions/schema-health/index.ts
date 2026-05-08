@@ -21,19 +21,23 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
-    // Auth: service role or admin
+    // Auth: require EDGE_INTERNAL_SHARED_SECRET (CI/cron) OR admin JWT.
+    // The legacy trustedSources string-bypass was removed (any caller could
+    // POST {source:"ci"} to read drift data and write to schema_drift_log).
     const authHeader = req.headers.get("Authorization");
     const body = await req.json().catch(() => ({}));
-    const trustedSources = ["ci", "cron_nightly", "manual_agent", "dashboard", "run_tests"];
-    let authorized = trustedSources.includes(body.source);
+    const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
+    const jobRunnerKey = req.headers.get("x-job-runner-key") || "";
+    let authorized = !!internalSecret && jobRunnerKey === internalSecret;
 
     if (!authorized && authHeader) {
       if (authHeader.includes(serviceKey)) {
         authorized = true;
       } else {
         const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-        const uc = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-        const { data: { user } } = await uc.auth.getUser();
+        const token = authHeader.replace(/^Bearer\s+/i, "");
+        const uc = createClient(supabaseUrl, anonKey);
+        const { data: { user } } = await uc.auth.getUser(token);
         if (user) {
           const { data: role } = await sb.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
           if (role) authorized = true;
