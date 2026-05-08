@@ -386,6 +386,8 @@ const AppRoutes = () => {
         {/* Main Layout Routes */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<AuthHomeRoute />} />
+          {/* Funnel: Prüfungsreife-Check needs the marketing header for brand-trust + back-nav (Audit P0) */}
+          <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/courses" element={<CoursesPage />} />
           <Route path="/course/:slug" element={<CourseDetailPage />} />
