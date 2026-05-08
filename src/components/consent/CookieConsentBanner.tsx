@@ -1,11 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   getStoredConsent,
   setConsent,
   type ConsentDecision,
 } from "@/lib/gtm";
+import { CONSENT_BANNER_EVENT } from "@/hooks/useConsentBannerVisible";
 import { Link } from "react-router-dom";
+
+function broadcastBannerState(visible: boolean, height: number) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(CONSENT_BANNER_EVENT, { detail: { visible, height } }),
+  );
+}
 
 /**
  * GDPR/TTDSG Cookie Consent Banner.
