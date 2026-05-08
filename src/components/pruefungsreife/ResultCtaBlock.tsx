@@ -8,6 +8,7 @@ const PRICE_DISPLAY = PRICING.defaultPrice;
 interface Props {
   primaryHref: string;
   secondaryHref: string;
+  secondaryLabel?: string;
   onPrimary: () => void;
   onSecondary: () => void;
 }
@@ -20,7 +21,7 @@ const FEATURES = [
   { icon: Brain, label: "KI-Tutor mit Quellenangaben" },
 ];
 
-export function ResultCtaBlock({ primaryHref, secondaryHref, onPrimary, onSecondary }: Props) {
+export function ResultCtaBlock({ primaryHref, secondaryHref, secondaryLabel, onPrimary, onSecondary }: Props) {
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-border bg-surface p-4 sm:p-5">
@@ -52,7 +53,7 @@ export function ResultCtaBlock({ primaryHref, secondaryHref, onPrimary, onSecond
         </Link>
         <Link to={secondaryHref} onClick={onSecondary} className="block">
           <Button variant="ghost" size="lg" className="w-full">
-            Beruf wechseln
+            {secondaryLabel ?? "Berufe ansehen"}
           </Button>
         </Link>
       </div>
