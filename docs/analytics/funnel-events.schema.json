@@ -43,6 +43,24 @@
     "b2b_form_submit":        { "ga4": "lead_captured",        "strict": false, "conversion": false, "deprecated": true }
   },
   "ga4Conversions": ["quiz_completed", "checkout_started", "purchase_completed"],
+  "pixelConversions": {
+    "description": "Derived conversion events that GTM fans out to Meta Pixel and Google Ads from the same DataLayer push. Source = the GA4 event name in the schema; the pixel side names are what GTM emits to fbq() / gtag('event','conversion',...).",
+    "derive": {
+      "checkout_started": {
+        "meta":  { "fbq": "track", "event": "InitiateCheckout", "required": ["package_id", "persona", "value", "currency"] },
+        "ads":   { "gtag": "conversion", "event": "begin_checkout", "required": ["package_id", "value", "currency"] }
+      },
+      "purchase_completed": {
+        "meta":  { "fbq": "track", "event": "Purchase",         "required": ["package_id", "persona", "value", "currency", "transaction_id"] },
+        "ads":   { "gtag": "conversion", "event": "purchase",   "required": ["package_id", "value", "currency", "transaction_id"] }
+      }
+    },
+    "notes": [
+      "value, currency, transaction_id are NOT in requiredDataLayerFieldsForAllFunnelEvents; they are conditionally required only when the GA4 event is checkout_started or purchase_completed.",
+      "Currency defaults to 'EUR' if missing.",
+      "transaction_id MUST equal the Stripe order_id / payment_intent — used for de-duplication with the server-side stripe-webhook fan-out."
+    ]
+  },
   "notes": [
     "strict=true: server (track_conversion_event_v2) requires package_id; DataLayer push will still fire but with null and DEV warns.",
     "GA4 conversions are configured in the GA4 property; this list is informational and used by validators.",
