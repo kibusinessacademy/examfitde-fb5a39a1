@@ -45,8 +45,8 @@ export const FORBIDDEN_PATTERNS = [
     re: /body[?.]*\.\s*source\s*===\s*["'](ci|cron|cron_nightly|nightly|dashboard|admin|internal|trusted)["']/,
   },
   {
-    name: 'inline { source: "dashboard"|"ci" } bypass check',
-    re: /\bsource\s*:\s*["'](ci|cron|cron_nightly|nightly|dashboard|admin|internal|trusted)["']\s*[,}]/,
+    name: "skipAuth / bypassAuth flag",
+    re: /\b(skipAuth|bypassAuth|skip_auth|bypass_auth)\s*[:=]\s*true\b/,
   },
   {
     name: "x-admin-bypass / x-bypass-auth header check",
