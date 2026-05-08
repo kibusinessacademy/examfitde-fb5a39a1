@@ -3,6 +3,7 @@ import { getProtectedAssetUrl } from '@/lib/storageAccess';
 import { Loader2, AlertCircle, PlayCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { trackH5P } from '@/lib/gtm';
 
 interface H5PPlayerProps {
   contentId: string;
