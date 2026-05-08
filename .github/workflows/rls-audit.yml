@@ -1,0 +1,37 @@
+name: RLS Audit (warn-only)
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/security/rls-audit*.mjs"
+      - "scripts/security/rls-audit-baseline.json"
+      - ".github/workflows/rls-audit.yml"
+  workflow_dispatch:
+    inputs:
+      ratchet:
+        description: "Run in RATCHET mode (fail on risky/added)"
+        required: false
+        default: "false"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # Phase 1: warn-only — no DB credentials needed; reuses last snapshot
+      # committed under docs/security/rls-snapshot.json. Phase 2 (RATCHET)
+      # will add a read-only psql connection step.
+      - name: Run RLS audit
+        env:
+          RLS_AUDIT_RATCHET: ${{ github.event.inputs.ratchet == 'true' && '1' || '' }}
+        run: node scripts/security/rls-audit.mjs
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rls-audit-report
+          path: docs/security/rls-audit-report.md
