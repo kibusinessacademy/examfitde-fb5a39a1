@@ -14,6 +14,7 @@ import {
   TrendingDown, Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ReleaseClassificationTable } from '@/features/admin/components/ReleaseClassificationTable';
 
 const STATUS_FILTERS = [
   { key: 'all', label: 'Alle' },
@@ -390,7 +391,10 @@ export default function KursePage() {
               )}
             </button>
           ))}
-        </div>
+      </div>
+
+      <ReleaseClassificationTable />
+
       </div>
 
       {isLoading ? (
