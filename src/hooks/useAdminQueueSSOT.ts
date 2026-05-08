@@ -23,7 +23,27 @@ export interface AdminQueueJob {
   package_status: string | null;
   meta: Record<string, unknown> | null;
   age_minutes: number;
-  health_signal: 'zombie' | 'stale_lock' | 'exhausted' | 'retriable' | 'aging' | 'normal';
+  health_signal: 'zombie' | 'stale_lock' | 'exhausted' | 'retriable' | 'aging' | 'normal' | 'terminal';
+}
+
+/**
+ * Terminal failure markers — Jobs that the Reaper Anti-Loop or other guards
+ * have hard-failed on purpose. They MUST NOT be classified as `retriable`,
+ * because Bulk-Requeue will refuse them (auto_heal_log: terminal_skipped) and
+ * Smart-NBA otherwise mis-counts them as transient throughput losses.
+ *
+ * Add new patterns here when introducing further terminal verdicts.
+ */
+export const TERMINAL_ERROR_PATTERNS: readonly string[] = [
+  'STALE_REAP_LOOP_TERMINAL',
+  'BRONZE_LOCK_TERMINAL',
+  'PHANTOM_STEP_BLOCKED',
+] as const;
+
+export function isTerminalFailure(lastError: string | null | undefined): boolean {
+  if (!lastError) return false;
+  const upper = lastError.toUpperCase();
+  return TERMINAL_ERROR_PATTERNS.some((p) => upper.includes(p));
 }
 
 export interface QueueCounts {
