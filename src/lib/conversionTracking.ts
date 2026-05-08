@@ -17,6 +17,7 @@
  * - All calls are fire-and-forget; failures must NEVER block UI.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { gtmEmitFunnel } from "@/lib/gtm";
 
 export type FunnelEventType =
   | "hero_cta_click"
