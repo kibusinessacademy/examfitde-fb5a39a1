@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Shield, Clock, CheckCircle, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { HeroAccent } from '@/components/marketing/HeroAccent';
 
 interface Props {
   beruf: string;
