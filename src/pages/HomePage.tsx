@@ -6,6 +6,8 @@ import { generateFAQSchema, generateCourseListSchema, SITE_URL, seoTitle } from 
 import { PRICING } from '@/config/pricing';
 import { StickyCTA } from '@/components/marketing/StickyCTA';
 import { CourseFinderSection } from '@/components/marketing/CourseFinderSection';
+import { HowExamFitWorksSection } from '@/components/landing/HowExamFitWorksSection';
+import { ProductPreviewGallery } from '@/components/landing/ProductPreviewGallery';
 
 import { trackConversion } from '@/lib/seo-tracking';
 import {
