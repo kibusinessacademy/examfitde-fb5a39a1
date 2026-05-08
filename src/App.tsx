@@ -106,6 +106,7 @@ function AppChrome() {
       <InstallPrompt />
       {showNativeTabBar ? <div className="h-20" /> : null}
       <AccessDebugPanel />
+      <CookieConsentBanner />
     </>
   );
 }
