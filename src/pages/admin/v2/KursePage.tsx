@@ -391,7 +391,10 @@ export default function KursePage() {
               )}
             </button>
           ))}
-        </div>
+      </div>
+
+      <ReleaseClassificationTable />
+
       </div>
 
       {isLoading ? (
