@@ -37,10 +37,10 @@ export function WeaknessList({ weakest, bundleHref, onItemClick }: Props) {
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4 sm:p-5">
-      <h3 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+      <h2 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
         <AlertTriangle className="h-4 w-4 text-warning" />
         Deine drei größten Schwächen
-      </h3>
+      </h2>
       <ul className="space-y-2">
         {weakest.map((cat) => {
           const content = (
