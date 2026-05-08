@@ -134,6 +134,21 @@ export async function trackFunnel(
       p_persona: opts.persona ?? null,
       p_source_page: opts.source_page ?? page_path,
     });
+
+    // Fan-out → DataLayer (GTM orchestriert GA4/Ads/Meta/Matomo).
+    // Frontend bleibt sauber: ein Call, beide Senken.
+    try {
+      gtmEmitFunnel(eventType, {
+        package_id: opts.package_id ?? null,
+        persona: opts.persona ?? null,
+        curriculum_id: opts.curriculum_id ?? null,
+        source_page: opts.source_page ?? page_path,
+        page_path,
+        metadata: opts.metadata ?? null,
+      });
+    } catch {
+      /* noop — DataLayer-Push darf RPC nie blockieren */
+    }
   } catch (err) {
     // Tracking must never break the app
     if (typeof console !== "undefined") {
