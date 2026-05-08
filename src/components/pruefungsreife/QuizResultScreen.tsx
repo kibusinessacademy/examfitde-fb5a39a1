@@ -34,8 +34,11 @@ export function QuizResultScreen({
   const focusCategory = weakest[0];
 
   return (
-    <div className="rounded-2xl p-6 sm:p-8 bg-surface-raised border border-border-subtle shadow-elev-2 space-y-6">
-      <header className="space-y-3 text-center">
+    <div
+      className="rounded-2xl p-6 sm:p-8 bg-surface-raised border border-border-subtle shadow-elev-2 space-y-6"
+      data-testid="quiz-result"
+    >
+      <header className="space-y-3 text-center" aria-live="polite" aria-atomic="true">
         <QuizRiskBadge meta={meta} />
         <h1 className="text-3xl sm:text-4xl font-bold text-text-primary">
           Dein Prüfungsreife-Score: <span className="text-primary">{score}/100</span>

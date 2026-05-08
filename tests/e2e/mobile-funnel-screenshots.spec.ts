@@ -126,28 +126,23 @@ for (const vp of VIEWPORTS) {
       await page.waitForTimeout(600);
       await shoot(page, vp.name, '06-quiz-start-pending');
 
-      // start the quiz
-      const startBtn = page
-        .getByRole('button', { name: /start|los|beginnen|prüfungsreife/i })
-        .first();
-      if (await startBtn.isVisible().catch(() => false)) {
-        await startBtn.click().catch(() => {});
-        await page.waitForTimeout(500);
+      // start the quiz — wait for stable testid instead of timeouts
+      const startBtn = page.locator('[data-testid="quiz-start"]');
+      if (await startBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await startBtn.click();
+        await page.locator('[data-testid="quiz-running"]').waitFor({ state: 'visible', timeout: 5000 });
         await shoot(page, vp.name, '07-quiz-q1-pending');
 
-        // auto-answer up to 12 questions by clicking the first answer
         for (let i = 0; i < 12; i++) {
-          const ans = page.locator('button[role="radio"], [data-testid="quiz-answer"], button.answer-option').first();
-          const fallback = page.getByRole('button').filter({ hasText: /ja|eher|nein|gut|mittel|schlecht|sicher/i }).first();
-          const target = (await ans.isVisible().catch(() => false)) ? ans : fallback;
-          if (!(await target.isVisible().catch(() => false))) break;
-          await target.click().catch(() => {});
-          await page.waitForTimeout(250);
+          if (await page.locator('[data-testid="quiz-result"]').isVisible().catch(() => false)) break;
+          const ans = page.locator('[data-testid="quiz-answer"]').first();
+          if (!(await ans.isVisible({ timeout: 2000 }).catch(() => false))) break;
+          await ans.click();
         }
-        await page.waitForTimeout(800);
+        await page.locator('[data-testid="quiz-result"]').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
         await shoot(page, vp.name, '08-quiz-result-pending');
       } else {
-        findings.push({ viewport: vp.name, shot: '07/08-quiz', hScroll: false, bannerOverlap: false, ctaVisible: null, notes: ['quiz-start-button not found'] });
+        findings.push({ viewport: vp.name, shot: '07/08-quiz', hScroll: false, bannerOverlap: false, ctaVisible: null, notes: ['quiz-start testid not found'] });
       }
 
       // 4. Prüfungsreife with Beruf context

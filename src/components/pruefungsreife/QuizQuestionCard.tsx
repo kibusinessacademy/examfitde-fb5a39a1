@@ -28,13 +28,17 @@ export function QuizQuestionCard({ question, onAnswer, onBack, canGoBack }: Prop
         {question.text}
       </h2>
 
-      <div className="flex flex-col gap-3">
-        {ANSWER_OPTIONS.map((opt) => (
+      <div className="flex flex-col gap-3" role="radiogroup" aria-label="Antwortoptionen">
+        {ANSWER_OPTIONS.map((opt, idx) => (
           <button
             key={opt.score}
             type="button"
+            role="radio"
+            aria-checked={false}
+            data-testid="quiz-answer"
+            data-answer-index={idx}
             onClick={() => onAnswer(opt.score)}
-            className="text-left px-4 py-4 rounded-xl border border-border bg-surface hover:border-primary hover:bg-primary/5 active:scale-[0.99] transition-all text-base text-text-primary"
+            className="text-left px-4 py-4 rounded-xl border border-border bg-surface hover:border-primary hover:bg-primary/5 active:scale-[0.99] transition-all text-base text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <span className="block font-medium">{opt.label}</span>
           </button>

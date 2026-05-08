@@ -26,8 +26,9 @@ export function QuizStartScreen({ contextLabel, onStart }: Props) {
       <Button
         variant="petrol"
         size="xl"
-        className="w-full sm:w-auto rounded-xl group"
+        className="w-full sm:w-auto rounded-xl group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         onClick={onStart}
+        data-testid="quiz-start"
       >
         Check starten
         <ArrowRight className="h-5 w-5 ml-1 group-hover:translate-x-1 transition-transform" />

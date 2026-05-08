@@ -230,8 +230,11 @@ export default function PruefungsreifeCheckPage() {
           )}
 
           {phase === "running" && (
-            <div className="space-y-6">
+            <div className="space-y-6" data-testid="quiz-running">
               <QuizProgressBar current={current} total={QUESTIONS.length} />
+              <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                Frage {current + 1} von {QUESTIONS.length}
+              </div>
               <QuizQuestionCard
                 question={QUESTIONS[current]}
                 onAnswer={handleAnswer}
