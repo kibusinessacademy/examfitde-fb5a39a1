@@ -83,5 +83,10 @@ export default defineConfig({
       testMatch: /mobile-banner-cta-overlap\.spec\.ts/,
       timeout: 60_000,
     },
+    {
+      name: 'mobile-screenshots',
+      testMatch: /mobile-funnel-screenshots\.spec\.ts/,
+      timeout: 180_000,
+    },
   ],
 });
