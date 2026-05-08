@@ -17,6 +17,8 @@ Reaper Anti-Loop: fn_reap_stale_processing_jobs killt stale processing-Jobs nach
 Bronze (Council 75–84) ≠ FAIL. Council-Guard erlaubt verdict=REVIEW_REQUIRED+badge=bronze. State in course_packages.feature_flags.bronze. Phase 2b: fn_guard_bronze_lock_on_job_enqueue blockt package_quality_council+package_auto_publish+package_run_integrity_check auf bronze-locked Paketen universell (single choke-point). Ausnahmen nur enqueue_source=bronze_targeted_repair oder payload.bronze_lock_override=true.
 LXI gate_high_duplicates: nur suspicious_cross_blueprint_ratio>15% (warn-only). v_lxi_duplicate_quality_audit klassifiziert. Niemals pauschal alle Variants als Duplikate werten.
 Growth-OS: Vor jedem User-facing Feature → 14-Punkte Pre-Brief (mem://constraints/growth-os-framework-v1). Admin-UI=Leitstelle (Status+Severity+RootCause+Action+Audit+Trend+Drilldown). Shop-UI=Conversion (Hero ATF+Persona-CTA „Prüfungssimulation starten"+FAQ schema.org+≥3 interne Links). Kein Asset ohne cluster_id+persona+funnel_stage. Keyword-SSOT verhindert Cannibalization.
+Queue-Health: terminale Verdicts (STALE_REAP_LOOP_TERMINAL, BRONZE_LOCK_TERMINAL, PHANTOM_STEP_BLOCKED) NIE als 'retriable' klassifizieren — siehe TERMINAL_ERROR_PATTERNS in useAdminQueueSSOT + isTerminalFailure(). Smart-NBA + Bulk-Requeue müssen sie ausschließen. Drift sichtbar via PublishWorkflowStatusCard (publish-ready / processing / STALE_REAP).
+Tracking-Mirror: TrackingEvents.landingView() schreibt DUAL — tracking_events (Usage-Timeline) UND conversion_events via trackFunnel (Funnel-SSOT für GA4/GTM/Reports). Niemals nur eine Senke nutzen wenn Event auch im Funnel-Schema steht.
 
 
 ## Memories
