@@ -157,32 +157,41 @@ export default function HomePage() {
         {/* ─── 4. Kursfinder ─── */}
         <CourseFinderSection />
 
-        {/* ─── 5. Was im System enthalten ist ─── */}
+        {/* ─── 5. Konkrete Ergebnisversprechen (Outcomes statt Marketing) ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-4xl text-center">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4">
-              Alles, was du für deine Prüfung brauchst –{' '}
-              <span className="text-gradient">in einem System</span>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-3 leading-tight">
+              Was du nach 4 Wochen{' '}
+              <span className="text-gradient">konkret kannst</span>
             </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto mb-10">
-              Kein Zusammensuchen, kein Abo-Chaos. Ein Zugang, alle Werkzeuge.
+            <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto mb-8 leading-snug">
+              Keine generischen Versprechen — sondern messbare Prüfungsfähigkeit.
             </p>
 
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               {[
-                { icon: ClipboardCheck, title: 'Prüfungssimulation schriftlich', text: 'Realistische Simulation mit Zeitlimit und Auswertung.' },
-                { icon: Mic, title: 'Mündliche Prüfung trainieren', text: 'Fachgespräch üben mit KI-Feedback zu deinen Antworten.' },
-                { icon: MessageSquare, title: 'KI-Prüfungscoach', text: 'Gezielte Erklärungen und Hilfe bei schwierigen Themen.' },
-                { icon: BookOpen, title: 'Prüfungswissen kompakt', text: 'Strukturiertes Wissen orientiert am Rahmenplan.' },
-                { icon: BarChart3, title: 'Adaptive Schwächenanalyse', text: 'Automatische Erkennung deiner Wissenslücken.' },
-                { icon: TrendingUp, title: 'Prüfungsreife-Indikator', text: 'Sieh in Echtzeit, wie bereit du für die Prüfung bist.' },
+                { icon: Target, title: 'Du weißt, welche Themen dich Punkte kosten.', text: 'Die Schwächenanalyse priorisiert deinen Lernplan automatisch.' },
+                { icon: ClipboardCheck, title: 'Du übst Aufgaben im Prüfungsformat.', text: 'Originale IHK-Logik mit Zeitlimit, Punkten und Erklärung.' },
+                { icon: Mic, title: 'Du bekommst Feedback wie in der Prüfung.', text: 'Mündliche Simulation bewertet Fachlichkeit, Struktur und Praxis.' },
+                { icon: Brain, title: 'Du erkennst typische Fallen vorher.', text: 'KI-Tutor zeigt dir die häufigsten Fehler — bevor du sie machst.' },
               ].map(({ icon: Icon, title, text }) => (
-                <div key={title} className="glass-card rounded-xl p-4 sm:p-5 text-left hover:border-primary/30 transition-colors">
-                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 mb-3">
-                    <Icon className="h-5 w-5 text-primary" />
+                <div
+                  key={title}
+                  className="rounded-2xl glass-card p-5 sm:p-6 text-left hover:border-primary/30 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-primary/15 shrink-0">
+                      <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm sm:text-base text-foreground leading-snug mb-1">
+                        {title}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground leading-snug">
+                        {text}
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="font-semibold text-sm mb-1">{title}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground">{text}</p>
                 </div>
               ))}
             </div>
