@@ -552,6 +552,93 @@ Deno.serve(async (req) => {
   const curriculumId = p.curriculum_id as string;
   const courseId = p.course_id as string | undefined;
 
+  // ── Bronze targeted-repair branch (Pfad A) ──
+  // No full regeneration. Re-run annotations only (deterministic), then
+  // call admin_bronze_repair_finalize which clears repair_active and re-queues
+  // run_integrity_check. quality_council is only re-issued via DAG once
+  // integrity passes.
+  const isBronzeRepair =
+    p?._origin === "bronze_targeted_repair" ||
+    p?.mode === "bronze_targeted_repair" ||
+    p?.enqueue_source === "bronze_targeted_repair" ||
+    p?.phase === "bronze_repair";
+
+  if (isBronzeRepair) {
+    const startB = Date.now();
+    const { data: runRow } = await sb
+      .from("elite_hardening_runs")
+      .insert({
+        package_id: packageId,
+        scope: "bronze_targeted_repair",
+        phase: "annotations_only",
+        status: "running",
+        started_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    const runIdB = runRow!.id as string;
+
+    try {
+      const annot = await annotateQuestions(sb, runIdB, curriculumId, startB, {});
+      await sb.from("elite_hardening_runs").update({
+        status: "done",
+        finished_at: new Date().toISOString(),
+        phase_stats: {
+          mode: "bronze_targeted_repair",
+          annotated: annot.annotated,
+          draft_annotated: annot.draftAnnotated,
+          total: annot.total,
+          failed_rules: p?.failed_rules ?? null,
+          repair_vector: p?.repair_vector ?? null,
+        },
+        exam_questions_total: annot.total,
+      }).eq("id", runIdB);
+
+      // Mark elite_harden step done (does not regress anything)
+      await finalizeStepDone(sb, packageId, "elite_harden", {
+        phase: "bronze_targeted_repair",
+        annotated: annot.annotated,
+      });
+
+      // Hand off to finalize RPC: clears repair_active, requeues integrity_check
+      const { data: finalizeRes, error: finalizeErr } = await sb.rpc(
+        "admin_bronze_repair_finalize",
+        {
+          p_package_id: packageId,
+          p_repair_summary: {
+            annotated: annot.annotated,
+            draft_annotated: annot.draftAnnotated,
+            total: annot.total,
+            bronze_attempt: p?.bronze_attempt ?? 1,
+            origin_council_score: p?.origin_council_score ?? null,
+            origin_council_rules_failed: p?.origin_council_rules_failed ?? null,
+          },
+        },
+      );
+      if (finalizeErr) {
+        console.error(`[EliteHarden][bronze] finalize RPC error: ${finalizeErr.message}`);
+      }
+
+      const elapsed = ((Date.now() - startB) / 1000).toFixed(1);
+      return json({
+        ok: true,
+        mode: "bronze_targeted_repair",
+        run_id: runIdB,
+        annotated: annot.annotated,
+        finalize: finalizeRes ?? null,
+        elapsed_s: parseFloat(elapsed),
+      });
+    } catch (err) {
+      await finalizeRunSafe(sb, runIdB, "failed", {
+        error_message: String(err),
+        last_error: String((err as Error)?.message || err),
+      });
+      await finalizeStepFailed(sb, packageId, "elite_harden", err);
+      console.error(`[EliteHarden][bronze] FATAL: ${(err as Error)?.message || err}`);
+      return json({ ok: false, mode: "bronze_targeted_repair", error: String(err) }, 500);
+    }
+  }
+
   // ── Track-aware phase resolution ──
   // EXAM_FIRST only needs deterministic SSOT annotations (no AI upgrade)
   const { data: trackPkg } = await sb
