@@ -8,6 +8,7 @@ import { StickyCTA } from '@/components/marketing/StickyCTA';
 import { CourseFinderSection } from '@/components/marketing/CourseFinderSection';
 import { HowExamFitWorksSection } from '@/components/landing/HowExamFitWorksSection';
 import { DemoGallery } from '@/components/landing/demos/DemoGallery';
+import { HeroAccent } from '@/components/marketing/HeroAccent';
 
 import { trackConversion } from '@/lib/seo-tracking';
 import {
@@ -97,7 +98,7 @@ export default function HomePage() {
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
               Finde in 4 Minuten heraus,{' '}
-              <span className="text-gradient text-glow">wie prüfungsreif du bist.</span>
+              <HeroAccent>wie prüfungsreif du bist.</HeroAccent>
             </h1>
 
             <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in leading-snug" style={{ animationDelay: '0.1s' }}>
