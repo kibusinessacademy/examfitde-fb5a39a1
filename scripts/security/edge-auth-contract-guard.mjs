@@ -109,7 +109,9 @@ if (violations.length > 0) {
 }
 
 if (warnings.length > 0) {
-  for (const w of warnings) console.warn(w);
+  console.warn(`\n${warnings.length} baseline warning(s) (non-blocking, fix gradually):`);
+  for (const w of warnings.slice(0, 20)) console.warn(w);
+  if (warnings.length > 20) console.warn(`  …and ${warnings.length - 20} more.`);
 }
 
-console.log(`✅ edge-auth-contract-guard: ${listFunctions().length} functions checked, no violations.`);
+console.log(`\n✅ edge-auth-contract-guard: ${listFunctions().length} functions checked, no NEW violations (${BASELINE.size} legacy baseline entries).`);
