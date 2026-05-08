@@ -241,28 +241,11 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     const body = await req.json().catch(() => ({}));
-    const authHeader = req.headers.get("Authorization");
-    let isAuthorized = false;
 
-    // Auth: require EDGE_INTERNAL_SHARED_SECRET (CI/cron) OR admin JWT.
-    // The legacy trustedSources string-bypass was removed (any caller could
-    // POST {trigger_source:"cron_nightly"} to gain full test-runner access).
-    const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
-    const jobRunnerKey = req.headers.get("x-job-runner-key") || "";
-    if (internalSecret && jobRunnerKey === internalSecret) {
-      isAuthorized = true;
-    } else if (authHeader && !authHeader.includes(serviceKey)) {
-      const token = authHeader.replace(/^Bearer\s+/i, "");
-      const userClient = createClient(supabaseUrl, anonKey);
-      const { data: { user } } = await userClient.auth.getUser(token);
-      if (user) {
-        const sb = createClient(supabaseUrl, serviceKey);
-        const { data: role } = await sb.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
-        if (role) isAuthorized = true;
-      }
-    }
-
-    if (!isAuthorized) return json({ error: "Unauthorized" }, 401);
+    // Auth via shared contract (internal-secret | service-role bearer | admin JWT).
+    const { assertAdmin } = await import("../_shared/edgeAuthContract.ts");
+    const authR = await assertAdmin(req, "run-tests");
+    if (!authR.ok) return json({ error: "Unauthorized" }, authR.status);
 
     const suite: string = body.suite || "smoke";
     const env = body.env || "staging";
