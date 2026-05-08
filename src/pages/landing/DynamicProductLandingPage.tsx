@@ -159,11 +159,14 @@ export default function DynamicProductLandingPage() {
 
   if (error || !data || !messaging) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center space-y-4 max-w-sm">
           <h1 className="text-2xl font-bold">Produkt nicht gefunden</h1>
           <p className="text-muted-foreground">{error ?? "Keine Daten verfügbar."}</p>
-          <Link to="/shop"><Button>Zum Shop</Button></Link>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <Link to="/shop"><Button>Zum Shop</Button></Link>
+            <Link to="/"><Button variant="outline">Zur Startseite</Button></Link>
+          </div>
         </div>
       </div>
     );
