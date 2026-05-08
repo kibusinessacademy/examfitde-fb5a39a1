@@ -49,15 +49,15 @@ export function ProductTrustSection({ chamberType, cleanTitle }: Props) {
           </div>
         </div>
 
-        {/* Social proof */}
+        {/* Belegbare Signale — 98 %-Claim entfernt (kein Studien-Beleg, siehe Plan Phase A) */}
         <div className="flex flex-wrap justify-center gap-8 mt-10">
           <div className="text-center">
-            <p className="text-3xl font-display font-bold text-primary">98%</p>
-            <p className="text-xs text-muted-foreground">Bestehensquote</p>
+            <p className="text-3xl font-display font-bold text-primary">Score</p>
+            <p className="text-xs text-muted-foreground">Prüfungsreife messbar</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-display font-bold text-primary">5.000+</p>
-            <p className="text-xs text-muted-foreground">Absolventen</p>
+            <p className="text-3xl font-display font-bold text-primary">Rahmenplan</p>
+            <p className="text-xs text-muted-foreground">IHK · HWK · Fortbildung</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-display font-bold text-primary">4,8★</p>

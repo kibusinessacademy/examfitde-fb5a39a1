@@ -30,7 +30,10 @@ export default function MainLayout() {
     <div className="min-h-screen bg-background">
       {user && <ShareEventOrchestrator />}
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+      <header
+        className="sticky top-0 z-50 bg-background/85 backdrop-blur-md border-b border-border"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/" aria-label="ExamFit Startseite" className="flex items-center gap-3">
