@@ -85,6 +85,9 @@ export default function H5PPlayer({ contentId, curriculumId, onCompleted, onProg
 
         h5pInstanceRef.current = h5pInstance;
 
+        // GA4: H5P start
+        trackH5P('h5p_started', { contentId, curriculumId });
+
         // Listen for xAPI events
         if (typeof window !== 'undefined') {
           window.addEventListener('message', handleXAPIMessage);
