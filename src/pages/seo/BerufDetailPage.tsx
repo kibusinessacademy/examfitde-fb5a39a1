@@ -56,12 +56,20 @@ export default function BerufDetailPage() {
 
   if (!course || !slug) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
           <h1 className="text-2xl font-bold mb-4 text-text-primary">Beruf nicht gefunden</h1>
-          <Button asChild>
-            <Link to="/berufe">Alle Berufe anzeigen</Link>
-          </Button>
+          <p className="text-sm text-text-secondary mb-6">
+            Diesen Beruf konnten wir nicht finden. Schau in der Übersicht oder gehe zur Startseite zurück.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <Button asChild>
+              <Link to="/berufe">Alle Berufe anzeigen</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/">Zur Startseite</Link>
+            </Button>
+          </div>
         </div>
       </div>
     );
