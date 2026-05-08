@@ -306,10 +306,15 @@ Deno.serve(async (req) => {
 
       if (cErr || !curr) return new Response(JSON.stringify({ success: false, error: cErr?.message || 'Failed to create curriculum' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-      // Call curriculum-import edge function
+      // Call curriculum-import edge function (use internal shared secret, not service-role bearer)
+      const internalSecret = Deno.env.get('EDGE_INTERNAL_SHARED_SECRET') || '';
       const importRes = await fetch(`${supabaseUrl}/functions/v1/curriculum-import`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${supabaseServiceKey}`, 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${supabaseServiceKey}`,
+          'x-job-runner-key': internalSecret,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ action: 'import', curriculumId: curr.id, sourceUrl: beruf.rahmenlehrplan_url }),
       });
 
@@ -319,9 +324,14 @@ Deno.serve(async (req) => {
 
     // ─────────── Batch import curricula for all berufe ───────────
     if (action === 'import_curricula_batch') {
+      const internalSecret = Deno.env.get('EDGE_INTERNAL_SHARED_SECRET') || '';
       const importRes = await fetch(`${supabaseUrl}/functions/v1/curriculum-import`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${supabaseServiceKey}`, 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${supabaseServiceKey}`,
+          'x-job-runner-key': internalSecret,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ action: 'batch', limit: body.limit || 10 }),
       });
 
