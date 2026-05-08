@@ -71,8 +71,8 @@ export default function HomePage() {
   return (
     <>
       <SEOHead
-        title={seoTitle("IHK-Prüfung bestehen: Prüfungstraining für Ausbildung & Beruf")}
-        description="Finde dein Prüfungstraining für die IHK-Abschlussprüfung. Suche nach Beruf, trainiere schriftliche und mündliche Prüfungssituationen mit KI-Coach. Komplett-Bundle für 24,90 € einmalig."
+        title={seoTitle("Prüfungsreife testen — IHK-Prüfung gezielt vorbereiten")}
+        description="Finde in 4 Minuten heraus, wie prüfungsreif du bist. ExamFit analysiert Schwächen, erstellt deinen Lernplan und trainiert schriftlich + mündlich bis zur Prüfung. Komplett-Bundle 24,90 €, kein Abo."
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
