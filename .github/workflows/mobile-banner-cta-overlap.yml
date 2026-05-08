@@ -1,0 +1,39 @@
+name: mobile-banner-cta-overlap
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/consent/**'
+      - 'src/components/landing/beruf/BerufStickyCta.tsx'
+      - 'src/components/landing/bundle/BundleStickyCta.tsx'
+      - 'src/components/marketing/StickyCTA.tsx'
+      - 'src/components/product/StickyProductBar.tsx'
+      - 'src/components/shop/StickyPurchaseBar.tsx'
+      - 'src/hooks/useConsentBannerVisible.ts'
+      - 'tests/e2e/mobile-banner-cta-overlap.spec.ts'
+      - 'playwright.config.ts'
+      - '.github/workflows/mobile-banner-cta-overlap.yml'
+
+jobs:
+  overlap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_TARGET: preview
+      PREVIEW_URL: ${{ secrets.PREVIEW_URL || 'https://examfitde.lovable.app' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with: { bun-version: latest }
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - name: Run mobile-overlap tests
+        run: bunx playwright test --project=mobile-overlap
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: mobile-overlap-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
