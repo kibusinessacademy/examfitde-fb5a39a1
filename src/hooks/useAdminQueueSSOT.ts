@@ -112,10 +112,16 @@ function normalizeQueueJob(row: Partial<AdminQueueJob>): AdminQueueJob {
   const lastError = typeof row.last_error === 'string' ? row.last_error : null;
   const jobStatus = typeof row.job_status === 'string' ? row.job_status : 'pending';
   const rawHealth = row.health_signal as string | undefined;
-  const healthSignal: QueueHealthSignal = rawHealth === 'ok' ? 'normal'
-    : rawHealth && ['zombie', 'stale_lock', 'exhausted', 'retriable', 'aging', 'normal'].includes(rawHealth)
+  // SSOT-Override: terminal verdicts (STALE_REAP_LOOP_TERMINAL, BRONZE_LOCK,
+  // PHANTOM_STEP_BLOCKED) müssen IMMER aus last_error abgeleitet werden,
+  // damit ein veralteter raw `retriable`-Wert aus der View nicht durchsickert.
+  const inferred = inferHealthSignal(jobStatus, attempts, maxAttempts, lastError, typeof row.started_at === 'string' ? row.started_at : null);
+  const healthSignal: QueueHealthSignal = inferred === 'terminal'
+    ? 'terminal'
+    : rawHealth === 'ok' ? 'normal'
+    : rawHealth && ['zombie', 'stale_lock', 'exhausted', 'retriable', 'aging', 'normal', 'terminal'].includes(rawHealth)
       ? (rawHealth as QueueHealthSignal)
-      : inferHealthSignal(jobStatus, attempts, maxAttempts, lastError, typeof row.started_at === 'string' ? row.started_at : null);
+      : inferred;
 
   return {
     job_id: typeof row.job_id === 'string' && row.job_id.length > 0
