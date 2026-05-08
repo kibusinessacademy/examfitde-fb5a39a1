@@ -245,7 +245,7 @@ export default function EventInspectorPage() {
     if (!realtime) {
       // In non-realtime mode the wrapper isn't installed; record manually.
       setPushes((prev) =>
-        [{ ...p, _ts: Date.now(), _origin_capture: "button" }, ...prev].slice(0, 50),
+        [{ ...p, _ts: Date.now(), _origin_capture: "button" as const }, ...prev].slice(0, 50),
       );
     }
   };
