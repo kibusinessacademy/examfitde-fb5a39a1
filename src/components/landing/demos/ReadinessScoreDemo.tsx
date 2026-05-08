@@ -14,10 +14,17 @@ export function ReadinessScoreDemo() {
   useEffect(() => {
     const el = ref.current;
     if (!el || animated) return;
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const obs = new IntersectionObserver(
       ([e]) => {
         if (e.isIntersecting) {
           setAnimated(true);
+          if (reduceMotion) {
+            setScore(TARGET);
+            return;
+          }
           let v = 0;
           const id = setInterval(() => {
             v += 4;
