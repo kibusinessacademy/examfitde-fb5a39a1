@@ -17,6 +17,7 @@ const PricingManager = lazy(() => import('@/components/admin/growth/PricingManag
 const PricingIntegrityCard = lazy(() => import('@/components/admin/growth/PricingIntegrityCard'));
 const FunnelIntegrityCard = lazy(() => import('@/components/admin/growth/FunnelIntegrityCard'));
 const FunnelAnalyticsCard = lazy(() => import('@/components/admin/growth/FunnelAnalyticsCard'));
+const PruefungsreifeFunnelCard = lazy(() => import('@/components/admin/growth/PruefungsreifeFunnelCard'));
 const PlatformIntegrityCard = lazy(() => import('@/components/admin/growth/PlatformIntegrityCard'));
 const KeywordStrategyManager = lazy(() => import('@/components/admin/growth/KeywordStrategyManager'));
 const ContentBriefManager = lazy(() => import('@/components/admin/growth/ContentBriefManager'));
