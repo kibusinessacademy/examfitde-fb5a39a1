@@ -190,6 +190,29 @@ export default function PruefungsreifeCheckPage() {
 
   const handleSecondary = () => emitClick("secondary", secondaryHref);
 
+  const handleWeaknessClick = (cat: CategoryKey) => {
+    const metadata = {
+      ...baseMeta,
+      location: "pruefungscheck_result_weakness_link",
+      target: `${primaryHref}#${cat}`,
+      weakest_category: cat,
+      score: totalScore,
+      risk_level: riskMeta.level,
+    };
+    devTrackingContractCheck({
+      eventType: "cta_click",
+      packageId: resolver.packageId,
+      metadata,
+      requiredMetadataKeys: REQUIRED_KEYS,
+    });
+    track("cta_click", {
+      sourcePage,
+      packageId: resolver.packageId,
+      persona: resolver.persona ?? (isBerufContext ? "azubi" : null),
+      metadata,
+    });
+  };
+
   return (
     <>
       <SEOHead
@@ -223,10 +246,12 @@ export default function PruefungsreifeCheckPage() {
               score={totalScore}
               weakest={weakest}
               contextLabel={contextLabel}
+              bundleTitle={resolver.bundleTitle}
               primaryHref={primaryHref}
               secondaryHref={secondaryHref}
               onPrimary={handlePrimary}
               onSecondary={handleSecondary}
+              onWeaknessClick={handleWeaknessClick}
               onReset={handleReset}
             />
           )}
