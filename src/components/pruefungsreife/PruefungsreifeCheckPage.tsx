@@ -9,6 +9,7 @@ import { QuizProgressBar } from "./QuizProgressBar";
 import { QuizResultScreen } from "./QuizResultScreen";
 import { QUESTIONS, classifyScore, type CategoryKey } from "./types";
 import { usePackageResolverForSlug } from "./usePackageResolver";
+import { useDiagnosticSet } from "./useDiagnosticSet";
 import { devTrackingContractCheck } from "./devTrackingCheck";
 
 type Phase = "start" | "running" | "result";
@@ -29,6 +30,8 @@ export default function PruefungsreifeCheckPage() {
   const isBerufContext = source === "beruf" && !!slug;
 
   const resolver = usePackageResolverForSlug(isBerufContext ? slug : null);
+  const diagnostic = useDiagnosticSet(resolver.packageId);
+  const questions = diagnostic.questions;
 
   const contextLabel = isBerufContext ? slug?.replace(/-/g, " ") ?? null : null;
   const primaryHref = isBerufContext ? `/bundle/${slug}` : "/shop";
@@ -52,8 +55,12 @@ export default function PruefungsreifeCheckPage() {
       slug: slug ?? null,
       source: source ?? "direct",
       quiz: "pruefungsreife_check",
+      question_source: diagnostic.isBlueprintSourced ? "blueprint" : "generic",
+      question_count: questions.length,
+      competency_ids: diagnostic.isBlueprintSourced ? diagnostic.competencyIds : null,
+      blueprint_ids: diagnostic.isBlueprintSourced ? diagnostic.blueprintIds : null,
     }),
-    [sourcePage, slug, source],
+    [sourcePage, slug, source, diagnostic, questions.length],
   );
 
   const REQUIRED_KEYS = ["source_page", "page_path", "slug", "source"];
@@ -110,10 +117,10 @@ export default function PruefungsreifeCheckPage() {
 
   const handleAnswer = (score: 0 | 1 | 2 | 3) => {
     const next = [...answers, score];
-    if (next.length >= QUESTIONS.length) {
+    if (next.length >= questions.length) {
       setAnswers(next);
-      const total = computeScore(next);
-      const weakest = computeWeakest(next);
+      const total = computeScore(next, questions.length);
+      const weakest = computeWeakest(next, questions);
       const meta = classifyScore(total);
       setPhase("result");
       emit("quiz_completed", {
@@ -139,8 +146,8 @@ export default function PruefungsreifeCheckPage() {
     setAnswers([]);
   };
 
-  const totalScore = phase === "result" ? computeScore(answers) : 0;
-  const weakest = phase === "result" ? computeWeakest(answers) : [];
+  const totalScore = phase === "result" ? computeScore(answers, questions.length) : 0;
+  const weakest = phase === "result" ? computeWeakest(answers, questions) : [];
   const riskMeta = classifyScore(totalScore);
 
   function emitClick(location: "primary" | "secondary", target: string) {
@@ -226,17 +233,22 @@ export default function PruefungsreifeCheckPage() {
       >
         <div className="mx-auto w-full max-w-xl">
           {phase === "start" && (
-            <QuizStartScreen contextLabel={contextLabel} onStart={handleStart} />
+            <QuizStartScreen
+              contextLabel={contextLabel}
+              isBlueprintSourced={diagnostic.isBlueprintSourced}
+              questionCount={questions.length}
+              onStart={handleStart}
+            />
           )}
 
           {phase === "running" && (
             <div className="space-y-6" data-testid="quiz-running">
-              <QuizProgressBar current={current} total={QUESTIONS.length} />
+              <QuizProgressBar current={current} total={questions.length} />
               <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-                Frage {current + 1} von {QUESTIONS.length}
+                Frage {current + 1} von {questions.length}
               </div>
               <QuizQuestionCard
-                question={QUESTIONS[current]}
+                question={questions[current]}
                 onAnswer={handleAnswer}
                 onBack={handleBack}
                 canGoBack={current > 0}
@@ -264,18 +276,21 @@ export default function PruefungsreifeCheckPage() {
   );
 }
 
-function computeScore(answers: Array<0 | 1 | 2 | 3>): number {
-  if (answers.length === 0) return 0;
-  const max = QUESTIONS.length * 3;
+function computeScore(answers: Array<0 | 1 | 2 | 3>, totalQuestions: number): number {
+  if (answers.length === 0 || totalQuestions === 0) return 0;
+  const max = totalQuestions * 3;
   const sum = answers.reduce((a, b) => a + b, 0);
   return Math.round((sum / max) * 100);
 }
 
-function computeWeakest(answers: Array<0 | 1 | 2 | 3>): CategoryKey[] {
+function computeWeakest(
+  answers: Array<0 | 1 | 2 | 3>,
+  questionList: typeof QUESTIONS,
+): CategoryKey[] {
   if (answers.length === 0) return [];
   const buckets: Record<string, { sum: number; count: number; cat: CategoryKey }> = {};
   answers.forEach((score, i) => {
-    const cat = QUESTIONS[i]?.category;
+    const cat = questionList[i]?.category;
     if (!cat) return;
     if (!buckets[cat]) buckets[cat] = { sum: 0, count: 0, cat };
     buckets[cat].sum += score;

@@ -4,10 +4,18 @@ import { HeroAccent } from "@/components/marketing/HeroAccent";
 
 interface Props {
   contextLabel?: string | null;
+  /** True when berufsspezifische Diagnosefragen aus SSOT/Blueprints geladen sind. */
+  isBlueprintSourced?: boolean;
+  questionCount?: number;
   onStart: () => void;
 }
 
-export function QuizStartScreen({ contextLabel, onStart }: Props) {
+export function QuizStartScreen({ contextLabel, isBlueprintSourced = false, questionCount, onStart }: Props) {
+  const headline = contextLabel
+    ? isBlueprintSourced
+      ? `Prüfungsreife-Check für ${contextLabel}`
+      : `Allgemeiner Prüfungsreife-Check`
+    : "Allgemeiner Prüfungsreife-Check";
   return (
     <div className="rounded-2xl p-6 sm:p-10 bg-surface-raised border border-border-subtle shadow-elev-2">
       {contextLabel && (
@@ -17,12 +25,21 @@ export function QuizStartScreen({ contextLabel, onStart }: Props) {
         </div>
       )}
       <h1 className="text-2xl sm:text-4xl font-bold text-text-primary leading-tight mb-3">
-        Teste kostenlos deine{' '}
-        <HeroAccent>Prüfungsreife in 4&nbsp;Minuten.</HeroAccent>
+        {isBlueprintSourced && contextLabel ? (
+          <>
+            <HeroAccent>{headline}</HeroAccent>
+          </>
+        ) : (
+          <>
+            Teste kostenlos deine{' '}
+            <HeroAccent>Prüfungsreife in 4&nbsp;Minuten.</HeroAccent>
+          </>
+        )}
       </h1>
       <p className="text-base text-text-secondary mb-6">
-        Beantworte kurze Fragen zu Vorbereitung, Sicherheit und Prüfungsformat. Danach erhältst du
-        deinen Score, deine größten Risiken und eine konkrete Empfehlung.
+        {isBlueprintSourced
+          ? `Beantworte ${questionCount ?? 8} kurze Fragen aus dem echten Prüfungs-Pool deines Berufs. Danach erhältst du deinen Score, deine größten Risiken und eine konkrete Empfehlung.`
+          : "Beantworte kurze Fragen zu Vorbereitung, Sicherheit und Prüfungsformat. Danach erhältst du deinen Score, deine größten Risiken und eine konkrete Empfehlung."}
       </p>
 
       <Button
