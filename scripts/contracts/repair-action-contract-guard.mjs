@@ -75,6 +75,7 @@ for (const f of files) {
     while ((m = re.exec(txt)) !== null) {
       const value = m[1];
       if (!value) continue;
+      if (canonical.has(value)) continue;
       if (aliases.has(value)) {
         if (!aliasesActive) {
           console.error(`✗ EXPIRED ALIAS '${value}' in ${f}`);
