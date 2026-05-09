@@ -300,11 +300,14 @@ export default function PruefungsreifeFunnelCard() {
                   Filter aktiv: question_source = <code className="ml-1">{source}</code>
                 </Badge>
               )}
-              {data.question_source_invalid && (
+              {(data.question_source_invalid || isInvalidUrlSource) && (
                 <Badge variant="outline" className="text-[10px] border-status-warning/50 text-status-warning-foreground" data-testid="source-invalid-badge">
                   Ungültiger Filterwert ignoriert
                 </Badge>
               )}
+              <span className="text-[10px] text-text-tertiary basis-full">
+                Hinweis: Filter wirkt nur auf Quiz/Result/CTA-Stages. <b>landing_view</b> und <b>checkout_start</b> bleiben total (unfiltered).
+              </span>
             </div>
 
             {/* KPI Row */}
@@ -312,37 +315,39 @@ export default function PruefungsreifeFunnelCard() {
               <Kpi label="Starts" value={data.stages[1]?.count ?? 0} />
               <Kpi label="Abschluss" value={`${data.completion_rate_pct}%`} />
               <Kpi label="Result-CTA" value={`${data.cta_rate_pct}%`} />
-              <Kpi label="Checkout" value={`${data.checkout_rate_pct}%`} />
+              <Kpi label="Checkout-Start (total)" value={`${data.checkout_rate_pct}%`} hint="unfiltered — Quelle ohne question_source" />
             </div>
 
-            {/* MC vs Self-Score (Phase 2) */}
-            {(data.mc_score?.samples ?? 0) > 0 || data.self_score_avg !== null ? (
+            {/* MC vs Self-Score (Phase 2) — MC nur bei samples > 0 */}
+            {((data.mc_score?.samples ?? 0) > 0 || (data.self_score_avg !== null && data.self_score_avg !== undefined)) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-lg border border-border-subtle bg-surface-sunken p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-text-tertiary">MC-Korrektheit Ø</div>
-                  <div className="text-lg font-bold text-text-primary mt-0.5">
-                    {data.mc_score?.avg_pct !== null && data.mc_score?.avg_pct !== undefined
-                      ? `${data.mc_score.avg_pct}%`
-                      : "—"}
+                {(data.mc_score?.samples ?? 0) > 0 && (
+                  <div className="rounded-lg border border-border-subtle bg-surface-sunken p-3" data-testid="mc-score-card">
+                    <div className="text-[10px] uppercase tracking-wide text-text-tertiary">MC-Korrektheit Ø (Nebenachse)</div>
+                    <div className="text-lg font-bold text-text-primary mt-0.5">
+                      {data.mc_score?.avg_pct !== null && data.mc_score?.avg_pct !== undefined
+                        ? `${data.mc_score.avg_pct}%`
+                        : "—"}
+                    </div>
+                    <div className="text-[10px] text-text-tertiary mt-0.5">
+                      {data.mc_score?.samples ?? 0} Sample(s)
+                      {source === "generic" && " · Generic-Pfad hat keine MC-Stufe"}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-text-tertiary mt-0.5">
-                    {data.mc_score?.samples ?? 0} Sample(s)
-                    {source === "generic" && " · Generic-Pfad hat keine MC-Stufe"}
+                )}
+                {(data.self_score_avg !== null && data.self_score_avg !== undefined) && (
+                  <div className="rounded-lg border border-border-subtle bg-surface-sunken p-3">
+                    <div className="text-[10px] uppercase tracking-wide text-text-tertiary">Ø Selbsteinschätzung</div>
+                    <div className="text-lg font-bold text-text-primary mt-0.5">
+                      {data.self_score_avg}
+                    </div>
+                    <div className="text-[10px] text-text-tertiary mt-0.5">
+                      Score 0–100 · primäre Reife-Achse
+                    </div>
                   </div>
-                </div>
-                <div className="rounded-lg border border-border-subtle bg-surface-sunken p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-text-tertiary">Self-Assessment Ø</div>
-                  <div className="text-lg font-bold text-text-primary mt-0.5">
-                    {data.self_score_avg !== null && data.self_score_avg !== undefined
-                      ? `${data.self_score_avg}`
-                      : "—"}
-                  </div>
-                  <div className="text-[10px] text-text-tertiary mt-0.5">
-                    Score 0–100 (Mittelwert)
-                  </div>
-                </div>
+                )}
               </div>
-            ) : null}
+            )}
 
             {/* Funnel bars */}
             <div className="space-y-2">
