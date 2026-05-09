@@ -533,13 +533,14 @@ export default function PruefungsreifeFunnelCard() {
   );
 }
 
-function Kpi({ label, value }: { label: string; value: number | string }) {
+function Kpi({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-border-subtle bg-surface-sunken px-3 py-2">
+    <div className="rounded-lg border border-border-subtle bg-surface-sunken px-3 py-2" title={hint}>
       <div className="text-[10px] uppercase tracking-wide text-text-tertiary">{label}</div>
       <div className="text-lg font-bold text-text-primary mt-0.5">
         {typeof value === "number" ? value.toLocaleString("de-DE") : value}
       </div>
+      {hint && <div className="text-[9px] text-text-tertiary mt-0.5 leading-tight">{hint}</div>}
     </div>
   );
 }
