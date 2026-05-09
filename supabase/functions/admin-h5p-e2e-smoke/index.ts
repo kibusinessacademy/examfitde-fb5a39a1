@@ -141,25 +141,37 @@ Deno.serve(async (req) => {
       });
     } else {
       if (pre.h5p_content_id !== contentId) {
-        const { error: upErr } = await admin
-          .from("lessons")
-          .update({ h5p_content_id: contentId })
-          .eq("id", lessonId);
-        if (upErr) {
+        if (!autoHeal) {
           steps.push({
             key: "lesson_link",
             label: "Lesson-Verlinkung",
             status: "fail",
-            detail: upErr.message,
+            detail: `Drift: lesson.h5p_content_id=${pre.h5p_content_id ?? "null"} ≠ ${contentId} (auto_heal=false)`,
           });
         } else {
-          lessonRow = { ...pre, h5p_content_id: contentId };
-          steps.push({
-            key: "lesson_link",
-            label: "Lesson-Verlinkung",
-            status: "ok",
-            detail: "h5p_content_id gesetzt",
-          });
+          const { error: upErr } = await admin
+            .from("lessons")
+            .update({ h5p_content_id: contentId })
+            .eq("id", lessonId);
+          if (upErr) {
+            steps.push({
+              key: "lesson_link",
+              label: "Lesson-Verlinkung",
+              status: "fail",
+              detail: upErr.message,
+            });
+            healed.push({ step: "lesson_link", action: "update lessons.h5p_content_id", ok: false, detail: upErr.message });
+          } else {
+            lessonRow = { ...pre, h5p_content_id: contentId };
+            steps.push({
+              key: "lesson_link",
+              label: "Lesson-Verlinkung",
+              status: "healed",
+              detail: `Drift behoben: ${pre.h5p_content_id ?? "null"} → ${contentId}`,
+              healed_action: "update lessons.h5p_content_id",
+            });
+            healed.push({ step: "lesson_link", action: "update lessons.h5p_content_id", ok: true, detail: `${pre.h5p_content_id ?? "null"} → ${contentId}` });
+          }
         }
       } else {
         lessonRow = pre;
