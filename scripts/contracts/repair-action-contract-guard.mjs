@@ -50,7 +50,7 @@ const PATTERNS = [
   // TS: payload.action === '...'
   /payload\.action\s*===?\s*['"]([a-z_]+)['"]/g,
   // SQL: WHEN 'repair_xxx' THEN ...
-  /\bWHEN\s+'(repair_[a-z_]+|enqueue_[a-z_]+_repair)'\s+THEN/gi,
+  /\bWHEN\s+'(repair_[a-z_]+|enqueue_[a-z_]+_repair)'\s+THEN/g,
   // SQL: IN ('repair_xxx' ...) — only treat as action when other action-y values neighbor
   /\bIN\s*\(\s*'(repair_lf_coverage|repair_exam_pool_quality|repair_exam_pool_competency_coverage|repair_lessons|repair_handbook|repair_oral_exam|repair_minichecks|enqueue_lf_coverage_repair)'/g,
 ];
