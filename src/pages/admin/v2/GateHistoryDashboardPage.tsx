@@ -63,6 +63,71 @@ export default function GateHistoryDashboardPage() {
   const [windowDays, setWindowDays] = useState(30);
   const [windowHours, setWindowHours] = useState(168);
   const [packageId, setPackageId] = useState("");
+  const [laneFilter, setLaneFilter] = useState<string>("all");
+  const [decisionFilter, setDecisionFilter] = useState<string>("all");
+
+  function downloadFile(filename: string, content: string, mime: string) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportTimeline(format: "json" | "csv") {
+    const rows = filteredTimeline;
+    if (!rows.length) return;
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    if (format === "json") {
+      downloadFile(
+        `gate-timeline-${packageId}-${stamp}.json`,
+        JSON.stringify(rows, null, 2),
+        "application/json",
+      );
+    } else {
+      const headers = [
+        "id",
+        "decision",
+        "prev_decision",
+        "quality_score",
+        "quality_badge",
+        "bronze_locked",
+        "recorded_at",
+        "recorded_by",
+        "inputs_json",
+      ];
+      const esc = (v: unknown) => {
+        const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const body = rows
+        .map((r) =>
+          [
+            r.id,
+            r.decision,
+            r.prev_decision,
+            r.quality_score,
+            r.quality_badge,
+            r.bronze_locked,
+            r.recorded_at,
+            r.recorded_by,
+            r.inputs,
+          ]
+            .map(esc)
+            .join(","),
+        )
+        .join("\n");
+      downloadFile(
+        `gate-timeline-${packageId}-${stamp}.csv`,
+        headers.join(",") + "\n" + body,
+        "text/csv",
+      );
+    }
+  }
 
   const drift = useQuery({
     queryKey: ["gate-drift", windowDays],
