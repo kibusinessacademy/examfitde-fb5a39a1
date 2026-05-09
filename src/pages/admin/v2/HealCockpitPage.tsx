@@ -48,6 +48,7 @@ import { CancelReasonBreakdownCard } from "@/components/admin/heal/cards/CancelR
 import { PendingAgeHistogramCard } from "@/components/admin/heal/cards/PendingAgeHistogramCard";
 import { WorkerThroughputForensicsCard } from "@/components/admin/heal/cards/WorkerThroughputForensicsCard";
 import { RecoveryPulseHistoryCard } from "@/components/admin/heal/cards/RecoveryPulseHistoryCard";
+import { QualityGateDecisionsCard } from "@/components/admin/heal/cards/QualityGateDecisionsCard";
 import { BlockedReasonDetailCard } from "@/components/admin/heal/cards/BlockedReasonDetailCard";
 import { ControlLaneRequeueCard } from "@/components/admin/heal/cards/ControlLaneRequeueCard";
 import { QualityCouncilDriftCard } from "@/components/admin/heal/cards/QualityCouncilDriftCard";
@@ -366,6 +367,7 @@ export default function HealCockpitPage() {
                   <PendingAgeHistogramCard />
                   <CancelReasonBreakdownCard />
                 </div>
+                <QualityGateDecisionsCard />
                 <ControlLaneRequeueCard />
                 <QualityCouncilDriftCard />
                 <BlockedReasonDetailCard />

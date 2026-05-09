@@ -77,4 +77,38 @@ describe("Phase-3 ops: DAG heal + alert hardening", () => {
     const { error } = await supabase.rpc("admin_smoke_dag_heal_pre_post" as any, { p_phase: "pre" });
     expect(error).toBeTruthy();
   });
+
+  describe("S1: fn_adaptive_burst_size_v2 truth table", () => {
+    // [pending, failure_rate, reaper_churn, lane, pool, expected_max, label]
+    const cases: Array<[number, number, number, string | null, string, number, string]> = [
+      [50,    0,    0, null,       "default", 25, "low pending → 25"],
+      [1500,  0,    0, null,       "default", 75, "high pending → 75"],
+      [1500,  0.30, 0, null,       "default", 40, "high failure → halved"],
+      [1500,  0,   12, null,       "default", 40, "reaper churn → halved"],
+      [1500,  0,    0, "control",  "default", 35, "control lane capped 35"],
+      [50,    0,    0, "recovery", "default", 35, "recovery lane floor 35"],
+      [1500,  0,    0, null,       "premium", 25, "non-default pool capped 25"],
+    ];
+    for (const [pending, fr, churn, lane, pool, max, label] of cases) {
+      it(label, async () => {
+        const { data, error } = await supabase.rpc(
+          "fn_adaptive_burst_size_v2" as any,
+          { p_pending: pending, p_failure_rate_15m: fr, p_reaper_churn_5m: churn, p_lane: lane, p_pool: pool },
+        );
+        expect(error).toBeNull();
+        expect(typeof data).toBe("number");
+        expect(data).toBeLessThanOrEqual(max);
+        expect(data).toBeGreaterThanOrEqual(5);
+      });
+    }
+  });
+
+  it("admin_get_quality_gate_decisions refuses anon", async () => {
+    const { data, error } = await supabase.rpc(
+      "admin_get_quality_gate_decisions" as any,
+      { p_decision: null, p_limit: 10 },
+    );
+    expect(error).toBeTruthy();
+    expect(data).toBeNull();
+  });
 });
