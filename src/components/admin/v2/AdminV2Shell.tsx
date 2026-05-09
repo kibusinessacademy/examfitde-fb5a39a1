@@ -3,7 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
-  LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Heart, Gauge
+  LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Heart, Gauge,
+  Shield, Upload
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,12 @@ const NAV_ITEMS = [
   { to: '/admin/support', label: 'Support', icon: HeadphonesIcon },
   { to: '/admin/kpi', label: 'KPIs', icon: BarChart3 },
   { to: '/admin/test', label: 'Testen', icon: Play },
+] as const;
+
+/** Sekundäre Admin-Tools (kompakter als Hauptnavigation) */
+const SECONDARY_ITEMS = [
+  { to: '/admin/ops/roles', label: 'Rollen', icon: Shield },
+  { to: '/admin/ops/h5p', label: 'H5P', icon: Upload },
 ] as const;
 
 interface Props {
