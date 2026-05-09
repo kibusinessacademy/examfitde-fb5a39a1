@@ -29,8 +29,9 @@ describe("S5d product_track UNKNOWN cast regression", () => {
   it("latest fn_guard_publish_lxi_no_lessons casts b.track to text before COALESCE", () => {
     const all = readAllMigrations();
     // Finde alle Definitionen der Funktion
+    // Match: CREATE … AS $function$ … $function$ (zwei Dollar-Quotes)
     const fnRegex =
-      /CREATE OR REPLACE FUNCTION public\.fn_guard_publish_lxi_no_lessons[\s\S]*?\$function\$;?/g;
+      /CREATE OR REPLACE FUNCTION public\.fn_guard_publish_lxi_no_lessons[\s\S]*?AS \$function\$[\s\S]*?\$function\$/g;
     const matches = all.match(fnRegex);
     expect(matches, "fn_guard_publish_lxi_no_lessons must exist in migrations").toBeTruthy();
     const latest = matches![matches!.length - 1];
