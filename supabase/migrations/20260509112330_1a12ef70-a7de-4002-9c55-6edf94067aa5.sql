@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.admin_wave_heal_lf_coverage(boolean, integer, integer) TO service_role, authenticated;
