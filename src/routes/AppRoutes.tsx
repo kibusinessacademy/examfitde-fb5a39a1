@@ -472,6 +472,8 @@ const AppRoutes = () => {
           <Route path="ops/ai-analysis-audit" element={<AIAnalysisAuditPage />} />
           <Route path="ops/seo-test" element={<SEOTestPage />} />
           <Route path="ops/audit-reports" element={<AuditReportsPage />} />
+          <Route path="ops/roles" element={<AdminRolesPage />} />
+          <Route path="ops/h5p" element={<AdminH5PUploadPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
