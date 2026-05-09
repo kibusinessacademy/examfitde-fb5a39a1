@@ -286,10 +286,24 @@ export default function LessonPlayer() {
   };
 
   const handleH5PCompleted = (score?: number, maxScore?: number) => {
+    // Telemetrie-Parität mit MiniCheck — feuert auch bei Re-Completion
+    const curriculumId = course?.curriculum_id;
+    const scorePercent =
+      score !== undefined && maxScore !== undefined && maxScore > 0
+        ? Math.round((score / maxScore) * 100)
+        : undefined;
+    recordLearningEvent({
+      event_type: 'h5p_completed',
+      curriculum_id: curriculumId ?? undefined,
+      lesson_id: lesson?.id,
+      competency_id: lesson?.competency_id ?? undefined,
+      score: scorePercent,
+      payload: { raw_score: score ?? null, max_score: maxScore ?? null },
+    });
+
     if (!progress?.completed) {
       completeLesson(score, maxScore);
       // Trigger snapshot after H5P-only completion
-      const curriculumId = course?.curriculum_id;
       if (curriculumId) snapshotExamReadiness(curriculumId);
     }
   };
