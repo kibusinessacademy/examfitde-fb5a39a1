@@ -9,6 +9,7 @@ import { QuizProgressBar } from "./QuizProgressBar";
 import { QuizResultScreen } from "./QuizResultScreen";
 import { QUESTIONS, classifyScore, type CategoryKey } from "./types";
 import { usePackageResolverForSlug } from "./usePackageResolver";
+import { useDiagnosticSet } from "./useDiagnosticSet";
 import { devTrackingContractCheck } from "./devTrackingCheck";
 
 type Phase = "start" | "running" | "result";
@@ -29,6 +30,8 @@ export default function PruefungsreifeCheckPage() {
   const isBerufContext = source === "beruf" && !!slug;
 
   const resolver = usePackageResolverForSlug(isBerufContext ? slug : null);
+  const diagnostic = useDiagnosticSet(resolver.packageId);
+  const questions = diagnostic.questions;
 
   const contextLabel = isBerufContext ? slug?.replace(/-/g, " ") ?? null : null;
   const primaryHref = isBerufContext ? `/bundle/${slug}` : "/shop";
@@ -52,8 +55,12 @@ export default function PruefungsreifeCheckPage() {
       slug: slug ?? null,
       source: source ?? "direct",
       quiz: "pruefungsreife_check",
+      question_source: diagnostic.isBlueprintSourced ? "blueprint" : "generic",
+      question_count: questions.length,
+      competency_ids: diagnostic.isBlueprintSourced ? diagnostic.competencyIds : null,
+      blueprint_ids: diagnostic.isBlueprintSourced ? diagnostic.blueprintIds : null,
     }),
-    [sourcePage, slug, source],
+    [sourcePage, slug, source, diagnostic, questions.length],
   );
 
   const REQUIRED_KEYS = ["source_page", "page_path", "slug", "source"];
