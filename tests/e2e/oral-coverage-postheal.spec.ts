@@ -96,7 +96,6 @@ test.describe("Oral-Coverage Post-Heal", () => {
       test.skip(true, "no exam_first_oral_coverage_heal log entries yet");
       return;
     }
-    // Try first 3 packages — at least one should render
     let rendered = false;
     for (const p of healed.slice(0, 3)) {
       const url = `/muendliche-pruefung?package=${p.package_id}`;
@@ -113,5 +112,93 @@ test.describe("Oral-Coverage Post-Heal", () => {
     expect(rendered, "Oral-Trainer must render Start-Button for at least one healed package").toBe(
       true,
     );
+  });
+
+  /**
+   * Full UI flow: Start → question sequence with progress indicator → submit/finish.
+   * Soft-asserts so the test does not break CI if a single package lacks runtime data;
+   * we just need ONE healed package to demonstrate end-to-end functionality.
+   */
+  test("full oral exam UI flow: questions, progress, submit", async ({ page }) => {
+    const healed = await fetchHealedPackages();
+    if (healed.length === 0) {
+      test.skip(true, "no exam_first_oral_coverage_heal log entries yet");
+      return;
+    }
+
+    let completedFor: string | null = null;
+    const failures: Array<{ pkg: string; stage: string; reason: string }> = [];
+
+    for (const p of healed.slice(0, 5)) {
+      const url = `/muendliche-pruefung?package=${p.package_id}`;
+      const resp = await page.goto(url, { waitUntil: "domcontentloaded" }).catch(() => null);
+      if (!resp || !resp.ok()) {
+        failures.push({ pkg: p.package_id, stage: "navigate", reason: `HTTP ${resp?.status() ?? "n/a"}` });
+        continue;
+      }
+
+      const startBtn = page
+        .getByRole("button", { name: /start|starten|begin|simulation|prüfung starten/i })
+        .first();
+      if (!(await startBtn.isVisible({ timeout: 8_000 }).catch(() => false))) {
+        failures.push({ pkg: p.package_id, stage: "start_button", reason: "not visible" });
+        continue;
+      }
+      await startBtn.click().catch(() => null);
+
+      // Question sequence: walk up to 8 steps
+      let stepsWalked = 0;
+      let progressSeen = false;
+      for (let i = 0; i < 8; i++) {
+        // Progress indicator: progressbar role OR "Frage X / Y" text
+        const progressbar = page.getByRole("progressbar").first();
+        const progressText = page.getByText(/Frage\s*\d+\s*\/\s*\d+|Question\s*\d+\s*of\s*\d+/i).first();
+        if (
+          (await progressbar.isVisible({ timeout: 3_000 }).catch(() => false)) ||
+          (await progressText.isVisible({ timeout: 1_000 }).catch(() => false))
+        ) {
+          progressSeen = true;
+        }
+
+        const nextBtn = page
+          .getByRole("button", { name: /weiter|next|nächste|antwort senden|submit answer/i })
+          .first();
+        const finishBtn = page
+          .getByRole("button", { name: /auswerten|abschließen|finish|ergebnis|fertig/i })
+          .first();
+
+        if (await finishBtn.isVisible({ timeout: 1_500 }).catch(() => false)) {
+          await finishBtn.click().catch(() => null);
+          stepsWalked++;
+          break;
+        }
+        if (!(await nextBtn.isVisible({ timeout: 3_000 }).catch(() => false))) break;
+        await nextBtn.click().catch(() => null);
+        stepsWalked++;
+      }
+
+      // Result screen heuristic
+      const resultVisible = await page
+        .getByText(/ergebnis|score|punkte|bewertung|auswertung|result/i)
+        .first()
+        .isVisible({ timeout: 8_000 })
+        .catch(() => false);
+
+      if (progressSeen && stepsWalked > 0 && resultVisible) {
+        completedFor = p.package_id;
+        break;
+      }
+      failures.push({
+        pkg: p.package_id,
+        stage: "flow",
+        reason: `progress=${progressSeen} steps=${stepsWalked} result=${resultVisible}`,
+      });
+    }
+
+    expect.soft(failures, `Per-package flow diagnostics: ${JSON.stringify(failures)}`);
+    expect(
+      completedFor,
+      "At least one healed package must complete the full oral-exam flow (start → questions+progress → result/submit)",
+    ).not.toBeNull();
   });
 });
