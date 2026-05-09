@@ -159,6 +159,146 @@ describe("GateHistoryDashboardPage", () => {
       expect(screen.getByTestId("gate-history-export-json")).toBeDisabled();
     });
   });
+
+  it("Export-Job-Flow: Request → poll done → success toast + history download", async () => {
+    const { toast } = await import("sonner");
+    const successSpy = vi.spyOn(toast, "success");
+    const errorSpy = vi.spyOn(toast, "error");
+
+    const PKG = "11111111-1111-1111-1111-111111111111";
+    const JOB = "22222222-2222-2222-2222-222222222222";
+    let jobStatus: "queued" | "running" | "done" = "queued";
+
+    rpc.mockImplementation((fn: string) => {
+      if (fn === "admin_request_gate_export") return Promise.resolve({ data: JOB, error: null });
+      if (fn === "admin_get_gate_export_job")
+        return Promise.resolve({
+          data: {
+            id: JOB,
+            status: jobStatus,
+            format: "csv",
+            total_rows: jobStatus === "done" ? 1234 : null,
+            file_paths: jobStatus === "done" ? ["exports/job-1.csv"] : [],
+            error: null,
+            created_at: new Date().toISOString(),
+            completed_at: jobStatus === "done" ? new Date().toISOString() : null,
+            package_id: PKG,
+            window_days: 30,
+            lane: null,
+            decision: null,
+          },
+          error: null,
+        });
+      if (fn === "admin_get_gate_export_jobs")
+        return Promise.resolve({
+          data:
+            jobStatus === "done"
+              ? [
+                  {
+                    id: JOB,
+                    status: "done",
+                    format: "csv",
+                    total_rows: 1234,
+                    file_paths: ["exports/job-1.csv"],
+                    error: null,
+                    created_at: new Date().toISOString(),
+                    completed_at: new Date().toISOString(),
+                    package_id: PKG,
+                    window_days: 30,
+                  },
+                ]
+              : [],
+          error: null,
+        });
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    const { default: Page } = await import("@/pages/admin/v2/GateHistoryDashboardPage");
+    wrap(<Page />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: /Pro Paket/i }));
+    const input = await screen.findByTestId("gate-history-package-input");
+    await user.type(input, PKG);
+    await user.click(screen.getByTestId("gate-history-export-csv"));
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith(
+        "admin_request_gate_export",
+        expect.objectContaining({ p_package_id: PKG, p_format: "csv", p_window_days: 30 }),
+      ),
+    );
+
+    // Now flip to done and let next poll observe it.
+    jobStatus = "done";
+    await waitFor(() => expect(successSpy).toHaveBeenCalled(), { timeout: 20_000 });
+    expect(errorSpy).not.toHaveBeenCalled();
+  }, 25_000);
+
+  it("Export-Job-Flow: failed status → error toast + retry button visible", async () => {
+    const { toast } = await import("sonner");
+    const errorSpy = vi.spyOn(toast, "error");
+
+    const PKG = "33333333-3333-3333-3333-333333333333";
+    const JOB = "44444444-4444-4444-4444-444444444444";
+
+    rpc.mockImplementation((fn: string) => {
+      if (fn === "admin_request_gate_export") return Promise.resolve({ data: JOB, error: null });
+      if (fn === "admin_get_gate_export_job")
+        return Promise.resolve({
+          data: {
+            id: JOB,
+            status: "failed",
+            format: "json",
+            total_rows: null,
+            file_paths: [],
+            error: "WORKER_TIMEOUT",
+            created_at: new Date().toISOString(),
+            completed_at: null,
+            package_id: PKG,
+            window_days: 30,
+          },
+          error: null,
+        });
+      if (fn === "admin_get_gate_export_jobs")
+        return Promise.resolve({
+          data: [
+            {
+              id: JOB,
+              status: "failed",
+              format: "json",
+              total_rows: null,
+              file_paths: [],
+              error: "WORKER_TIMEOUT",
+              created_at: new Date().toISOString(),
+              completed_at: null,
+              package_id: PKG,
+              window_days: 30,
+            },
+          ],
+          error: null,
+        });
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    const { default: Page } = await import("@/pages/admin/v2/GateHistoryDashboardPage");
+    wrap(<Page />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: /Pro Paket/i }));
+    const input = await screen.findByTestId("gate-history-package-input");
+    await user.type(input, PKG);
+    await user.click(screen.getByTestId("gate-history-export-json"));
+
+    await waitFor(
+      () =>
+        expect(errorSpy).toHaveBeenCalledWith(
+          expect.stringContaining("WORKER_TIMEOUT"),
+        ),
+      { timeout: 10_000 },
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("gate-export-history-retry")).toBeInTheDocument(),
+    );
+  }, 15_000);
 });
 
 describe("NextBestStepCard", () => {

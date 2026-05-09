@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -69,9 +69,22 @@ type ExportJob = {
   error: string | null;
   created_at: string;
   completed_at: string | null;
+  package_id?: string | null;
+  window_days?: number | null;
+  lane?: string | null;
+  decision?: string | null;
+  started_at?: string | null;
+};
+
+type ExportFilters = {
+  packageId: string;
+  windowDays: number;
+  lane: string | null;
+  decision: string | null;
 };
 
 export default function GateHistoryDashboardPage() {
+  const qc = useQueryClient();
   const [windowDays, setWindowDays] = useState(30);
   const [windowHours, setWindowHours] = useState(168);
   const [packageId, setPackageId] = useState("");
@@ -83,7 +96,7 @@ export default function GateHistoryDashboardPage() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [completedToastFor, setCompletedToastFor] = useState<string | null>(null);
 
-  // Poll active export job until done/failed
+  // Active export job — realtime-first (Postgres CDC), 15s polling fallback only.
   const exportJob = useQuery({
     queryKey: ["gate-export-job", activeJobId],
     queryFn: async () => {
@@ -98,11 +111,46 @@ export default function GateHistoryDashboardPage() {
     enabled: !!activeJobId,
     refetchInterval: (q) => {
       const s = (q.state.data as ExportJob | null)?.status;
-      return s === "done" || s === "failed" ? false : 3000;
+      // Realtime drives updates; polling is just a slow safety net.
+      return s === "done" || s === "failed" ? false : 15_000;
     },
   });
 
-  // When job completes, mint signed URLs and toast
+  // Recent export history (last 10) — admin-gated RPC.
+  const exportHistory = useQuery({
+    queryKey: ["gate-export-history"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_gate_export_jobs" as any,
+        { p_limit: 10 },
+      );
+      if (error) throw error;
+      return (data ?? []) as ExportJob[];
+    },
+    refetchInterval: 60_000,
+  });
+
+  // Realtime: subscribe to gate_export_jobs INSERT/UPDATE → refresh history + active.
+  useEffect(() => {
+    const ch = supabase
+      .channel("gate-export-jobs")
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "gate_export_jobs" },
+        (payload: any) => {
+          qc.invalidateQueries({ queryKey: ["gate-export-history"] });
+          if (activeJobId && payload?.new?.id === activeJobId) {
+            qc.invalidateQueries({ queryKey: ["gate-export-job", activeJobId] });
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel?.(ch);
+    };
+  }, [qc, activeJobId]);
+
+  // Toast on completion (no auto-opens — list parts in history card instead).
   useEffect(() => {
     const j = exportJob.data;
     if (!j || !activeJobId || completedToastFor === j.id) return;
@@ -113,66 +161,84 @@ export default function GateHistoryDashboardPage() {
     }
     if (j.status !== "done") return;
     setCompletedToastFor(j.id);
-    (async () => {
-      const urls: string[] = [];
-      for (const p of j.file_paths ?? []) {
-        const { data, error } = await supabase.storage
-          .from("gate-exports")
-          .createSignedUrl(p, 3600);
-        if (!error && data?.signedUrl) urls.push(data.signedUrl);
-      }
-      if (!urls.length) {
-        toast.error("Export fertig, aber keine Download-Links verfügbar.");
-        return;
-      }
-      toast.success(
-        `Export fertig: ${j.total_rows ?? 0} Zeilen in ${urls.length} Datei(en)`,
-        {
-          duration: 30_000,
-          action: {
-            label: urls.length === 1 ? "Download" : `Erste Datei (${urls.length} total)`,
-            onClick: () => window.open(urls[0], "_blank"),
-          },
-          description: urls.length > 1
-            ? `Weitere Teile: ${urls.slice(1).map((u, i) => `Teil ${i + 2}`).join(", ")}`
-            : undefined,
-        },
-      );
-      // Auto-open additional parts
-      for (let i = 1; i < urls.length; i++) {
-        window.open(urls[i], "_blank");
-      }
-    })();
+    const parts = j.file_paths?.length ?? 0;
+    toast.success(
+      `Export fertig: ${j.total_rows ?? 0} Zeilen in ${parts} Datei(en) — Download in der Export-Historie`,
+      { duration: 15_000 },
+    );
   }, [exportJob.data, activeJobId, completedToastFor]);
 
+  const requestExport = useCallback(
+    async (format: "json" | "csv", filters: ExportFilters) => {
+      if (!filters.packageId) return;
+      if (
+        activeJobId &&
+        exportJob.data &&
+        (exportJob.data.status === "queued" || exportJob.data.status === "running")
+      ) {
+        toast.warning("Es läuft bereits ein Export. Bitte warten.");
+        return;
+      }
+      const t = toast.loading(`Export wird in die Job-Queue gestellt…`);
+      try {
+        const { data, error } = await supabase.rpc(
+          "admin_request_gate_export" as any,
+          {
+            p_package_id: filters.packageId,
+            p_window_days: filters.windowDays,
+            p_lane: filters.lane,
+            p_decision: filters.decision,
+            p_format: format,
+          },
+        );
+        if (error) throw error;
+        const jobId = data as string;
+        setActiveJobId(jobId);
+        setCompletedToastFor(null);
+        toast.dismiss(t);
+        toast.info(
+          `Export-Job ${jobId.slice(0, 8)} gestartet — Worker läuft jede Minute.`,
+        );
+        qc.invalidateQueries({ queryKey: ["gate-export-history"] });
+      } catch (e: any) {
+        toast.dismiss(t);
+        toast.error(`Konnte Export nicht starten: ${e?.message ?? "Unbekannt"}`);
+      }
+    },
+    [activeJobId, exportJob.data, qc],
+  );
+
   async function exportTimeline(format: "json" | "csv") {
-    if (!packageId) return;
-    if (activeJobId && exportJob.data && (exportJob.data.status === "queued" || exportJob.data.status === "running")) {
-      toast.warning("Es läuft bereits ein Export. Bitte warten.");
+    return requestExport(format, {
+      packageId,
+      windowDays: timelineWindowDays,
+      lane: laneFilter === "all" ? null : laneFilter,
+      decision: decisionFilter === "all" ? null : decisionFilter,
+    });
+  }
+
+  async function downloadPart(path: string) {
+    const { data, error } = await supabase.storage
+      .from("gate-exports")
+      .createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) {
+      toast.error(`Download-Link konnte nicht erstellt werden: ${error?.message ?? ""}`);
       return;
     }
-    const t = toast.loading(`Export wird in die Job-Queue gestellt…`);
-    try {
-      const { data, error } = await supabase.rpc(
-        "admin_request_gate_export" as any,
-        {
-          p_package_id: packageId,
-          p_window_days: timelineWindowDays,
-          p_lane: laneFilter === "all" ? null : laneFilter,
-          p_decision: decisionFilter === "all" ? null : decisionFilter,
-          p_format: format,
-        },
-      );
-      if (error) throw error;
-      const jobId = data as string;
-      setActiveJobId(jobId);
-      setCompletedToastFor(null);
-      toast.dismiss(t);
-      toast.info(`Export-Job ${jobId.slice(0, 8)} gestartet — Worker läuft jede Minute.`);
-    } catch (e: any) {
-      toast.dismiss(t);
-      toast.error(`Konnte Export nicht starten: ${e?.message ?? "Unbekannt"}`);
+    window.open(data.signedUrl, "_blank", "noopener");
+  }
+
+  async function retryJob(j: ExportJob) {
+    if (!j.package_id) {
+      toast.error("Retry nicht möglich: Paket-ID fehlt.");
+      return;
     }
+    await requestExport(j.format, {
+      packageId: j.package_id,
+      windowDays: j.window_days ?? 30,
+      lane: j.lane ?? null,
+      decision: j.decision ?? null,
+    });
   }
 
   const drift = useQuery({
@@ -559,6 +625,100 @@ export default function GateHistoryDashboardPage() {
                   </div>
                 </div>
               ) : null}
+            </CardContent>
+          </Card>
+
+          <Card data-testid="gate-export-history-card">
+            <CardHeader>
+              <CardTitle className="text-base">Export-Historie (letzte 10)</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Status, Größe und Download pro Datei. Retry für fehlgeschlagene Jobs.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {exportHistory.isLoading ? (
+                <p className="text-sm text-muted-foreground">Lade…</p>
+              ) : !(exportHistory.data?.length) ? (
+                <p className="text-sm text-muted-foreground">Noch keine Exporte.</p>
+              ) : (
+                <div className="space-y-1.5" data-testid="gate-export-history-list">
+                  {exportHistory.data.map((j) => {
+                    const statusVariant =
+                      j.status === "done"
+                        ? "success"
+                        : j.status === "failed"
+                          ? "danger"
+                          : j.status === "running"
+                            ? "info"
+                            : "muted";
+                    return (
+                      <div
+                        key={j.id}
+                        className="border rounded-md p-2 text-xs"
+                        data-testid="gate-export-history-row"
+                      >
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant={statusVariant as any} data-testid="gate-export-history-status">
+                              {j.status}
+                            </Badge>
+                            <Badge variant="outline" className="font-mono text-[10px]">
+                              {j.format.toUpperCase()}
+                            </Badge>
+                            {j.total_rows != null ? (
+                              <Badge variant="outline">{j.total_rows.toLocaleString("de-DE")} Zeilen</Badge>
+                            ) : null}
+                            {j.lane ? <Badge variant="outline">lane: {j.lane}</Badge> : null}
+                            {j.decision ? <Badge variant="outline">{j.decision}</Badge> : null}
+                          </div>
+                          <span className="text-muted-foreground tabular-nums">
+                            {new Date(j.created_at).toLocaleString("de-DE")}
+                            {j.completed_at ? (
+                              <> · {Math.max(0, Math.round((+new Date(j.completed_at) - +new Date(j.created_at)) / 1000))}s</>
+                            ) : null}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-1 flex-wrap">
+                          {j.status === "done" && (j.file_paths?.length ?? 0) > 0
+                            ? (j.file_paths ?? []).map((p, i) => (
+                                <Button
+                                  key={p}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px]"
+                                  onClick={() => downloadPart(p)}
+                                  data-testid="gate-export-history-download"
+                                >
+                                  ↓ Teil {i + 1}
+                                </Button>
+                              ))
+                            : null}
+                          {j.status === "failed" ? (
+                            <>
+                              <span
+                                className="text-destructive truncate max-w-[420px]"
+                                title={j.error ?? ""}
+                              >
+                                {j.error ?? "Fehler"}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] ml-auto"
+                                onClick={() => retryJob(j)}
+                                disabled={!j.package_id}
+                                data-testid="gate-export-history-retry"
+                              >
+                                ↻ Retry
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
