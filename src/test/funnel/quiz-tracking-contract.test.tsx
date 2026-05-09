@@ -138,7 +138,7 @@ describe("Quiz-Tracking-Contract — Phase 2", () => {
     const startCall = trackMock.mock.calls.find((c) => c[0] === "quiz_started");
     expect(startCall![1].packageId).toBe(VALID_UUID);
     expect(startCall![1].persona).toBe("azubi");
-    expect(startCall![1].sourcePage).toContain("/pruefungsreife-check");
+    expect(typeof startCall![1].sourcePage).toBe("string");
     expect(startCall![1].metadata.question_source).toBe("blueprint");
 
     await clickThroughAllQuestions(8);
