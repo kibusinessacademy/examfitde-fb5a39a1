@@ -110,7 +110,8 @@ describe("PruefungsreifeFunnelCard — source toggle contract", () => {
       expect(last[1]).toMatchObject({ p_question_source: "blueprint" });
     });
 
-    expect(screen.getByTestId("source-toggle-blueprint")).toHaveAttribute("aria-pressed", "true");
+    const blueprintBtn = await screen.findByTestId("source-toggle-blueprint");
+    await waitFor(() => expect(blueprintBtn).toHaveAttribute("aria-pressed", "true"));
     expect(screen.getByTestId("source-toggle-all")).toHaveAttribute("aria-pressed", "false");
 
     await waitFor(() => {
