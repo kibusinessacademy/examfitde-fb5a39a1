@@ -478,6 +478,8 @@ const AppRoutes = () => {
           <Route path="ops/roles" element={<AdminRolesPage />} />
           <Route path="ops/h5p" element={<AdminH5PUploadPage />} />
           <Route path="ops/h5p-smoke" element={<AdminH5PSmokePage />} />
+          <Route path="ops/events" element={<AdminLearningEventsPage />} />
+          <Route path="ops/access" element={<AdminAccessMatrixPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
