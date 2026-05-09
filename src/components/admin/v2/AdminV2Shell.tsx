@@ -25,6 +25,7 @@ const NAV_ITEMS = [
 const SECONDARY_ITEMS = [
   { to: '/admin/ops/roles', label: 'Rollen', icon: Shield },
   { to: '/admin/ops/h5p', label: 'H5P', icon: Upload },
+  { to: '/admin/ops/h5p-smoke', label: 'H5P Smoke', icon: Upload },
 ] as const;
 
 interface Props {
