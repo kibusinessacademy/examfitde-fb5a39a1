@@ -26,7 +26,9 @@ import {
  */
 
 const STEP_KEY = "repair_exam_pool_lf_coverage";
-const REPAIR_ACTION = "enqueue_lf_coverage_repair";
+// Fix A (2026-05-09): Aligned with fn_classify_exam_pool_gate which returns 'repair_lf_coverage'.
+// Drift between classifier and edge had blocked all LF-coverage repairs system-wide.
+const REPAIR_ACTION = "repair_lf_coverage";
 const DEFAULT_TARGET_PER_LF = 15;
 const RECENT_REPAIR_WINDOW_MIN = 30;
 
