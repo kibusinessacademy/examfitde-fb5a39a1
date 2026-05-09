@@ -30,6 +30,22 @@ const decisionVariant = (d?: string): "default" | "secondary" | "outline" | "des
  * Recovery Pulse History — last 20 decisions of fn_auto_recovery_pulse_decide.
  * Reads auto_heal_log directly (action_type='auto_recovery_pulse_decide').
  */
+type HealthRow = {
+  decision: string;
+  decisions_count: number;
+  pulsed_jobs_total: number;
+  avg_burst_size: number | null;
+  avg_oldest_min: number | null;
+  avg_pending: number | null;
+  last_at: string | null;
+};
+
+const decisionTone = (d: string): "default" | "destructive" | "secondary" | "outline" => {
+  if (d === "pulsed") return "default";
+  if (d.startsWith("noop_gate") || d.startsWith("noop_failure")) return "destructive";
+  return "secondary";
+};
+
 export function RecoveryPulseHistoryCard() {
   const { data, isLoading } = useQuery({
     queryKey: ["recovery-pulse-history"],
@@ -46,6 +62,19 @@ export function RecoveryPulseHistoryCard() {
     refetchInterval: 30_000,
   });
 
+  const { data: health } = useQuery({
+    queryKey: ["recovery-pulse-health-24h"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_auto_recovery_pulse_health" as any,
+        { p_window_hours: 24 },
+      );
+      if (error) return [] as HealthRow[];
+      return (data ?? []) as HealthRow[];
+    },
+    refetchInterval: 60_000,
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -57,6 +86,24 @@ export function RecoveryPulseHistoryCard() {
         </p>
       </CardHeader>
       <CardContent>
+        {health && health.length > 0 && (
+          <div className="mb-3 space-y-1.5">
+            <div className="text-[11px] font-medium text-muted-foreground">Health (24h)</div>
+            <div className="flex flex-wrap gap-1.5">
+              {health.map((h) => (
+                <Badge
+                  key={h.decision}
+                  variant={decisionTone(h.decision)}
+                  className="text-[10px] font-mono"
+                  title={`avg burst ${h.avg_burst_size ?? "—"} · avg pending ${h.avg_pending ?? "—"} · pulsed jobs ${h.pulsed_jobs_total}`}
+                >
+                  {h.decision} · {h.decisions_count}
+                  {h.pulsed_jobs_total > 0 ? ` (${h.pulsed_jobs_total} jobs)` : ""}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Lade…</p>
         ) : !data?.length ? (
