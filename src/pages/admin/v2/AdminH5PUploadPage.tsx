@@ -97,6 +97,28 @@ export default function AdminH5PUploadPage() {
               </div>
             </div>
           )}
+          {(validation || errorMsg) && (
+            <div className="rounded-md border border-border p-3 text-sm space-y-2">
+              <div className="font-medium text-text-primary">
+                {validation?.passed ? '✓ Validierung bestanden' : 'Validierung'}
+                {errorMsg && <span className="ml-2 text-text-secondary">— {errorMsg}</span>}
+              </div>
+              {validation && (
+                <ul className="space-y-1">
+                  {validation.checks.map((c) => (
+                    <li key={c.key} className="flex items-start gap-2 text-xs">
+                      {c.ok
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-text-secondary mt-0.5 shrink-0" />
+                        : <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: 'hsl(var(--destructive))' }} />}
+                      <span className={c.ok ? 'text-text-secondary' : 'text-text-primary font-medium'}>
+                        <code>{c.key}</code>{c.detail ? ` — ${c.detail}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
