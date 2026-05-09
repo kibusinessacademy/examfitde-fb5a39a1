@@ -47,6 +47,7 @@ export default function PackageDiagnosticsPage() {
       </header>
 
       <PackageDiagnostics packageId={packageId} />
+      <OralSeedDiagnosticsCard packageId={packageId} />
     </div>
   );
 }
