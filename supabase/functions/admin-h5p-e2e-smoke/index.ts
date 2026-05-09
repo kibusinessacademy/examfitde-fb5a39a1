@@ -214,23 +214,26 @@ Deno.serve(async (req) => {
         completed_at: nowIso,
         last_attempt_at: nowIso,
       };
+      // Pre-check existing outcome to detect heal vs noop
+      const { data: prevOutcome } = await admin
+        .from("lesson_outcomes")
+        .select("status, score_percent")
+        .eq("user_id", u.user.id).eq("lesson_id", lessonId).maybeSingle();
+      const wasMissingOrPending = !prevOutcome || prevOutcome.status !== "completed";
       const { error: outErr } = await admin
         .from("lesson_outcomes")
         .upsert(payload, { onConflict: "user_id,lesson_id" });
       if (outErr) {
+        steps.push({ key: "update_lesson_outcome", label: "update_lesson_outcome", status: "fail", detail: outErr.message });
+      } else if (wasMissingOrPending && autoHeal) {
         steps.push({
-          key: "update_lesson_outcome",
-          label: "update_lesson_outcome",
-          status: "fail",
-          detail: outErr.message,
+          key: "update_lesson_outcome", label: "update_lesson_outcome", status: "healed",
+          detail: `Outcome ${prevOutcome ? `war ${prevOutcome.status}` : "fehlte"} → completed score=${payload.score_percent}`,
+          healed_action: "upsert lesson_outcomes (status=completed)",
         });
+        healed.push({ step: "update_lesson_outcome", action: "upsert lesson_outcomes", ok: true, detail: `${prevOutcome?.status ?? "missing"} → completed` });
       } else {
-        steps.push({
-          key: "update_lesson_outcome",
-          label: "update_lesson_outcome",
-          status: "ok",
-          detail: `score=${payload.score_percent}`,
-        });
+        steps.push({ key: "update_lesson_outcome", label: "update_lesson_outcome", status: "ok", detail: `score=${payload.score_percent}` });
       }
     }
   } catch (e) {
