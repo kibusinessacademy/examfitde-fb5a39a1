@@ -376,6 +376,8 @@ export default function MasteryEngineSimulatorPage() {
           </div>
         </CardContent>
       </Card>
+
+      <BurstSizeSimulatorCard />
     </div>
   );
 }
