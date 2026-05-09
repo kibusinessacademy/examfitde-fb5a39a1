@@ -96,7 +96,7 @@ export default function GateHistoryDashboardPage() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [completedToastFor, setCompletedToastFor] = useState<string | null>(null);
 
-  // Poll active export job until done/failed
+  // Active export job — realtime-first (Postgres CDC), 15s polling fallback only.
   const exportJob = useQuery({
     queryKey: ["gate-export-job", activeJobId],
     queryFn: async () => {
@@ -111,11 +111,46 @@ export default function GateHistoryDashboardPage() {
     enabled: !!activeJobId,
     refetchInterval: (q) => {
       const s = (q.state.data as ExportJob | null)?.status;
-      return s === "done" || s === "failed" ? false : 3000;
+      // Realtime drives updates; polling is just a slow safety net.
+      return s === "done" || s === "failed" ? false : 15_000;
     },
   });
 
-  // When job completes, mint signed URLs and toast
+  // Recent export history (last 10) — admin-gated RPC.
+  const exportHistory = useQuery({
+    queryKey: ["gate-export-history"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_gate_export_jobs" as any,
+        { p_limit: 10 },
+      );
+      if (error) throw error;
+      return (data ?? []) as ExportJob[];
+    },
+    refetchInterval: 60_000,
+  });
+
+  // Realtime: subscribe to gate_export_jobs INSERT/UPDATE → refresh history + active.
+  useEffect(() => {
+    const ch = supabase
+      .channel("gate-export-jobs")
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "gate_export_jobs" },
+        (payload: any) => {
+          qc.invalidateQueries({ queryKey: ["gate-export-history"] });
+          if (activeJobId && payload?.new?.id === activeJobId) {
+            qc.invalidateQueries({ queryKey: ["gate-export-job", activeJobId] });
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel?.(ch);
+    };
+  }, [qc, activeJobId]);
+
+  // Toast on completion (no auto-opens — list parts in history card instead).
   useEffect(() => {
     const j = exportJob.data;
     if (!j || !activeJobId || completedToastFor === j.id) return;
@@ -126,66 +161,84 @@ export default function GateHistoryDashboardPage() {
     }
     if (j.status !== "done") return;
     setCompletedToastFor(j.id);
-    (async () => {
-      const urls: string[] = [];
-      for (const p of j.file_paths ?? []) {
-        const { data, error } = await supabase.storage
-          .from("gate-exports")
-          .createSignedUrl(p, 3600);
-        if (!error && data?.signedUrl) urls.push(data.signedUrl);
-      }
-      if (!urls.length) {
-        toast.error("Export fertig, aber keine Download-Links verfügbar.");
-        return;
-      }
-      toast.success(
-        `Export fertig: ${j.total_rows ?? 0} Zeilen in ${urls.length} Datei(en)`,
-        {
-          duration: 30_000,
-          action: {
-            label: urls.length === 1 ? "Download" : `Erste Datei (${urls.length} total)`,
-            onClick: () => window.open(urls[0], "_blank"),
-          },
-          description: urls.length > 1
-            ? `Weitere Teile: ${urls.slice(1).map((u, i) => `Teil ${i + 2}`).join(", ")}`
-            : undefined,
-        },
-      );
-      // Auto-open additional parts
-      for (let i = 1; i < urls.length; i++) {
-        window.open(urls[i], "_blank");
-      }
-    })();
+    const parts = j.file_paths?.length ?? 0;
+    toast.success(
+      `Export fertig: ${j.total_rows ?? 0} Zeilen in ${parts} Datei(en) — Download in der Export-Historie`,
+      { duration: 15_000 },
+    );
   }, [exportJob.data, activeJobId, completedToastFor]);
 
+  const requestExport = useCallback(
+    async (format: "json" | "csv", filters: ExportFilters) => {
+      if (!filters.packageId) return;
+      if (
+        activeJobId &&
+        exportJob.data &&
+        (exportJob.data.status === "queued" || exportJob.data.status === "running")
+      ) {
+        toast.warning("Es läuft bereits ein Export. Bitte warten.");
+        return;
+      }
+      const t = toast.loading(`Export wird in die Job-Queue gestellt…`);
+      try {
+        const { data, error } = await supabase.rpc(
+          "admin_request_gate_export" as any,
+          {
+            p_package_id: filters.packageId,
+            p_window_days: filters.windowDays,
+            p_lane: filters.lane,
+            p_decision: filters.decision,
+            p_format: format,
+          },
+        );
+        if (error) throw error;
+        const jobId = data as string;
+        setActiveJobId(jobId);
+        setCompletedToastFor(null);
+        toast.dismiss(t);
+        toast.info(
+          `Export-Job ${jobId.slice(0, 8)} gestartet — Worker läuft jede Minute.`,
+        );
+        qc.invalidateQueries({ queryKey: ["gate-export-history"] });
+      } catch (e: any) {
+        toast.dismiss(t);
+        toast.error(`Konnte Export nicht starten: ${e?.message ?? "Unbekannt"}`);
+      }
+    },
+    [activeJobId, exportJob.data, qc],
+  );
+
   async function exportTimeline(format: "json" | "csv") {
-    if (!packageId) return;
-    if (activeJobId && exportJob.data && (exportJob.data.status === "queued" || exportJob.data.status === "running")) {
-      toast.warning("Es läuft bereits ein Export. Bitte warten.");
+    return requestExport(format, {
+      packageId,
+      windowDays: timelineWindowDays,
+      lane: laneFilter === "all" ? null : laneFilter,
+      decision: decisionFilter === "all" ? null : decisionFilter,
+    });
+  }
+
+  async function downloadPart(path: string) {
+    const { data, error } = await supabase.storage
+      .from("gate-exports")
+      .createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) {
+      toast.error(`Download-Link konnte nicht erstellt werden: ${error?.message ?? ""}`);
       return;
     }
-    const t = toast.loading(`Export wird in die Job-Queue gestellt…`);
-    try {
-      const { data, error } = await supabase.rpc(
-        "admin_request_gate_export" as any,
-        {
-          p_package_id: packageId,
-          p_window_days: timelineWindowDays,
-          p_lane: laneFilter === "all" ? null : laneFilter,
-          p_decision: decisionFilter === "all" ? null : decisionFilter,
-          p_format: format,
-        },
-      );
-      if (error) throw error;
-      const jobId = data as string;
-      setActiveJobId(jobId);
-      setCompletedToastFor(null);
-      toast.dismiss(t);
-      toast.info(`Export-Job ${jobId.slice(0, 8)} gestartet — Worker läuft jede Minute.`);
-    } catch (e: any) {
-      toast.dismiss(t);
-      toast.error(`Konnte Export nicht starten: ${e?.message ?? "Unbekannt"}`);
+    window.open(data.signedUrl, "_blank", "noopener");
+  }
+
+  async function retryJob(j: ExportJob) {
+    if (!j.package_id) {
+      toast.error("Retry nicht möglich: Paket-ID fehlt.");
+      return;
     }
+    await requestExport(j.format, {
+      packageId: j.package_id,
+      windowDays: j.window_days ?? 30,
+      lane: j.lane ?? null,
+      decision: j.decision ?? null,
+    });
   }
 
   const drift = useQuery({
