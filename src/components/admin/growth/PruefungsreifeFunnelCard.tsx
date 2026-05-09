@@ -95,11 +95,22 @@ export default function PruefungsreifeFunnelCard() {
   const [days, setDays] = useState(7);
 
   // URL-param persistence: ?question_source=blueprint|generic|all
-  const initialSource: SourceValue = (() => {
-    const raw = (searchParams.get("question_source") ?? "").toLowerCase();
-    return (VALID_SOURCES as readonly string[]).includes(raw) ? (raw as SourceValue) : "all";
-  })();
+  const rawSourceParam = (searchParams.get("question_source") ?? "").toLowerCase();
+  const isInvalidUrlSource =
+    rawSourceParam !== "" && !(VALID_SOURCES as readonly string[]).includes(rawSourceParam);
+  const initialSource: SourceValue = (VALID_SOURCES as readonly string[]).includes(rawSourceParam)
+    ? (rawSourceParam as SourceValue)
+    : "all";
   const [source, setSource] = useState<SourceValue>(initialSource);
+
+  // One-shot toast for invalid URL param.
+  const toastedInvalid = useRef(false);
+  useEffect(() => {
+    if (isInvalidUrlSource && !toastedInvalid.current) {
+      toastedInvalid.current = true;
+      toast.warning(`Ungültiger Filter "${rawSourceParam}" — auf "Alle" zurückgesetzt.`);
+    }
+  }, [isInvalidUrlSource, rawSourceParam]);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -122,6 +133,66 @@ export default function PruefungsreifeFunnelCard() {
     () => Math.max(1, ...(data?.stages.map((s) => s.count) ?? [1])),
     [data],
   );
+
+  // ---------- Exports ----------
+  function exportCurrentCsv() {
+    if (!data) return;
+    const rows: Record<string, unknown>[] = [
+      ...data.stages.map((s, i) => ({
+        section: "stage",
+        idx: i + 1,
+        key: s.key,
+        label: s.label,
+        count: s.count,
+        real_events: s.real_events ?? "",
+        fallback_events: s.fallback_events ?? "",
+      })),
+      { section: "kpi", key: "completion_rate_pct", count: data.completion_rate_pct },
+      { section: "kpi", key: "cta_rate_pct", count: data.cta_rate_pct },
+      { section: "kpi", key: "checkout_rate_pct_total_unfiltered", count: data.checkout_rate_pct },
+      { section: "kpi", key: "mc_score_avg_pct", count: data.mc_score?.avg_pct ?? "", real_events: data.mc_score?.samples ?? 0 },
+      { section: "kpi", key: "self_score_avg", count: data.self_score_avg ?? "" },
+      { section: "kpi", key: "package_resolved_pct", count: data.package_resolution.resolved_pct, real_events: data.package_resolution.resolved, fallback_events: data.package_resolution.fallback },
+      { section: "dropoff", key: data.top_dropoff.stage ?? "—", count: data.top_dropoff.pct ?? 0 },
+      ...data.top_slugs.map((r) => ({ section: "top_slug", key: r.slug, count: r.starts })),
+      ...data.insights.map((ins, i) => ({ section: "insight", idx: i, key: ins.severity, label: ins.message })),
+    ];
+    downloadCsv(`pruefungsreife-funnel_${source}_${days}d_${new Date().toISOString().slice(0,10)}.csv`, toCsv(rows));
+  }
+
+  async function exportAllSegmentsCsv() {
+    try {
+      const segs: SourceValue[] = ["all", "blueprint", "generic"];
+      const results = await Promise.all(segs.map((s) => fetchFunnel(days, s)));
+      const rows = results.flatMap((d, idx) => {
+        const seg = segs[idx];
+        return [
+          {
+            segment: seg,
+            window_days: d.window_days,
+            landing_view: d.stages.find((s) => s.key === "landing_view")?.count ?? 0,
+            quiz_started: d.stages.find((s) => s.key === "quiz_started")?.count ?? 0,
+            quiz_completed: d.stages.find((s) => s.key === "quiz_completed")?.count ?? 0,
+            cta_click: d.stages.find((s) => s.key === "cta_click")?.count ?? 0,
+            checkout_start_total_unfiltered: d.stages.find((s) => s.key === "checkout_start")?.count ?? 0,
+            completion_rate_pct: d.completion_rate_pct,
+            cta_rate_pct: d.cta_rate_pct,
+            checkout_rate_pct: d.checkout_rate_pct,
+            mc_avg_pct: d.mc_score?.avg_pct ?? "",
+            mc_samples: d.mc_score?.samples ?? 0,
+            self_score_avg: d.self_score_avg ?? "",
+            resolved_pct: d.package_resolution.resolved_pct,
+            top_dropoff_stage: d.top_dropoff.stage ?? "",
+            top_dropoff_pct: d.top_dropoff.pct ?? 0,
+          },
+        ];
+      });
+      downloadCsv(`pruefungsreife-segments_${days}d_${new Date().toISOString().slice(0,10)}.csv`, toCsv(rows));
+      toast.success("Segment-Export bereit.");
+    } catch (e: unknown) {
+      toast.error(`Segment-Export fehlgeschlagen: ${(e as Error).message}`);
+    }
+  }
 
   return (
     <Card className="bg-surface-raised border-border-subtle">
