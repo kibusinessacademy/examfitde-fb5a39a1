@@ -336,12 +336,13 @@ export default function GateHistoryDashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Timeline pro Paket</CardTitle>
-              <div className="flex gap-2 pt-1">
+              <div className="flex flex-wrap gap-2 pt-1 items-end">
                 <Input
                   placeholder="package_id (UUID)"
                   value={packageId}
                   onChange={(e) => setPackageId(e.target.value.trim())}
                   className="max-w-md text-xs font-mono"
+                  data-testid="gate-history-package-input"
                 />
                 <Button
                   size="sm"
@@ -351,6 +352,49 @@ export default function GateHistoryDashboardPage() {
                 >
                   Laden
                 </Button>
+                <select
+                  value={laneFilter}
+                  onChange={(e) => setLaneFilter(e.target.value)}
+                  className="h-8 text-xs border rounded-md px-2 bg-background"
+                  data-testid="gate-history-lane-filter"
+                  aria-label="Lane filter"
+                >
+                  <option value="all">Alle Lanes</option>
+                  {timelineLanes.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+                <select
+                  value={decisionFilter}
+                  onChange={(e) => setDecisionFilter(e.target.value)}
+                  className="h-8 text-xs border rounded-md px-2 bg-background"
+                  aria-label="Decision filter"
+                >
+                  <option value="all">Alle Decisions</option>
+                  {timelineDecisions.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                <div className="ml-auto flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => exportTimeline("csv")}
+                    disabled={!filteredTimeline.length}
+                    data-testid="gate-history-export-csv"
+                  >
+                    CSV
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => exportTimeline("json")}
+                    disabled={!filteredTimeline.length}
+                    data-testid="gate-history-export-json"
+                  >
+                    JSON
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -360,13 +404,13 @@ export default function GateHistoryDashboardPage() {
                 </p>
               ) : timeline.isLoading ? (
                 <p className="text-sm text-muted-foreground">Lade…</p>
-              ) : !timeline.data?.length ? (
+              ) : !filteredTimeline.length ? (
                 <p className="text-sm text-muted-foreground">
-                  Keine Decisions für dieses Paket.
+                  Keine Decisions für die gewählten Filter.
                 </p>
               ) : (
-                <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
-                  {timeline.data.map((r) => (
+                <div className="space-y-1.5 max-h-[600px] overflow-y-auto" data-testid="gate-history-timeline-list">
+                  {filteredTimeline.map((r) => (
                     <div key={r.id} className="border rounded-md p-2 text-xs">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
