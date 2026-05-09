@@ -141,9 +141,14 @@ export default function AdminH5PSmokePage() {
               <Input id="sc" type="number" min={0} max={100} value={score} onChange={(e) => setScore(Number(e.target.value))} />
             </div>
           </div>
-          <Button onClick={run} disabled={running} className="w-full sm:w-auto">
-            {running ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Läuft…</> : <><Play className="h-4 w-4 mr-2" /> Smoke starten</>}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={run} disabled={running} className="w-full sm:w-auto">
+              {running ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Läuft…</> : <><Play className="h-4 w-4 mr-2" /> Smoke starten</>}
+            </Button>
+            <Button onClick={autoPick} type="button" variant="outline" className="w-full sm:w-auto">
+              Echtdaten auto-laden
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
