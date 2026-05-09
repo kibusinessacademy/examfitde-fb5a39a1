@@ -17,13 +17,15 @@ import { join } from 'node:path';
 
 function loadRegistry() {
   const src = readFileSync('src/contracts/repairActions.ts', 'utf8');
-  const canonical = [...src.matchAll(/['"]([a-z_]+)['"]/g)]
-    .map((m) => m[1])
-    .filter((s) => s.startsWith('repair_'));
+  const canonical = new Set(
+    [...src.matchAll(/['"]([a-z_]+)['"]/g)]
+      .map((m) => m[1])
+      .filter((s) => /^[a-z][a-z_]*$/.test(s) && s.length > 4)
+  );
   const aliasBlock = src.match(/REPAIR_ACTION_ALIASES[^}]+\}/s)?.[0] ?? '';
-  const aliases = [...aliasBlock.matchAll(/(\w+):\s*REPAIR_ACTIONS/g)].map((m) => m[1]);
+  const aliases = new Set([...aliasBlock.matchAll(/(\w+):\s*REPAIR_ACTIONS/g)].map((m) => m[1]));
   const expires = src.match(/ALIAS_EXPIRES_AT\s*=\s*'([^']+)'/)?.[1];
-  return { canonical: new Set(canonical), aliases: new Set(aliases), expires };
+  return { canonical, aliases, expires };
 }
 
 function walk(dir, exts, out = []) {
