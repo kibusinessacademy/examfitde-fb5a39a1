@@ -11,6 +11,7 @@ import { SmartStreakWidget } from '@/components/dashboard/SmartStreakWidget';
 import { ExamPreview } from '@/components/dashboard/ExamPreview';
 import { BadgeHistory } from '@/components/dashboard/BadgeHistory';
 import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
+import { NextBestStepCard } from '@/features/mastery/components/NextBestStepCard';
 import { DailyHumorCard } from '@/components/dashboard/DailyHumorCard';
 import { HumorSettings } from '@/components/settings/HumorSettings';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
@@ -105,6 +106,12 @@ export default function LearnerDashboard() {
         {activeCurriculumId && (
           <div className="mb-6">
             <MasteryDashboardSection curriculumId={activeCurriculumId} />
+          </div>
+        )}
+
+        {enrollments[0]?.course_id && (
+          <div className="mb-6">
+            <NextBestStepCard courseId={enrollments[0].course_id} />
           </div>
         )}
 

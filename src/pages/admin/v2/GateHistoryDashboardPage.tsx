@@ -63,6 +63,71 @@ export default function GateHistoryDashboardPage() {
   const [windowDays, setWindowDays] = useState(30);
   const [windowHours, setWindowHours] = useState(168);
   const [packageId, setPackageId] = useState("");
+  const [laneFilter, setLaneFilter] = useState<string>("all");
+  const [decisionFilter, setDecisionFilter] = useState<string>("all");
+
+  function downloadFile(filename: string, content: string, mime: string) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportTimeline(format: "json" | "csv") {
+    const rows = filteredTimeline;
+    if (!rows.length) return;
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    if (format === "json") {
+      downloadFile(
+        `gate-timeline-${packageId}-${stamp}.json`,
+        JSON.stringify(rows, null, 2),
+        "application/json",
+      );
+    } else {
+      const headers = [
+        "id",
+        "decision",
+        "prev_decision",
+        "quality_score",
+        "quality_badge",
+        "bronze_locked",
+        "recorded_at",
+        "recorded_by",
+        "inputs_json",
+      ];
+      const esc = (v: unknown) => {
+        const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const body = rows
+        .map((r) =>
+          [
+            r.id,
+            r.decision,
+            r.prev_decision,
+            r.quality_score,
+            r.quality_badge,
+            r.bronze_locked,
+            r.recorded_at,
+            r.recorded_by,
+            r.inputs,
+          ]
+            .map(esc)
+            .join(","),
+        )
+        .join("\n");
+      downloadFile(
+        `gate-timeline-${packageId}-${stamp}.csv`,
+        headers.join(",") + "\n" + body,
+        "text/csv",
+      );
+    }
+  }
 
   const drift = useQuery({
     queryKey: ["gate-drift", windowDays],
@@ -105,6 +170,25 @@ export default function GateHistoryDashboardPage() {
   const chartData = pivotForChart(drift.data ?? []);
   const decisions = Array.from(
     new Set((drift.data ?? []).map((r) => r.decision)),
+  );
+
+  const filteredTimeline = (timeline.data ?? []).filter((r) => {
+    const inputs = (r.inputs ?? {}) as Record<string, unknown>;
+    const lane = (inputs.lane as string | undefined) ?? "";
+    if (laneFilter !== "all" && lane !== laneFilter) return false;
+    if (decisionFilter !== "all" && r.decision !== decisionFilter) return false;
+    return true;
+  });
+
+  const timelineLanes = Array.from(
+    new Set(
+      (timeline.data ?? [])
+        .map((r) => (r.inputs as Record<string, unknown> | null)?.lane as string | undefined)
+        .filter(Boolean) as string[],
+    ),
+  );
+  const timelineDecisions = Array.from(
+    new Set((timeline.data ?? []).map((r) => r.decision)),
   );
 
   return (
@@ -252,12 +336,13 @@ export default function GateHistoryDashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>Timeline pro Paket</CardTitle>
-              <div className="flex gap-2 pt-1">
+              <div className="flex flex-wrap gap-2 pt-1 items-end">
                 <Input
                   placeholder="package_id (UUID)"
                   value={packageId}
                   onChange={(e) => setPackageId(e.target.value.trim())}
                   className="max-w-md text-xs font-mono"
+                  data-testid="gate-history-package-input"
                 />
                 <Button
                   size="sm"
@@ -267,6 +352,49 @@ export default function GateHistoryDashboardPage() {
                 >
                   Laden
                 </Button>
+                <select
+                  value={laneFilter}
+                  onChange={(e) => setLaneFilter(e.target.value)}
+                  className="h-8 text-xs border rounded-md px-2 bg-background"
+                  data-testid="gate-history-lane-filter"
+                  aria-label="Lane filter"
+                >
+                  <option value="all">Alle Lanes</option>
+                  {timelineLanes.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+                <select
+                  value={decisionFilter}
+                  onChange={(e) => setDecisionFilter(e.target.value)}
+                  className="h-8 text-xs border rounded-md px-2 bg-background"
+                  aria-label="Decision filter"
+                >
+                  <option value="all">Alle Decisions</option>
+                  {timelineDecisions.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                <div className="ml-auto flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => exportTimeline("csv")}
+                    disabled={!filteredTimeline.length}
+                    data-testid="gate-history-export-csv"
+                  >
+                    CSV
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => exportTimeline("json")}
+                    disabled={!filteredTimeline.length}
+                    data-testid="gate-history-export-json"
+                  >
+                    JSON
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -276,13 +404,13 @@ export default function GateHistoryDashboardPage() {
                 </p>
               ) : timeline.isLoading ? (
                 <p className="text-sm text-muted-foreground">Lade…</p>
-              ) : !timeline.data?.length ? (
+              ) : !filteredTimeline.length ? (
                 <p className="text-sm text-muted-foreground">
-                  Keine Decisions für dieses Paket.
+                  Keine Decisions für die gewählten Filter.
                 </p>
               ) : (
-                <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
-                  {timeline.data.map((r) => (
+                <div className="space-y-1.5 max-h-[600px] overflow-y-auto" data-testid="gate-history-timeline-list">
+                  {filteredTimeline.map((r) => (
                     <div key={r.id} className="border rounded-md p-2 text-xs">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
