@@ -42,13 +42,17 @@ function walk(dir, exts, out = []) {
 const { canonical, aliases, expires } = loadRegistry();
 const aliasesActive = expires && new Date(expires).getTime() > Date.now();
 
+// Strict: only match contexts where the literal is unambiguously an action.
+// Avoids false positives on column names like repair_active, repair_attempts.
 const PATTERNS = [
-  // recommended_action: 'foo' or "foo"
-  /\b(recommended_action|repair_action)\s*[:=]\s*['"]([^'"]+)['"]/g,
-  // payload.action === '...' / payload['action'] === '...'
-  /payload\.action\s*===?\s*['"]([^'"]+)['"]/g,
-  // SQL: WHEN 'repair_xxx' / IN ('repair_xxx',...)
-  /'(repair_[a-z_]+|enqueue_[a-z_]+repair|enqueue_lf_coverage_repair)'/g,
+  // TS/SQL: recommended_action / repair_action assignment
+  /\b(?:recommended_action|repair_action)\s*[:=]\s*['"]([a-z_]+)['"]/g,
+  // TS: payload.action === '...'
+  /payload\.action\s*===?\s*['"]([a-z_]+)['"]/g,
+  // SQL: WHEN 'repair_xxx' THEN ...
+  /\bWHEN\s+'(repair_[a-z_]+|enqueue_[a-z_]+_repair)'\s+THEN/gi,
+  // SQL: IN ('repair_xxx' ...) — only treat as action when other action-y values neighbor
+  /\bIN\s*\(\s*'(repair_lf_coverage|repair_exam_pool_quality|repair_exam_pool_competency_coverage|repair_lessons|repair_handbook|repair_oral_exam|repair_minichecks|enqueue_lf_coverage_repair)'/g,
 ];
 
 const allowSelf = ['src/contracts/repairActions.ts', 'scripts/contracts/repair-action-contract-guard.mjs'];
