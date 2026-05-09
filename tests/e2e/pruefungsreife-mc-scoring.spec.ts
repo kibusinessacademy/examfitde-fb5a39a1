@@ -78,3 +78,43 @@ test("MC: 1 richtig + 1 falsch → mc_score_pct ≈ 50% in quiz_completed", asyn
   expect(completed.metadata.mc_score_pct).toBeGreaterThan(0);
   expect(completed.metadata.mc_score_pct).toBeLessThanOrEqual(100);
 });
+
+test("Generic-Pfad ohne MC-Stufe: mc_*-Felder fehlen vollständig (samples=0)", async ({ page }) => {
+  const trackCalls: any[] = [];
+  page.on("request", (req) => {
+    if (req.url().includes("/functions/v1/track-funnel-event")) {
+      try { trackCalls.push(req.postDataJSON()); } catch { /* ignore */ }
+    }
+  });
+
+  // Kein source/slug → Generic Fallback (kein Blueprint-Set, keine MC-Stufe)
+  await page.goto(`${TARGET}/pruefungsreife-check`, { waitUntil: "networkidle" });
+
+  const startBtn = page.getByTestId("quiz-start");
+  await expect(startBtn).toBeVisible({ timeout: 10_000 });
+  await startBtn.click();
+
+  // Sicherstellen, dass KEINE MC-Stufe da ist
+  const mc = page.locator('[data-testid="quiz-mc-option"]').first();
+  expect(await mc.isVisible({ timeout: 1500 }).catch(() => false)).toBe(false);
+
+  // 8 Generic-Fragen mit mittlerer Selbsteinschätzung durchklicken
+  for (let i = 0; i < 8; i++) {
+    const answers = page.locator('[data-testid="quiz-answer"]');
+    if (!(await answers.first().isVisible({ timeout: 5000 }).catch(() => false))) break;
+    await answers.nth(2).click();
+  }
+
+  await expect(page.getByText(/Dein Prüfungsreife-Score/i)).toBeVisible({ timeout: 10_000 });
+
+  // Generic-Pfad → lead_magnet_view fallback (kein strict event)
+  const completed = trackCalls.find(
+    (c) => c.event_type === "lead_magnet_view" && c.metadata?.stage === "quiz_completed",
+  );
+  expect(completed, "lead_magnet_view fallback mit stage=quiz_completed erwartet").toBeTruthy();
+  // Vertrag: samples=0 → mc_*-Felder MÜSSEN vollständig fehlen
+  expect(completed.metadata).not.toHaveProperty("mc_score_pct");
+  expect(completed.metadata).not.toHaveProperty("mc_answered_count");
+  expect(completed.metadata).not.toHaveProperty("mc_correct_count");
+});
+
