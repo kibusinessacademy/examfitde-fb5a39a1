@@ -39,7 +39,38 @@ describe("Phase-3 ops: DAG heal + alert hardening", () => {
         );
         expect(error).toBeNull();
         expect(data).toBe(expected);
+  });
+
+  describe("fn_adaptive_burst_size truth table", () => {
+    const cases: Array<[number, number]> = [
+      [0, 25], [50, 25], [100, 25], [101, 35], [500, 35], [501, 50], [1000, 50], [1001, 75], [5000, 75],
+    ];
+    for (const [pending, expected] of cases) {
+      it(`pending=${pending} → burst=${expected}`, async () => {
+        const { data, error } = await supabase.rpc(
+          "fn_adaptive_burst_size" as any,
+          { p_pending: pending },
+        );
+        expect(error).toBeNull();
+        expect(data).toBe(expected);
       });
+    }
+  });
+
+  it("admin_get_worker_throughput_forensics refuses anon", async () => {
+    const { error } = await supabase.rpc("admin_get_worker_throughput_forensics" as any);
+    expect(error).toBeTruthy();
+  });
+
+  it("admin_bronze_tail_auto_unlock refuses anon", async () => {
+    const { error } = await supabase.rpc("admin_bronze_tail_auto_unlock" as any, { p_max: 1 });
+    expect(error).toBeTruthy();
+  });
+
+  it("admin_smoke_dag_heal_pre_post refuses anon", async () => {
+    const { error } = await supabase.rpc("admin_smoke_dag_heal_pre_post" as any, { p_phase: "pre" });
+    expect(error).toBeTruthy();
+  });
     }
   });
 });
