@@ -86,6 +86,8 @@ describe("Quiz-Tracking-Contract — Phase 2", () => {
       (c) => c[0] === "lead_magnet_view" && c[1]?.metadata?.stage === "quiz_started",
     );
     expect(startCall).toBeDefined();
+    expect(startCall![1].metadata.stage).toBe("quiz_started");
+    expect(startCall![1].packageId).toBeUndefined();
 
     // Walk through 8 generic questions
     await clickThroughAllQuestions(8);
@@ -94,6 +96,13 @@ describe("Quiz-Tracking-Contract — Phase 2", () => {
       (c) => c[0] === "lead_magnet_view" && c[1]?.metadata?.stage === "quiz_completed",
     );
     expect(completeCall).toBeDefined();
+    // Exact match: metadata.stage muss kanonisches Funnel-Event-Label widerspiegeln.
+    expect(completeCall![1].metadata.stage).toBe("quiz_completed");
+    expect(completeCall![1].metadata.score).toBeGreaterThanOrEqual(0);
+    expect(completeCall![1].packageId).toBeUndefined();
+    // Strict events DARF im Fallback nicht emittiert werden
+    expect(trackMock.mock.calls.some((c) => c[0] === "quiz_started")).toBe(false);
+    expect(trackMock.mock.calls.some((c) => c[0] === "quiz_completed")).toBe(false);
   });
 
   it("Strict (mit package_id): emittiert quiz_started + quiz_completed mit packageId/persona/sourcePage", async () => {
