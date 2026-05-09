@@ -97,6 +97,7 @@ const GENERATION_JOB_TYPES_LANE = new Set([
   "lesson_generate_content_shard",
   "package_generate_blueprint_variants",
   "package_generate_oral_exam",
+  "package_seed_oral_blueprints",
   "package_elite_harden",
   "package_generate_glossary",              // P2 FIX: was missing
   "package_fanout_learning_content",        // P2 FIX: was missing

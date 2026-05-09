@@ -9,6 +9,7 @@ import { Helmet } from "react-helmet-async";
 import { ArrowLeft, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PackageDiagnostics } from "@/components/admin/heal/PackageDiagnostics";
+import { OralSeedDiagnosticsCard } from "@/components/admin/heal/OralSeedDiagnosticsCard";
 
 export default function PackageDiagnosticsPage() {
   const { packageId } = useParams<{ packageId: string }>();
@@ -46,6 +47,7 @@ export default function PackageDiagnosticsPage() {
       </header>
 
       <PackageDiagnostics packageId={packageId} />
+      <OralSeedDiagnosticsCard packageId={packageId} />
     </div>
   );
 }
