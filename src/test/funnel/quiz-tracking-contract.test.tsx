@@ -162,7 +162,9 @@ describe("Quiz-Tracking-Contract — Phase 2", () => {
     expect(completeCall).toBeDefined();
     expect(completeCall![1].packageId).toBe(VALID_UUID);
     expect(completeCall![1].metadata.score).toBeGreaterThan(0);
-    // mc_score_pct soll präsent sein (auch wenn null, weil kein MC-Stage in dieser Variante)
-    expect(completeCall![1].metadata).toHaveProperty("mc_score_pct");
+    // Strict-Pfad mit Blueprint-Set ohne MC-Optionen → samples=0 → mc_*-Felder MÜSSEN fehlen.
+    expect(completeCall![1].metadata).not.toHaveProperty("mc_score_pct");
+    expect(completeCall![1].metadata).not.toHaveProperty("mc_answered_count");
+    expect(completeCall![1].metadata).not.toHaveProperty("mc_correct_count");
   });
 });
