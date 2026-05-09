@@ -317,6 +317,7 @@ export default function HealCockpitPage() {
             <StatusReverterAlertsCard />
             <HealFunctionAuditCard />
             <StuckPatternsCard />
+            <BronzeQuarantineCard />
             <HealStatusCard />
             <StaleDraftsCard />
             <LearningIntegrityExecutiveCard />
