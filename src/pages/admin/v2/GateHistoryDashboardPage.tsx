@@ -60,6 +60,17 @@ function pivotForChart(rows: DriftRow[]) {
   );
 }
 
+type ExportJob = {
+  id: string;
+  status: "queued" | "running" | "done" | "failed";
+  format: "csv" | "json";
+  total_rows: number | null;
+  file_paths: string[];
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
 export default function GateHistoryDashboardPage() {
   const [windowDays, setWindowDays] = useState(30);
   const [windowHours, setWindowHours] = useState(168);
@@ -69,73 +80,100 @@ export default function GateHistoryDashboardPage() {
   const [timelineWindowDays, setTimelineWindowDays] = useState(30);
   const PAGE_SIZE = 50;
   const [page, setPage] = useState(0);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [completedToastFor, setCompletedToastFor] = useState<string | null>(null);
 
-  function downloadFile(filename: string, content: string, mime: string) {
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
+  // Poll active export job until done/failed
+  const exportJob = useQuery({
+    queryKey: ["gate-export-job", activeJobId],
+    queryFn: async () => {
+      if (!activeJobId) return null;
+      const { data, error } = await supabase.rpc(
+        "admin_get_gate_export_job" as any,
+        { p_job_id: activeJobId },
+      );
+      if (error) throw error;
+      return data as ExportJob;
+    },
+    enabled: !!activeJobId,
+    refetchInterval: (q) => {
+      const s = (q.state.data as ExportJob | null)?.status;
+      return s === "done" || s === "failed" ? false : 3000;
+    },
+  });
+
+  // When job completes, mint signed URLs and toast
+  useEffect(() => {
+    const j = exportJob.data;
+    if (!j || !activeJobId || completedToastFor === j.id) return;
+    if (j.status === "failed") {
+      setCompletedToastFor(j.id);
+      toast.error(`Export fehlgeschlagen: ${j.error ?? "unbekannt"}`);
+      return;
+    }
+    if (j.status !== "done") return;
+    setCompletedToastFor(j.id);
+    (async () => {
+      const urls: string[] = [];
+      for (const p of j.file_paths ?? []) {
+        const { data, error } = await supabase.storage
+          .from("gate-exports")
+          .createSignedUrl(p, 3600);
+        if (!error && data?.signedUrl) urls.push(data.signedUrl);
+      }
+      if (!urls.length) {
+        toast.error("Export fertig, aber keine Download-Links verfügbar.");
+        return;
+      }
+      toast.success(
+        `Export fertig: ${j.total_rows ?? 0} Zeilen in ${urls.length} Datei(en)`,
+        {
+          duration: 30_000,
+          action: {
+            label: urls.length === 1 ? "Download" : `Erste Datei (${urls.length} total)`,
+            onClick: () => window.open(urls[0], "_blank"),
+          },
+          description: urls.length > 1
+            ? `Weitere Teile: ${urls.slice(1).map((u, i) => `Teil ${i + 2}`).join(", ")}`
+            : undefined,
+        },
+      );
+      // Auto-open additional parts
+      for (let i = 1; i < urls.length; i++) {
+        window.open(urls[i], "_blank");
+      }
+    })();
+  }, [exportJob.data, activeJobId, completedToastFor]);
 
   async function exportTimeline(format: "json" | "csv") {
     if (!packageId) return;
-    const t = toast.loading(`Erzeuge ${format.toUpperCase()}-Export…`);
+    if (activeJobId && exportJob.data && (exportJob.data.status === "queued" || exportJob.data.status === "running")) {
+      toast.warning("Es läuft bereits ein Export. Bitte warten.");
+      return;
+    }
+    const t = toast.loading(`Export wird in die Job-Queue gestellt…`);
     try {
       const { data, error } = await supabase.rpc(
-        "admin_get_gate_decision_package_timeline_filtered" as any,
+        "admin_request_gate_export" as any,
         {
           p_package_id: packageId,
           p_window_days: timelineWindowDays,
           p_lane: laneFilter === "all" ? null : laneFilter,
           p_decision: decisionFilter === "all" ? null : decisionFilter,
-          p_limit: 5000,
-          p_offset: 0,
+          p_format: format,
         },
       );
       if (error) throw error;
-      const rows = (data ?? []) as (TimelineRow & { total_rows: number })[];
-      if (!rows.length) {
-        toast.dismiss(t);
-        toast.warning("Keine Daten für die gewählten Filter.");
-        return;
-      }
-      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      if (format === "json") {
-        downloadFile(
-          `gate-timeline-${packageId}-${stamp}.json`,
-          JSON.stringify(rows, null, 2),
-          "application/json",
-        );
-      } else {
-        const headers = [
-          "id","decision","prev_decision","quality_score","quality_badge",
-          "bronze_locked","recorded_at","recorded_by","inputs_json",
-        ];
-        const esc = (v: unknown) => {
-          const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
-          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-        };
-        const body = rows.map((r) =>
-          [r.id, r.decision, r.prev_decision, r.quality_score, r.quality_badge,
-           r.bronze_locked, r.recorded_at, r.recorded_by, r.inputs].map(esc).join(",")
-        ).join("\n");
-        downloadFile(
-          `gate-timeline-${packageId}-${stamp}.csv`,
-          headers.join(",") + "\n" + body,
-          "text/csv",
-        );
-      }
+      const jobId = data as string;
+      setActiveJobId(jobId);
+      setCompletedToastFor(null);
       toast.dismiss(t);
-      toast.success(`${format.toUpperCase()}-Export bereit (${rows.length} Zeilen).`);
+      toast.info(`Export-Job ${jobId.slice(0, 8)} gestartet — Worker läuft jede Minute.`);
     } catch (e: any) {
       toast.dismiss(t);
-      toast.error(`Export fehlgeschlagen: ${e?.message ?? "Unbekannt"}`);
+      toast.error(`Konnte Export nicht starten: ${e?.message ?? "Unbekannt"}`);
     }
+  }
   }
 
   const drift = useQuery({
