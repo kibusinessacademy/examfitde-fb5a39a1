@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.fn_adaptive_burst_size_v2(int, numeric, int, text, text) TO anon, authenticated;
