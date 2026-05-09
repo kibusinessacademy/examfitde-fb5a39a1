@@ -4,10 +4,18 @@ import { HeroAccent } from "@/components/marketing/HeroAccent";
 
 interface Props {
   contextLabel?: string | null;
+  /** True when berufsspezifische Diagnosefragen aus SSOT/Blueprints geladen sind. */
+  isBlueprintSourced?: boolean;
+  questionCount?: number;
   onStart: () => void;
 }
 
-export function QuizStartScreen({ contextLabel, onStart }: Props) {
+export function QuizStartScreen({ contextLabel, isBlueprintSourced = false, questionCount, onStart }: Props) {
+  const headline = contextLabel
+    ? isBlueprintSourced
+      ? `Prüfungsreife-Check für ${contextLabel}`
+      : `Allgemeiner Prüfungsreife-Check`
+    : "Allgemeiner Prüfungsreife-Check";
   return (
     <div className="rounded-2xl p-6 sm:p-10 bg-surface-raised border border-border-subtle shadow-elev-2">
       {contextLabel && (
