@@ -69,9 +69,22 @@ type ExportJob = {
   error: string | null;
   created_at: string;
   completed_at: string | null;
+  package_id?: string | null;
+  window_days?: number | null;
+  lane?: string | null;
+  decision?: string | null;
+  started_at?: string | null;
+};
+
+type ExportFilters = {
+  packageId: string;
+  windowDays: number;
+  lane: string | null;
+  decision: string | null;
 };
 
 export default function GateHistoryDashboardPage() {
+  const qc = useQueryClient();
   const [windowDays, setWindowDays] = useState(30);
   const [windowHours, setWindowHours] = useState(168);
   const [packageId, setPackageId] = useState("");
