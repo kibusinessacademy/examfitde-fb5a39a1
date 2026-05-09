@@ -377,7 +377,7 @@ export default function GateHistoryDashboardPage() {
                 </Button>
                 <select
                   value={laneFilter}
-                  onChange={(e) => setLaneFilter(e.target.value)}
+                  onChange={(e) => { setLaneFilter(e.target.value); setPage(0); }}
                   className="h-8 text-xs border rounded-md px-2 bg-background"
                   data-testid="gate-history-lane-filter"
                   aria-label="Lane filter"
@@ -389,13 +389,23 @@ export default function GateHistoryDashboardPage() {
                 </select>
                 <select
                   value={decisionFilter}
-                  onChange={(e) => setDecisionFilter(e.target.value)}
+                  onChange={(e) => { setDecisionFilter(e.target.value); setPage(0); }}
                   className="h-8 text-xs border rounded-md px-2 bg-background"
                   aria-label="Decision filter"
                 >
                   <option value="all">Alle Decisions</option>
                   {timelineDecisions.map((d) => (
                     <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                <select
+                  value={timelineWindowDays}
+                  onChange={(e) => { setTimelineWindowDays(parseInt(e.target.value, 10)); setPage(0); }}
+                  className="h-8 text-xs border rounded-md px-2 bg-background"
+                  aria-label="Zeitfenster"
+                >
+                  {[7, 30, 90, 180, 365].map((d) => (
+                    <option key={d} value={d}>{d}d</option>
                   ))}
                 </select>
                 <div className="ml-auto flex gap-1">
