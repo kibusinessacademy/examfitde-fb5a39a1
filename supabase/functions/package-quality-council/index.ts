@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
 import { markStepDone, markStepFailed } from "../_shared/steps.ts";
+import { markFirstHeartbeat } from "../_shared/first-heartbeat.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -69,8 +70,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  await assertSchemaReady("package-quality-council", sb);
   const body = await req.json().catch(() => ({}));
+  // S5b First-Heartbeat-Contract: heartbeat IMMEDIATELY before any AI/heavy DB call.
+  await markFirstHeartbeat(sb, body.job_id ?? body.payload?.job_id);
+  await assertSchemaReady("package-quality-council", sb);
   const packageId = body.package_id || body.payload?.package_id;
   const resume: ResumeState | undefined = body.resume_state || body.payload?.resume_state;
 

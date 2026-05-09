@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { finalizeStepDone, finalizeStepFailed } from "../_shared/step-finalize.ts";
+import { markFirstHeartbeat } from "../_shared/first-heartbeat.ts";
 
 /**
  * package-validate-tutor-index — Pipeline Step (after build_ai_tutor_index)
@@ -44,6 +45,8 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
+  // S5b First-Heartbeat-Contract.
+  await markFirstHeartbeat(sb, body.job_id ?? p?.job_id);
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
 
