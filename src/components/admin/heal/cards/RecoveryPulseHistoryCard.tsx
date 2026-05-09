@@ -30,6 +30,22 @@ const decisionVariant = (d?: string): "default" | "secondary" | "outline" | "des
  * Recovery Pulse History — last 20 decisions of fn_auto_recovery_pulse_decide.
  * Reads auto_heal_log directly (action_type='auto_recovery_pulse_decide').
  */
+type HealthRow = {
+  decision: string;
+  decisions_count: number;
+  pulsed_jobs_total: number;
+  avg_burst_size: number | null;
+  avg_oldest_min: number | null;
+  avg_pending: number | null;
+  last_at: string | null;
+};
+
+const decisionTone = (d: string): "default" | "destructive" | "secondary" | "outline" => {
+  if (d === "pulsed") return "default";
+  if (d.startsWith("noop_gate") || d.startsWith("noop_failure")) return "destructive";
+  return "secondary";
+};
+
 export function RecoveryPulseHistoryCard() {
   const { data, isLoading } = useQuery({
     queryKey: ["recovery-pulse-history"],
@@ -44,6 +60,19 @@ export function RecoveryPulseHistoryCard() {
       return (data ?? []) as PulseRow[];
     },
     refetchInterval: 30_000,
+  });
+
+  const { data: health } = useQuery({
+    queryKey: ["recovery-pulse-health-24h"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_auto_recovery_pulse_health" as any,
+        { p_window_hours: 24 },
+      );
+      if (error) return [] as HealthRow[];
+      return (data ?? []) as HealthRow[];
+    },
+    refetchInterval: 60_000,
   });
 
   return (
