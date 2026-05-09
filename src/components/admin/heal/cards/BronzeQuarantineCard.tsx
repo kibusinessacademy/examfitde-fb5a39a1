@@ -59,13 +59,11 @@ export function BronzeQuarantineCard() {
 
   // Cluster by reason for filter chips
   const reasonClusters = Array.from(
-    new Map<string, number>(
-      (data ?? []).reduce<[string, number][]>((acc, r) => {
-        const k = r.reason ?? "UNKNOWN";
-        acc.push([k, (acc.find(([x]) => x === k)?.[1] ?? 0) + 1]);
-        return acc;
-      }, []),
-    ).entries(),
+    (data ?? []).reduce((m, r) => {
+      const k = r.reason ?? "UNKNOWN";
+      m.set(k, (m.get(k) ?? 0) + 1);
+      return m;
+    }, new Map<string, number>()),
   );
 
   return (
