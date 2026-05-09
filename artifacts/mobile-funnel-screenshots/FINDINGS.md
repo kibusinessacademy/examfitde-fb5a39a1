@@ -102,3 +102,31 @@ Automatisch: läuft auf jedem PR, der `src/components/{consent,marketing,landing
 - `mc_correct_count`
 
 Admin-Dashboard liest beides aus `admin_get_pruefungsreife_funnel(p_days, p_question_source)` (zwei neue Karten: MC-Korrektheit Ø + Self-Assessment Ø).
+
+---
+
+## Phase 2 (revised) — RPC-Vertrag stabil, v2 additiv
+
+**Wichtig:** Statt `admin_get_pruefungsreife_funnel(integer)` zu überschreiben, wurde die
+ursprüngliche Single-Arg-Version restored und ein neuer Eintrag
+`admin_get_pruefungsreife_funnel_v2(p_days int, p_question_source text DEFAULT NULL)` daneben
+gestellt. Damit bleiben Bestandskonsumenten (CI, Export-Skripte) funktional, während die
+Admin-Card auf v2 umstellt.
+
+- **v1** (`admin_get_pruefungsreife_funnel(p_days int)`): unverändert, kein Filter, kein MC-Score.
+- **v2** (`admin_get_pruefungsreife_funnel_v2(p_days, p_question_source)`):
+  - `p_question_source ∈ {blueprint, generic, all, NULL}` — alles andere → `RAISE NOTICE`,
+    Filter wird ignoriert, Response trägt `question_source_invalid: true`.
+  - Liefert zusätzlich `mc_score.{avg_pct, samples}` + `self_score_avg`.
+  - Insight bei leerem Result: „Keine Quiz-Events für question_source=… im Fenster …".
+- **Admin-Card** (`PruefungsreifeFunnelCard`):
+  - Toggle „Alle | Blueprint | Generic" mit `data-testid="source-toggle-{value}"`.
+  - URL-Parameter `?question_source=…` persistiert die Auswahl (teilbar/wiederherstellbar).
+  - Friendly errors: `forbidden` → „Du brauchst die Admin-Rolle…", `function does not exist`
+    → „Funnel-Report v2 wurde noch nicht ausgerollt…", sonst raw message.
+  - Warning-Badge wenn die Response `question_source_invalid=true` markiert.
+- **Tests:** `src/test/funnel/pruefungsreife-source-toggle.test.tsx` (6 Cases) deckt RPC-Args,
+  URL-Param, Active-State, MC-Card-Sichtbarkeit, Initial-Param-Read, Invalid-Badge und
+  Forbidden-Friendly-Message ab. Eine echte Playwright-Variante würde Admin-Auth-Helfer
+  erfordern, der im aktuellen `tests/e2e/helpers/auth.ts` (nur `smoke_learner`) fehlt — der
+  Komponenten-Test ersetzt das vertragsäquivalent.
