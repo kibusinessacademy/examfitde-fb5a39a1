@@ -627,6 +627,100 @@ export default function GateHistoryDashboardPage() {
               ) : null}
             </CardContent>
           </Card>
+
+          <Card data-testid="gate-export-history-card">
+            <CardHeader>
+              <CardTitle className="text-base">Export-Historie (letzte 10)</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Status, Größe und Download pro Datei. Retry für fehlgeschlagene Jobs.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {exportHistory.isLoading ? (
+                <p className="text-sm text-muted-foreground">Lade…</p>
+              ) : !(exportHistory.data?.length) ? (
+                <p className="text-sm text-muted-foreground">Noch keine Exporte.</p>
+              ) : (
+                <div className="space-y-1.5" data-testid="gate-export-history-list">
+                  {exportHistory.data.map((j) => {
+                    const statusVariant =
+                      j.status === "done"
+                        ? "success"
+                        : j.status === "failed"
+                          ? "danger"
+                          : j.status === "running"
+                            ? "info"
+                            : "muted";
+                    return (
+                      <div
+                        key={j.id}
+                        className="border rounded-md p-2 text-xs"
+                        data-testid="gate-export-history-row"
+                      >
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant={statusVariant as any} data-testid="gate-export-history-status">
+                              {j.status}
+                            </Badge>
+                            <Badge variant="outline" className="font-mono text-[10px]">
+                              {j.format.toUpperCase()}
+                            </Badge>
+                            {j.total_rows != null ? (
+                              <Badge variant="outline">{j.total_rows.toLocaleString("de-DE")} Zeilen</Badge>
+                            ) : null}
+                            {j.lane ? <Badge variant="outline">lane: {j.lane}</Badge> : null}
+                            {j.decision ? <Badge variant="outline">{j.decision}</Badge> : null}
+                          </div>
+                          <span className="text-muted-foreground tabular-nums">
+                            {new Date(j.created_at).toLocaleString("de-DE")}
+                            {j.completed_at ? (
+                              <> · {Math.max(0, Math.round((+new Date(j.completed_at) - +new Date(j.created_at)) / 1000))}s</>
+                            ) : null}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-1 flex-wrap">
+                          {j.status === "done" && (j.file_paths?.length ?? 0) > 0
+                            ? (j.file_paths ?? []).map((p, i) => (
+                                <Button
+                                  key={p}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px]"
+                                  onClick={() => downloadPart(p)}
+                                  data-testid="gate-export-history-download"
+                                >
+                                  ↓ Teil {i + 1}
+                                </Button>
+                              ))
+                            : null}
+                          {j.status === "failed" ? (
+                            <>
+                              <span
+                                className="text-destructive truncate max-w-[420px]"
+                                title={j.error ?? ""}
+                              >
+                                {j.error ?? "Fehler"}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[11px] ml-auto"
+                                onClick={() => retryJob(j)}
+                                disabled={!j.package_id}
+                                data-testid="gate-export-history-retry"
+                              >
+                                ↻ Retry
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
