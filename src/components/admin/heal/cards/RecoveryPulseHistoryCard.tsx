@@ -86,6 +86,24 @@ export function RecoveryPulseHistoryCard() {
         </p>
       </CardHeader>
       <CardContent>
+        {health && health.length > 0 && (
+          <div className="mb-3 space-y-1.5">
+            <div className="text-[11px] font-medium text-muted-foreground">Health (24h)</div>
+            <div className="flex flex-wrap gap-1.5">
+              {health.map((h) => (
+                <Badge
+                  key={h.decision}
+                  variant={decisionTone(h.decision)}
+                  className="text-[10px] font-mono"
+                  title={`avg burst ${h.avg_burst_size ?? "—"} · avg pending ${h.avg_pending ?? "—"} · pulsed jobs ${h.pulsed_jobs_total}`}
+                >
+                  {h.decision} · {h.decisions_count}
+                  {h.pulsed_jobs_total > 0 ? ` (${h.pulsed_jobs_total} jobs)` : ""}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Lade…</p>
         ) : !data?.length ? (
