@@ -138,6 +138,9 @@ export function QualityGateDecisionsCard() {
               {DECISIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button size="sm" variant="outline" onClick={() => void recordNow()} disabled={recordingNow}>
+            <History className={`h-3.5 w-3.5 ${recordingNow ? "animate-spin" : ""}`} /> Snapshot
+          </Button>
           <Button size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           </Button>
