@@ -143,7 +143,8 @@ describe("PruefungsreifeFunnelCard — source toggle contract", () => {
     await waitFor(() => {
       expect(rpcMock.mock.calls[0][1]).toMatchObject({ p_question_source: "blueprint" });
     });
-    expect(screen.getByTestId("source-toggle-blueprint")).toHaveAttribute("aria-pressed", "true");
+    const btn = await screen.findByTestId("source-toggle-blueprint");
+    expect(btn).toHaveAttribute("aria-pressed", "true");
   });
 
   it("question_source_invalid=true → Warning-Badge gerendert", async () => {
