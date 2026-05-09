@@ -73,9 +73,8 @@ for (const f of files) {
     re.lastIndex = 0;
     let m;
     while ((m = re.exec(txt)) !== null) {
-      const value = m[2] ?? m[1];
-      if (!value || !value.startsWith('repair_') && !value.startsWith('enqueue_')) continue;
-      if (canonical.has(value)) continue;
+      const value = m[1];
+      if (!value) continue;
       if (aliases.has(value)) {
         if (!aliasesActive) {
           console.error(`✗ EXPIRED ALIAS '${value}' in ${f}`);
