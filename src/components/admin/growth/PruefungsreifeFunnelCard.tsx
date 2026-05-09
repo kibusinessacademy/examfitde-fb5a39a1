@@ -140,6 +140,33 @@ export default function PruefungsreifeFunnelCard() {
           </div>
         ) : (
           <>
+            {/* Source-Filter (Phase 2: question_source blueprint vs generic) */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-text-tertiary uppercase tracking-wide">Fragenquelle:</span>
+              <div className="inline-flex rounded-lg border border-border-subtle bg-surface-sunken p-0.5">
+                {SOURCES.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSource(opt.value)}
+                    aria-pressed={source === opt.value}
+                    className={`px-2.5 h-7 text-xs rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                      source === opt.value
+                        ? "bg-surface-raised text-text-primary shadow-elev-1 font-medium"
+                        : "text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {source !== "all" && (
+                <Badge variant="outline" className="text-[10px] border-petrol-300 text-petrol-700">
+                  Filter aktiv: question_source = <code className="ml-1">{source}</code>
+                </Badge>
+              )}
+            </div>
+
             {/* KPI Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Kpi label="Starts" value={data.stages[1]?.count ?? 0} />
@@ -147,6 +174,35 @@ export default function PruefungsreifeFunnelCard() {
               <Kpi label="Result-CTA" value={`${data.cta_rate_pct}%`} />
               <Kpi label="Checkout" value={`${data.checkout_rate_pct}%`} />
             </div>
+
+            {/* MC vs Self-Score (Phase 2) */}
+            {(data.mc_score?.samples ?? 0) > 0 || data.self_score_avg !== null ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-lg border border-border-subtle bg-surface-sunken p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-text-tertiary">MC-Korrektheit Ø</div>
+                  <div className="text-lg font-bold text-text-primary mt-0.5">
+                    {data.mc_score?.avg_pct !== null && data.mc_score?.avg_pct !== undefined
+                      ? `${data.mc_score.avg_pct}%`
+                      : "—"}
+                  </div>
+                  <div className="text-[10px] text-text-tertiary mt-0.5">
+                    {data.mc_score?.samples ?? 0} Sample(s)
+                    {source === "generic" && " · Generic-Pfad hat keine MC-Stufe"}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border-subtle bg-surface-sunken p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-text-tertiary">Self-Assessment Ø</div>
+                  <div className="text-lg font-bold text-text-primary mt-0.5">
+                    {data.self_score_avg !== null && data.self_score_avg !== undefined
+                      ? `${data.self_score_avg}`
+                      : "—"}
+                  </div>
+                  <div className="text-[10px] text-text-tertiary mt-0.5">
+                    Score 0–100 (Mittelwert)
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             {/* Funnel bars */}
             <div className="space-y-2">
