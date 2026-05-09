@@ -225,6 +225,14 @@ export default function LeitstellePage() {
         </Suspense>
       </AdminCardBoundary>
 
+      {/* ═══ Handbuch Publish-Drift (SSOT-gated Backfill) ═══ */}
+      <AdminCardBoundary label="Handbuch Publish-Drift">
+        <Suspense fallback={null}>
+          <HandbookPublishDriftCard />
+        </Suspense>
+      </AdminCardBoundary>
+
+
       {/* ═══ Realtime Pulse + Predictive Alerts ═══ */}
       <AdminCardBoundary label="Realtime Pulse">
         <Suspense fallback={null}>
