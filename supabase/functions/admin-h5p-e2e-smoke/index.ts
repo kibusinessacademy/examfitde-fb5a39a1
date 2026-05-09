@@ -24,13 +24,20 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const BUCKET = "h5p-content";
 
-type StepStatus = "ok" | "fail" | "skipped";
+type StepStatus = "ok" | "fail" | "skipped" | "healed";
 interface StepResult {
   key: string;
   label: string;
   status: StepStatus;
   detail?: string;
   data?: unknown;
+  healed_action?: string;
+}
+interface HealedAction {
+  step: string;
+  action: string;
+  detail?: string;
+  ok: boolean;
 }
 
 function json(body: unknown, status = 200) {
