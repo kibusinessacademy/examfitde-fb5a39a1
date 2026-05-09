@@ -12,6 +12,7 @@ import { ExamPreview } from '@/components/dashboard/ExamPreview';
 import { BadgeHistory } from '@/components/dashboard/BadgeHistory';
 import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
 import { NextBestStepCard } from '@/features/mastery/components/NextBestStepCard';
+import { MasteryHistoryChart } from '@/features/mastery/components/MasteryHistoryChart';
 import { DailyHumorCard } from '@/components/dashboard/DailyHumorCard';
 import { HumorSettings } from '@/components/settings/HumorSettings';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
