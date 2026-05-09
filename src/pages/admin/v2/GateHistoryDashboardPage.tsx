@@ -492,6 +492,31 @@ export default function GateHistoryDashboardPage() {
                   ))}
                 </div>
               )}
+              {packageId && totalRows > 0 ? (
+                <div className="flex items-center justify-between mt-3 text-xs" data-testid="gate-history-pager">
+                  <div className="text-muted-foreground tabular-nums">
+                    {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalRows)} von {totalRows}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      disabled={page === 0 || timeline.isFetching}
+                    >
+                      ← Zurück
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                      disabled={page >= pageCount - 1 || timeline.isFetching}
+                    >
+                      Weiter →
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>
