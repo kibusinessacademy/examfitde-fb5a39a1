@@ -111,8 +111,9 @@ export default function LearnerDashboard() {
         )}
 
         {enrollments[0]?.course_id && (
-          <div className="mb-6">
+          <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
             <NextBestStepCard courseId={enrollments[0].course_id} />
+            <MasteryHistoryChart courseId={enrollments[0].course_id} />
           </div>
         )}
 
