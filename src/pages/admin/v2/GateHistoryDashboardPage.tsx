@@ -172,6 +172,25 @@ export default function GateHistoryDashboardPage() {
     new Set((drift.data ?? []).map((r) => r.decision)),
   );
 
+  const filteredTimeline = (timeline.data ?? []).filter((r) => {
+    const inputs = (r.inputs ?? {}) as Record<string, unknown>;
+    const lane = (inputs.lane as string | undefined) ?? "";
+    if (laneFilter !== "all" && lane !== laneFilter) return false;
+    if (decisionFilter !== "all" && r.decision !== decisionFilter) return false;
+    return true;
+  });
+
+  const timelineLanes = Array.from(
+    new Set(
+      (timeline.data ?? [])
+        .map((r) => (r.inputs as Record<string, unknown> | null)?.lane as string | undefined)
+        .filter(Boolean) as string[],
+    ),
+  );
+  const timelineDecisions = Array.from(
+    new Set((timeline.data ?? []).map((r) => r.decision)),
+  );
+
   return (
     <div className="space-y-4 p-4 max-w-7xl mx-auto">
       <div>
