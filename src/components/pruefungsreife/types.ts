@@ -12,6 +12,11 @@ export interface Question {
   id: string;
   category: CategoryKey;
   text: string;
+  /** Optional MC stage from blueprint set (Phase 2). Only present when SSOT-RPC liefert valide options + correct index. */
+  mc?: {
+    options: string[];
+    correctIndex: number;
+  };
 }
 
 export interface AnswerOption {
