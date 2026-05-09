@@ -20,7 +20,7 @@ function loadRegistry() {
   const canonical = new Set(
     [...src.matchAll(/['"]([a-z_]+)['"]/g)]
       .map((m) => m[1])
-      .filter((s) => /^[a-z][a-z_]*$/.test(s) && s.length > 4)
+      .filter((s) => /^[a-z][a-z_]*$/.test(s))
   );
   const aliasBlock = src.match(/REPAIR_ACTION_ALIASES[^}]+\}/s)?.[0] ?? '';
   const aliases = new Set([...aliasBlock.matchAll(/(\w+):\s*REPAIR_ACTIONS/g)].map((m) => m[1]));
