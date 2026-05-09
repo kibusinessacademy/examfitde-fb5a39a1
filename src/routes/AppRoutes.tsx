@@ -178,6 +178,7 @@ const PublishBlockerCockpitPage = lazyRetry(() => import('@/pages/admin/v2/Publi
 const AuditReportsPage = lazyRetry(() => import('@/pages/admin/v2/AuditReportsPage'));
 const AdminRolesPage = lazyRetry(() => import('@/pages/admin/v2/AdminRolesPage'));
 const AdminH5PUploadPage = lazyRetry(() => import('@/pages/admin/v2/AdminH5PUploadPage'));
+const AdminH5PSmokePage = lazyRetry(() => import('@/pages/admin/v2/AdminH5PSmokePage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -474,6 +475,7 @@ const AppRoutes = () => {
           <Route path="ops/audit-reports" element={<AuditReportsPage />} />
           <Route path="ops/roles" element={<AdminRolesPage />} />
           <Route path="ops/h5p" element={<AdminH5PUploadPage />} />
+          <Route path="ops/h5p-smoke" element={<AdminH5PSmokePage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
