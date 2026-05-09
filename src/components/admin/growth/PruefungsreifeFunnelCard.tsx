@@ -31,12 +31,15 @@ type Stage = {
 };
 type FunnelData = {
   window_days: number;
+  question_source: "blueprint" | "generic" | null;
   since: string;
   stages: Stage[];
   completion_rate_pct: number;
   cta_rate_pct: number;
   checkout_rate_pct: number;
   package_resolution: { total: number; resolved: number; fallback: number; resolved_pct: number };
+  mc_score?: { avg_pct: number | null; samples: number };
+  self_score_avg?: number | null;
   top_dropoff: { stage: string | null; pct: number | null };
   top_slugs: Array<{ slug: string; starts: number }>;
   insights: Array<{ severity: "info" | "warning" | "critical"; message: string }>;
@@ -49,16 +52,22 @@ const WINDOWS = [
   { label: "30d", days: 30 },
 ];
 
+const SOURCES: Array<{ label: string; value: "all" | "blueprint" | "generic" }> = [
+  { label: "Alle", value: "all" },
+  { label: "Blueprint", value: "blueprint" },
+  { label: "Generic", value: "generic" },
+];
+
 const SEVERITY_STYLE: Record<string, string> = {
   critical: "border-status-error/40 bg-status-error-subtle text-status-error-foreground",
   warning:  "border-status-warning/40 bg-status-warning-subtle text-status-warning-foreground",
   info:     "border-status-info/40 bg-status-info-subtle text-status-info-foreground",
 };
 
-async function fetchFunnel(days: number): Promise<FunnelData> {
+async function fetchFunnel(days: number, source: "all" | "blueprint" | "generic"): Promise<FunnelData> {
   const { data, error } = await supabase.rpc(
     "admin_get_pruefungsreife_funnel" as never,
-    { p_days: days } as never,
+    { p_days: days, p_question_source: source === "all" ? null : source } as never,
   );
   if (error) throw error;
   return data as unknown as FunnelData;
@@ -66,9 +75,10 @@ async function fetchFunnel(days: number): Promise<FunnelData> {
 
 export default function PruefungsreifeFunnelCard() {
   const [days, setDays] = useState(7);
+  const [source, setSource] = useState<"all" | "blueprint" | "generic">("all");
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ["pruefungsreife-funnel", days],
-    queryFn: () => fetchFunnel(days),
+    queryKey: ["pruefungsreife-funnel", days, source],
+    queryFn: () => fetchFunnel(days, source),
     staleTime: 60_000,
   });
 
