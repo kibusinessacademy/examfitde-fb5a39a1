@@ -220,6 +220,30 @@ export default function PruefungsreifeFunnelCard() {
           ))}
           <Button
             size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs gap-1"
+            onClick={exportCurrentCsv}
+            disabled={!data}
+            data-testid="export-current-csv"
+            title="Aktuelle Detail-Auswertung als CSV"
+          >
+            <Download className="h-3 w-3" />
+            CSV
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs gap-1"
+            onClick={exportAllSegmentsCsv}
+            disabled={!data}
+            data-testid="export-segments-csv"
+            title="Alle/Blueprint/Generic Segment-KPIs als CSV"
+          >
+            <Download className="h-3 w-3" />
+            Segmente
+          </Button>
+          <Button
+            size="sm"
             variant="ghost"
             className="h-7 w-7 p-0"
             onClick={() => refetch()}
