@@ -1,55 +1,94 @@
-# Sprint Plan: Prüfungsreife Phase 2 + Funnel-Hardening
+## Scope (4 Tracks, eine Migration je Concern)
 
-Fünf eigenständige Mini-Sprints, in dieser Reihenfolge.
+### Track A — Gate-Decision History & Audit
+**Ziel:** Jede Entscheidung pro Paket inkl. Input-Snapshot nachvollziehbar.
 
-## 1. MC-Korrektheit als zweite Score-Achse
+- **Tabelle** `quality_gate_decision_history`
+  - `id, package_id, decision, prev_decision, quality_score, quality_badge, bronze_locked, report_status, rules_failed, rules_warned, report_signal`
+  - `inputs jsonb` (pending_default_pool, failure_rate_15m, reaper_churn_5m, lane, pool, gate_health snapshot)
+  - `recorded_at, recorded_by (system|admin uid|cron)`
+- **RPC** `fn_snapshot_quality_gate_decisions()` (service_role): vergleicht aktuellen `v_quality_gate_decision_per_pkg` mit letztem Eintrag pro Paket, schreibt nur bei Decision-Wechsel + tagged Input-Snapshot via `fn_worker_health_gate()` + Job-Queue-Recon.
+- **Cron** alle 10 Min + on-demand `admin_record_gate_decisions_now()` (admin-gated).
+- **RPC** `admin_get_gate_decision_history(p_package_id, p_limit)` (admin has_role).
+- **UI** `QualityGateDecisionsCard`: Drill-Down-Drawer per Zeile zeigt Verlauf + Inputs.
 
-**Hintergrund:** Phase 1 lädt echte `exam_questions` per RPC, nutzt aber nur die 0–3 Selbsteinschätzung. Die `options` (mit `is_correct`) werden ignoriert.
+### Track B — S2 Mastery v2 (Hauptlieferung)
+**Ziel:** SSOT für Lernfortschritt + Next-Best-Step-Engine.
 
-**Umsetzung (frontend-only, additiv):**
-- `useDiagnosticSet`: Mappe `options[]` und `correct_option_index` zusätzlich auf `Question` (neuer optionaler Block `mc?: { options: string[]; correctIndex: number }`).
-- `QuizQuestionCard`: Wenn `question.mc` vorhanden → render zwei Stages:
-  1. MC-Auswahl (Radio, 4 Optionen, Validierung gegen `correctIndex`)
-  2. Selbsteinschätzung 0–3 wie bisher
-  Sonst: nur Selbsteinschätzung (Generic-Pfad).
-- `PruefungsreifeCheckPage`: Sammle `mc_correct: boolean | null` pro Antwort. Compute `mc_score_pct = correct/answered*100`. Übergib in `quiz_completed.metadata` als Feld `mc_score_pct` und `mc_answered_count`. Self-Assessment-Score bleibt primär (kein Score-Rewrite).
-- Keine neuen Events. RPC unverändert (returnt schon `options` + `correct_option_index`).
+#### Schema
+- `learner_competency_state` (PK `(user_id, course_id, competency_id)`)
+  - `mastery_score numeric(5,2)` 0–100 (EWMA gewichtete Korrektheit)
+  - `confidence numeric(5,2)` 0–100 (sample-size-gewichtete Sicherheit)
+  - `decay_score numeric(5,2)` 0–100 (Time-decay seit `last_practice_at`)
+  - `exam_readiness numeric(5,2)` 0–100 (mastery × confidence × (1 − decay-penalty) × syllabus_weight)
+  - `error_pattern jsonb` (`{misconception_tags:[], recurring_question_ids:[], avg_response_ms, hint_usage_rate}`)
+  - `samples_total, samples_correct, last_practice_at, last_event_type, updated_at`
+- `learner_mastery_event_log` (audit jeder Update-Quelle: minicheck/quiz/exam/tutor)
+- RLS: User sieht nur eigene Zeilen; Service-Role full-write.
 
-**Tests:** `useDiagnosticSet.test.tsx` erweitert um MC-Mapping. `pruefungsreife-keyboard.test.tsx` deckt MC-Auswahl per Tab/Enter ab.
+#### Updates
+- **RPC** `update_mastery_from_attempt(p_user_id, p_course_id, p_competency_id, p_correct, p_response_ms, p_event_type, p_question_id, p_misconception_tags)`
+  - EWMA mit α=0.30
+  - Decay: `decay_score = 100 * exp(-days_since_last_practice / 14)`
+  - Confidence: `100 * (1 − exp(-samples_total/8))`
+  - `exam_readiness = mastery × (confidence/100) × (decay_score/100)`
+  - Audit-Insert in `learner_mastery_event_log`
+  - SECURITY DEFINER, validate `auth.uid() = p_user_id` ODER service_role.
 
-## 2. Admin-Filter `question_source` (blueprint vs generic)
+#### Next-Best-Step-Engine
+- **RPC** `learner_next_best_step(p_user_id, p_course_id)` returns ranked list (top 5)
+  - Score = `(100 - exam_readiness) × syllabus_weight × urgency_factor(exam_date)`
+  - Type-Priorisierung: REPAIR (mastery<60) → DRILL (60-79) → REINFORCE (80-89) → CHALLENGE (≥90)
+  - Decay-Boost wenn `decay_score < 50`
+  - Returns: `competency_id, recommended_action, exam_readiness, reason, payload`
 
-**In `PruefungsreifeFunnelCard.tsx`:**
-- Toggle-Group `Alle | Blueprint | Generic` über der Funnel-Tabelle.
-- Filter wirkt clientseitig auf bereits geladene Events (filter `metadata->>question_source`).
-- Detailzeile: Pro Segment Conversion-Rate `quiz_started → quiz_completed`, Avg-Score, Avg-`mc_score_pct` (sofern vorhanden).
-- Keine RPC-Änderung — bestehender Hook liefert metadata mit.
+#### View
+- `v_learner_mastery_summary` per (user, course): avg_readiness, weakest_3, strongest_3, decay_alerts, last_active_at.
 
-## 3. Tracking-Contract-Vitest
+### Track C — Burst-v2 Tests
+- Bestehende Truth-Table erweitern um:
+  - failure_rate-Tiers (0.10/0.20)
+  - reaper_churn-Tiers (5/10)
+  - Kombinatorik failure × lane (control+failure)
+  - Pool != default
+  - Boundary clamp 5..100
+- Integrations-Test (vitest mit live RPC): 12 cases gesamt.
 
-Neue Datei `src/test/funnel/quiz-tracking-contract.test.ts`:
-- Mock `trackFunnel`/`emitFunnelEvent`.
-- Render `PruefungsreifeCheckPage` mit `packageId=null` → assert: nur `lead_magnet_view` mit `metadata.stage` ('start'/'completed'), kein `quiz_started`/`quiz_completed`.
-- Render mit gemockter Blueprint-RPC + `packageId='uuid'` → assert: `quiz_started` und `quiz_completed` werden mit `package_id`, `persona`, `source_page` aufgerufen.
-- Allowlist-Vergleich: Importiere `EDGE_ALLOWED_EVENTS` aus `devTrackingCheck.ts` und assertiere, dass `FUNNEL_EVENTS.QUIZ_STARTED/_COMPLETED` enthalten sind.
+### Track D — Auto-Pulse Verification
+- **View** `v_auto_recovery_pulse_cron_health` aus `auto_heal_log` (last 24h):
+  - Anzahl Decisions pro Pfad (pulsed/noop_*), p50/p95 burst_size, p50 oldest_min, Anzahl pulsed_jobs
+- **RPC** `admin_get_auto_recovery_pulse_health()` (admin-gated)
+- **RPC** `admin_smoke_auto_recovery_pulse()` simuliert Decision (ohne Side-Effect via DRY-RUN-Flag in fn) — fügt Pfad zum bestehenden `fn_auto_recovery_pulse_decide` hinzu via Wrapper `fn_auto_recovery_pulse_decide_dryrun()`.
+- **UI** Sektion in `RecoveryPulseHistoryCard`: Health-Strip oben (last 6h decisions distribution).
+- **Vitest**: 4 Cases (refusal, dryrun shape, history rpc, decision constants present in last 24h).
 
-## 4. Playwright Screenshot-Trigger
+## Migrations-Plan (sequenziell, je 1 Concern)
 
-Workflow `mobile-funnel-screenshots.yml` existiert bereits mit `workflow_dispatch`. Ergänze:
-- Input `target_url` (default `https://examfitde.lovable.app`) → in `PREVIEW_URL` env.
-- Kurzer Hinweis in `artifacts/mobile-funnel-screenshots/FINDINGS.md` wie der Trigger via GitHub UI gestartet wird.
+| # | Concern |
+|---|---------|
+| 1 | Track A: Tabelle + Snapshot-RPC + Cron + Admin-RPC |
+| 2 | Track B Schema: `learner_competency_state` + `learner_mastery_event_log` + RLS + Indizes |
+| 3 | Track B Logic: `update_mastery_from_attempt` + `v_learner_mastery_summary` |
+| 4 | Track B Engine: `learner_next_best_step` + Helper |
+| 5 | Track D: `fn_auto_recovery_pulse_decide_dryrun` + Health-View + Admin-RPC |
 
-## 5. Visual-Audit Produktsuche
+## Code-Änderungen (UI/Tests)
 
-Nach Trigger der Screenshots: Sichte `02-home-demo-gallery-pending`, `10/11/12-bundle-*`, `13-admin-growth-pending` plus neue Shots `06-quiz-start-*` (mit MC). Schreibe konkrete UI/UX/Copy/Layout-Findings in `FINDINGS.md` Sektion „Produktsuche & Bundle-Detail".
-- Erwartete Themen: Filter-Chips Touch-Target, Eyebrow-Konsistenz, CTA-Hierarchie, Module-Cards Zeilenabstand, Comparison-Table horizontaler Scroll.
+| Datei | Zweck |
+|---|---|
+| `src/components/admin/heal/cards/QualityGateDecisionsCard.tsx` | Drill-Down-Drawer für History |
+| `src/components/admin/heal/cards/RecoveryPulseHistoryCard.tsx` | Health-Strip oben |
+| `src/test/ops/dag-heal-and-alerts.test.ts` | Burst-v2 erweiterte Truth-Table + Auto-Pulse-Verifikation |
+| `src/test/learner/mastery-v2.test.ts` | Mastery-Update + next_best_step Smoke (anon refusal + service-role contract) |
 
-## Aus dem Scope (Phase 3)
+## Memory & Audit
+- Neue Memory-Files: `s2-mastery-v2-foundation`, `gate-decision-history-v1`, `auto-pulse-verification-v1`
+- Index-Update mit 3 neuen Memories
+- `auto_heal_log` Audit pro Migration mit Rollback-Hint
 
-- Admin-RPC-Erweiterung um `mc_score_pct`-Aggregation (jetzt nur clientseitig sichtbar).
-- IRT-basierte adaptive Auswahl.
-- A/B-Testing Blueprint-vs-Generic Conversion automatisch.
+## Out-of-Scope (Folge-Sprints)
+- Mastery-Trigger-Verkabelung in tatsächliche Quiz/Minicheck/Tutor-Flows (S2.1)
+- UI für Lernende (Adaptive-Path-Card, Mastery-Dashboard) (S2.2)
+- Decay-Reminder-Email-Sequence (S2.3)
 
-**Risiken:** MC-Stage verändert die Quiz-Dauer (~doppelt so viele Klicks pro Frage). Mitigation: Stage 1 (MC) auto-advance, Stage 2 (Selbsteinschätzung) bleibt 1-Klick.
-
-OK so?
+**Bestätige den Plan oder sag, welche Tracks ich vorziehen/streichen soll. Bei Bestätigung starte ich mit Track A (kleinste Lieferung) und arbeite mich durch.**
