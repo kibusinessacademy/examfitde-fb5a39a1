@@ -201,6 +201,31 @@ export default function CoursesPage() {
           </div>
         )}
 
+        {/* Category Chips — nur sichtbar bei ≥2 Kategorien */}
+        {availableCategories.length >= 2 && (
+          <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Nach Kategorie filtern">
+            <Button
+              variant={category === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCategory('all')}
+              className="text-xs rounded-full"
+            >
+              Alle ({courses.length})
+            </Button>
+            {availableCategories.map(({ key, label, count }) => (
+              <Button
+                key={key}
+                variant={category === key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCategory(key)}
+                className="text-xs rounded-full"
+              >
+                {label} ({count})
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Courses Grid */}
         {filteredCourses.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
