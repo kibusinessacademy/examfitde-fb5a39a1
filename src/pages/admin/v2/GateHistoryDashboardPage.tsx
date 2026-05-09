@@ -82,54 +82,59 @@ export default function GateHistoryDashboardPage() {
     URL.revokeObjectURL(url);
   }
 
-  function exportTimeline(format: "json" | "csv") {
-    const rows = filteredTimeline;
-    if (!rows.length) return;
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    if (format === "json") {
-      downloadFile(
-        `gate-timeline-${packageId}-${stamp}.json`,
-        JSON.stringify(rows, null, 2),
-        "application/json",
+  async function exportTimeline(format: "json" | "csv") {
+    if (!packageId) return;
+    const t = toast.loading(`Erzeuge ${format.toUpperCase()}-Export…`);
+    try {
+      const { data, error } = await supabase.rpc(
+        "admin_get_gate_decision_package_timeline_filtered" as any,
+        {
+          p_package_id: packageId,
+          p_window_days: timelineWindowDays,
+          p_lane: laneFilter === "all" ? null : laneFilter,
+          p_decision: decisionFilter === "all" ? null : decisionFilter,
+          p_limit: 5000,
+          p_offset: 0,
+        },
       );
-    } else {
-      const headers = [
-        "id",
-        "decision",
-        "prev_decision",
-        "quality_score",
-        "quality_badge",
-        "bronze_locked",
-        "recorded_at",
-        "recorded_by",
-        "inputs_json",
-      ];
-      const esc = (v: unknown) => {
-        const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-      };
-      const body = rows
-        .map((r) =>
-          [
-            r.id,
-            r.decision,
-            r.prev_decision,
-            r.quality_score,
-            r.quality_badge,
-            r.bronze_locked,
-            r.recorded_at,
-            r.recorded_by,
-            r.inputs,
-          ]
-            .map(esc)
-            .join(","),
-        )
-        .join("\n");
-      downloadFile(
-        `gate-timeline-${packageId}-${stamp}.csv`,
-        headers.join(",") + "\n" + body,
-        "text/csv",
-      );
+      if (error) throw error;
+      const rows = (data ?? []) as (TimelineRow & { total_rows: number })[];
+      if (!rows.length) {
+        toast.dismiss(t);
+        toast.warning("Keine Daten für die gewählten Filter.");
+        return;
+      }
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      if (format === "json") {
+        downloadFile(
+          `gate-timeline-${packageId}-${stamp}.json`,
+          JSON.stringify(rows, null, 2),
+          "application/json",
+        );
+      } else {
+        const headers = [
+          "id","decision","prev_decision","quality_score","quality_badge",
+          "bronze_locked","recorded_at","recorded_by","inputs_json",
+        ];
+        const esc = (v: unknown) => {
+          const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const body = rows.map((r) =>
+          [r.id, r.decision, r.prev_decision, r.quality_score, r.quality_badge,
+           r.bronze_locked, r.recorded_at, r.recorded_by, r.inputs].map(esc).join(",")
+        ).join("\n");
+        downloadFile(
+          `gate-timeline-${packageId}-${stamp}.csv`,
+          headers.join(",") + "\n" + body,
+          "text/csv",
+        );
+      }
+      toast.dismiss(t);
+      toast.success(`${format.toUpperCase()}-Export bereit (${rows.length} Zeilen).`);
+    } catch (e: any) {
+      toast.dismiss(t);
+      toast.error(`Export fehlgeschlagen: ${e?.message ?? "Unbekannt"}`);
     }
   }
 
