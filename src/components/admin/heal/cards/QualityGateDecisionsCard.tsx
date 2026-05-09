@@ -63,6 +63,11 @@ export function QualityGateDecisionsCard() {
   const [filter, setFilter] = useState<string>("ALL");
   const [error, setError] = useState<string | null>(null);
 
+  const [drillPkg, setDrillPkg] = useState<Row | null>(null);
+  const [drillRows, setDrillRows] = useState<HistoryRow[]>([]);
+  const [drillLoading, setDrillLoading] = useState(false);
+  const [recordingNow, setRecordingNow] = useState(false);
+
   const load = async () => {
     setLoading(true); setError(null);
     const { data, error } = await supabase.rpc(
@@ -72,6 +77,24 @@ export function QualityGateDecisionsCard() {
     if (error) setError(error.message);
     setRows((data as Row[]) ?? []);
     setLoading(false);
+  };
+
+  const loadHistory = async (pkg: Row) => {
+    setDrillPkg(pkg);
+    setDrillLoading(true); setDrillRows([]);
+    const { data, error } = await supabase.rpc(
+      "admin_get_gate_decision_history" as any,
+      { p_package_id: pkg.package_id, p_limit: 50 },
+    );
+    if (!error) setDrillRows((data as HistoryRow[]) ?? []);
+    setDrillLoading(false);
+  };
+
+  const recordNow = async () => {
+    setRecordingNow(true);
+    await supabase.rpc("admin_record_gate_decisions_now" as any);
+    setRecordingNow(false);
+    void load();
   };
 
   useEffect(() => { void load(); /* eslint-disable-next-line */ }, [filter]);
