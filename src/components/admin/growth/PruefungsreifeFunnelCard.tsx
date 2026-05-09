@@ -10,7 +10,8 @@
  *
  * Quelle: RPC admin_get_pruefungsreife_funnel(days int).
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Card, CardContent, CardHeader, CardTitle,
@@ -32,6 +33,7 @@ type Stage = {
 type FunnelData = {
   window_days: number;
   question_source: "blueprint" | "generic" | null;
+  question_source_invalid?: boolean;
   since: string;
   stages: Stage[];
   completion_rate_pct: number;
@@ -66,20 +68,52 @@ const SEVERITY_STYLE: Record<string, string> = {
 
 async function fetchFunnel(days: number, source: "all" | "blueprint" | "generic"): Promise<FunnelData> {
   const { data, error } = await supabase.rpc(
-    "admin_get_pruefungsreife_funnel" as never,
+    "admin_get_pruefungsreife_funnel_v2" as never,
     { p_days: days, p_question_source: source === "all" ? null : source } as never,
   );
-  if (error) throw error;
+  if (error) {
+    // Friendly normalization — keep raw message available via .cause for devtools.
+    const friendly = /forbidden/i.test(error.message)
+      ? "Du brauchst die Admin-Rolle, um den Prüfungsreife-Funnel zu sehen."
+      : /function .* does not exist/i.test(error.message)
+        ? "Funnel-Report v2 wurde noch nicht ausgerollt. Bitte Migration prüfen."
+        : `Funnel konnte nicht geladen werden: ${error.message}`;
+    // eslint-disable-next-line no-console
+    console.warn("[PruefungsreifeFunnelCard] RPC v2 failed", { source, days, error });
+    throw new Error(friendly);
+  }
   return data as unknown as FunnelData;
 }
 
+const VALID_SOURCES = ["all", "blueprint", "generic"] as const;
+type SourceValue = typeof VALID_SOURCES[number];
+
 export default function PruefungsreifeFunnelCard() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [days, setDays] = useState(7);
-  const [source, setSource] = useState<"all" | "blueprint" | "generic">("all");
+
+  // URL-param persistence: ?question_source=blueprint|generic|all
+  const initialSource: SourceValue = (() => {
+    const raw = (searchParams.get("question_source") ?? "").toLowerCase();
+    return (VALID_SOURCES as readonly string[]).includes(raw) ? (raw as SourceValue) : "all";
+  })();
+  const [source, setSource] = useState<SourceValue>(initialSource);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (source === "all") next.delete("question_source");
+    else next.set("question_source", source);
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source]);
+
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ["pruefungsreife-funnel", days, source],
+    queryKey: ["pruefungsreife-funnel-v2", days, source],
     queryFn: () => fetchFunnel(days, source),
     staleTime: 60_000,
+    retry: false,
   });
 
   const maxCount = useMemo(
@@ -141,15 +175,19 @@ export default function PruefungsreifeFunnelCard() {
         ) : (
           <>
             {/* Source-Filter (Phase 2: question_source blueprint vs generic) */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap" data-testid="pruefungsreife-source-filter">
               <span className="text-xs text-text-tertiary uppercase tracking-wide">Fragenquelle:</span>
-              <div className="inline-flex rounded-lg border border-border-subtle bg-surface-sunken p-0.5">
+              <div className="inline-flex rounded-lg border border-border-subtle bg-surface-sunken p-0.5" role="tablist">
                 {SOURCES.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
+                    role="tab"
                     onClick={() => setSource(opt.value)}
                     aria-pressed={source === opt.value}
+                    aria-selected={source === opt.value}
+                    data-testid={`source-toggle-${opt.value}`}
+                    data-active={source === opt.value ? "true" : "false"}
                     className={`px-2.5 h-7 text-xs rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                       source === opt.value
                         ? "bg-surface-raised text-text-primary shadow-elev-1 font-medium"
@@ -161,8 +199,13 @@ export default function PruefungsreifeFunnelCard() {
                 ))}
               </div>
               {source !== "all" && (
-                <Badge variant="outline" className="text-[10px] border-petrol-300 text-petrol-700">
+                <Badge variant="outline" className="text-[10px] border-petrol-300 text-petrol-700" data-testid="source-active-badge">
                   Filter aktiv: question_source = <code className="ml-1">{source}</code>
+                </Badge>
+              )}
+              {data.question_source_invalid && (
+                <Badge variant="outline" className="text-[10px] border-status-warning/50 text-status-warning-foreground" data-testid="source-invalid-badge">
+                  Ungültiger Filterwert ignoriert
                 </Badge>
               )}
             </div>
