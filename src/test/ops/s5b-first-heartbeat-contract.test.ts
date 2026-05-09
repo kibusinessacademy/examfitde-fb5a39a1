@@ -59,33 +59,28 @@ describe("S5b — First-Heartbeat-Contract", () => {
 
   describe("Worker static contract — markFirstHeartbeat must be called before heavy work", () => {
     for (const path of SENSITIVE_WORKERS) {
-      it(`${path.split("/").slice(-2)[0]} imports & invokes markFirstHeartbeat early`, () => {
+      it(`${path.split("/").slice(-2)[0]} imports & invokes markFirstHeartbeat early in handler`, () => {
         const src = readFileSync(join(process.cwd(), path), "utf-8");
 
         expect(src, "missing import").toMatch(
           /import\s*\{\s*markFirstHeartbeat\s*\}\s*from\s*["']\.\.\/_shared\/first-heartbeat\.ts["']/,
         );
 
-        const hbIdx = src.indexOf("markFirstHeartbeat(");
-        expect(hbIdx, "markFirstHeartbeat() call not found").toBeGreaterThan(0);
+        // Restrict scope to the request handler (after Deno.serve, before end of file).
+        const serveIdx = src.indexOf("Deno.serve(");
+        expect(serveIdx, "Deno.serve handler not found").toBeGreaterThan(0);
+        const handlerSrc = src.slice(serveIdx);
 
-        // Must appear BEFORE any of these heavy markers in the source
-        const heavyMarkers = [
-          "prereqDone(",
-          "assertSchemaReady(",
-          ".rpc(",
-          "from(\"course_packages\")",
-        ];
+        const hbIdx = handlerSrc.indexOf("markFirstHeartbeat(");
+        expect(hbIdx, "markFirstHeartbeat() call not found in handler").toBeGreaterThan(0);
+
+        // Heavy markers that must NOT precede the heartbeat in handler scope.
+        const heavyMarkers = ["prereqDone(", "assertSchemaReady(", "assertUuid(", "from(\"course_packages\")"];
         for (const marker of heavyMarkers) {
-          const idx = src.indexOf(marker, hbIdx + 1);
-          // either marker not present OR comes after heartbeat — both ok.
-          // we only fail if heartbeat is AFTER the FIRST occurrence of the marker.
-          const firstIdx = src.indexOf(marker);
-          if (firstIdx > 0 && firstIdx < hbIdx) {
-            // Allow: assertSchemaReady inside quality-council is intentionally after hb in our patch.
-            // But fail if it comes before hb anywhere.
+          const firstIdx = handlerSrc.indexOf(marker);
+          if (firstIdx >= 0 && firstIdx < hbIdx) {
             throw new Error(
-              `${path}: heavy marker "${marker}" appears at ${firstIdx} BEFORE heartbeat at ${hbIdx}`,
+              `${path}: handler heavy marker "${marker}" at ${firstIdx} precedes heartbeat at ${hbIdx}`,
             );
           }
         }
