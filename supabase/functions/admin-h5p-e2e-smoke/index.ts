@@ -70,6 +70,7 @@ Deno.serve(async (req) => {
     lesson_id?: string;
     curriculum_id?: string;
     score?: number;
+    auto_heal?: boolean;
   };
   try {
     body = await req.json();
@@ -80,6 +81,7 @@ Deno.serve(async (req) => {
   const lessonId = body.lesson_id?.trim();
   const curriculumId = body.curriculum_id?.trim() || null;
   const score = typeof body.score === "number" ? body.score : 85;
+  const autoHeal = body.auto_heal !== false; // default true
 
   if (!contentId || !lessonId) {
     return json({ error: "content_id and lesson_id required" }, 400);
@@ -87,6 +89,7 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const steps: StepResult[] = [];
+  const healed: HealedAction[] = [];
   const startedAt = new Date().toISOString();
 
   // 1) Storage object — proxy for h5p_content row (no separate table in this project)
