@@ -129,6 +129,9 @@ describe("Quiz-Tracking-Contract — Phase 2", () => {
 
     renderPage("/pruefungsreife-check?source=beruf&slug=bankkaufmann");
 
+    // Wait until blueprint set is loaded (headline switches to "Prüfungsreife-Check für ...")
+    await screen.findByText(/Prüfungsreife-Check für/i);
+
     fireEvent.click(await screen.findByTestId("quiz-start"));
     await waitFor(() => {
       const types = trackMock.mock.calls.map((c) => c[0]);
