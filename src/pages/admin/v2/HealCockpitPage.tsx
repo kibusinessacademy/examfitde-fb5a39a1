@@ -373,6 +373,7 @@ export default function HealCockpitPage() {
                   <CancelReasonBreakdownCard />
                 </div>
                 <PreHeartbeatKillRiskCard />
+                <PreHeartbeatKillForensicsCard />
                 <AggregateStateDiffCard />
                 <QualityGateDecisionsCard />
                 <AutoPulseImpactCard />
