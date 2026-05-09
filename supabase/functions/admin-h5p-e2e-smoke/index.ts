@@ -24,13 +24,20 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const BUCKET = "h5p-content";
 
-type StepStatus = "ok" | "fail" | "skipped";
+type StepStatus = "ok" | "fail" | "skipped" | "healed";
 interface StepResult {
   key: string;
   label: string;
   status: StepStatus;
   detail?: string;
   data?: unknown;
+  healed_action?: string;
+}
+interface HealedAction {
+  step: string;
+  action: string;
+  detail?: string;
+  ok: boolean;
 }
 
 function json(body: unknown, status = 200) {
@@ -63,6 +70,7 @@ Deno.serve(async (req) => {
     lesson_id?: string;
     curriculum_id?: string;
     score?: number;
+    auto_heal?: boolean;
   };
   try {
     body = await req.json();
@@ -73,6 +81,7 @@ Deno.serve(async (req) => {
   const lessonId = body.lesson_id?.trim();
   const curriculumId = body.curriculum_id?.trim() || null;
   const score = typeof body.score === "number" ? body.score : 85;
+  const autoHeal = body.auto_heal !== false; // default true
 
   if (!contentId || !lessonId) {
     return json({ error: "content_id and lesson_id required" }, 400);
@@ -80,6 +89,7 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const steps: StepResult[] = [];
+  const healed: HealedAction[] = [];
   const startedAt = new Date().toISOString();
 
   // 1) Storage object — proxy for h5p_content row (no separate table in this project)
@@ -131,25 +141,37 @@ Deno.serve(async (req) => {
       });
     } else {
       if (pre.h5p_content_id !== contentId) {
-        const { error: upErr } = await admin
-          .from("lessons")
-          .update({ h5p_content_id: contentId })
-          .eq("id", lessonId);
-        if (upErr) {
+        if (!autoHeal) {
           steps.push({
             key: "lesson_link",
             label: "Lesson-Verlinkung",
             status: "fail",
-            detail: upErr.message,
+            detail: `Drift: lesson.h5p_content_id=${pre.h5p_content_id ?? "null"} ≠ ${contentId} (auto_heal=false)`,
           });
         } else {
-          lessonRow = { ...pre, h5p_content_id: contentId };
-          steps.push({
-            key: "lesson_link",
-            label: "Lesson-Verlinkung",
-            status: "ok",
-            detail: "h5p_content_id gesetzt",
-          });
+          const { error: upErr } = await admin
+            .from("lessons")
+            .update({ h5p_content_id: contentId })
+            .eq("id", lessonId);
+          if (upErr) {
+            steps.push({
+              key: "lesson_link",
+              label: "Lesson-Verlinkung",
+              status: "fail",
+              detail: upErr.message,
+            });
+            healed.push({ step: "lesson_link", action: "update lessons.h5p_content_id", ok: false, detail: upErr.message });
+          } else {
+            lessonRow = { ...pre, h5p_content_id: contentId };
+            steps.push({
+              key: "lesson_link",
+              label: "Lesson-Verlinkung",
+              status: "healed",
+              detail: `Drift behoben: ${pre.h5p_content_id ?? "null"} → ${contentId}`,
+              healed_action: "update lessons.h5p_content_id",
+            });
+            healed.push({ step: "lesson_link", action: "update lessons.h5p_content_id", ok: true, detail: `${pre.h5p_content_id ?? "null"} → ${contentId}` });
+          }
         }
       } else {
         lessonRow = pre;
@@ -192,23 +214,26 @@ Deno.serve(async (req) => {
         completed_at: nowIso,
         last_attempt_at: nowIso,
       };
+      // Pre-check existing outcome to detect heal vs noop
+      const { data: prevOutcome } = await admin
+        .from("lesson_outcomes")
+        .select("status, score_percent")
+        .eq("user_id", u.user.id).eq("lesson_id", lessonId).maybeSingle();
+      const wasMissingOrPending = !prevOutcome || prevOutcome.status !== "completed";
       const { error: outErr } = await admin
         .from("lesson_outcomes")
         .upsert(payload, { onConflict: "user_id,lesson_id" });
       if (outErr) {
+        steps.push({ key: "update_lesson_outcome", label: "update_lesson_outcome", status: "fail", detail: outErr.message });
+      } else if (wasMissingOrPending && autoHeal) {
         steps.push({
-          key: "update_lesson_outcome",
-          label: "update_lesson_outcome",
-          status: "fail",
-          detail: outErr.message,
+          key: "update_lesson_outcome", label: "update_lesson_outcome", status: "healed",
+          detail: `Outcome ${prevOutcome ? `war ${prevOutcome.status}` : "fehlte"} → completed score=${payload.score_percent}`,
+          healed_action: "upsert lesson_outcomes (status=completed)",
         });
+        healed.push({ step: "update_lesson_outcome", action: "upsert lesson_outcomes", ok: true, detail: `${prevOutcome?.status ?? "missing"} → completed` });
       } else {
-        steps.push({
-          key: "update_lesson_outcome",
-          label: "update_lesson_outcome",
-          status: "ok",
-          detail: `score=${payload.score_percent}`,
-        });
+        steps.push({ key: "update_lesson_outcome", label: "update_lesson_outcome", status: "ok", detail: `score=${payload.score_percent}` });
       }
     }
   } catch (e) {
@@ -301,14 +326,38 @@ Deno.serve(async (req) => {
     });
   }
 
-  const okCount = steps.filter((s) => s.status === "ok").length;
+  // Re-validation: verify the auto-heal actually stuck (read-only)
+  let revalidation: { lesson_link_ok: boolean; outcome_ok: boolean; event_present: boolean } | null = null;
+  if (autoHeal && healed.some((h) => h.ok)) {
+    const [{ data: l }, { data: o }, { data: ev }] = await Promise.all([
+      admin.from("lessons").select("h5p_content_id").eq("id", lessonId).maybeSingle(),
+      admin.from("lesson_outcomes").select("status").eq("user_id", u.user.id).eq("lesson_id", lessonId).maybeSingle(),
+      admin.from("learning_events").select("id").eq("user_id", u.user.id).eq("lesson_id", lessonId).eq("event_type", "lesson_completed").order("created_at", { ascending: false }).limit(1),
+    ]);
+    revalidation = {
+      lesson_link_ok: l?.h5p_content_id === contentId,
+      outcome_ok: o?.status === "completed",
+      event_present: Array.isArray(ev) && ev.length > 0,
+    };
+    steps.push({
+      key: "revalidation",
+      label: "Re-Validation nach Auto-Heal",
+      status: revalidation.lesson_link_ok && revalidation.outcome_ok && revalidation.event_present ? "ok" : "fail",
+      detail: `lesson_link=${revalidation.lesson_link_ok} outcome=${revalidation.outcome_ok} event=${revalidation.event_present}`,
+      data: revalidation,
+    });
+  }
+
+  const okCount = steps.filter((s) => s.status === "ok" || s.status === "healed").length;
   const failCount = steps.filter((s) => s.status === "fail").length;
+  const healedCount = steps.filter((s) => s.status === "healed").length;
   const overall: "green" | "yellow" | "red" =
     failCount === 0 ? "green" : okCount > failCount ? "yellow" : "red";
 
   // Audit
+  let auditId: string | null = null;
   try {
-    await admin.from("auto_heal_log").insert({
+    const { data: ins } = await admin.from("auto_heal_log").insert({
       action_type: "admin_h5p_e2e_smoke",
       target_type: "h5p_content",
       target_id: contentId,
@@ -317,17 +366,25 @@ Deno.serve(async (req) => {
         actor: u.user.id,
         lesson_id: lessonId,
         curriculum_id: curriculumId,
+        content_id: contentId,
         steps,
+        healed_actions: healed,
+        revalidation,
+        auto_heal: autoHeal,
         started_at: startedAt,
         finished_at: new Date().toISOString(),
       },
-    });
+    }).select("id").maybeSingle();
+    auditId = ins?.id ?? null;
   } catch { /* ignore */ }
 
   return json({
     ok: failCount === 0,
     overall,
-    summary: { ok: okCount, fail: failCount, total: steps.length },
+    summary: { ok: okCount, fail: failCount, healed: healedCount, total: steps.length },
     steps,
+    healed_actions: healed,
+    revalidation,
+    audit_id: auditId,
   });
 });
