@@ -113,7 +113,7 @@ export default function PruefungsreifeFunnelCard() {
     queryKey: ["pruefungsreife-funnel-v2", days, source],
     queryFn: () => fetchFunnel(days, source),
     staleTime: 60_000,
-    retry: 1,
+    retry: false,
   });
 
   const maxCount = useMemo(
