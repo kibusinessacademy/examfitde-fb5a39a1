@@ -141,7 +141,7 @@ describe("GateHistoryDashboardPage", () => {
     );
     wrap(<Page />);
     expect(screen.getByText(/Gate Decision History/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: /Lane-Pivot/i }));
+    await userEvent.setup().click(screen.getByRole("tab", { name: /Lane-Pivot/i }));
     await waitFor(() => expect(screen.getByText("default")).toBeInTheDocument());
   });
 
@@ -151,7 +151,7 @@ describe("GateHistoryDashboardPage", () => {
       "@/pages/admin/v2/GateHistoryDashboardPage"
     );
     wrap(<Page />);
-    fireEvent.click(screen.getByRole("tab", { name: /Pro Paket/i }));
+    await userEvent.setup().click(screen.getByRole("tab", { name: /Pro Paket/i }));
     await waitFor(() => {
       expect(screen.getByTestId("gate-history-package-input")).toBeInTheDocument();
       expect(screen.getByTestId("gate-history-lane-filter")).toBeInTheDocument();
