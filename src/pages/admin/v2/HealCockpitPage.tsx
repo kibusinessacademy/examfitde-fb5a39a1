@@ -59,6 +59,7 @@ import {
 import { RecoverActionsCard } from "@/components/admin/heal/cards/RecoverActionsCard";
 import { TargetedHealCard } from "@/components/admin/heal/cards/TargetedHealCard";
 import { StuckPatternsCard } from "@/components/admin/heal/cards/StuckPatternsCard";
+import { BronzeQuarantineCard } from "@/components/admin/heal/cards/BronzeQuarantineCard";
 import { HealStatusCard } from "@/components/admin/heal/cards/HealStatusCard";
 import { ExamPoolDriftLogCard } from "@/components/admin/heal/cards/ExamPoolDriftLogCard";
 import { StaleDraftsCard } from "@/components/admin/heal/cards/StaleDraftsCard";
