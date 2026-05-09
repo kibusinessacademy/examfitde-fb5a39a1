@@ -19,6 +19,7 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const INTENT_ROUTES: Record<string, string> = {
   auto_heal_runner_tick: "auto-heal-runner",
   pipeline_watchdog_tick: "pipeline-watchdog",
+  gate_history_export: "gate-history-export-worker",
 };
 
 const WORKER_ID = `system-intent-worker:${crypto.randomUUID().slice(0, 8)}`;
