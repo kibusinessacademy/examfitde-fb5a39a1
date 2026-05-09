@@ -38,7 +38,7 @@ export default function AdminRolesPage() {
     queryKey: ['admin-users-roles', debounced],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('admin_list_users_with_roles', {
-        p_search: debounced || null,
+        p_search: debounced || undefined,
         p_limit: 100,
       });
       if (error) throw error;
