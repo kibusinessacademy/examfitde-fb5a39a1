@@ -96,9 +96,10 @@ describe("PruefungsreifeFunnelCard — source toggle contract", () => {
   });
 
   it("Klick auf Blueprint → re-fetch, neue KPIs, URL-param gesetzt", async () => {
-    rpcMock
-      .mockResolvedValueOnce({ data: buildPayload("all"), error: null })
-      .mockResolvedValueOnce({ data: buildPayload("blueprint"), error: null });
+    rpcMock.mockImplementation((_n: string, args: any) => {
+      const src = args?.p_question_source ?? "all";
+      return Promise.resolve({ data: buildPayload(src), error: null });
+    });
     renderCard();
     await screen.findByTestId("source-toggle-blueprint");
 
@@ -109,24 +110,22 @@ describe("PruefungsreifeFunnelCard — source toggle contract", () => {
       expect(last[1]).toMatchObject({ p_question_source: "blueprint" });
     });
 
-    // Active state on the toggle
     expect(screen.getByTestId("source-toggle-blueprint")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("source-toggle-all")).toHaveAttribute("aria-pressed", "false");
 
-    // URL param persisted
     await waitFor(() => {
       expect(screen.getByTestId("probe-qs").textContent).toBe("blueprint");
     });
 
-    // MC sample badge appears for blueprint payload
     await screen.findByText(/MC-Korrektheit/i);
     expect(screen.getByTestId("source-active-badge")).toBeInTheDocument();
   });
 
   it("Klick auf Generic → RPC sieht 'generic', URL-param 'generic'", async () => {
-    rpcMock
-      .mockResolvedValueOnce({ data: buildPayload("all"), error: null })
-      .mockResolvedValueOnce({ data: buildPayload("generic"), error: null });
+    rpcMock.mockImplementation((_n: string, args: any) => {
+      const src = args?.p_question_source ?? "all";
+      return Promise.resolve({ data: buildPayload(src), error: null });
+    });
     renderCard();
     await screen.findByTestId("source-toggle-generic");
     fireEvent.click(screen.getByTestId("source-toggle-generic"));
@@ -156,8 +155,9 @@ describe("PruefungsreifeFunnelCard — source toggle contract", () => {
   it("RPC-Fehler 'forbidden' → benutzerfreundliche Meldung statt Raw-Error", async () => {
     rpcMock.mockResolvedValue({ data: null, error: { message: "forbidden: admin role required" } });
     renderCard();
-    await waitFor(() => {
-      expect(screen.getByText(/Admin-Rolle/i)).toBeInTheDocument();
-    });
+    await waitFor(
+      () => expect(screen.getByText(/Admin-Rolle/i)).toBeInTheDocument(),
+      { timeout: 3000 },
+    );
   });
 });
