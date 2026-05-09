@@ -23,6 +23,20 @@ export const REPAIR_ACTIONS = {
   MINICHECKS: 'repair_minichecks',
 } as const;
 
+/**
+ * Erweiterte recommended_action-Taxonomie aus dem Klassifizierer
+ * (`fn_classify_*`, SQL-CASE-Branches). Auch SSOT — neue Werte hier ergänzen.
+ */
+export const OPS_ACTIONS = {
+  GUIDED_RECOVERY: 'guided_recovery',
+  MARK_CONTENT_GAP: 'mark_content_gap',
+  NEEDS_REPAIR_DISPATCH: 'needs_repair_dispatch',
+  FORCE_PUBLISH: 'force_publish',
+  BULK_RECONCILE: 'bulk_reconcile',
+  AWAITING_PIPELINE: 'awaiting_pipeline',
+  MONITOR: 'monitor',
+} as const;
+
 export type RepairAction = typeof REPAIR_ACTIONS[keyof typeof REPAIR_ACTIONS];
 
 /**
