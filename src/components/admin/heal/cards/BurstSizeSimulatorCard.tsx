@@ -67,6 +67,49 @@ export function BurstSizeSimulatorCard() {
   const set = <K extends keyof Inputs>(k: K, v: Inputs[K]) =>
     setInputs((s) => ({ ...s, [k]: v }));
 
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [scenarioName, setScenarioName] = useState("");
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setScenarios(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  function persist(next: Scenario[]) {
+    setScenarios(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+  }
+
+  function saveScenario() {
+    const name = scenarioName.trim() || `Szenario ${scenarios.length + 1}`;
+    const next: Scenario[] = [
+      ...scenarios,
+      {
+        id: crypto.randomUUID(),
+        name,
+        inputs: { ...inputs },
+        result: result.data ?? null,
+        saved_at: new Date().toISOString(),
+      },
+    ];
+    persist(next);
+    setScenarioName("");
+    toast.success(`Szenario gespeichert: ${name}`);
+  }
+
+  function loadScenario(s: Scenario) {
+    setInputs(s.inputs);
+    toast(`Szenario geladen: ${s.name}`);
+  }
+
+  function deleteScenario(id: string) {
+    persist(scenarios.filter((s) => s.id !== id));
+  }
+
   const recommendation = result.data ?? null;
   const rationale = (() => {
     if (recommendation == null) return "";
