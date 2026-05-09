@@ -172,7 +172,11 @@ export function QualityGateDecisionsCard() {
             </thead>
             <tbody>
               {rows.map(r => (
-                <tr key={r.package_id} className="border-t">
+                <tr
+                  key={r.package_id}
+                  className="border-t cursor-pointer hover:bg-muted/30"
+                  onClick={() => void loadHistory(r)}
+                >
                   <td className="px-2 py-1 font-mono">{r.package_key ?? r.package_id.slice(0, 8)}</td>
                   <td className="px-2 py-1">
                     <Badge variant={decisionTone(r.gate_decision) as any} className="text-[10px]">
@@ -194,6 +198,52 @@ export function QualityGateDecisionsCard() {
           </table>
         </div>
       </CardContent>
+
+      <Sheet open={!!drillPkg} onOpenChange={(o) => !o && setDrillPkg(null)}>
+        <SheetContent className="w-[480px] sm:max-w-[520px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="font-mono text-sm">
+              {drillPkg?.package_key ?? drillPkg?.package_id.slice(0, 8)}
+            </SheetTitle>
+            <SheetDescription>Decision History (last 50)</SheetDescription>
+          </SheetHeader>
+          <div className="mt-3 space-y-2 text-xs">
+            {drillLoading && <div className="text-muted-foreground">Lade…</div>}
+            {!drillLoading && !drillRows.length && (
+              <div className="text-muted-foreground">Noch keine History — drücke „Snapshot".</div>
+            )}
+            {drillRows.map(h => (
+              <div key={h.id} className="border rounded p-2 space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    {h.prev_decision && (
+                      <Badge variant="outline" className="text-[10px] line-through opacity-60">
+                        {h.prev_decision}
+                      </Badge>
+                    )}
+                    <Badge variant={decisionTone(h.decision) as any} className="text-[10px]">
+                      {h.decision}
+                    </Badge>
+                  </div>
+                  <span className="text-muted-foreground">{new Date(h.recorded_at).toLocaleString("de-DE")}</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {h.quality_score !== null && <Badge variant="outline" className="text-[10px]">score {h.quality_score}</Badge>}
+                  {h.quality_badge && <Badge variant="outline" className="text-[10px]">{h.quality_badge}</Badge>}
+                  {h.bronze_locked && <Badge variant="warning" className="text-[10px]">bronze_lock</Badge>}
+                  {h.report_signal && <Badge variant="outline" className="text-[10px]">{h.report_signal}</Badge>}
+                  <Badge variant="outline" className="text-[10px]">{h.recorded_by}</Badge>
+                </div>
+                {h.inputs && (
+                  <pre className="text-[10px] bg-muted/40 p-1.5 rounded overflow-x-auto font-mono">
+{JSON.stringify(h.inputs, null, 2)}
+                  </pre>
+                )}
+              </div>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 }
