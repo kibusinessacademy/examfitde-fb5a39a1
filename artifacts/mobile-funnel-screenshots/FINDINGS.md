@@ -62,3 +62,43 @@
 - `02-home-demo-gallery-pending` (NEU: Petrol-Pill + HeroAccent)
 
 **CI-Trigger:** `mobile-banner-cta-overlap.yml` (PR-Path-Filter) + `mobile-funnel-screenshots.yml` (PR + `workflow_dispatch`). Beide laufen automatisch gegen `${PREVIEW_URL}` — nach Merge auf `main` `workflow_dispatch` manuell erneut anstoßen, falls Preview-Deploy erst danach landet.
+---
+
+## Phase 2 — MC + Filter Sprint (2026-05-09)
+
+### Workflow-Trigger (Lovable-Domain)
+
+Manuell auf GitHub:
+1. Tab **Actions** → Workflow **mobile-funnel-screenshots**.
+2. Button **Run workflow** → optional `target_url` (Default `https://examfitde.lovable.app`).
+3. Nach ca. 8 Min Artefakt **mobile-funnel-screenshots** herunterladen (32 Shots + Playwright-Report).
+
+Automatisch: läuft auf jedem PR, der `src/components/{consent,marketing,landing,pruefungsreife}/`, `src/pages/{HomePage,seo,landing}` oder `tests/e2e/mobile-funnel-screenshots.spec.ts` ändert.
+
+### Screenshot-Visual-Audit Produktsuche & Bundle (zu re-verifizieren nach nächstem Trigger)
+
+| Bereich | Befund | Vorschlag (UI-only) |
+|---|---|---|
+| `02-home-demo-gallery-pending` | Header jetzt mit `HeroAccent` + Petrol-Pill — Eyebrow konsistent zu Hero. | Re-verifizieren: kein Descender-Clipping bei "ExamFit"-Akzent auf 390px. |
+| `10-bundle-hero-pending` | HeroAccent angewandt; CTA-Hierarchie OK. | Trust-Strip-Icons unter Hero auf Mobile in 2-Spalten kollabieren — 3 Spalten erzeugen Wrap. |
+| `11-bundle-modules-pending` | Module-Cards potenziell mit zu kleinem Zeilenabstand bei langen Titeln. | `leading-snug` → `leading-normal` auf Card-Title; padding-y auf 16px. |
+| `12-bundle-comparison-pending` | Comparison-Table braucht horizontalen Scroll auf 390px. | Sticky-First-Column + Hint "Scrollen →" über Tabelle einblenden. |
+| `13-admin-growth-pending` | Neuer Filter "Fragenquelle: Alle/Blueprint/Generic" + MC/Self-Score-Karten. | Re-verifizieren: Toggle-Group bricht auf 390px ggf. um — ggf. `flex-wrap` + `gap-y-1.5`. |
+| `06/09-quiz-start-*` | QuizStart unverändert (HeroAccent + Context-Badge). | OK. |
+| `quiz-running` (Phase-2 MC) | Neue zwei-stufige Question-Card: Stage 1 MC (Check/X-Feedback), Stage 2 Selbsteinschätzung. | Spec ergänzen: Screenshot `07-quiz-mc-stage` + `08-quiz-self-stage` für Blueprint-Pakete. |
+
+### Tracking-Vertrag (Test-Coverage)
+
+`src/test/funnel/quiz-tracking-contract.test.ts` — 3 grüne Tests:
+- Allowlist-Sanity: `FUNNEL_EVENTS.QUIZ_STARTED/_COMPLETED/LEAD_MAGNET_VIEW` kanonisch.
+- Fallback (kein package_id): nur `lead_magnet_view` + `metadata.stage='quiz_started'`/`'quiz_completed'` — strict niemals.
+- Strict (Blueprint geladen): `quiz_started`/`quiz_completed` mit `packageId`, `persona`, `sourcePage`, `metadata.question_source='blueprint'`, `mc_score_pct` präsent.
+
+### MC-Korrektheits-Tracking
+
+`quiz_completed.metadata` enthält jetzt zusätzlich:
+- `mc_score_pct` — Korrekt/Beantwortet × 100 (oder `null` wenn Generic-Pfad)
+- `mc_answered_count`
+- `mc_correct_count`
+
+Admin-Dashboard liest beides aus `admin_get_pruefungsreife_funnel(p_days, p_question_source)` (zwei neue Karten: MC-Korrektheit Ø + Self-Assessment Ø).

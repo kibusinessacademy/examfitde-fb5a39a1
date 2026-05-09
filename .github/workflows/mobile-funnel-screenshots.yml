@@ -14,6 +14,11 @@ on:
       - 'playwright.config.ts'
       - '.github/workflows/mobile-funnel-screenshots.yml'
   workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Domain to screenshot (default = published Lovable domain)"
+        required: false
+        default: "https://examfitde.lovable.app"
 
 jobs:
   screenshots:
@@ -21,7 +26,7 @@ jobs:
     timeout-minutes: 20
     env:
       E2E_TARGET: preview
-      PREVIEW_URL: ${{ secrets.PREVIEW_URL || 'https://examfitde.lovable.app' }}
+      PREVIEW_URL: ${{ github.event.inputs.target_url || secrets.PREVIEW_URL || 'https://examfitde.lovable.app' }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1

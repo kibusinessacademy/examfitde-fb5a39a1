@@ -97,13 +97,17 @@ export function useDiagnosticSet(packageId: string | null): DiagnosticSet {
         isLoading,
       };
     }
-    const questions: Question[] = rows.map((r, idx) => ({
-      id: `bp-${r.question_id}`,
-      category: CATEGORY_CYCLE[idx % CATEGORY_CYCLE.length],
-      text: r.competency_title
-        ? `${r.competency_title}: Wie sicher würdest du diese Aufgabe lösen? — „${truncateStem(r.question_text)}"`
-        : `Wie sicher würdest du diese Aufgabe lösen? — „${truncateStem(r.question_text)}"`,
-    }));
+    const questions: Question[] = rows.map((r, idx) => {
+      const mc = parseMcOptions(r.options, r.correct_answer);
+      return {
+        id: `bp-${r.question_id}`,
+        category: CATEGORY_CYCLE[idx % CATEGORY_CYCLE.length],
+        text: r.competency_title
+          ? `${r.competency_title}: ${truncateStem(r.question_text)}`
+          : truncateStem(r.question_text),
+        ...(mc ? { mc } : {}),
+      };
+    });
     return {
       isBlueprintSourced: true,
       questions,
@@ -119,4 +123,35 @@ function truncateStem(text: string, max = 180): string {
   const clean = text.replace(/\s+/g, " ").trim();
   if (clean.length <= max) return clean;
   return clean.slice(0, max - 1).trimEnd() + "…";
+}
+
+/**
+ * RPC liefert `options` als jsonb-Array. Akzeptiere zwei Shapes:
+ *  - Array<string>
+ *  - Array<{ text?: string; label?: string }>
+ * `correct_answer` ist ein 0-basierter Index. Wenn Validierung fehlschlägt → null.
+ */
+function parseMcOptions(
+  raw: unknown,
+  correctIndex: number | null | undefined,
+): { options: string[]; correctIndex: number } | null {
+  if (!Array.isArray(raw) || raw.length < 2 || raw.length > 6) return null;
+  if (correctIndex == null || correctIndex < 0 || correctIndex >= raw.length) return null;
+  const options: string[] = [];
+  for (const o of raw) {
+    if (typeof o === "string" && o.trim()) {
+      options.push(truncateStem(o, 140));
+    } else if (o && typeof o === "object") {
+      const txt = (o as any).text ?? (o as any).label ?? (o as any).value;
+      if (typeof txt === "string" && txt.trim()) {
+        options.push(truncateStem(txt, 140));
+      } else {
+        return null;
+      }
+    } else {
+      return null;
+    }
+  }
+  if (options.length !== raw.length) return null;
+  return { options, correctIndex };
 }
