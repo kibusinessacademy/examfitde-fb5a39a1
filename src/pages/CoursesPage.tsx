@@ -23,13 +23,26 @@ interface Enrollment {
   completed_at: string | null;
 }
 
+const CATEGORY_LABEL: Record<string, string> = {
+  ausbildung: 'Ausbildung',
+  studium: 'Studium',
+  branchenzertifikat: 'Branchenzertifikat',
+  fortbildung_ihk: 'Fortbildung IHK',
+  fortbildung_hwk: 'Fortbildung HWK',
+  aufstiegsfortbildung: 'Aufstiegsfortbildung',
+  sachkunde: 'Sachkunde',
+  sonstige: 'Sonstige',
+};
+
 export default function CoursesPage() {
   const { user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [categoryByCurriculum, setCategoryByCurriculum] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'enrolled' | 'completed'>('all');
+  const [category, setCategory] = useState<string>('all');
 
   useEffect(() => {
     fetchCourses();
@@ -46,7 +59,21 @@ export default function CoursesPage() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setCourses(data as Course[]);
+      const list = data as Course[];
+      setCourses(list);
+
+      // Hydrate categories from curricula.certification_type
+      const cIds = Array.from(new Set(list.map(c => c.curriculum_id).filter(Boolean)));
+      if (cIds.length > 0) {
+        const { data: curs } = await (supabase.from as any)('curricula')
+          .select('id, certification_type')
+          .in('id', cIds);
+        const map: Record<string, string> = {};
+        (curs ?? []).forEach((r: { id: string; certification_type: string | null }) => {
+          if (r.certification_type) map[r.id] = r.certification_type;
+        });
+        setCategoryByCurriculum(map);
+      }
     }
     setLoading(false);
   };
@@ -73,6 +100,17 @@ export default function CoursesPage() {
     return enrollment?.completed_at != null;
   };
 
+  const availableCategories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of courses) {
+      const cat = categoryByCurriculum[c.curriculum_id];
+      if (cat) counts.set(cat, (counts.get(cat) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, n]) => ({ key, label: CATEGORY_LABEL[key] ?? key, count: n }));
+  }, [courses, categoryByCurriculum]);
+
   const filteredCourses = useMemo(() => {
     let result = courses;
 
@@ -85,6 +123,11 @@ export default function CoursesPage() {
       );
     }
 
+    // Category filter
+    if (category !== 'all') {
+      result = result.filter(c => categoryByCurriculum[c.curriculum_id] === category);
+    }
+
     // Status filter
     if (filter === 'enrolled') {
       result = result.filter(c => isEnrolled(c.id) && !isCompleted(c.id));
@@ -93,7 +136,7 @@ export default function CoursesPage() {
     }
 
     return result;
-  }, [courses, search, filter, enrollments]);
+  }, [courses, search, filter, category, categoryByCurriculum, enrollments]);
 
   if (loading) {
     return (
@@ -155,6 +198,31 @@ export default function CoursesPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Category Chips — nur sichtbar bei ≥2 Kategorien */}
+        {availableCategories.length >= 2 && (
+          <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Nach Kategorie filtern">
+            <Button
+              variant={category === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCategory('all')}
+              className="text-xs rounded-full"
+            >
+              Alle ({courses.length})
+            </Button>
+            {availableCategories.map(({ key, label, count }) => (
+              <Button
+                key={key}
+                variant={category === key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCategory(key)}
+                className="text-xs rounded-full"
+              >
+                {label} ({count})
+              </Button>
+            ))}
           </div>
         )}
 
