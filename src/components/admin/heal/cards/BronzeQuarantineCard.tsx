@@ -3,8 +3,34 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+/**
+ * Pure helper — exported for unit tests. Aggregates rows by reason,
+ * mapping null/undefined to "UNKNOWN". Stable insertion order.
+ */
+export function buildReasonClusters(
+  rows: Array<{ reason: string | null | undefined }> | null | undefined,
+): Array<[string, number]> {
+  const m = new Map<string, number>();
+  for (const r of rows ?? []) {
+    const k = r?.reason ?? "UNKNOWN";
+    m.set(k, (m.get(k) ?? 0) + 1);
+  }
+  return Array.from(m);
+}
 
 type QRow = {
   package_id: string;
@@ -58,13 +84,7 @@ export function BronzeQuarantineCard() {
   });
 
   // Cluster by reason for filter chips
-  const reasonClusters = Array.from(
-    (data ?? []).reduce((m, r) => {
-      const k = r.reason ?? "UNKNOWN";
-      m.set(k, (m.get(k) ?? 0) + 1);
-      return m;
-    }, new Map<string, number>()),
-  );
+  const reasonClusters = buildReasonClusters(data);
 
   return (
     <Card data-testid="bronze-quarantine-card">
@@ -151,21 +171,38 @@ export function BronzeQuarantineCard() {
                   <Badge variant="outline" className="text-[10px]">
                     status: {r.status ?? "—"}
                   </Badge>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-[11px] ml-auto"
-                    disabled={requeue.isPending}
-                    onClick={() => {
-                      const ok = window.confirm(
-                        `Paket ${r.package_key ?? r.package_id.slice(0, 8)} aus der Quarantäne nehmen und Integrity-Check enqueuen?`,
-                      );
-                      if (ok) requeue.mutate(r.package_id);
-                    }}
-                    data-testid="bronze-quarantine-requeue-btn"
-                  >
-                    ↻ Re-Queue
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px] ml-auto"
+                        disabled={requeue.isPending}
+                        data-testid="bronze-quarantine-requeue-btn"
+                      >
+                        ↻ Re-Queue
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          Paket aus Quarantäne nehmen?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {`Paket ${r.package_key ?? r.package_id.slice(0, 8)} wird aus der Quarantäne entfernt und ein Integrity-Check enqueuet. Begründung: "${requeueReason}".`}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                        <AlertDialogAction
+                          data-testid="bronze-quarantine-requeue-confirm"
+                          onClick={() => requeue.mutate(r.package_id)}
+                        >
+                          Re-Queue bestätigen
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
             ))}
