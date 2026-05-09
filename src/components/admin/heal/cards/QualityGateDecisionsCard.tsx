@@ -3,8 +3,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
-import { RefreshCw, Download } from "lucide-react";
+import { RefreshCw, Download, History } from "lucide-react";
+
+type HistoryRow = {
+  id: string;
+  decision: string;
+  prev_decision: string | null;
+  quality_score: number | null;
+  quality_badge: string | null;
+  bronze_locked: boolean | null;
+  report_status: string | null;
+  rules_failed: number | null;
+  rules_warned: number | null;
+  report_signal: string | null;
+  inputs: Record<string, unknown> | null;
+  recorded_at: string;
+  recorded_by: string;
+};
 
 type Row = {
   package_id: string;
