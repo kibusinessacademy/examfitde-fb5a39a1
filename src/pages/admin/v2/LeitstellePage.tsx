@@ -42,6 +42,7 @@ const SalesDemoPanel = lazy(() => import('@/components/admin/enterprise/SalesDem
 const RepairExhaustedAlert = lazy(() => import('@/components/admin/cards/RepairExhaustedAlert').then(m => ({ default: m.RepairExhaustedAlert })));
 const SmartNextBestAction = lazy(() => import('@/components/admin/leitstelle/SmartNextBestAction').then(m => ({ default: m.SmartNextBestAction })));
 const PublishWorkflowStatusCard = lazy(() => import('@/components/admin/leitstelle/PublishWorkflowStatusCard').then(m => ({ default: m.PublishWorkflowStatusCard })));
+const HandbookPublishDriftCard = lazy(() => import('@/components/admin/leitstelle/HandbookPublishDriftCard').then(m => ({ default: m.HandbookPublishDriftCard })));
 const RealtimePulse = lazy(() => import('@/components/admin/leitstelle/RealtimePulse').then(m => ({ default: m.RealtimePulse })));
 const BlockedPackagesCard = lazy(() => import('@/components/admin/heal/BlockedPackagesCard').then(m => ({ default: m.BlockedPackagesCard })));
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
