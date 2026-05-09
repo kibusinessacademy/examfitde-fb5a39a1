@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { prereqDone } from "../_shared/prereq-done.ts";
+import { markFirstHeartbeat } from "../_shared/first-heartbeat.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -42,6 +43,8 @@ Deno.serve(async (req) => {
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
+  // S5b First-Heartbeat-Contract.
+  await markFirstHeartbeat(sb, body.job_id ?? p?.job_id);
 
   try {
     assertUuid("package_id", p?.package_id);
