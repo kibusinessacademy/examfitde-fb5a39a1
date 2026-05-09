@@ -109,6 +109,12 @@ export default function LearnerDashboard() {
           </div>
         )}
 
+        {enrollments[0]?.course_id && (
+          <div className="mb-6">
+            <NextBestStepCard courseId={enrollments[0].course_id} />
+          </div>
+        )}
+
         {/* ━━━ SECTION 3: Meine Trainings (kompakt) ━━━ */}
         {enrollments.length > 0 && (
           <div className="mb-6">
