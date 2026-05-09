@@ -1,142 +1,219 @@
-## S3 — Mastery v2 Wiring + Gate History Dashboard + Auto-Pulse Impact + Decay-τ Simulator
+# ExamFit — Engagement / Oral / Readiness Expansion (S6)
 
-Vier Tracks. Eine Migration je Concern. Signatur-Fix vorab.
+## 0. Recon-Ergebnis (SSOT-Bestand, NICHT neu bauen)
 
----
+| Domäne | Existiert bereits | Erweitern statt ersetzen |
+|---|---|---|
+| Mastery | `learner_competency_state`, `learner_mastery_event_log`, `recalculate_mastery`, `update_mastery_from_attempt`, `update_mastery_from_minicheck`, `mastery_engine_config`, `admin_simulate_mastery_decay/_path` | Decay-Triggers + Misconception-Aggregat |
+| Readiness | `readiness_scores`, `readiness_snapshots`, `exam_readiness_snapshots`, `calculate_readiness_score_v2`, `compute_readiness`, `ops_learner_visible_readiness`, `learner_get_mastery_summary`, `learner_next_best_step`, `get_next_best_action` | Erklärbarkeit (Reason-Codes), Risk-Engine, B2B-Aggregate |
+| Daily | `daily_challenges`, `daily_question_picks`, `humor_daily_pick` | Per-User-Adaptive-Picker, Mini-Check-Schicht, Streak-Hook |
+| Streak | `learner_profiles.streak_current/_best`, `update_learning_streak` | Consistency-Modell (5/7, Recovery), Audit-Log |
+| Oral | `oral_exam_sessions/_turns/_questions/_blueprints`, `get_adaptive_oral_exam_prompts`, `log_oral_exam_turn`, `fn_resolve_oral_trainer_mode`, `cleanup_oral_exam_ephemeral` | Session-Memory-Aggregat, Bewertungs-Pipeline |
+| Gamification | `user_badges` (key/label/icon/curriculum/metadata) | Badge-Definitions-Registry + Trigger |
+| Retention | `retention_events`, `retention_actions` | Adaptive-Reminder-Decider als Worker |
+| B2B | `organization_learners` | Cohort-View + RPC |
+| Tutor | `ai_tutor_sessions/_audit/_logs/_messages/_policies`, `ai_tutor_context_index`, Strict-RAG (Core-Rule) | Oral-Mode + Refusal-Pflicht |
+| Tracking | `conversion_events` (v2, 6 Pflicht-Events) | Erweitern um 10 neue `daily_*/oral_*/readiness_*/badge_*` Events |
 
-### Pre-Fix — `update_mastery_from_attempt` Signatur prüfen + härten
+**Kein Neuaufbau** — alles wird über Extension-Migrations + Worker + Views angeschlossen.
 
-Sicherstellen, dass `p_correct boolean` named-parameter sauber ist (kein implizites `int`). Falls Drift: Drop+Recreate mit explizit benannten Parametern, identische Body-Logik.
+## 1. Zielarchitektur (One-Pager)
 
----
+```text
+                ┌─────────────────────┐
+   Lern-Event ─►│ learner_mastery_    │── Trigger ─┐
+   (attempt,    │ event_log (SSOT)    │            │
+   minicheck,   └──────────┬──────────┘            ▼
+   simulation)             │              ┌─────────────────┐
+                           ▼              │ recalc_mastery  │
+                ┌─────────────────────┐   │ + decay         │
+                │ learner_competency_ │◄──┘                 │
+                │ state               │                     │
+                └──────────┬──────────┘                     ▼
+                           │             ┌────────────────────────┐
+                           ├────────────►│ readiness_engine_v3    │
+                           │             │ (calculate_readiness_  │
+                           │             │  score_v2 EXTENDED)    │
+                           │             └───────────┬────────────┘
+                           │                         ▼
+                           │             ┌────────────────────────┐
+                           │             │ readiness_snapshots    │
+                           │             │ (+ reason_codes jsonb) │
+                           │             └─────┬──────────────────┘
+                           ▼                   ▼
+                ┌─────────────────────┐  ┌─────────────────┐
+                │ daily_engagement_   │  │ readiness_risk_ │
+                │ runner (cron 6h)    │  │ events (NEU)    │
+                └──────────┬──────────┘  └────────┬────────┘
+                           │                      │
+                           ▼                      ▼
+                ┌─────────────────────┐  ┌─────────────────┐
+                │ daily_challenges    │  │ retention_events│
+                │ (per user, adaptive)│  │ adaptive_reminder│
+                └─────────────────────┘  └─────────────────┘
+                           │                      │
+                           └──────────┬───────────┘
+                                      ▼
+                       conversion_events (v3, +10 Events)
+                                      │
+                                      ▼
+                              GTM/DataLayer
+```
 
-### Track A — `learner_next_best_step` produktreif + Trigger-Verkabelung (S2.1)
+## 2. Datenmodell-Erweiterungen (SSOT-Pflege, KEINE neuen Wahrheiten)
 
-**SSOT-Helper**: `update_mastery_from_attempt` als single choke-point. Alle Quellen rufen ihn auf, niemals direkter Schreibzugriff.
+**Erweitern (ALTER):**
+- `readiness_snapshots` += `reason_codes jsonb`, `risk_level text`, `next_action_key text`, `version text`
+- `learner_profiles` += `consistency_7d numeric`, `consistency_30d numeric`, `morning_evening_pattern text`, `recovery_count int`, `exam_target_date date`, `exam_type text`
+- `daily_challenges` += `adaptive_strategy text`, `weakness_targets uuid[]`, `expected_minutes int`, `completion_minutes int`, `streak_contribution boolean`
+- `oral_exam_sessions` += `kommunikationssicherheit_score`, `vollstaendigkeit_score`, `next_training_recs jsonb`
+- `user_badges` += `level text` (bronze/silber/gold/pruefungsreif), `awarded_by text` (rule key)
 
-**Verkabelung** (existing flows → mastery update):
-1. **Quiz** — `submit_quiz_answer` / `quiz_attempts` AFTER INSERT trigger → `update_mastery_from_attempt(event_type='quiz')`
-2. **MiniCheck** — bestehende `update_mastery_from_minicheck` ruft zusätzlich `update_mastery_from_attempt(event_type='minicheck')` (Bridge, kein Doppelschreib-Risiko da unterschiedliche Tabelle: `user_competency_progress` ist v1 / `learner_competency_state` ist v2)
-3. **Exam** — exam_attempts AFTER INSERT trigger
-4. **Tutor** — tutor evaluation event → mastery update mit `event_type='tutor'`
+**Neue Tabellen (nur wo keine SSOT existiert):**
+- `badge_definitions` (`badge_key PK`, `category`, `level`, `rule_key`, `criteria jsonb`, `active`) — Single source für Badge-Vergabe-Regeln
+- `engagement_daily_state` (`user_id+day PK`, `daily_check_status`, `streak_active`, `consistency_7d`, `tasks_completed jsonb`, `next_action jsonb`) — Lese-Cache (Materialisiert), keine Wahrheit
+- `oral_session_memory` (`user_id`, `competency_id`, `weak_terms jsonb`, `recurring_errors jsonb`, `language_patterns jsonb`, `last_seen_at`) — Aggregat aus `oral_exam_turns`
+- `readiness_risk_events` (`user_id`, `curriculum_id`, `risk_type` enum [`competency_critical`,`stagnation`,`decay`,`oral_unsicherheit`,`exam_proximity`], `severity int`, `reason_codes jsonb`, `auto_action_key text`)
+- `b2b_cohort_readiness` MATERIALIZED VIEW (org_id × curriculum × week, NUR Aggregate, keine Personen)
 
-Helper-Funktion `_resolve_competency_for_question(question_id)` (SECURITY DEFINER) löst question→competency aus `exam_questions`/`competencies`.
+**Generated Columns / Triggers:**
+- `learner_mastery_event_log` AFTER INSERT → enqueue `readiness_recompute` (debounce 60s pro user×curriculum)
+- `oral_exam_turns` AFTER INSERT → upsert `oral_session_memory`
+- `readiness_snapshots` AFTER INSERT mit `risk_level IN ('critical','high')` → INSERT `readiness_risk_events`
 
-**`learner_next_best_step` Erweiterung** (bereits existiert): Action-Reasoning ergänzen mit konkretem Payload je Action-Type:
-- `REPAIR` (mastery<60) → `payload = {minicheck_id, recommended_questions[]}`
-- `DRILL` (60–79) → `payload = {drill_set_size, focus_misconception_tags[]}`
-- `REINFORCE` (80–89) → `payload = {challenge_pool_id}`
-- `CHALLENGE` (≥90) → `payload = {exam_simulation_id}`
-- Decay-Boost-Reason mit `days_since_practice` im payload.
+## 3. Workers & Cron (Queue-driven, replay-safe)
 
-**Tests**: `mastery-v2-wiring.test.ts` — Trigger-Insert in shadow tables erzeugt mastery-event-log entry, next_best_step antwortet mit erwartetem action.
+| Job-Type | Worker (Edge) | Cron | Idempotenz |
+|---|---|---|---|
+| `daily_engagement_assemble` | `daily-engagement-runner` | `0 4 * * *` UTC | `(user_id, day)` PK |
+| `readiness_recompute` | `readiness-engine` | enqueue-driven | `(user_id, curriculum_id)` debounce |
+| `readiness_risk_scan` | `readiness-risk-scanner` | `*/30 * * * *` | risk_event hash |
+| `engagement_reminder_decide` | `adaptive-reminder-decider` | `0 * * * *` | `(user_id, day, channel)` |
+| `oral_memory_aggregate` | `oral-memory-aggregator` | nach Turn-Insert | upsert |
+| `b2b_cohort_refresh` | `b2b-cohort-refresher` | `15 * * * *` | matview refresh |
+| `badge_evaluator` | `badge-evaluator` | `*/15 * * * *` | `(user_id, badge_key)` UK |
 
----
+**Alle** Worker:
+- First-Heartbeat-Contract (S5b) Pflicht
+- `markFirstHeartbeat` als erste Aktion
+- PHK-sensitive → Burst v3 Cap (S5d)
+- Audit in `auto_heal_log`
 
-### Track B — Gate-History Dashboard (Drilldown + Drift-Visualisierung)
+## 4. Readiness-Engine v3 (explainable)
 
-**Neue Page** `src/pages/admin/v2/GateHistoryDashboardPage.tsx` (route `/admin/heal/gate-history`):
-- Tab 1 **Pro Paket**: Filter (package_key, decision, lane, time-range), Tabelle mit Decision-Wechseln, Inline-Sparkline der letzten 30 Decisions.
-- Tab 2 **Drift über Zeit**: Stacked-Area-Chart (recharts) — Decisions/Tag pro Kategorie (READY_TO_PUBLISH / REPAIR_REQUIRED / BRONZE_LOCKED / NEEDS_REVIEW) letzte 30 Tage.
-- Tab 3 **Lane-Drilldown**: Pivot Lane × Decision (24h / 7d / 30d) mit count + delta vs vorherige Periode.
+`calculate_readiness_score_v2` → wrappen in `calculate_readiness_score_v3(user_id, curriculum_id)` returns `(score, reason_codes jsonb, risk_level)`.
 
-**RPCs** (admin-gated):
-- `admin_get_gate_decision_drift(p_window_days int default 30)` — Tagesaggregat aus `quality_gate_decision_history`
-- `admin_get_gate_decision_lane_pivot(p_window_hours int default 168)` — Lane × Decision Pivot mit prev-period-delta
-- `admin_get_gate_decision_package_timeline(p_package_id uuid, p_limit int default 30)` — bereits vorhanden als `admin_get_gate_decision_history`, ggf. wrappen.
+Inputs (gewichtet, in `mastery_engine_config` parametrisiert):
+- mastery coverage 30% · simulation 20% · oral 15% · consistency 10% · confidence 10% · decay-penalty 10% · weakness-count-penalty 5%
 
-**SSOT**: Alle Reads aus `quality_gate_decision_history`. Kein Realtime-Recompute.
+Output reason_codes z.B.:
+```json
+[{"code":"WEAK_LF4","weight":-12},{"code":"ORAL_UNSICHER","weight":-8},{"code":"CONSISTENCY_OK","weight":+6}]
+```
 
----
+UI-Komponente `<ReadinessHero/>` zeigt Score + Top-3-Reasons + Countdown.
 
-### Track C — Auto-Pulse End-to-End Wirkungsmessung
+## 5. Oral-Exam-Erweiterung
 
-**Ziel**: Before/After-Vergleich um zu beweisen, dass Auto-Pulse die Pipeline-Qualität verbessert (nicht nur Logs füllt).
+- Neue Worker-Pipeline: `oral-session-evaluator` ruft Lovable AI Gateway (Gemini 2.5 Pro) mit Strict-RAG Citation-Block-Kontrakt aus `ai_tutor_policies`. Refusal-Phrase Pflicht.
+- Bewertungs-Schema (Generated): fachlichkeit/struktur/begriffssicherheit/praxisbezug/vollstaendigkeit/kommunikation × 0–100.
+- `oral_session_memory` füttert `get_adaptive_oral_exam_prompts` (Adaptivität schon vorhanden, nur Memory-Quelle erweitern).
 
-**View** `v_auto_pulse_impact_30m` — pro Pulse-Decision (last 7d):
-- `before_pending_default_pool, after_pending_default_pool_30m`
-- `before_failure_rate_15m, after_failure_rate_15m_30m`  
-- `before_oldest_min, after_oldest_min_30m`
-- `gate_throughput_30m_after` (jobs completed in 30 min after pulse)
-- `delta_pending, delta_failure_rate, delta_throughput_lift`
+## 6. Engagement-System (Daily/Streak/Countdown)
 
-**RPC** `admin_get_auto_pulse_impact(p_window_days int default 7)` (admin) — aggregiert je Decision-Pfad:
-- `decisions_count, avg_pending_delta, avg_failure_rate_delta, avg_throughput_lift, p50_recovery_min, success_rate` (success = pending sank ≥10% in 30min nach pulse)
+- `daily-engagement-runner`: pro aktiven User (last_activity ≤ 14d) wählt 3–5 Fragen aus `exam_questions` gefiltert nach `learner_competency_state.mastery_score < 0.7` + Blueprint-Coverage. Persistiert in `daily_challenges`.
+- Streak-Logik: `update_learning_streak` erweitern → Consistency 5/7, Recovery-Tag (verpasster Tag bricht NICHT bei Streak ≥ 3 Wochen).
+- Countdown: aus `learner_profiles.exam_target_date` + Readiness → Card im Dashboard.
 
-**UI** `AutoPulseImpactCard` in HealCockpit (Diagnostics-Tab neben RecoveryPulseHistoryCard):
-- KPI-Kacheln: ø Throughput-Lift, ø Pending-Reduktion, Success-Rate %
-- Tabelle pro Decision-Pfad mit before/after Metriken
-- Conditional-Format: grün wenn Lift>0, rot wenn negativ
+## 7. Gamification ohne Toxicity
 
-**Tests**: Anon-refusal für `admin_get_auto_pulse_impact`, Shape-Contract der Felder.
+`badge_definitions` als SSOT. Beispiele:
+- `lf5_sicher` (rule: competency_id=X mastery≥0.85)
+- `consistency_3w` (rule: 21 days consistency_7d ≥ 5)
+- `oral_ready` (rule: 3 oral sessions ≥ 75)
 
----
+`badge-evaluator` setzt Trigger über `learner_mastery_event_log` und `oral_exam_sessions`. Kein XP, keine Coins.
 
-### Track D — Decay-τ konfigurierbar + Admin-Simulator
+## 8. B2B Readiness Layer
 
-**Tabelle** `mastery_engine_config` (single-row enforce via `id = 'singleton'` CHECK):
-- `decay_tau_days numeric default 14` 
-- `ewma_alpha numeric default 0.30`
-- `confidence_sample_anchor numeric default 8.0`
-- `repair_threshold numeric default 60`
-- `drill_threshold numeric default 80`
-- `reinforce_threshold numeric default 90`
-- `updated_at, updated_by`
+- `admin_get_b2b_cohort_readiness(org_id, curriculum_id)` (SECURITY DEFINER, has_role `org_admin`)
+- Liefert nur **aggregierte** Cohort-Metriken aus MV `b2b_cohort_readiness`. Keine Personenbezüge ohne Opt-in.
+- Dashboard `/b2b/readiness/:org` mit Cohort-Heatmap + Risk-Indicators.
 
-RLS: admin SELECT/UPDATE only. `update_mastery_from_attempt` und `learner_next_best_step` lesen Konfig (mit Fallback auf Defaults wenn Tabelle leer).
+## 9. Analytics / Tracking-Erweiterung
 
-**RPCs**:
-- `admin_get_mastery_engine_config()` (admin)
-- `admin_update_mastery_engine_config(p_decay_tau_days, p_ewma_alpha, ...)` (admin) mit CHECK-Validation + Audit in `auto_heal_log`
-- `admin_simulate_mastery_decay(p_initial_mastery numeric, p_days_array int[], p_tau_override numeric default null)` returns `[{day, mastery_score, exam_readiness}]` — pure Funktion, kein DB-Write
-- `admin_simulate_mastery_path(p_attempts jsonb, p_tau_override numeric, p_alpha_override numeric)` — simuliert ganze Lernsequenz (Liste von `{correct, days_since_prev}`) → Mastery-Verlauf
+In `conversion_events` (Generated Column `package_id` schon da) zusätzliche Events:
+`daily_check_started/_completed`, `readiness_changed`, `streak_updated`, `oral_exam_started/_completed`, `badge_unlocked`, `weakness_recovered`, `countdown_viewed`, `onboarding_completed`.
 
-**UI** `src/pages/admin/v2/MasteryEngineSimulatorPage.tsx` (route `/admin/mastery/simulator`):
-- Sektion 1 **Live-Config**: Form mit allen Konfig-Werten + Save-Button + History-Strip (last 10 changes aus auto_heal_log)
-- Sektion 2 **Decay-Simulator**: Slider Initial-Mastery + τ-Slider, Line-Chart Mastery & Readiness über 60 Tage
-- Sektion 3 **Path-Simulator**: Editierbare Tabelle (correct y/n + days_since_prev), zwei Varianten parallel (Default τ vs custom τ), Vergleichs-Chart
+Guard: `scripts/guards/engagement-events-guard.mjs` validiert Pflichtfelder pro Event-Typ in CI.
 
-**Tests**: Config-Update-Audit, Simulator-Determinismus (gleiche Inputs → gleiche Outputs), Boundary (τ=0 → instant decay, alpha=1 → no smoothing).
+## 10. UI-Komponentenplan (Mobile-First, Design-System v2 Tokens)
 
----
+`src/components/learner/`:
+- `ReadinessHero.tsx`, `DailyMissionCard.tsx`, `WeaknessRadar.tsx`, `CountdownCard.tsx`, `OralReadinessCard.tsx`, `LearningRhythmHeatmap.tsx`, `CompetencyGraph.tsx`, `NextBestActionCard.tsx`
 
-### Migrationen (sequenziell)
+Neue Page `/lernen/heute` als Daily-Hub. Bestehende `/dashboard` bleibt; Hero ersetzt nur den oberen Slot.
 
-| # | Concern |
-|---|---------|
-| 1 | Pre-Fix: `update_mastery_from_attempt` Signatur-Recreate falls nötig |
-| 2 | Track A: Trigger-Verkabelung quiz/exam/tutor + payload-Erweiterung in `learner_next_best_step` |
-| 3 | Track B: 3 Drift-RPCs |
-| 4 | Track C: `v_auto_pulse_impact_30m` + Impact-RPC |
-| 5 | Track D: `mastery_engine_config` Tabelle + Config-RPCs + Simulator-RPCs + Refactor `update_mastery_from_attempt`/`learner_next_best_step` auf Config-Read |
+## 11. Governance, CI, Healing
 
-### Code-Änderungen
+- **DB**: alle neuen Tabellen mit RLS (`user_id = auth.uid()` für Learner-Daten; `has_role(org_admin)` für B2B-Aggregate)
+- **CI**:
+  - `s6-readiness-engine.test.ts` (reason_codes deterministisch)
+  - `s6-engagement-events.test.ts` (Event-Pflichtfelder)
+  - `s6-oral-rag-citation.test.ts` (Refusal-Phrase erzwungen)
+  - `s6-badge-rules.test.ts` (jede Definition hat Rule-Key)
+  - First-Heartbeat-Drift (S5d) für alle neuen Worker
+- **Healing**: `admin_get_engagement_drift` View — User mit `learner_competency_state` aber ohne `daily_challenges` letzte 7d → enqueue `daily_engagement_assemble`.
 
-| Datei | Zweck |
+## 12. Rollout-Plan (4 Wellen, je 1 Migration-Concern)
+
+| Welle | Inhalt | Risk |
+|---|---|---|
+| **W1 — Foundation** | ALTER readiness_snapshots/learner_profiles/daily_challenges, neue Tabellen badge_definitions/engagement_daily_state/oral_session_memory/readiness_risk_events, RLS, MV b2b_cohort_readiness | low |
+| **W2 — Engines** | calculate_readiness_score_v3, update_learning_streak v2, oral-session-evaluator, badge-evaluator, daily-engagement-runner (alle Edge) | medium |
+| **W3 — UI** | 8 Learner-Komponenten + /lernen/heute, B2B-Cohort-Page, Tracking-Wires | low |
+| **W4 — Crons + Guards** | 7 Cron-Jobs scharf, CI-Guards, Healing-View, Memory-Update | low |
+
+Jede Welle: separate Migration · Smoke-SQL · Rollback-Hint · `auto_heal_log` Audit · CI-Test grün.
+
+## 13. Risk-Assessment & Mitigations
+
+| Risiko | Mitigation |
 |---|---|
-| `src/pages/admin/v2/GateHistoryDashboardPage.tsx` | NEU — Drift+Lane+Paket Drilldown |
-| `src/pages/admin/v2/MasteryEngineSimulatorPage.tsx` | NEU — Config + Decay/Path Simulator |
-| `src/components/admin/heal/cards/AutoPulseImpactCard.tsx` | NEU — Wirkungsmessung |
-| `src/pages/admin/v2/HealCockpitPage.tsx` | + Impact-Card im Diagnostics-Tab + Link zur GateHistory-Page |
-| `src/App.tsx` | + 2 Routes (gate-history, mastery/simulator) admin-gated |
-| `src/test/learner/mastery-v2-wiring.test.ts` | NEU — Trigger-Wirkung |
-| `src/test/ops/auto-pulse-impact.test.ts` | NEU — Impact-RPC Contract |
-| `src/test/learner/mastery-engine-config.test.ts` | NEU — Config + Simulator |
+| Decay-Loop floods readiness_recompute | 60s debounce pro user×curriculum + queue-side dedupe |
+| LLM-Drift im Oral | Strict-RAG Citation Pflicht + Refusal-Phrase + ai_tutor_audit |
+| Phantom Badges (Race) | UK `(user_id, badge_key, curriculum_id)` + ON CONFLICT DO NOTHING |
+| B2B-Datenleck | RLS strikt; Aggregate-MV hat KEINE user_id; RPC has_role-gated |
+| Streak-Toxicity | Recovery-Tage + Consistency statt Brutto-Streak in UI primär |
+| Daily-Coldstart bei neuen Usern | Onboarding seedet 3 leichte Fragen aus `daily_question_picks` Pool |
+| Performance Mastery-Recompute | Bestehender Pfad unverändert; nur AFTER INSERT enqueue |
 
-### Memory & Audit
-- `mem://architektur/ops/gate-history-dashboard-v1.md`
-- `mem://architektur/ops/auto-pulse-impact-measurement-v1.md`
-- `mem://features/learner/mastery-engine-config-and-simulator-v1.md`
-- `mem://architektur/learner/mastery-v2-trigger-wiring-v1.md`
-- Index-Update: Core-Regel ergänzen "Mastery-Engine-Konstanten NUR via mastery_engine_config; niemals hardcoded außer Fallback-Default."
+## 14. Was NICHT in S6 kommt (bewusst)
 
-### Out-of-Scope (S4)
-- Lernenden-UI (Adaptive-Path-Card, Mastery-Dashboard) — bleibt S2.2
-- Decay-Reminder-Email-Sequence (`mastery_decay_reminder`) — bleibt S2.3
-- A/B-Test-Framework für τ-Werte mit Cohort-Splitting
+- Keine eigene Push-Infra (nutzt vorhandene `email-sequence-worker` + retention_events).
+- Keine neuen Avatare/Coins.
+- Keine direkte client-seitige Mastery-Schreibwege.
+- Keine parallele Streak-Logik außerhalb `update_learning_streak`.
 
-### Rollback-Hinweise je Migration in DB-Comment + Memory.
+## 15. Erste konkrete Migration (W1) — bereit zum Ziehen nach Approval
+
+```sql
+ALTER TABLE readiness_snapshots
+  ADD COLUMN IF NOT EXISTS reason_codes jsonb DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS next_action_key text,
+  ADD COLUMN IF NOT EXISTS version text DEFAULT 'v3';
+ALTER TABLE learner_profiles
+  ADD COLUMN IF NOT EXISTS consistency_7d numeric DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS consistency_30d numeric DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS exam_target_date date,
+  ADD COLUMN IF NOT EXISTS exam_type text;
+CREATE TABLE IF NOT EXISTS badge_definitions (...);
+CREATE TABLE IF NOT EXISTS engagement_daily_state (...);
+CREATE TABLE IF NOT EXISTS oral_session_memory (...);
+CREATE TABLE IF NOT EXISTS readiness_risk_events (...);
+-- + RLS + Indexe + auto_heal_log Audit
+```
 
 ---
 
-**Bestätige oder priorisiere um.** Bei OK starte ich mit Pre-Fix → Track A → B → C → D.
+**Nächster Schritt nach Freigabe**: Welle 1 als einzelne Migration ziehen, danach W2-Worker einzeln deployen, je mit Smoke + Test.
