@@ -1,11 +1,8 @@
 /**
  * HandbookPublishDriftCard
  * ────────────────────────
- * Leitstellen-Karte: zeigt Pakete mit publishable, aber unpublished
- * Handbook-Chapters. Erlaubt SSOT-gated Backfill (Dry-Run / Apply).
- *
- * Datenpfad: admin_get_handbook_publish_drift_summary (SECURITY DEFINER + has_role)
- * Mutation:  admin_backfill_publishable_handbook_chapters(p_dry_run, p_package_id)
+ * Leitstellen-Karte: zeigt SSOT-gated Handbook-Publish-Drift inkl.
+ * per-Track Policy, Backfill (Dry-Run/Apply), Rollback-Guard und Smoke-Test.
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,35 +10,39 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BookOpen, AlertTriangle, CheckCircle2, PlayCircle, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { BookOpen, AlertTriangle, CheckCircle2, PlayCircle, Loader2, Undo2, FlaskConical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 type Offender = {
-  package_id: string;
-  package_title: string;
-  chapter_count: number;
-  published_count: number;
-  publishable_count: number;
-  blocker_reason: string;
+  package_id: string; package_title: string;
+  chapter_count: number; published_count: number;
+  publishable_count: number; blocker_reason: string;
 };
-
+type TrackPolicy = { track: string; allowed: boolean; requires_handbook: boolean; gates: string[] };
 type Summary = {
   drift_packages: number;
   chapters_publishable_pending: number;
   top_offenders: Offender[];
+  policies: Record<string, TrackPolicy>;
+  recent_actions: Array<{ action_type: string; result_status: string; target_id: string | null; created_at: string; metadata: any }>;
 };
 
 export function HandbookPublishDriftCard() {
   const qc = useQueryClient();
   const [lastResult, setLastResult] = useState<any>(null);
+  const [confirmOpen, setConfirmOpen] = useState<null | { kind: 'apply' } | { kind: 'rollback'; pkg: Offender }>(null);
+  const [rollbackReason, setRollbackReason] = useState('');
 
   const { data, isLoading, error, refetch } = useQuery<Summary>({
     queryKey: ['handbook-publish-drift-summary'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any).rpc(
-        'admin_get_handbook_publish_drift_summary'
-      );
+      const { data, error } = await (supabase as any).rpc('admin_get_handbook_publish_drift_summary');
       if (error) throw error;
       return data as Summary;
     },
@@ -69,9 +70,41 @@ export function HandbookPublishDriftCard() {
       qc.invalidateQueries({ queryKey: ['handbook-chapters'] });
       refetch();
     },
-    onError: (e: any) => {
-      toast.error(`Fehler: ${e?.message ?? 'unbekannt'}`);
+    onError: (e: any) => toast.error(`Fehler: ${e?.message ?? 'unbekannt'}`),
+  });
+
+  const rollback = useMutation({
+    mutationFn: async (vars: { packageId: string; reason: string }) => {
+      const { data, error } = await (supabase as any).rpc(
+        'admin_rollback_handbook_chapters_publish',
+        { p_package_id: vars.packageId, p_reason: vars.reason, p_chapter_ids: null }
+      );
+      if (error) throw error;
+      return data;
     },
+    onSuccess: (res) => {
+      setLastResult(res);
+      toast.success(`Rollback: ${res?.unpublished ?? 0} Chapters auf is_published=false gesetzt`);
+      qc.invalidateQueries({ queryKey: ['handbook-publish-drift-summary'] });
+      qc.invalidateQueries({ queryKey: ['handbook-chapters'] });
+      refetch();
+    },
+    onError: (e: any) => toast.error(`Rollback fehlgeschlagen: ${e?.message ?? 'unbekannt'}`),
+  });
+
+  const smoke = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await (supabase as any).rpc('admin_smoke_handbook_publish_policy');
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (res) => {
+      setLastResult(res);
+      const failed = (res?.results ?? []).filter((r: any) => !r.pass);
+      if (res?.pass) toast.success(`Smoke OK · ${(res?.results ?? []).length} Tests bestanden`);
+      else toast.error(`Smoke FAILED · ${failed.length} Tests fehlgeschlagen`);
+    },
+    onError: (e: any) => toast.error(`Smoke-Fehler: ${e?.message ?? 'unbekannt'}`),
   });
 
   if (isLoading) {
@@ -89,9 +122,7 @@ export function HandbookPublishDriftCard() {
         <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertTriangle className="h-4 w-4" /> Handbook-Drift konnte nicht geladen werden
         </div>
-        <Button size="sm" variant="outline" onClick={() => refetch()}>
-          Erneut versuchen
-        </Button>
+        <Button size="sm" variant="outline" onClick={() => refetch()}>Erneut versuchen</Button>
       </Card>
     );
   }
@@ -99,132 +130,210 @@ export function HandbookPublishDriftCard() {
   const driftPackages = data?.drift_packages ?? 0;
   const pendingChapters = data?.chapters_publishable_pending ?? 0;
   const offenders = data?.top_offenders ?? [];
-  const tone =
-    driftPackages === 0 ? 'ok' : driftPackages >= 20 ? 'crit' : 'warn';
-
+  const policies = data?.policies ?? {};
+  const recent = data?.recent_actions ?? [];
+  const tone = driftPackages === 0 ? 'ok' : driftPackages >= 20 ? 'crit' : 'warn';
   const toneClass =
-    tone === 'ok'
-      ? 'border-success/30 bg-success-bg-subtle'
-      : tone === 'warn'
-      ? 'border-warning/30 bg-warning-bg-subtle'
+    tone === 'ok' ? 'border-success/30 bg-success-bg-subtle'
+      : tone === 'warn' ? 'border-warning/30 bg-warning-bg-subtle'
       : 'border-destructive/30 bg-destructive-bg-subtle';
-
   const severity = tone === 'ok' ? 'OK' : tone === 'warn' ? 'P2' : 'P1';
 
   return (
-    <Card className="p-4 space-y-3" data-testid="handbook-publish-drift">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">
-            Handbuch Publish-Drift
-          </h2>
-          <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-mono">
-            SSOT-gated
-          </Badge>
-          <Badge
-            variant="outline"
-            className={`text-[10px] h-4 px-1.5 ${
-              tone === 'ok'
-                ? 'border-success/30 text-success'
-                : tone === 'warn'
-                ? 'border-warning/30 text-warning'
-                : 'border-destructive/30 text-destructive'
-            }`}
-          >
-            {severity}
-          </Badge>
+    <>
+      <Card className="p-4 space-y-3" data-testid="handbook-publish-drift">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-foreground" />
+            <h2 className="text-sm font-semibold text-foreground">Handbuch Publish-Drift</h2>
+            <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-mono">SSOT-gated</Badge>
+            <Badge
+              variant="outline"
+              className={`text-[10px] h-4 px-1.5 ${
+                tone === 'ok' ? 'border-success/30 text-success'
+                  : tone === 'warn' ? 'border-warning/30 text-warning'
+                  : 'border-destructive/30 text-destructive'
+              }`}
+            >
+              {severity}
+            </Badge>
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            <Button size="sm" variant="outline" disabled={smoke.isPending} onClick={() => smoke.mutate()}>
+              {smoke.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FlaskConical className="h-3 w-3 mr-1" />}
+              Smoke
+            </Button>
+            <Button
+              size="sm" variant="outline"
+              disabled={backfill.isPending || driftPackages === 0}
+              onClick={() => backfill.mutate({ dryRun: true })}
+            >
+              {backfill.isPending && backfill.variables?.dryRun
+                ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                : <PlayCircle className="h-3 w-3 mr-1" />}
+              Dry-Run
+            </Button>
+            <Button
+              size="sm"
+              disabled={backfill.isPending || driftPackages === 0}
+              onClick={() => setConfirmOpen({ kind: 'apply' })}
+            >
+              {backfill.isPending && !backfill.variables?.dryRun
+                ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                : <CheckCircle2 className="h-3 w-3 mr-1" />}
+              Apply
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-1.5">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={backfill.isPending || driftPackages === 0}
-            onClick={() => backfill.mutate({ dryRun: true })}
-          >
-            {backfill.isPending && backfill.variables?.dryRun ? (
-              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-            ) : (
-              <PlayCircle className="h-3 w-3 mr-1" />
-            )}
-            Dry-Run
-          </Button>
-          <Button
-            size="sm"
-            disabled={backfill.isPending || driftPackages === 0}
-            onClick={() => {
-              if (
-                !window.confirm(
-                  `Backfill anwenden? Es werden bis zu ${pendingChapters} Chapters in ${driftPackages} Paketen auf published gesetzt (nur SSOT-publishable).`
-                )
-              )
-                return;
-              backfill.mutate({ dryRun: false });
-            }}
-          >
-            {backfill.isPending && !backfill.variables?.dryRun ? (
-              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-            ) : (
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-            )}
-            Apply
-          </Button>
+
+        <div className={`grid gap-3 md:grid-cols-2 rounded-xl border p-3 ${toneClass}`}>
+          <Tile label="Pakete mit Drift" value={driftPackages} />
+          <Tile label="Chapters pending" value={pendingChapters} />
         </div>
-      </div>
 
-      <div className={`grid gap-3 md:grid-cols-2 rounded-xl border p-3 ${toneClass}`}>
-        <Tile label="Pakete mit Drift" value={driftPackages} />
-        <Tile label="Chapters pending" value={pendingChapters} />
-      </div>
-
-      <p className="text-[11px] text-muted-foreground leading-snug">
-        Eligibility: Paket published · generate_handbook + validate_handbook done · Chapter
-        hat Title + ≥1 Section mit Content · kein quality_block. Pipeline-Trigger
-        veröffentlicht ab jetzt automatisch beim Übergang status→published.
-      </p>
-
-      {offenders.length > 0 && (
+        {/* Per-Track Policy */}
         <div className="space-y-1">
-          <div className="text-xs font-medium text-foreground">Top Offenders</div>
-          <div className="rounded-lg border border-border divide-y divide-border max-h-64 overflow-auto">
-            {offenders.map((o) => (
-              <div
-                key={o.package_id}
-                className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium text-foreground">
-                    {o.package_title}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground font-mono truncate">
-                    {o.blocker_reason} · {o.published_count}/{o.publishable_count} published
-                  </div>
+          <div className="text-xs font-medium text-foreground">Per-Track SSOT-Policy</div>
+          <div className="grid gap-1.5 md:grid-cols-2">
+            {Object.entries(policies).map(([track, p]) => (
+              <div key={track} className="rounded-lg border border-border p-2 text-[11px] leading-snug">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-medium text-foreground">{track}</span>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] h-4 px-1.5 ${
+                      p.allowed ? 'border-success/30 text-success' : 'border-muted-foreground/30 text-muted-foreground'
+                    }`}
+                  >
+                    {p.allowed ? 'allowed' : 'disallowed'}
+                  </Badge>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2 text-[10px]"
-                  disabled={backfill.isPending}
-                  onClick={() =>
-                    backfill.mutate({ dryRun: false, packageId: o.package_id })
-                  }
-                >
-                  Heal
-                </Button>
+                <div className="mt-1 text-muted-foreground font-mono break-words">
+                  {p.gates.join(' · ')}
+                </div>
               </div>
             ))}
           </div>
         </div>
-      )}
 
-      {lastResult && (
-        <div className="rounded-lg border border-border bg-muted/30 p-2 text-[10px] font-mono text-muted-foreground">
-          Last action: dry_run={String(lastResult.dry_run)} · updated={lastResult.updated} ·
-          packages={lastResult.packages_affected} · pending=
-          {(lastResult.publishable_total ?? 0) - (lastResult.after_published ?? 0)}
-        </div>
-      )}
-    </Card>
+        {offenders.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-foreground">Top Offenders</div>
+            <div className="rounded-lg border border-border divide-y divide-border max-h-64 overflow-auto">
+              {offenders.map((o) => (
+                <div key={o.package_id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium text-foreground">{o.package_title}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono truncate">
+                      {o.blocker_reason} · {o.published_count}/{o.publishable_count} published
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm" variant="ghost" className="h-6 px-2 text-[10px]"
+                      disabled={backfill.isPending}
+                      onClick={() => backfill.mutate({ dryRun: false, packageId: o.package_id })}
+                    >
+                      Heal
+                    </Button>
+                    <Button
+                      size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-destructive"
+                      disabled={rollback.isPending || o.published_count === 0}
+                      onClick={() => { setRollbackReason(''); setConfirmOpen({ kind: 'rollback', pkg: o }); }}
+                    >
+                      <Undo2 className="h-3 w-3 mr-1" />Rollback
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {recent.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs font-medium text-foreground">Letzte Pipeline-Aktionen</div>
+            <div className="rounded-lg border border-border divide-y divide-border max-h-40 overflow-auto text-[10px] font-mono">
+              {recent.slice(0, 6).map((a, i) => (
+                <div key={i} className="px-2 py-1 flex items-center justify-between gap-2">
+                  <span className="truncate text-foreground">{a.action_type}</span>
+                  <span className={a.result_status === 'success' ? 'text-success' : a.result_status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}>
+                    {a.result_status}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {new Date(a.created_at).toLocaleString('de-DE')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {lastResult && (
+          <div className="rounded-lg border border-border bg-muted/30 p-2 text-[10px] font-mono text-muted-foreground break-words">
+            {JSON.stringify(lastResult).slice(0, 500)}
+          </div>
+        )}
+      </Card>
+
+      <AlertDialog open={!!confirmOpen} onOpenChange={(o) => !o && setConfirmOpen(null)}>
+        <AlertDialogContent>
+          {confirmOpen?.kind === 'apply' && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Backfill anwenden?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Es werden bis zu {pendingChapters} Chapters in {driftPackages} Paketen auf
+                  is_published=true gesetzt — nur SSOT-publishable Chapters (Track erlaubt,
+                  Steps done, Title + Content vorhanden, kein Quality-Block).
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { setConfirmOpen(null); backfill.mutate({ dryRun: false }); }}
+                >
+                  Apply
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+          {confirmOpen?.kind === 'rollback' && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Rollback: {confirmOpen.pkg.package_title}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Setzt alle {confirmOpen.pkg.published_count} published Handbook-Chapters
+                  dieses Pakets auf is_published=false. Audit wird in auto_heal_log
+                  geschrieben.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Input
+                placeholder="Grund (mind. 5 Zeichen, Pflicht)"
+                value={rollbackReason}
+                onChange={(e) => setRollbackReason(e.target.value)}
+                className="text-sm"
+              />
+              <AlertDialogFooter>
+                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={rollbackReason.trim().length < 5}
+                  onClick={() => {
+                    if (confirmOpen.kind !== 'rollback') return;
+                    const pkgId = confirmOpen.pkg.package_id;
+                    const reason = rollbackReason.trim();
+                    setConfirmOpen(null);
+                    rollback.mutate({ packageId: pkgId, reason });
+                  }}
+                >
+                  Rollback ausführen
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
