@@ -10,7 +10,7 @@
  *
  * Quelle: RPC admin_get_pruefungsreife_funnel(days int).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -19,9 +19,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, CheckCircle2, RefreshCw, TrendingDown, Activity, Info } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw, TrendingDown, Activity, Info, Download } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { toCsv, downloadCsv } from "@/lib/csv";
 
 type Stage = {
   key: string;
@@ -93,11 +95,22 @@ export default function PruefungsreifeFunnelCard() {
   const [days, setDays] = useState(7);
 
   // URL-param persistence: ?question_source=blueprint|generic|all
-  const initialSource: SourceValue = (() => {
-    const raw = (searchParams.get("question_source") ?? "").toLowerCase();
-    return (VALID_SOURCES as readonly string[]).includes(raw) ? (raw as SourceValue) : "all";
-  })();
+  const rawSourceParam = (searchParams.get("question_source") ?? "").toLowerCase();
+  const isInvalidUrlSource =
+    rawSourceParam !== "" && !(VALID_SOURCES as readonly string[]).includes(rawSourceParam);
+  const initialSource: SourceValue = (VALID_SOURCES as readonly string[]).includes(rawSourceParam)
+    ? (rawSourceParam as SourceValue)
+    : "all";
   const [source, setSource] = useState<SourceValue>(initialSource);
+
+  // One-shot toast for invalid URL param.
+  const toastedInvalid = useRef(false);
+  useEffect(() => {
+    if (isInvalidUrlSource && !toastedInvalid.current) {
+      toastedInvalid.current = true;
+      toast.warning(`Ungültiger Filter "${rawSourceParam}" — auf "Alle" zurückgesetzt.`);
+    }
+  }, [isInvalidUrlSource, rawSourceParam]);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -120,6 +133,66 @@ export default function PruefungsreifeFunnelCard() {
     () => Math.max(1, ...(data?.stages.map((s) => s.count) ?? [1])),
     [data],
   );
+
+  // ---------- Exports ----------
+  function exportCurrentCsv() {
+    if (!data) return;
+    const rows: Record<string, unknown>[] = [
+      ...data.stages.map((s, i) => ({
+        section: "stage",
+        idx: i + 1,
+        key: s.key,
+        label: s.label,
+        count: s.count,
+        real_events: s.real_events ?? "",
+        fallback_events: s.fallback_events ?? "",
+      })),
+      { section: "kpi", key: "completion_rate_pct", count: data.completion_rate_pct },
+      { section: "kpi", key: "cta_rate_pct", count: data.cta_rate_pct },
+      { section: "kpi", key: "checkout_rate_pct_total_unfiltered", count: data.checkout_rate_pct },
+      { section: "kpi", key: "mc_score_avg_pct", count: data.mc_score?.avg_pct ?? "", real_events: data.mc_score?.samples ?? 0 },
+      { section: "kpi", key: "self_score_avg", count: data.self_score_avg ?? "" },
+      { section: "kpi", key: "package_resolved_pct", count: data.package_resolution.resolved_pct, real_events: data.package_resolution.resolved, fallback_events: data.package_resolution.fallback },
+      { section: "dropoff", key: data.top_dropoff.stage ?? "—", count: data.top_dropoff.pct ?? 0 },
+      ...data.top_slugs.map((r) => ({ section: "top_slug", key: r.slug, count: r.starts })),
+      ...data.insights.map((ins, i) => ({ section: "insight", idx: i, key: ins.severity, label: ins.message })),
+    ];
+    downloadCsv(`pruefungsreife-funnel_${source}_${days}d_${new Date().toISOString().slice(0,10)}.csv`, toCsv(rows));
+  }
+
+  async function exportAllSegmentsCsv() {
+    try {
+      const segs: SourceValue[] = ["all", "blueprint", "generic"];
+      const results = await Promise.all(segs.map((s) => fetchFunnel(days, s)));
+      const rows = results.flatMap((d, idx) => {
+        const seg = segs[idx];
+        return [
+          {
+            segment: seg,
+            window_days: d.window_days,
+            landing_view: d.stages.find((s) => s.key === "landing_view")?.count ?? 0,
+            quiz_started: d.stages.find((s) => s.key === "quiz_started")?.count ?? 0,
+            quiz_completed: d.stages.find((s) => s.key === "quiz_completed")?.count ?? 0,
+            cta_click: d.stages.find((s) => s.key === "cta_click")?.count ?? 0,
+            checkout_start_total_unfiltered: d.stages.find((s) => s.key === "checkout_start")?.count ?? 0,
+            completion_rate_pct: d.completion_rate_pct,
+            cta_rate_pct: d.cta_rate_pct,
+            checkout_rate_pct: d.checkout_rate_pct,
+            mc_avg_pct: d.mc_score?.avg_pct ?? "",
+            mc_samples: d.mc_score?.samples ?? 0,
+            self_score_avg: d.self_score_avg ?? "",
+            resolved_pct: d.package_resolution.resolved_pct,
+            top_dropoff_stage: d.top_dropoff.stage ?? "",
+            top_dropoff_pct: d.top_dropoff.pct ?? 0,
+          },
+        ];
+      });
+      downloadCsv(`pruefungsreife-segments_${days}d_${new Date().toISOString().slice(0,10)}.csv`, toCsv(rows));
+      toast.success("Segment-Export bereit.");
+    } catch (e: unknown) {
+      toast.error(`Segment-Export fehlgeschlagen: ${(e as Error).message}`);
+    }
+  }
 
   return (
     <Card className="bg-surface-raised border-border-subtle">
@@ -145,6 +218,30 @@ export default function PruefungsreifeFunnelCard() {
               {w.label}
             </Button>
           ))}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs gap-1"
+            onClick={exportCurrentCsv}
+            disabled={!data}
+            data-testid="export-current-csv"
+            title="Aktuelle Detail-Auswertung als CSV"
+          >
+            <Download className="h-3 w-3" />
+            CSV
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs gap-1"
+            onClick={exportAllSegmentsCsv}
+            disabled={!data}
+            data-testid="export-segments-csv"
+            title="Alle/Blueprint/Generic Segment-KPIs als CSV"
+          >
+            <Download className="h-3 w-3" />
+            Segmente
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -203,11 +300,14 @@ export default function PruefungsreifeFunnelCard() {
                   Filter aktiv: question_source = <code className="ml-1">{source}</code>
                 </Badge>
               )}
-              {data.question_source_invalid && (
+              {(data.question_source_invalid || isInvalidUrlSource) && (
                 <Badge variant="outline" className="text-[10px] border-status-warning/50 text-status-warning-foreground" data-testid="source-invalid-badge">
                   Ungültiger Filterwert ignoriert
                 </Badge>
               )}
+              <span className="text-[10px] text-text-tertiary basis-full">
+                Hinweis: Filter wirkt nur auf Quiz/Result/CTA-Stages. <b>landing_view</b> und <b>checkout_start</b> bleiben total (unfiltered).
+              </span>
             </div>
 
             {/* KPI Row */}
@@ -215,37 +315,39 @@ export default function PruefungsreifeFunnelCard() {
               <Kpi label="Starts" value={data.stages[1]?.count ?? 0} />
               <Kpi label="Abschluss" value={`${data.completion_rate_pct}%`} />
               <Kpi label="Result-CTA" value={`${data.cta_rate_pct}%`} />
-              <Kpi label="Checkout" value={`${data.checkout_rate_pct}%`} />
+              <Kpi label="Checkout-Start (total)" value={`${data.checkout_rate_pct}%`} hint="unfiltered — Quelle ohne question_source" />
             </div>
 
-            {/* MC vs Self-Score (Phase 2) */}
-            {(data.mc_score?.samples ?? 0) > 0 || data.self_score_avg !== null ? (
+            {/* MC vs Self-Score (Phase 2) — MC nur bei samples > 0 */}
+            {((data.mc_score?.samples ?? 0) > 0 || (data.self_score_avg !== null && data.self_score_avg !== undefined)) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-lg border border-border-subtle bg-surface-sunken p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-text-tertiary">MC-Korrektheit Ø</div>
-                  <div className="text-lg font-bold text-text-primary mt-0.5">
-                    {data.mc_score?.avg_pct !== null && data.mc_score?.avg_pct !== undefined
-                      ? `${data.mc_score.avg_pct}%`
-                      : "—"}
+                {(data.mc_score?.samples ?? 0) > 0 && (
+                  <div className="rounded-lg border border-border-subtle bg-surface-sunken p-3" data-testid="mc-score-card">
+                    <div className="text-[10px] uppercase tracking-wide text-text-tertiary">MC-Korrektheit Ø (Nebenachse)</div>
+                    <div className="text-lg font-bold text-text-primary mt-0.5">
+                      {data.mc_score?.avg_pct !== null && data.mc_score?.avg_pct !== undefined
+                        ? `${data.mc_score.avg_pct}%`
+                        : "—"}
+                    </div>
+                    <div className="text-[10px] text-text-tertiary mt-0.5">
+                      {data.mc_score?.samples ?? 0} Sample(s)
+                      {source === "generic" && " · Generic-Pfad hat keine MC-Stufe"}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-text-tertiary mt-0.5">
-                    {data.mc_score?.samples ?? 0} Sample(s)
-                    {source === "generic" && " · Generic-Pfad hat keine MC-Stufe"}
+                )}
+                {(data.self_score_avg !== null && data.self_score_avg !== undefined) && (
+                  <div className="rounded-lg border border-border-subtle bg-surface-sunken p-3">
+                    <div className="text-[10px] uppercase tracking-wide text-text-tertiary">Ø Selbsteinschätzung</div>
+                    <div className="text-lg font-bold text-text-primary mt-0.5">
+                      {data.self_score_avg}
+                    </div>
+                    <div className="text-[10px] text-text-tertiary mt-0.5">
+                      Score 0–100 · primäre Reife-Achse
+                    </div>
                   </div>
-                </div>
-                <div className="rounded-lg border border-border-subtle bg-surface-sunken p-3">
-                  <div className="text-[10px] uppercase tracking-wide text-text-tertiary">Self-Assessment Ø</div>
-                  <div className="text-lg font-bold text-text-primary mt-0.5">
-                    {data.self_score_avg !== null && data.self_score_avg !== undefined
-                      ? `${data.self_score_avg}`
-                      : "—"}
-                  </div>
-                  <div className="text-[10px] text-text-tertiary mt-0.5">
-                    Score 0–100 (Mittelwert)
-                  </div>
-                </div>
+                )}
               </div>
-            ) : null}
+            )}
 
             {/* Funnel bars */}
             <div className="space-y-2">
@@ -431,13 +533,14 @@ export default function PruefungsreifeFunnelCard() {
   );
 }
 
-function Kpi({ label, value }: { label: string; value: number | string }) {
+function Kpi({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-border-subtle bg-surface-sunken px-3 py-2">
+    <div className="rounded-lg border border-border-subtle bg-surface-sunken px-3 py-2" title={hint}>
       <div className="text-[10px] uppercase tracking-wide text-text-tertiary">{label}</div>
       <div className="text-lg font-bold text-text-primary mt-0.5">
         {typeof value === "number" ? value.toLocaleString("de-DE") : value}
       </div>
+      {hint && <div className="text-[9px] text-text-tertiary mt-0.5 leading-tight">{hint}</div>}
     </div>
   );
 }
