@@ -10,7 +10,7 @@
  *
  * Quelle: RPC admin_get_pruefungsreife_funnel(days int).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -19,9 +19,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, CheckCircle2, RefreshCw, TrendingDown, Activity, Info } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw, TrendingDown, Activity, Info, Download } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { toCsv, downloadCsv } from "@/lib/csv";
 
 type Stage = {
   key: string;
