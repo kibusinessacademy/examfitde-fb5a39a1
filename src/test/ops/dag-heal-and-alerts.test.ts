@@ -88,6 +88,12 @@ describe("Phase-3 ops: DAG heal + alert hardening", () => {
       [1500,  0,    0, "control",  "default", 35, "control lane capped 35"],
       [50,    0,    0, "recovery", "default", 35, "recovery lane floor 35"],
       [1500,  0,    0, null,       "premium", 25, "non-default pool capped 25"],
+      // Phase-S2: extra invariants
+      [1500,  0.21, 0, null,       "default", 40, "failure_rate > 20% halves"],
+      [1500,  0.10, 0, null,       "default", 75, "failure_rate <= 20% no shedding"],
+      [1500,  0,    6, null,       "default", 40, "reaper churn > 5 halves"],
+      [1500,  0,    4, null,       "default", 75, "reaper churn <= 5 no shedding"],
+      [10000, 0,    0, null,       "default", 100, "boundary clamp upper 100"],
     ];
     for (const [pending, fr, churn, lane, pool, max, label] of cases) {
       it(label, async () => {
@@ -110,5 +116,35 @@ describe("Phase-3 ops: DAG heal + alert hardening", () => {
     );
     expect(error).toBeTruthy();
     expect(data).toBeNull();
+  });
+
+  // S2: Track A — Gate Decision History
+  it("admin_get_gate_decision_history refuses anon", async () => {
+    const { error } = await supabase.rpc(
+      "admin_get_gate_decision_history" as any,
+      { p_package_id: "00000000-0000-0000-0000-000000000000", p_limit: 5 },
+    );
+    expect(error).toBeTruthy();
+  });
+  it("admin_record_gate_decisions_now refuses anon", async () => {
+    const { error } = await supabase.rpc("admin_record_gate_decisions_now" as any);
+    expect(error).toBeTruthy();
+  });
+
+  // S2: Track D — Auto-Pulse Verification
+  it("admin_get_auto_recovery_pulse_health refuses anon", async () => {
+    const { error } = await supabase.rpc(
+      "admin_get_auto_recovery_pulse_health" as any,
+      { p_window_hours: 24 },
+    );
+    expect(error).toBeTruthy();
+  });
+  it("admin_smoke_auto_recovery_pulse refuses anon", async () => {
+    const { error } = await supabase.rpc("admin_smoke_auto_recovery_pulse" as any);
+    expect(error).toBeTruthy();
+  });
+  it("fn_auto_recovery_pulse_decide_dryrun is service-role-only (anon refused)", async () => {
+    const { error } = await supabase.rpc("fn_auto_recovery_pulse_decide_dryrun" as any);
+    expect(error).toBeTruthy();
   });
 });
