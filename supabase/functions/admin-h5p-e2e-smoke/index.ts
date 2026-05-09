@@ -326,14 +326,38 @@ Deno.serve(async (req) => {
     });
   }
 
-  const okCount = steps.filter((s) => s.status === "ok").length;
+  // Re-validation: verify the auto-heal actually stuck (read-only)
+  let revalidation: { lesson_link_ok: boolean; outcome_ok: boolean; event_present: boolean } | null = null;
+  if (autoHeal && healed.some((h) => h.ok)) {
+    const [{ data: l }, { data: o }, { data: ev }] = await Promise.all([
+      admin.from("lessons").select("h5p_content_id").eq("id", lessonId).maybeSingle(),
+      admin.from("lesson_outcomes").select("status").eq("user_id", u.user.id).eq("lesson_id", lessonId).maybeSingle(),
+      admin.from("learning_events").select("id").eq("user_id", u.user.id).eq("lesson_id", lessonId).eq("event_type", "lesson_completed").order("created_at", { ascending: false }).limit(1),
+    ]);
+    revalidation = {
+      lesson_link_ok: l?.h5p_content_id === contentId,
+      outcome_ok: o?.status === "completed",
+      event_present: Array.isArray(ev) && ev.length > 0,
+    };
+    steps.push({
+      key: "revalidation",
+      label: "Re-Validation nach Auto-Heal",
+      status: revalidation.lesson_link_ok && revalidation.outcome_ok && revalidation.event_present ? "ok" : "fail",
+      detail: `lesson_link=${revalidation.lesson_link_ok} outcome=${revalidation.outcome_ok} event=${revalidation.event_present}`,
+      data: revalidation,
+    });
+  }
+
+  const okCount = steps.filter((s) => s.status === "ok" || s.status === "healed").length;
   const failCount = steps.filter((s) => s.status === "fail").length;
+  const healedCount = steps.filter((s) => s.status === "healed").length;
   const overall: "green" | "yellow" | "red" =
     failCount === 0 ? "green" : okCount > failCount ? "yellow" : "red";
 
   // Audit
+  let auditId: string | null = null;
   try {
-    await admin.from("auto_heal_log").insert({
+    const { data: ins } = await admin.from("auto_heal_log").insert({
       action_type: "admin_h5p_e2e_smoke",
       target_type: "h5p_content",
       target_id: contentId,
@@ -342,17 +366,25 @@ Deno.serve(async (req) => {
         actor: u.user.id,
         lesson_id: lessonId,
         curriculum_id: curriculumId,
+        content_id: contentId,
         steps,
+        healed_actions: healed,
+        revalidation,
+        auto_heal: autoHeal,
         started_at: startedAt,
         finished_at: new Date().toISOString(),
       },
-    });
+    }).select("id").maybeSingle();
+    auditId = ins?.id ?? null;
   } catch { /* ignore */ }
 
   return json({
     ok: failCount === 0,
     overall,
-    summary: { ok: okCount, fail: failCount, total: steps.length },
+    summary: { ok: okCount, fail: failCount, healed: healedCount, total: steps.length },
     steps,
+    healed_actions: healed,
+    revalidation,
+    audit_id: auditId,
   });
 });
