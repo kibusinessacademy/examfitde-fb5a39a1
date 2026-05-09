@@ -163,15 +163,33 @@ export default function GateHistoryDashboardPage() {
   });
 
   const timeline = useQuery({
-    queryKey: ["gate-timeline", packageId],
+    queryKey: [
+      "gate-timeline",
+      packageId,
+      timelineWindowDays,
+      laneFilter,
+      decisionFilter,
+      page,
+    ],
     queryFn: async () => {
-      if (!packageId) return [] as TimelineRow[];
+      if (!packageId) return { rows: [] as TimelineRow[], total: 0 };
       const { data, error } = await supabase.rpc(
-        "admin_get_gate_decision_package_timeline" as any,
-        { p_package_id: packageId, p_limit: 50 },
+        "admin_get_gate_decision_package_timeline_filtered" as any,
+        {
+          p_package_id: packageId,
+          p_window_days: timelineWindowDays,
+          p_lane: laneFilter === "all" ? null : laneFilter,
+          p_decision: decisionFilter === "all" ? null : decisionFilter,
+          p_limit: PAGE_SIZE,
+          p_offset: page * PAGE_SIZE,
+        },
       );
       if (error) throw error;
-      return (data ?? []) as TimelineRow[];
+      const rows = (data ?? []) as (TimelineRow & { total_rows: number })[];
+      return {
+        rows: rows.map(({ total_rows: _t, ...r }) => r),
+        total: Number(rows[0]?.total_rows ?? 0),
+      };
     },
     enabled: !!packageId,
   });
@@ -181,23 +199,19 @@ export default function GateHistoryDashboardPage() {
     new Set((drift.data ?? []).map((r) => r.decision)),
   );
 
-  const filteredTimeline = (timeline.data ?? []).filter((r) => {
-    const inputs = (r.inputs ?? {}) as Record<string, unknown>;
-    const lane = (inputs.lane as string | undefined) ?? "";
-    if (laneFilter !== "all" && lane !== laneFilter) return false;
-    if (decisionFilter !== "all" && r.decision !== decisionFilter) return false;
-    return true;
-  });
+  const filteredTimeline = timeline.data?.rows ?? [];
+  const totalRows = timeline.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
 
   const timelineLanes = Array.from(
     new Set(
-      (timeline.data ?? [])
+      filteredTimeline
         .map((r) => (r.inputs as Record<string, unknown> | null)?.lane as string | undefined)
         .filter(Boolean) as string[],
     ),
   );
   const timelineDecisions = Array.from(
-    new Set((timeline.data ?? []).map((r) => r.decision)),
+    new Set(filteredTimeline.map((r) => r.decision)),
   );
 
   return (
