@@ -35,6 +35,14 @@ export const OPS_ACTIONS = {
   BULK_RECONCILE: 'bulk_reconcile',
   AWAITING_PIPELINE: 'awaiting_pipeline',
   MONITOR: 'monitor',
+  HARD_REBUILD: 'hard_rebuild',
+  WAVE_REVOKE: 'wave_revoke',
+  // UI sentinel
+  ALL: 'all',
+  // Job-type valued recommended_action (UI explain branches)
+  ENQUEUE_GENERATE_EXAM_POOL: 'package_generate_exam_pool',
+  ENQUEUE_REPAIR_LF_COVERAGE: 'package_repair_exam_pool_lf_coverage',
+  ENQUEUE_REPAIR_COMPETENCY_COVERAGE: 'package_repair_exam_pool_competency_coverage',
 } as const;
 
 export type RepairAction = typeof REPAIR_ACTIONS[keyof typeof REPAIR_ACTIONS];
