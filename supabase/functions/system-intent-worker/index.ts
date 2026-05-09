@@ -71,7 +71,10 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             triggered_by: "system-intent-worker",
             intent_id: claimed.id,
+            payload: claimed.payload ?? {},
+            // legacy convenience fields used by existing handlers
             bucket: claimed.payload?.bucket,
+            job_id: claimed.payload?.job_id,
           }),
         });
         result = {
