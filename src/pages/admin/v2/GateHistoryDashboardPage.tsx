@@ -445,12 +445,17 @@ export default function GateHistoryDashboardPage() {
                     <option key={d} value={d}>{d}d</option>
                   ))}
                 </select>
-                <div className="ml-auto flex gap-1">
+                <div className="ml-auto flex items-center gap-1">
+                  {activeJobId && exportJob.data && exportJob.data.status !== "done" && exportJob.data.status !== "failed" ? (
+                    <Badge variant="secondary" className="text-[10px] mr-1" data-testid="gate-export-job-status">
+                      Export {exportJob.data.status}…
+                    </Badge>
+                  ) : null}
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => exportTimeline("csv")}
-                    disabled={!filteredTimeline.length}
+                    disabled={!packageId}
                     data-testid="gate-history-export-csv"
                   >
                     CSV
@@ -459,7 +464,7 @@ export default function GateHistoryDashboardPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => exportTimeline("json")}
-                    disabled={!filteredTimeline.length}
+                    disabled={!packageId}
                     data-testid="gate-history-export-json"
                   >
                     JSON
