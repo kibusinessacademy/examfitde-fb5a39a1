@@ -174,7 +174,6 @@ export default function GateHistoryDashboardPage() {
       toast.error(`Konnte Export nicht starten: ${e?.message ?? "Unbekannt"}`);
     }
   }
-  }
 
   const drift = useQuery({
     queryKey: ["gate-drift", windowDays],
