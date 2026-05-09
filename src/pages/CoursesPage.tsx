@@ -52,28 +52,20 @@ export default function CoursesPage() {
   }, [user]);
 
   const fetchCourses = async () => {
-    // Use v_courses_publishable: only courses with at least 1 module + 1 lesson
+    // SSOT: v_courses_publishable now exposes certification_type directly
     const { data, error } = await (supabase.from as any)('v_courses_publishable')
       .select('*')
       .eq('status', 'published')
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      const list = data as Course[];
+      const list = data as (Course & { certification_type?: string | null })[];
       setCourses(list);
-
-      // Hydrate categories from curricula.certification_type
-      const cIds = Array.from(new Set(list.map(c => c.curriculum_id).filter(Boolean)));
-      if (cIds.length > 0) {
-        const { data: curs } = await (supabase.from as any)('curricula')
-          .select('id, certification_type')
-          .in('id', cIds);
-        const map: Record<string, string> = {};
-        (curs ?? []).forEach((r: { id: string; certification_type: string | null }) => {
-          if (r.certification_type) map[r.id] = r.certification_type;
-        });
-        setCategoryByCurriculum(map);
+      const map: Record<string, string> = {};
+      for (const r of list) {
+        if (r.curriculum_id && r.certification_type) map[r.curriculum_id] = r.certification_type;
       }
+      setCategoryByCurriculum(map);
     }
     setLoading(false);
   };
