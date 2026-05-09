@@ -70,6 +70,45 @@ export default function AdminH5PSmokePage() {
     }
   };
 
+  const autoPick = async () => {
+    try {
+      const { data: rootList, error: lsErr } = await supabase.storage.from('h5p-content').list('', { limit: 100 });
+      if (lsErr) throw lsErr;
+      const folder = (rootList ?? []).find((o) => o.name?.startsWith('h5p_'));
+      if (folder?.name) setContentId(folder.name);
+
+      const { data: linked } = await supabase
+        .from('lessons')
+        .select('id, course_id, h5p_content_id')
+        .not('h5p_content_id', 'is', null)
+        .limit(1);
+      let lessonRow: any = (linked ?? [])[0];
+      if (!lessonRow) {
+        const { data: anyLesson } = await supabase
+          .from('lessons')
+          .select('id, course_id')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        lessonRow = (anyLesson ?? [])[0];
+      }
+      if (lessonRow?.id) setLessonId(lessonRow.id);
+      if (lessonRow?.course_id) {
+        const { data: course } = await supabase
+          .from('courses')
+          .select('curriculum_id')
+          .eq('id', lessonRow.course_id)
+          .maybeSingle();
+        if (course?.curriculum_id) setCurriculumId(course.curriculum_id);
+      }
+
+      if (!folder?.name) toast.warning('Kein H5P-Content im Bucket — bitte zuerst hochladen.');
+      else if (!lessonRow?.id) toast.warning('Keine Lesson gefunden.');
+      else toast.success('Echtdaten geladen — bereit für Smoke-Run.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Auto-Pick fehlgeschlagen');
+    }
+  };
+
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <header>
@@ -102,9 +141,14 @@ export default function AdminH5PSmokePage() {
               <Input id="sc" type="number" min={0} max={100} value={score} onChange={(e) => setScore(Number(e.target.value))} />
             </div>
           </div>
-          <Button onClick={run} disabled={running} className="w-full sm:w-auto">
-            {running ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Läuft…</> : <><Play className="h-4 w-4 mr-2" /> Smoke starten</>}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={run} disabled={running} className="w-full sm:w-auto">
+              {running ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Läuft…</> : <><Play className="h-4 w-4 mr-2" /> Smoke starten</>}
+            </Button>
+            <Button onClick={autoPick} type="button" variant="outline" className="w-full sm:w-auto">
+              Echtdaten auto-laden
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

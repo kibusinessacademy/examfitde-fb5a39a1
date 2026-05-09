@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Upload, Link as LinkIcon, CheckCircle2 } from 'lucide-react';
+import { Loader2, Upload, Link as LinkIcon, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+
+type Check = { key: string; ok: boolean; detail?: string };
 
 export default function AdminH5PUploadPage() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -14,23 +16,37 @@ export default function AdminH5PUploadPage() {
   const [lessonId, setLessonId] = useState('');
   const [linking, setLinking] = useState(false);
   const [lastUpload, setLastUpload] = useState<{ contentId: string; title: string | null; files: number } | null>(null);
+  const [validation, setValidation] = useState<{ checks: Check[]; passed: boolean } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleUpload = async () => {
     const file = fileRef.current?.files?.[0];
+    setValidation(null); setErrorMsg(null);
     if (!file) { toast.error('Bitte eine .h5p-Datei wählen'); return; }
-    if (!file.name.toLowerCase().endsWith('.h5p')) { toast.error('Nur .h5p Pakete'); return; }
     setUploading(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
       const { data, error } = await supabase.functions.invoke('upload-h5p-package', { body: fd });
-      if (error) throw error;
-      const result = data as { ok: boolean; content_id: string; file_count: number; title: string | null };
-      setContentId(result.content_id);
-      setLastUpload({ contentId: result.content_id, title: result.title, files: result.file_count });
-      toast.success(`Hochgeladen: ${result.file_count} Dateien`);
+      // Edge function returns structured JSON even on validation failure (non-2xx).
+      // supabase-js surfaces non-2xx via `error`; the body still arrives in `data` for FunctionsHttpError.
+      const body = (data ?? (error as any)?.context?.json ?? null) as
+        | { ok: boolean; content_id?: string; file_count?: number; title?: string | null; error?: string; validation?: { checks: Check[]; passed: boolean } }
+        | null;
+      if (body?.validation) setValidation(body.validation);
+      if (error || !body?.ok) {
+        const msg = body?.error ?? (error instanceof Error ? error.message : 'Upload fehlgeschlagen');
+        setErrorMsg(msg);
+        toast.error(msg);
+        return;
+      }
+      setContentId(body.content_id!);
+      setLastUpload({ contentId: body.content_id!, title: body.title ?? null, files: body.file_count ?? 0 });
+      toast.success(`Hochgeladen: ${body.file_count} Dateien`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Upload fehlgeschlagen');
+      const msg = e instanceof Error ? e.message : 'Upload fehlgeschlagen';
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setUploading(false);
     }
@@ -79,6 +95,28 @@ export default function AdminH5PUploadPage() {
                 <div className="text-xs text-text-muted break-all">content_id: <code>{lastUpload.contentId}</code></div>
                 <div className="text-xs text-text-muted">{lastUpload.files} Dateien</div>
               </div>
+            </div>
+          )}
+          {(validation || errorMsg) && (
+            <div className="rounded-md border border-border p-3 text-sm space-y-2">
+              <div className="font-medium text-text-primary">
+                {validation?.passed ? '✓ Validierung bestanden' : 'Validierung'}
+                {errorMsg && <span className="ml-2 text-text-secondary">— {errorMsg}</span>}
+              </div>
+              {validation && (
+                <ul className="space-y-1">
+                  {validation.checks.map((c) => (
+                    <li key={c.key} className="flex items-start gap-2 text-xs">
+                      {c.ok
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-text-secondary mt-0.5 shrink-0" />
+                        : <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: 'hsl(var(--destructive))' }} />}
+                      <span className={c.ok ? 'text-text-secondary' : 'text-text-primary font-medium'}>
+                        <code>{c.key}</code>{c.detail ? ` — ${c.detail}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </CardContent>

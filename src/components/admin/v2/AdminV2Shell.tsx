@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
   LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Heart, Gauge,
-  Shield, Upload
+  Shield, Upload, Activity, KeyRound
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,8 @@ const NAV_ITEMS = [
 /** Sekundäre Admin-Tools (kompakter als Hauptnavigation) */
 const SECONDARY_ITEMS = [
   { to: '/admin/ops/roles', label: 'Rollen', icon: Shield },
+  { to: '/admin/ops/access', label: 'Access-Matrix', icon: KeyRound },
+  { to: '/admin/ops/events', label: 'Learning-Events', icon: Activity },
   { to: '/admin/ops/h5p', label: 'H5P', icon: Upload },
   { to: '/admin/ops/h5p-smoke', label: 'H5P Smoke', icon: Upload },
 ] as const;
