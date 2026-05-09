@@ -66,6 +66,9 @@ export default function GateHistoryDashboardPage() {
   const [packageId, setPackageId] = useState("");
   const [laneFilter, setLaneFilter] = useState<string>("all");
   const [decisionFilter, setDecisionFilter] = useState<string>("all");
+  const [timelineWindowDays, setTimelineWindowDays] = useState(30);
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(0);
 
   function downloadFile(filename: string, content: string, mime: string) {
     const blob = new Blob([content], { type: mime });
