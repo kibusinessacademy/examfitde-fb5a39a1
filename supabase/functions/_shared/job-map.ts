@@ -286,6 +286,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   package_generate_handbook:         { pool: "default", edgeFunction: "package-generate-handbook" },
   package_generate_glossary:         { pool: "default", edgeFunction: "package-generate-glossary" },
   package_generate_oral_exam:        { pool: "default", edgeFunction: "package-generate-oral-exam" },
+  package_seed_oral_blueprints:      { pool: "default", edgeFunction: "package-seed-oral-blueprints" },
   package_generate_lesson_minichecks:{ pool: "default", edgeFunction: "package-generate-lesson-minichecks" },
   mass_enrich_competencies_v2:       { pool: "default", edgeFunction: "mass-enrich-competencies" },
   pool_fill_lf_gaps:                 { pool: "default", edgeFunction: "pool-fill-lf-gaps" },
