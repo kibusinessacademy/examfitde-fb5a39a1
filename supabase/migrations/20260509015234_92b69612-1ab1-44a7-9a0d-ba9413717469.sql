@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.fn_get_pruefungsreife_diagnostic_set(uuid, int) TO PUBLIC;
