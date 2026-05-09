@@ -96,10 +96,13 @@ describe("Quiz-Tracking-Contract — Phase 2", () => {
       (c) => c[0] === "lead_magnet_view" && c[1]?.metadata?.stage === "quiz_completed",
     );
     expect(completeCall).toBeDefined();
-    // Exact match: metadata.stage muss kanonisches Funnel-Event-Label widerspiegeln.
     expect(completeCall![1].metadata.stage).toBe("quiz_completed");
     expect(completeCall![1].metadata.score).toBeGreaterThanOrEqual(0);
     expect(completeCall![1].packageId).toBeUndefined();
+    // Vertrag: ohne MC-Stufe (samples=0) DARF mc_score_pct nicht im Event erscheinen.
+    expect(completeCall![1].metadata).not.toHaveProperty("mc_score_pct");
+    expect(completeCall![1].metadata).not.toHaveProperty("mc_answered_count");
+    expect(completeCall![1].metadata).not.toHaveProperty("mc_correct_count");
     // Strict events DARF im Fallback nicht emittiert werden
     expect(trackMock.mock.calls.some((c) => c[0] === "quiz_started")).toBe(false);
     expect(trackMock.mock.calls.some((c) => c[0] === "quiz_completed")).toBe(false);
@@ -159,7 +162,9 @@ describe("Quiz-Tracking-Contract — Phase 2", () => {
     expect(completeCall).toBeDefined();
     expect(completeCall![1].packageId).toBe(VALID_UUID);
     expect(completeCall![1].metadata.score).toBeGreaterThan(0);
-    // mc_score_pct soll präsent sein (auch wenn null, weil kein MC-Stage in dieser Variante)
-    expect(completeCall![1].metadata).toHaveProperty("mc_score_pct");
+    // Strict-Pfad mit Blueprint-Set ohne MC-Optionen → samples=0 → mc_*-Felder MÜSSEN fehlen.
+    expect(completeCall![1].metadata).not.toHaveProperty("mc_score_pct");
+    expect(completeCall![1].metadata).not.toHaveProperty("mc_answered_count");
+    expect(completeCall![1].metadata).not.toHaveProperty("mc_correct_count");
   });
 });

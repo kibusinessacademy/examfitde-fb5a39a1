@@ -128,15 +128,21 @@ export default function PruefungsreifeCheckPage() {
       const meta = classifyScore(total);
       const mcAnswered = nextMc.filter((v) => v !== null).length;
       const mcCorrectCount = nextMc.filter((v) => v === true).length;
-      const mcScorePct = mcAnswered > 0 ? Math.round((mcCorrectCount / mcAnswered) * 100) : null;
       setPhase("result");
+      // Vertrag: mc_*-Felder NUR wenn samples > 0. Sonst komplett weglassen,
+      // damit Admin-Aggregationen nicht fälschlich 0% MC anzeigen.
+      const mcMeta = mcAnswered > 0
+        ? {
+            mc_score_pct: Math.round((mcCorrectCount / mcAnswered) * 100),
+            mc_answered_count: mcAnswered,
+            mc_correct_count: mcCorrectCount,
+          }
+        : {};
       emit("quiz_completed", {
         score: total,
         risk_level: meta.level,
         weakest_categories: weakest,
-        mc_score_pct: mcScorePct,
-        mc_answered_count: mcAnswered,
-        mc_correct_count: mcCorrectCount,
+        ...mcMeta,
       });
     } else {
       setAnswers(next);
