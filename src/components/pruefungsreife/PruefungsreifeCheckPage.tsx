@@ -42,6 +42,7 @@ export default function PruefungsreifeCheckPage() {
   const [phase, setPhase] = useState<Phase>("start");
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Array<0 | 1 | 2 | 3>>([]);
+  const [mcResults, setMcResults] = useState<Array<boolean | null>>([]);
 
   const sourcePage =
     typeof window !== "undefined"
@@ -108,6 +109,7 @@ export default function PruefungsreifeCheckPage() {
     setPhase("running");
     setCurrent(0);
     setAnswers([]);
+    setMcResults([]);
     emit("quiz_started", {
       score: null,
       risk_level: null,
@@ -115,21 +117,30 @@ export default function PruefungsreifeCheckPage() {
     });
   };
 
-  const handleAnswer = (score: 0 | 1 | 2 | 3) => {
+  const handleAnswer = (score: 0 | 1 | 2 | 3, mcCorrect: boolean | null) => {
     const next = [...answers, score];
+    const nextMc = [...mcResults, mcCorrect];
     if (next.length >= questions.length) {
       setAnswers(next);
+      setMcResults(nextMc);
       const total = computeScore(next, questions.length);
       const weakest = computeWeakest(next, questions);
       const meta = classifyScore(total);
+      const mcAnswered = nextMc.filter((v) => v !== null).length;
+      const mcCorrectCount = nextMc.filter((v) => v === true).length;
+      const mcScorePct = mcAnswered > 0 ? Math.round((mcCorrectCount / mcAnswered) * 100) : null;
       setPhase("result");
       emit("quiz_completed", {
         score: total,
         risk_level: meta.level,
         weakest_categories: weakest,
+        mc_score_pct: mcScorePct,
+        mc_answered_count: mcAnswered,
+        mc_correct_count: mcCorrectCount,
       });
     } else {
       setAnswers(next);
+      setMcResults(nextMc);
       setCurrent((c) => c + 1);
     }
   };
@@ -138,12 +149,14 @@ export default function PruefungsreifeCheckPage() {
     if (current === 0) return;
     setCurrent((c) => c - 1);
     setAnswers((a) => a.slice(0, -1));
+    setMcResults((m) => m.slice(0, -1));
   };
 
   const handleReset = () => {
     setPhase("start");
     setCurrent(0);
     setAnswers([]);
+    setMcResults([]);
   };
 
   const totalScore = phase === "result" ? computeScore(answers, questions.length) : 0;
