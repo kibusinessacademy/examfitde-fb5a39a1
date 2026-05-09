@@ -233,7 +233,12 @@ export default function PruefungsreifeCheckPage() {
       >
         <div className="mx-auto w-full max-w-xl">
           {phase === "start" && (
-            <QuizStartScreen contextLabel={contextLabel} onStart={handleStart} />
+            <QuizStartScreen
+              contextLabel={contextLabel}
+              isBlueprintSourced={diagnostic.isBlueprintSourced}
+              questionCount={questions.length}
+              onStart={handleStart}
+            />
           )}
 
           {phase === "running" && (
