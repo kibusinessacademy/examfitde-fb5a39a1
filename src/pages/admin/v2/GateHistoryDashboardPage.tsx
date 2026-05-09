@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -65,6 +66,9 @@ export default function GateHistoryDashboardPage() {
   const [packageId, setPackageId] = useState("");
   const [laneFilter, setLaneFilter] = useState<string>("all");
   const [decisionFilter, setDecisionFilter] = useState<string>("all");
+  const [timelineWindowDays, setTimelineWindowDays] = useState(30);
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(0);
 
   function downloadFile(filename: string, content: string, mime: string) {
     const blob = new Blob([content], { type: mime });
@@ -78,54 +82,59 @@ export default function GateHistoryDashboardPage() {
     URL.revokeObjectURL(url);
   }
 
-  function exportTimeline(format: "json" | "csv") {
-    const rows = filteredTimeline;
-    if (!rows.length) return;
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    if (format === "json") {
-      downloadFile(
-        `gate-timeline-${packageId}-${stamp}.json`,
-        JSON.stringify(rows, null, 2),
-        "application/json",
+  async function exportTimeline(format: "json" | "csv") {
+    if (!packageId) return;
+    const t = toast.loading(`Erzeuge ${format.toUpperCase()}-Export…`);
+    try {
+      const { data, error } = await supabase.rpc(
+        "admin_get_gate_decision_package_timeline_filtered" as any,
+        {
+          p_package_id: packageId,
+          p_window_days: timelineWindowDays,
+          p_lane: laneFilter === "all" ? null : laneFilter,
+          p_decision: decisionFilter === "all" ? null : decisionFilter,
+          p_limit: 5000,
+          p_offset: 0,
+        },
       );
-    } else {
-      const headers = [
-        "id",
-        "decision",
-        "prev_decision",
-        "quality_score",
-        "quality_badge",
-        "bronze_locked",
-        "recorded_at",
-        "recorded_by",
-        "inputs_json",
-      ];
-      const esc = (v: unknown) => {
-        const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-      };
-      const body = rows
-        .map((r) =>
-          [
-            r.id,
-            r.decision,
-            r.prev_decision,
-            r.quality_score,
-            r.quality_badge,
-            r.bronze_locked,
-            r.recorded_at,
-            r.recorded_by,
-            r.inputs,
-          ]
-            .map(esc)
-            .join(","),
-        )
-        .join("\n");
-      downloadFile(
-        `gate-timeline-${packageId}-${stamp}.csv`,
-        headers.join(",") + "\n" + body,
-        "text/csv",
-      );
+      if (error) throw error;
+      const rows = (data ?? []) as (TimelineRow & { total_rows: number })[];
+      if (!rows.length) {
+        toast.dismiss(t);
+        toast.warning("Keine Daten für die gewählten Filter.");
+        return;
+      }
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      if (format === "json") {
+        downloadFile(
+          `gate-timeline-${packageId}-${stamp}.json`,
+          JSON.stringify(rows, null, 2),
+          "application/json",
+        );
+      } else {
+        const headers = [
+          "id","decision","prev_decision","quality_score","quality_badge",
+          "bronze_locked","recorded_at","recorded_by","inputs_json",
+        ];
+        const esc = (v: unknown) => {
+          const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const body = rows.map((r) =>
+          [r.id, r.decision, r.prev_decision, r.quality_score, r.quality_badge,
+           r.bronze_locked, r.recorded_at, r.recorded_by, r.inputs].map(esc).join(",")
+        ).join("\n");
+        downloadFile(
+          `gate-timeline-${packageId}-${stamp}.csv`,
+          headers.join(",") + "\n" + body,
+          "text/csv",
+        );
+      }
+      toast.dismiss(t);
+      toast.success(`${format.toUpperCase()}-Export bereit (${rows.length} Zeilen).`);
+    } catch (e: any) {
+      toast.dismiss(t);
+      toast.error(`Export fehlgeschlagen: ${e?.message ?? "Unbekannt"}`);
     }
   }
 
@@ -154,15 +163,33 @@ export default function GateHistoryDashboardPage() {
   });
 
   const timeline = useQuery({
-    queryKey: ["gate-timeline", packageId],
+    queryKey: [
+      "gate-timeline",
+      packageId,
+      timelineWindowDays,
+      laneFilter,
+      decisionFilter,
+      page,
+    ],
     queryFn: async () => {
-      if (!packageId) return [] as TimelineRow[];
+      if (!packageId) return { rows: [] as TimelineRow[], total: 0 };
       const { data, error } = await supabase.rpc(
-        "admin_get_gate_decision_package_timeline" as any,
-        { p_package_id: packageId, p_limit: 50 },
+        "admin_get_gate_decision_package_timeline_filtered" as any,
+        {
+          p_package_id: packageId,
+          p_window_days: timelineWindowDays,
+          p_lane: laneFilter === "all" ? null : laneFilter,
+          p_decision: decisionFilter === "all" ? null : decisionFilter,
+          p_limit: PAGE_SIZE,
+          p_offset: page * PAGE_SIZE,
+        },
       );
       if (error) throw error;
-      return (data ?? []) as TimelineRow[];
+      const rows = (data ?? []) as (TimelineRow & { total_rows: number })[];
+      return {
+        rows: rows.map(({ total_rows: _t, ...r }) => r),
+        total: Number(rows[0]?.total_rows ?? 0),
+      };
     },
     enabled: !!packageId,
   });
@@ -172,23 +199,19 @@ export default function GateHistoryDashboardPage() {
     new Set((drift.data ?? []).map((r) => r.decision)),
   );
 
-  const filteredTimeline = (timeline.data ?? []).filter((r) => {
-    const inputs = (r.inputs ?? {}) as Record<string, unknown>;
-    const lane = (inputs.lane as string | undefined) ?? "";
-    if (laneFilter !== "all" && lane !== laneFilter) return false;
-    if (decisionFilter !== "all" && r.decision !== decisionFilter) return false;
-    return true;
-  });
+  const filteredTimeline = timeline.data?.rows ?? [];
+  const totalRows = timeline.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
 
   const timelineLanes = Array.from(
     new Set(
-      (timeline.data ?? [])
+      filteredTimeline
         .map((r) => (r.inputs as Record<string, unknown> | null)?.lane as string | undefined)
         .filter(Boolean) as string[],
     ),
   );
   const timelineDecisions = Array.from(
-    new Set((timeline.data ?? []).map((r) => r.decision)),
+    new Set(filteredTimeline.map((r) => r.decision)),
   );
 
   return (
@@ -354,7 +377,7 @@ export default function GateHistoryDashboardPage() {
                 </Button>
                 <select
                   value={laneFilter}
-                  onChange={(e) => setLaneFilter(e.target.value)}
+                  onChange={(e) => { setLaneFilter(e.target.value); setPage(0); }}
                   className="h-8 text-xs border rounded-md px-2 bg-background"
                   data-testid="gate-history-lane-filter"
                   aria-label="Lane filter"
@@ -366,13 +389,23 @@ export default function GateHistoryDashboardPage() {
                 </select>
                 <select
                   value={decisionFilter}
-                  onChange={(e) => setDecisionFilter(e.target.value)}
+                  onChange={(e) => { setDecisionFilter(e.target.value); setPage(0); }}
                   className="h-8 text-xs border rounded-md px-2 bg-background"
                   aria-label="Decision filter"
                 >
                   <option value="all">Alle Decisions</option>
                   {timelineDecisions.map((d) => (
                     <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                <select
+                  value={timelineWindowDays}
+                  onChange={(e) => { setTimelineWindowDays(parseInt(e.target.value, 10)); setPage(0); }}
+                  className="h-8 text-xs border rounded-md px-2 bg-background"
+                  aria-label="Zeitfenster"
+                >
+                  {[7, 30, 90, 180, 365].map((d) => (
+                    <option key={d} value={d}>{d}d</option>
                   ))}
                 </select>
                 <div className="ml-auto flex gap-1">
@@ -459,6 +492,31 @@ export default function GateHistoryDashboardPage() {
                   ))}
                 </div>
               )}
+              {packageId && totalRows > 0 ? (
+                <div className="flex items-center justify-between mt-3 text-xs" data-testid="gate-history-pager">
+                  <div className="text-muted-foreground tabular-nums">
+                    {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalRows)} von {totalRows}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      disabled={page === 0 || timeline.isFetching}
+                    >
+                      ← Zurück
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                      disabled={page >= pageCount - 1 || timeline.isFetching}
+                    >
+                      Weiter →
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>

@@ -12,6 +12,7 @@ import { ExamPreview } from '@/components/dashboard/ExamPreview';
 import { BadgeHistory } from '@/components/dashboard/BadgeHistory';
 import { MasteryDashboardSection } from '@/features/mastery/components/MasteryDashboardSection';
 import { NextBestStepCard } from '@/features/mastery/components/NextBestStepCard';
+import { MasteryHistoryChart } from '@/features/mastery/components/MasteryHistoryChart';
 import { DailyHumorCard } from '@/components/dashboard/DailyHumorCard';
 import { HumorSettings } from '@/components/settings/HumorSettings';
 import { useSimulationGate } from '@/hooks/useExamReadiness';
@@ -110,8 +111,9 @@ export default function LearnerDashboard() {
         )}
 
         {enrollments[0]?.course_id && (
-          <div className="mb-6">
+          <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
             <NextBestStepCard courseId={enrollments[0].course_id} />
+            <MasteryHistoryChart courseId={enrollments[0].course_id} />
           </div>
         )}
 

@@ -3,7 +3,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { Brain, AlertTriangle, Target, Zap, Sparkles, Loader2 } from "lucide-react";
+import { Brain, AlertTriangle, Target, Zap, Sparkles, Loader2, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Step = {
   competency_id: string;
@@ -84,9 +85,45 @@ export function NextBestStepCard({ courseId, limit = 5 }: Props) {
                         <span className="text-sm font-medium truncate">
                           {s.competency_title}
                         </span>
-                        <Badge variant={meta.tone as any} className="text-[10px]">
-                          {meta.label}
-                        </Badge>
+                        <div className="flex items-center gap-1">
+                          <Badge variant={meta.tone as any} className="text-[10px]">
+                            {meta.label}
+                          </Badge>
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground hover:text-foreground"
+                                  aria-label="Warum diese Empfehlung?"
+                                  data-testid="next-best-step-why"
+                                >
+                                  <HelpCircle className="h-3.5 w-3.5" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs">
+                                <div className="text-xs space-y-1">
+                                  <div className="font-semibold">Warum?</div>
+                                  <div>{s.reason}</div>
+                                  {s.payload ? (
+                                    <ul className="text-[10px] text-muted-foreground space-y-0.5 pt-1 border-t">
+                                      {Object.entries(s.payload)
+                                        .filter(([k]) =>
+                                          ["days_since_practice", "samples_total", "misconception_tags"].includes(k),
+                                        )
+                                        .map(([k, v]) => (
+                                          <li key={k}>
+                                            <span className="font-mono">{k}:</span>{" "}
+                                            {Array.isArray(v) ? v.join(", ") || "—" : String(v)}
+                                          </li>
+                                        ))}
+                                    </ul>
+                                  ) : null}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                         {s.reason}
