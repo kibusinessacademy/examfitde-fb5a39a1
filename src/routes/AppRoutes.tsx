@@ -176,6 +176,8 @@ const ForensicsPage = lazyRetry(() => import('@/pages/admin/v2/ForensicsPage'));
 const SyntheticCohortPage = lazyRetry(() => import('@/pages/admin/v2/SyntheticCohortPage'));
 const PublishBlockerCockpitPage = lazyRetry(() => import('@/pages/admin/v2/PublishBlockerCockpitPage'));
 const AuditReportsPage = lazyRetry(() => import('@/pages/admin/v2/AuditReportsPage'));
+const AdminRolesPage = lazyRetry(() => import('@/pages/admin/v2/AdminRolesPage'));
+const AdminH5PUploadPage = lazyRetry(() => import('@/pages/admin/v2/AdminH5PUploadPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
