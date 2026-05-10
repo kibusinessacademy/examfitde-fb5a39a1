@@ -51,6 +51,7 @@ import { RecoveryPulseHistoryCard } from "@/components/admin/heal/cards/Recovery
 import { QualityGateDecisionsCard } from "@/components/admin/heal/cards/QualityGateDecisionsCard";
 import { OpsCancelSkipRiseCard } from "@/components/admin/heal/cards/OpsCancelSkipRiseCard";
 import { ArtifactCompletenessCard } from "@/components/admin/heal/cards/ArtifactCompletenessCard";
+import { LessonJoinParityCard } from "@/components/admin/heal/cards/LessonJoinParityCard";
 import { WorkerOutputBreakdownCard } from "@/components/admin/heal/cards/WorkerOutputBreakdownCard";
 import { PackageHealLogViewerCard } from "@/components/admin/heal/cards/PackageHealLogViewerCard";
 import { HealRunDrilldownCard } from "@/components/admin/heal/cards/HealRunDrilldownCard";
