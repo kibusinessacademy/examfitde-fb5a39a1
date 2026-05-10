@@ -231,6 +231,52 @@ const RULES = [
     severity: "warn",
     test: () => null, // Cross-file check — handled separately in main()
   },
+  {
+    // Markdown-rendering eats `*` in chat copy-paste. Detect leftover patterns.
+    id: "R15_markdown_stripped_multiply",
+    desc: "Markdown-Rendering hat vermutlich '*' geschluckt — z.B. '100.0  field', 'numeric  100', 'a)  b'. Bitte explizit '*' setzen.",
+    test: (s) => {
+      const violations = [];
+      // Pattern A: number  identifier  (e.g. "100.0  hb_published")
+      const reA = /\b\d+(?:\.\d+)?  +[a-z_][a-z0-9_.]*\b/gi;
+      // Pattern B: ::numeric  number   or   identifier::numeric  100
+      const reB = /::numeric  +\d/gi;
+      // Pattern C: closing-paren  number/identifier (e.g. ")  100")
+      const reC = /\)  +(?:\d+(?:\.\d+)?|[a-z_][a-z0-9_]*)\b/gi;
+      for (const re of [reA, reB, reC]) {
+        for (const m of s.matchAll(re)) {
+          violations.push(`possibly stripped '*' near offset ${m.index}: "${m[0].trim()}"`);
+        }
+      }
+      return violations.length ? violations : null;
+    },
+  },
+  {
+    id: "R16_count_alias_empty",
+    desc: "COUNT(alias.) ohne Spalte verboten — Markdown-Rendering hat '*' verschluckt. Nutze COUNT(alias.id) oder COUNT(*).",
+    test: (s) => {
+      const m = [...s.matchAll(/\bcount\s*\(\s*[a-z_][a-z0-9_]*\.\s*\)/gi)];
+      return m.length ? m.map((x) => `bad COUNT near offset ${x.index}: "${x[0]}"`) : null;
+    },
+  },
+  {
+    id: "R17_drop_view_dependency_hint",
+    desc: "DROP VIEW erkannt — Pre-Deploy pg_depend-Check empfohlen (warn).",
+    severity: "warn",
+    test: (s) => {
+      const violations = [];
+      const re = /\bDROP\s+VIEW\s+(?:IF\s+EXISTS\s+)?([\w.]+)/gi;
+      let m;
+      while ((m = re.exec(s))) {
+        // Skip if a 'CREATE VIEW <same>' follows in same file (pure replace)
+        const tail = s.slice(m.index);
+        const sameRecreate = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?VIEW\\s+${m[1].replace(/\./g, "\\.")}\\b`, "i");
+        if (sameRecreate.test(tail)) continue;
+        violations.push(`DROP VIEW ${m[1]} without same-file CREATE — verify pg_depend has no dependents`);
+      }
+      return violations.length ? violations : null;
+    },
+  },
 ];
 
 function lintFile(path) {
