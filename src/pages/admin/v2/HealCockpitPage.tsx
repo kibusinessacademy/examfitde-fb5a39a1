@@ -53,6 +53,7 @@ import { OpsCancelSkipRiseCard } from "@/components/admin/heal/cards/OpsCancelSk
 import { ArtifactCompletenessCard } from "@/components/admin/heal/cards/ArtifactCompletenessCard";
 import { WorkerOutputBreakdownCard } from "@/components/admin/heal/cards/WorkerOutputBreakdownCard";
 import { PackageHealLogViewerCard } from "@/components/admin/heal/cards/PackageHealLogViewerCard";
+import { HealRunDrilldownCard } from "@/components/admin/heal/cards/HealRunDrilldownCard";
 import { AutoPulseImpactCard } from "@/components/admin/heal/cards/AutoPulseImpactCard";
 import { BlockedReasonDetailCard } from "@/components/admin/heal/cards/BlockedReasonDetailCard";
 import { ControlLaneRequeueCard } from "@/components/admin/heal/cards/ControlLaneRequeueCard";
@@ -389,6 +390,7 @@ export default function HealCockpitPage() {
                 <ArtifactCompletenessCard />
                 <WorkerOutputBreakdownCard />
                 <PackageHealLogViewerCard />
+                <HealRunDrilldownCard />
                 <AutoPulseImpactCard />
                 <ControlLaneRequeueCard />
                 <QualityCouncilDriftCard />

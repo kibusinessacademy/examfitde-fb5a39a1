@@ -14,7 +14,14 @@ import { ClipboardCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-type GapItem = { gap: string; count: number };
+type GapItem = {
+  priority: number; gap: string; count: number;
+  severity: "critical" | "warn" | "info" | "ok";
+  recommended_action: string;
+  recommended_step: string | null;
+  reason: string;
+};
+type NextAction = { action?: string; reason?: string } & Partial<GapItem>;
 type PkgRow = {
   package_id: string;
   title: string;
@@ -25,7 +32,8 @@ type PkgRow = {
   exam: { approved: number; total: number; target: number; missing: number };
   handbook: { sections_total: number; sections_filled: number; missing: number };
   steps: { total: number; done: number; open: Array<{ step_key: string; status: string }> };
-  gaps: GapItem[];
+  prioritized_gaps: GapItem[];
+  next_action: NextAction;
 };
 
 export function ArtifactCompletenessCard() {
@@ -92,10 +100,10 @@ export function ArtifactCompletenessCard() {
                 {p.package_id.slice(0, 8)} · {p.status} · {p.build_progress}%
               </div>
             </div>
-            {p.gaps.length === 0 ? (
+            {p.prioritized_gaps.length === 0 ? (
               <Badge className="bg-emerald-500/15 text-emerald-700">VOLLSTÄNDIG</Badge>
             ) : (
-              <Badge variant="destructive">{p.gaps.length} GAP(S)</Badge>
+              <Badge variant="destructive">{p.prioritized_gaps.length} GAP(S)</Badge>
             )}
           </div>
 
@@ -114,17 +122,43 @@ export function ArtifactCompletenessCard() {
                     bad={p.steps.open.length > 0} />
           </div>
 
-          {p.gaps.length > 0 && (
+          {p.next_action && p.next_action.action !== "none" && p.next_action.recommended_action && (
+            <div className="mt-3 rounded border border-primary/30 bg-primary/5 p-2 text-xs">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge className="bg-primary/15 text-primary text-[10px]">NÄCHSTE AKTION</Badge>
+                <span className="font-mono text-[11px]">{p.next_action.recommended_action}</span>
+                {p.next_action.recommended_step && (
+                  <span className="text-muted-foreground font-mono text-[10px]">
+                    → {p.next_action.recommended_step}
+                  </span>
+                )}
+              </div>
+              <div className="text-muted-foreground">{p.next_action.reason}</div>
+            </div>
+          )}
+
+          {p.prioritized_gaps.length > 0 && (
             <div className="mt-2 text-xs">
-              <div className="font-semibold mb-1">Was fehlt:</div>
-              <ul className="space-y-0.5">
-                {p.gaps.map((g) => (
-                  <li key={g.gap} className="flex justify-between">
-                    <span>{g.gap}</span>
-                    <span className="font-mono text-destructive">{g.count}</span>
+              <div className="font-semibold mb-1">Priorisierte Gaps (Top→Bottom):</div>
+              <ol className="space-y-1">
+                {p.prioritized_gaps.map((g) => (
+                  <li key={g.gap} className="flex items-center gap-2 border rounded p-1.5 bg-background">
+                    <Badge variant="outline" className="text-[10px] w-6 justify-center">P{g.priority}</Badge>
+                    <Badge
+                      className={`text-[10px] ${
+                        g.severity === "critical" ? "bg-destructive/15 text-destructive" :
+                        g.severity === "warn" ? "bg-amber-500/15 text-amber-700" :
+                        "bg-muted text-muted-foreground"
+                      }`}
+                    >{g.severity}</Badge>
+                    <span className="flex-1 truncate">{g.gap}</span>
+                    <span className="font-mono font-semibold">{g.count}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground hidden md:inline">
+                      {g.recommended_step ?? g.recommended_action}
+                    </span>
                   </li>
                 ))}
-              </ul>
+              </ol>
             </div>
           )}
 
