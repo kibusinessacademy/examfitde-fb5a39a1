@@ -302,7 +302,7 @@ export default function PostPublishGrowthHealthCard() {
                       <div className="text-[10px] text-text-secondary uppercase tracking-wide mb-1">OPS_GUARD failures 24h</div>
                       <div className="h-[80px]">
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={trendChartData}>
+                          <LineChart data={trendChartData} onClick={handleChartClick} style={{ cursor: 'pointer' }}>
                             <XAxis dataKey="t" tick={false} hide />
                             <YAxis tick={{ fontSize: 9 }} width={24} />
                             <Tooltip contentStyle={{ fontSize: 11 }} />
