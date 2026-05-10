@@ -164,6 +164,7 @@ export default function GrowthPage() {
         <TabsContent value="songs" className="mt-4"><Suspense fallback={<Loading />}><SongsDashboard /></Suspense></TabsContent>
         <TabsContent value="humor" className="mt-4"><Suspense fallback={<Loading />}><HumorQCPage /></Suspense></TabsContent>
         <TabsContent value="intel" className="mt-4"><Suspense fallback={<Loading />}><MarketingIntelligencePanel /></Suspense></TabsContent>
+        <TabsContent value="fanout" className="mt-4"><Suspense fallback={<Loading />}><PostPublishGrowthFanoutCard /></Suspense></TabsContent>
       </Tabs>
     </div>
   );
