@@ -41,6 +41,10 @@ const REQUIRED = [
   "admin_delete_heal_alert_destination",
   "admin_get_heal_alert_notifications",
   "heal-alerts-dispatch-5min",
+  "fn_check_notification_delivery_health",
+  "admin_get_notification_delivery_health",
+  "notification-delivery-health-hourly",
+  "fn_simulate_parity_cron_guard",
 ];
 
 if (!fs.existsSync(MIG_DIR)) {
