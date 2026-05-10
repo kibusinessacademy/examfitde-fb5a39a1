@@ -1,6 +1,6 @@
 ---
-name: Post-Publish Growth Self-Heal v1 (Welle 3)
-description: fn_run_post_publish_growth_health_check(p_repair) erkennt Drift (blog/og/indexnow/sitemap/internal_links/campaign_assets/distribution) per published package + stuck pending>30min/processing>20min + OPS_GUARD failures 24h. 30min Cooldown via auto_heal_log, 25 repairs/run, idempotency_key growth_repair:{jt}:{pkg}:{YYYYMMDDHH}. admin_get_post_publish_growth_health (admin-gated SECURITY DEFINER) liefert Coverage+status+top_issues. Cron post-publish-growth-health-15min (jobid 214). CI guard scripts/guards/post-publish-growth-policies-guard.mjs prüft 8 Job-Types in job_type_policies + Worker-Mapping + SSOT-Whitelist. UI PostPublishGrowthHealthCard im Fanout-Tab.
+name: Post-Publish Growth Self-Heal v1.1 (Welle 3 + 3.1 Hardening)
+description: fn_run_post_publish_growth_health_check(p_repair,p_limit=25,p_job_type) — chunked CTE statt TEMP TABLE, Anti-Join Cooldown + LIMIT vor Loop. Detect 90ms / Repair 1.5–2.6s (gemessen 142 published × 7 Artefakt-Typen, 674 Drift). Partial-Index idx_auto_heal_log_growth_repair WHERE action_type LIKE 'post_publish_growth_repair:%'. 30min Cooldown via auto_heal_log, 25 repairs/run cap, idempotency_key growth_repair:{jt}:{pkg}:{YYYYMMDDHH}. admin_get_post_publish_growth_health + admin_run_post_publish_growth_repair(p_repair,p_limit,p_job_type) admin-gated. Cron post-publish-growth-health-15min (jobid 214). CI guard scripts/guards/post-publish-growth-policies-guard.mjs (npm run guard:growth-policies + workflow post-publish-growth-policies-guard.yml). UI PostPublishGrowthHealthCard im Fanout-Tab.
 type: feature
 ---
 
