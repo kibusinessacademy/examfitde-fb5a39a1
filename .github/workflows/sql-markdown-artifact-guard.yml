@@ -1,0 +1,35 @@
+name: SQL Markdown-Artifact Guard
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**.sql'
+      - 'scripts/guards/sql-markdown-artifact-guard.mjs'
+  push:
+    paths:
+      - 'supabase/migrations/**.sql'
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Detect changed migrations
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(git diff --name-only --diff-filter=AM \
+              "${{ github.event.pull_request.base.sha }}" \
+              "${{ github.event.pull_request.head.sha }}" \
+              -- 'supabase/migrations/**.sql' | tr '\n' ',' | sed 's/,$//')
+          else
+            CHANGED=$(git diff --name-only --diff-filter=AM HEAD~1 HEAD \
+              -- 'supabase/migrations/**.sql' | tr '\n' ',' | sed 's/,$//')
+          fi
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+      - name: Run guard
+        env:
+          CHANGED_MIGRATION_FILES: ${{ steps.diff.outputs.changed }}
+        run: node scripts/guards/sql-markdown-artifact-guard.mjs
