@@ -5,6 +5,7 @@ import { useProductPageSSOT } from '@/hooks/useProductPageSSOT';
 import { useResolvePaywall } from '@/hooks/useResolvePaywall';
 import { ProductPageTemplate } from '@/components/product/ProductPageTemplate';
 import { trackEvent } from '@/lib/tracking/track';
+import { trackFunnel } from '@/lib/conversionTracking';
 
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
