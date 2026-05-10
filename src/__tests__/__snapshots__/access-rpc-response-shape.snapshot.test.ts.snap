@@ -1,0 +1,57 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Access-RPC response-shape contract > can_access_product: fields + reason-codes match snapshot 1`] = `
+{
+  "fields": [],
+  "fn": "can_access_product",
+  "reason_codes": [],
+}
+`;
+
+exports[`Access-RPC response-shape contract > check_product_access_by_curriculum: fields + reason-codes match snapshot 1`] = `
+{
+  "fields": [],
+  "fn": "check_product_access_by_curriculum",
+  "reason_codes": [],
+}
+`;
+
+exports[`Access-RPC response-shape contract > has_storage_entitlement: fields + reason-codes match snapshot 1`] = `
+{
+  "fields": [],
+  "fn": "has_storage_entitlement",
+  "reason_codes": [],
+}
+`;
+
+exports[`Access-RPC response-shape contract > known reason-code vocabulary stays stable 1`] = `
+[
+  "admin",
+  "no_entitlement",
+  "ok",
+  "rate_limit",
+  "unauthenticated",
+]
+`;
+
+exports[`Access-RPC response-shape contract > tutor_access_check: fields + reason-codes match snapshot 1`] = `
+{
+  "fields": [
+    "allowed",
+    "limit",
+    "ok",
+    "rate_limit",
+    "reason",
+    "source",
+    "used",
+  ],
+  "fn": "tutor_access_check",
+  "reason_codes": [
+    "admin",
+    "no_entitlement",
+    "ok",
+    "rate_limit",
+    "unauthenticated",
+  ],
+}
+`;
