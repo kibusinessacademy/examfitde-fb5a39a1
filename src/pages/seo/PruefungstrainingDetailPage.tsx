@@ -59,6 +59,10 @@ const PruefungstrainingDetailPage = () => {
       .slice(0, 6);
   }, [cert, catalog]);
 
+  const { data: pkgCtx } = useResolvePackageContext({
+    certificationId: cert?.id ?? null,
+  });
+
   useEffect(() => {
     if (cert) {
       trackConversion({ event: 'product_view', source: 'product_page', label: cert.slug });
@@ -68,6 +72,19 @@ const PruefungstrainingDetailPage = () => {
       });
     }
   }, [cert?.slug]);
+
+  // SSOT pricing_view → conversion_events (mit package_id sobald resolved).
+  // Einmal pro Paket-Auflösung; vor funnel-loss-detector entscheidend.
+  useEffect(() => {
+    if (!cert || !pkgCtx?.package_id) return;
+    trackFunnel('pricing_view', {
+      package_id: pkgCtx.package_id,
+      curriculum_id: pkgCtx.curriculum_id,
+      persona: pkgCtx.persona,
+      source_page: `/pruefungstraining/${cert.slug}`,
+      metadata: { cert_slug: cert.slug, cert_id: cert.id },
+    });
+  }, [cert?.id, pkgCtx?.package_id]);
 
   if (isCategory) return <PruefungstrainingCategoryPage />;
 
