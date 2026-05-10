@@ -96,6 +96,10 @@ const PREBUILD_JOB_TYPES = new Set([
 ]);
 
 export function allowedPackageStatusesForJobType(jobType: string): Set<string> {
+  if (canRunOnPublishedPackage(jobType)) {
+    return new Set(["building", "blocked", "quality_gate_failed", "published"]);
+  }
+
   if (COUNCIL_JOB_TYPES.has(jobType)) {
     return new Set(["building", "council_review", "quality_gate_failed"]);
   }
