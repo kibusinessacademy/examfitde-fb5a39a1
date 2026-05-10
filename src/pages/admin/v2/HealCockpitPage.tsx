@@ -50,6 +50,9 @@ import { WorkerThroughputForensicsCard } from "@/components/admin/heal/cards/Wor
 import { RecoveryPulseHistoryCard } from "@/components/admin/heal/cards/RecoveryPulseHistoryCard";
 import { QualityGateDecisionsCard } from "@/components/admin/heal/cards/QualityGateDecisionsCard";
 import { OpsCancelSkipRiseCard } from "@/components/admin/heal/cards/OpsCancelSkipRiseCard";
+import { ArtifactCompletenessCard } from "@/components/admin/heal/cards/ArtifactCompletenessCard";
+import { WorkerOutputBreakdownCard } from "@/components/admin/heal/cards/WorkerOutputBreakdownCard";
+import { PackageHealLogViewerCard } from "@/components/admin/heal/cards/PackageHealLogViewerCard";
 import { AutoPulseImpactCard } from "@/components/admin/heal/cards/AutoPulseImpactCard";
 import { BlockedReasonDetailCard } from "@/components/admin/heal/cards/BlockedReasonDetailCard";
 import { ControlLaneRequeueCard } from "@/components/admin/heal/cards/ControlLaneRequeueCard";
