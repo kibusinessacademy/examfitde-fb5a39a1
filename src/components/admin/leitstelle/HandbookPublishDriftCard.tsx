@@ -19,6 +19,23 @@ import { BookOpen, AlertTriangle, CheckCircle2, PlayCircle, Loader2, Undo2, Flas
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+/**
+ * Canonical 42501 / forbidden detector — covers PostgREST error shapes
+ * (code === '42501', status 401/403, and German/English message variants).
+ */
+export function isForbiddenError(e: any): boolean {
+  if (!e) return false;
+  if (e.code === '42501') return true;
+  if (typeof e.status === 'number' && (e.status === 401 || e.status === 403)) return true;
+  const msg = String(e?.message ?? '') + ' ' + String(e?.details ?? '') + ' ' + String(e?.hint ?? '');
+  return /\b(42501|forbidden|permission\s*denied|not\s*authorized|unauthor[is]z?ed)\b/i.test(msg);
+}
+
+/** Canonical German "verweigert"-Message, identisch über alle Aktionen. */
+export function forbiddenMessage(action: 'Smoke' | 'Backfill' | 'Rollback'): string {
+  return `${action} verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff. Bitte als Admin einloggen.`;
+}
+
 type Offender = {
   package_id: string; package_title: string;
   track: string; allowed: boolean; required: boolean;
