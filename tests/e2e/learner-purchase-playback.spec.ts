@@ -68,6 +68,30 @@ test.describe("Käufer Playback Golden Path", () => {
   test("Login → Dashboard → Lesson → MiniCheck → Exam → Tutor → Oral → PDF", async ({
     page,
   }) => {
+    // Capture network reasons across the whole journey to catch silent
+    // entitlement-only fallbacks (no_entitlement should NEVER surface for a
+    // grant-aware buyer).
+    const reasonHits: Array<{ url: string; reason: string }> = [];
+    page.on("response", async (resp) => {
+      const url = resp.url();
+      if (
+        !/tutor_access_check|check_product_access|has_storage_entitlement|can_access_product|storage-signed-url|ai-tutor/i.test(
+          url,
+        )
+      )
+        return;
+      try {
+        const ct = resp.headers()["content-type"] || "";
+        if (!ct.includes("json")) return;
+        const body = await resp.json().catch(() => null);
+        const txt = JSON.stringify(body || {});
+        const m = txt.match(/"reason"\s*:\s*"([^"]+)"/);
+        if (m) reasonHits.push({ url, reason: m[1] });
+      } catch {
+        /* ignore */
+      }
+    });
+
     // 1) Login
     await login(page);
 
