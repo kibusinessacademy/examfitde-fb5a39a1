@@ -105,7 +105,14 @@ export function HandbookPublishDriftCard() {
       if (res?.pass) toast.success(`Smoke OK · ${(res?.results ?? []).length} Tests bestanden`);
       else toast.error(`Smoke FAILED · ${failed.length} Tests fehlgeschlagen`);
     },
-    onError: (e: any) => toast.error(`Smoke-Fehler: ${e?.message ?? 'unbekannt'}`),
+    onError: (e: any) => {
+      const msg = String(e?.message ?? '');
+      if (/forbidden|permission denied|42501/i.test(msg)) {
+        toast.error('Smoke verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff. Bitte als Admin einloggen.');
+      } else {
+        toast.error(`Smoke-Fehler: ${msg || 'unbekannt'}`);
+      }
+    },
   });
 
   if (isLoading) {
