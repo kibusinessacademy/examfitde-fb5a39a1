@@ -44,6 +44,19 @@ const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<strin
       "heal-alert-notify": JSON.stringify({ source: "cron" }),
     },
   },
+  // Post-Publish Growth Orchestration v1 — Phase 2 (Sitemap + IndexNow)
+  "seo-indexnow": {
+    functions: ["seo-submit-indexnow"],
+    bodies: {
+      "seo-submit-indexnow": JSON.stringify({ source: "cron", drain: true }),
+    },
+  },
+  "seo-retry": {
+    functions: ["seo-retry-failed-submissions"],
+    bodies: {
+      "seo-retry-failed-submissions": JSON.stringify({ source: "cron" }),
+    },
+  },
   daily: {
     functions: ["curriculum-discovery", "regulatory-monitor"],
     bodies: {
