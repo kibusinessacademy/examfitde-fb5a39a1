@@ -72,12 +72,8 @@ export function HandbookPublishDriftCard() {
       refetch();
     },
     onError: (e: any) => {
-      const msg = String(e?.message ?? '');
-      if (/forbidden|permission denied|42501/i.test(msg)) {
-        toast.error('Backfill verweigert: Admin-/service-role-Rechte erforderlich.');
-      } else {
-        toast.error(`Fehler: ${msg || 'unbekannt'}`);
-      }
+      if (isForbiddenError(e)) toast.error(forbiddenMessage('Backfill'));
+      else toast.error(`Fehler: ${String(e?.message ?? 'unbekannt')}`);
     },
   });
 
@@ -98,12 +94,8 @@ export function HandbookPublishDriftCard() {
       refetch();
     },
     onError: (e: any) => {
-      const msg = String(e?.message ?? '');
-      if (/forbidden|permission denied|42501/i.test(msg)) {
-        toast.error('Rollback verweigert: Admin-/service-role-Rechte erforderlich.');
-      } else {
-        toast.error(`Rollback fehlgeschlagen: ${msg || 'unbekannt'}`);
-      }
+      if (isForbiddenError(e)) toast.error(forbiddenMessage('Rollback'));
+      else toast.error(`Rollback fehlgeschlagen: ${String(e?.message ?? 'unbekannt')}`);
     },
   });
 
@@ -120,12 +112,8 @@ export function HandbookPublishDriftCard() {
       else toast.error(`Smoke FAILED · ${failed.length} Tests fehlgeschlagen`);
     },
     onError: (e: any) => {
-      const msg = String(e?.message ?? '');
-      if (/forbidden|permission denied|42501/i.test(msg)) {
-        toast.error('Smoke verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff. Bitte als Admin einloggen.');
-      } else {
-        toast.error(`Smoke-Fehler: ${msg || 'unbekannt'}`);
-      }
+      if (isForbiddenError(e)) toast.error(forbiddenMessage('Smoke'));
+      else toast.error(`Smoke-Fehler: ${String(e?.message ?? 'unbekannt')}`);
     },
   });
 
