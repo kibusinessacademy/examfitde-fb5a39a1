@@ -31,7 +31,7 @@ const MIG_DIR = "supabase/migrations";
 const BASELINE_PATH = "scripts/guards/access-rpc-grants-aware-baseline.json";
 
 const ACCESS_NAME_RE =
-  /\b(check_[a-z_]*access[a-z_]*|can_access_[a-z_]+|has_[a-z_]*entitlement[a-z_]*|tutor_access_check|[a-z_]*_access_check)\b/g;
+  /\b(check_[a-z_]*access[a-z_]*|can_access_[a-z_]+|has_[a-z_]*entitlement[a-z_]*|tutor_access_check|[a-z_]*_access_check|[a-z_]*_is_allowed|fn_[a-z_]*access[a-z_]*|grant_[a-z_]*access[a-z_]*)\b/g;
 
 const SSOT_DELEGATES = [
   "check_product_access_by_curriculum",
