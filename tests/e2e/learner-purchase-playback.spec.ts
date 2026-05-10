@@ -221,19 +221,38 @@ test.describe("Käufer Playback Golden Path", () => {
       false,
     );
 
-    // 9) PDF / Handbuch
+    // 9) PDF / Handbuch — fetch signed URL and assert HTTP 200
     await page.goto(`${BASE_URL}/handbook`, {
       waitUntil: "domcontentloaded",
     });
     const pdfLink = page
       .locator(
-        'a[href*=".pdf"], a:has-text("Handbuch"), a:has-text("PDF"), [data-testid="handbook-download"]',
+        'a[href*=".pdf"], a[href*="signed"], a:has-text("Handbuch"), a:has-text("PDF"), [data-testid="handbook-download"]',
       )
       .first();
     if (await pdfLink.isVisible({ timeout: 5_000 }).catch(() => false)) {
       const href = await pdfLink.getAttribute("href").catch(() => null);
-      // Signed-URL oder PDF-Pfad — darf jedenfalls nicht leer sein
-      expect(href && href.length > 0).toBeTruthy();
+      expect(href && href.length > 0, "PDF-Link href fehlt").toBeTruthy();
+      if (href && /^https?:\/\//.test(href)) {
+        const resp = await page.request.get(href);
+        expect(
+          resp.status(),
+          `PDF signed URL HTTP-Status (${href}) muss 200 sein`,
+        ).toBe(200);
+        const ct = resp.headers()["content-type"] || "";
+        expect(
+          /pdf|octet-stream/i.test(ct),
+          `PDF Content-Type unerwartet: ${ct}`,
+        ).toBeTruthy();
+      }
     }
+
+    // 10) Final assertion — kein no_entitlement reason in irgendeiner
+    // Access-RPC-Response während des gesamten Käufer-Pfads
+    const noEnt = reasonHits.filter((h) => h.reason === "no_entitlement");
+    expect(
+      noEnt,
+      `Käufer darf keine 'no_entitlement' reason erhalten. Treffer: ${JSON.stringify(noEnt)}`,
+    ).toHaveLength(0);
   });
 });
