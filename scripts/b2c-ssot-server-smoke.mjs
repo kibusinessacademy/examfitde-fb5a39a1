@@ -33,6 +33,10 @@ const baseBody = {
 
 async function runMode(mode) {
   const body = { ...baseBody, mode };
+  if (mode === 'access_e2e') {
+    if (process.env.SMOKE_ACCESS_DROP_ENTITLEMENT === 'true') body.drop_entitlement = true;
+    if (process.env.SMOKE_ACCESS_DRIFT_DENY !== 'false') body.assert_drift_denies = true;
+  }
   console.log(`\n[server-smoke] === MODE: ${mode} ===`);
   const res = await fetch(`${SUPABASE_URL}/functions/v1/b2c-ssot-smoke`, {
     method: 'POST',
