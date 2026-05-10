@@ -37,6 +37,7 @@ type Health = {
 };
 
 type TrendRow = {
+  id: string;
   run_at: string;
   status: string;
   total_published: number;
@@ -50,6 +51,11 @@ type TrendRow = {
   stuck_pending_count: number;
   stuck_processing_count: number;
   ops_guard_growth_failures_24h: number;
+  top_issues?: { label: string; missing_count: number }[];
+};
+
+type SnapshotDetail = TrendRow & {
+  top_issues: { label: string; missing_count: number }[];
 };
 
 const COVERAGE_ROWS: { key: keyof Health; label: string }[] = [
