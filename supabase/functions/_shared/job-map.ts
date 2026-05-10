@@ -294,7 +294,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   pool_fill_trap_gaps:               { pool: "default", edgeFunction: "pool-fill-lf-gaps" },
   package_exam_rebalance:            { pool: "default", edgeFunction: "package-exam-rebalance" },
   package_repair_minichecks:         { pool: "default", edgeFunction: "package-generate-lesson-minichecks" },
-  package_repair_lesson_minichecks:  { pool: "default", edgeFunction: "package-repair-lesson-minichecks" },
+  package_repair_lesson_minichecks:  { pool: "content", edgeFunction: "package-repair-lesson-minichecks" },
   lesson_generate_content:           { pool: "default", edgeFunction: "lesson-generate-content" },
   lesson_generate_competency_bundle: { pool: "default", edgeFunction: "lesson-generate-competency-bundle" },
   package_generate_exam_pool:        { pool: "default", edgeFunction: "package-generate-exam-pool" },
