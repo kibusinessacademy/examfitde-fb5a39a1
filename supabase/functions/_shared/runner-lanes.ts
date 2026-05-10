@@ -280,6 +280,7 @@ export const ESTIMATED_RUNTIME_SECONDS: Record<string, number> = {
   package_validate_handbook_depth: 8,
   package_elite_harden: 20,
   package_repair_exam_pool_quality: 18,
+  package_repair_lesson_minichecks: 6,
   package_repair_exam_pool_lf_coverage: 8,
   package_repair_exam_pool_competency_coverage: 8,
   package_repair_hardish_balance: 8,
