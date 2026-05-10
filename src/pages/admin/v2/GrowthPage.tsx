@@ -168,6 +168,7 @@ export default function GrowthPage() {
         <TabsContent value="intel" className="mt-4"><Suspense fallback={<Loading />}><MarketingIntelligencePanel /></Suspense></TabsContent>
         <TabsContent value="fanout" className="mt-4 space-y-4">
           <Suspense fallback={<Loading />}><PostPublishGrowthHealthCard /></Suspense>
+          <Suspense fallback={<Loading />}><GrowthQualityScoreCard /></Suspense>
           <Suspense fallback={<Loading />}><PostPublishGrowthFanoutCard /></Suspense>
         </TabsContent>
       </Tabs>
