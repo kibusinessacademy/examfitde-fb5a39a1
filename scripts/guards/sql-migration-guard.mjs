@@ -374,6 +374,36 @@ async function runShadowReplay(changedFiles) {
       const isChanged = changedSet.has(resolve(f));
       const tag = isChanged ? "🟡 CHANGED" : "  prior  ";
       try {
+        // Pre-DROP dependency probe (CHANGED files only) — fail fast if a
+        // DROP VIEW would break dependents that the migration does not also
+        // recreate. Mirrors the manual pg_depend check.
+        if (isChanged) {
+          const dropRe = /\bDROP\s+VIEW\s+(?:IF\s+EXISTS\s+)?([\w.]+)/gi;
+          let dm;
+          while ((dm = dropRe.exec(stripCommentsAndStrings(sql)))) {
+            const viewName = dm[1];
+            const recreateRe = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?VIEW\\s+${viewName.replace(/\./g, "\\.")}\\b`, "i");
+            const willRecreate = recreateRe.test(sql);
+            try {
+              const r = await client.query(
+                `SELECT dn.nspname||'.'||dv.relname AS dep
+                   FROM pg_depend d
+                   JOIN pg_rewrite r ON r.oid = d.objid
+                   JOIN pg_class dv ON dv.oid = r.ev_class
+                   JOIN pg_namespace dn ON dn.oid = dv.relnamespace
+                  WHERE d.refobjid = $1::regclass
+                    AND dv.relname <> split_part($2, '.', array_length(string_to_array($2,'.'),1))`,
+                [viewName, viewName],
+              );
+              if (r.rows.length && !willRecreate) {
+                console.error(`  ✖ pre-drop dependency check failed for ${viewName}: ${r.rows.map((x) => x.dep).join(", ")}`);
+                return { ran: true, ok: false, error: `dependents on ${viewName}`, file: rel };
+              }
+            } catch {
+              /* view does not exist yet in shadow — ignore */
+            }
+          }
+        }
         if (perFileRollback) {
           await client.query("BEGIN");
           await client.query(sql);
