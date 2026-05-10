@@ -70,6 +70,7 @@ const RECOVERY_JOB_TYPES = new Set([
   "package_repair_exam_pool_competency_coverage",
   "package_repair_hardish_balance",
   "package_repair_minichecks",
+  "package_repair_lesson_minichecks",
   "package_repair_failed_lessons",
   "repair_learning_content",
   "regenerate_learning_content_cluster",
