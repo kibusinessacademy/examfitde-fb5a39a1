@@ -484,25 +484,36 @@ const HANDLERS: Record<string, (sb: any, pkg: any) => Promise<Outcome>> = {
 
 // ── Drain loop ────────────────────────────────────────────────────
 async function drainOnce(sb: any) {
-  const leaseUntil = new Date(Date.now() + LEASE_MINUTES * 60 * 1000).toISOString();
+  // Step 1: select pending job IDs
+  const { data: candidates, error: selErr } = await sb
+    .from("job_queue")
+    .select("id")
+    .in("job_type", HANDLED_JOB_TYPES)
+    .eq("status", "pending")
+    .lte("run_after", new Date().toISOString())
+    .order("created_at", { ascending: true })
+    .limit(MAX_JOBS_PER_RUN);
 
-  // Claim a small batch atomically: pending → processing
+  if (selErr) {
+    console.error("[post-publish-growth-worker] select error:", selErr);
+    return { claimed: 0, results: [] as any[] };
+  }
+  if (!candidates || candidates.length === 0) {
+    return { claimed: 0, results: [] as any[] };
+  }
+  const ids = candidates.map((r: any) => r.id);
+
+  // Step 2: claim them (status=processing). Re-check status to avoid lost-race double-claim.
   const { data: claimed, error: claimErr } = await sb
     .from("job_queue")
     .update({
       status: "processing",
       started_at: new Date().toISOString(),
-      lease_until: leaseUntil,
+      locked_at: new Date().toISOString(),
+      locked_by: "post-publish-growth-worker",
     })
-    .in("id", (await sb
-      .from("job_queue")
-      .select("id")
-      .in("job_type", HANDLED_JOB_TYPES)
-      .eq("status", "pending")
-      .lte("run_after", new Date().toISOString())
-      .order("created_at", { ascending: true })
-      .limit(MAX_JOBS_PER_RUN)
-    ).data?.map((r: any) => r.id) ?? [])
+    .in("id", ids)
+    .eq("status", "pending")
     .select("id, job_type, payload");
 
   if (claimErr) {
