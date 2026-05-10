@@ -233,20 +233,22 @@ const RULES = [
   },
   {
     // Markdown-rendering eats `*` in chat copy-paste. Detect leftover patterns.
+    // Hyper-specific to avoid column-alignment false positives.
     id: "R15_markdown_stripped_multiply",
-    desc: "Markdown-Rendering hat vermutlich '*' geschluckt — z.B. '100.0  field', 'numeric  100', 'a)  b'. Bitte explizit '*' setzen.",
+    desc: "Markdown-Rendering hat vermutlich '*' geschluckt — z.B. '100.0  field', '::numeric  100'. Bitte explizit '*' setzen.",
     test: (s) => {
       const violations = [];
-      // Pattern A: number  identifier  (e.g. "100.0  hb_published")
-      const reA = /\b\d+(?:\.\d+)?  +[a-z_][a-z0-9_.]*\b/gi;
-      // Pattern B: ::numeric  number   or   identifier::numeric  100
-      const reB = /::numeric  +\d/gi;
-      // Pattern C: closing-paren  number/identifier (e.g. ")  100")
-      const reC = /\)  +(?:\d+(?:\.\d+)?|[a-z_][a-z0-9_]*)\b/gi;
-      for (const re of [reA, reB, reC]) {
-        for (const m of s.matchAll(re)) {
-          violations.push(`possibly stripped '*' near offset ${m.index}: "${m[0].trim()}"`);
-        }
+      // Pattern A: decimal literal followed by 2+ spaces and identifier,
+      // NOT followed by an SQL keyword/punct that would explain alignment.
+      const reA = /\b\d+\.\d+  +([a-z_][a-z0-9_]*)\b/gi;
+      for (const m of s.matchAll(reA)) {
+        const next = m[1].toLowerCase();
+        if (["as", "from", "where", "and", "or", "then", "else", "end", "when", "is"].includes(next)) continue;
+        violations.push(`possibly stripped '*' near offset ${m.index}: "${m[0].trim()}"`);
+      }
+      // Pattern B: ::numeric  <number>  (very rarely legit)
+      for (const m of s.matchAll(/::numeric  +\d/gi)) {
+        violations.push(`possibly stripped '*' near offset ${m.index}: "${m[0].trim()}"`);
       }
       return violations.length ? violations : null;
     },
