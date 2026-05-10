@@ -207,14 +207,24 @@ export function HandbookPublishDriftCard() {
               <div key={track} className="rounded-lg border border-border p-2 text-[11px] leading-snug">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-medium text-foreground">{track}</span>
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] h-4 px-1.5 ${
-                      p.allowed ? 'border-success/30 text-success' : 'border-muted-foreground/30 text-muted-foreground'
-                    }`}
-                  >
-                    {p.allowed ? 'allowed' : 'disallowed'}
-                  </Badge>
+                  <div className="flex gap-1">
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] h-4 px-1.5 ${
+                        p.allowed ? 'border-success/30 text-success' : 'border-muted-foreground/30 text-muted-foreground'
+                      }`}
+                    >
+                      {p.allowed ? 'allowed' : 'disallowed'}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] h-4 px-1.5 ${
+                        p.required ? 'border-primary/30 text-primary' : 'border-muted-foreground/30 text-muted-foreground'
+                      }`}
+                    >
+                      {p.required ? 'required' : 'optional'}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="mt-1 text-muted-foreground font-mono break-words">
                   {p.gates.join(' · ')}
@@ -227,33 +237,57 @@ export function HandbookPublishDriftCard() {
         {offenders.length > 0 && (
           <div className="space-y-1">
             <div className="text-xs font-medium text-foreground">Top Offenders</div>
-            <div className="rounded-lg border border-border divide-y divide-border max-h-64 overflow-auto">
-              {offenders.map((o) => (
-                <div key={o.package_id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-foreground">{o.package_title}</div>
-                    <div className="text-[10px] text-muted-foreground font-mono truncate">
-                      {o.blocker_reason} · {o.published_count}/{o.publishable_count} published
+            <div className="rounded-lg border border-border overflow-hidden">
+              <div className="grid grid-cols-12 gap-1 px-3 py-1.5 text-[10px] font-mono text-muted-foreground bg-muted/30 border-b border-border">
+                <div className="col-span-4">Paket</div>
+                <div className="col-span-2">Track</div>
+                <div className="col-span-1 text-center">Allow</div>
+                <div className="col-span-1 text-center">Req</div>
+                <div className="col-span-2 text-center">Pub / Pubable</div>
+                <div className="col-span-2 text-right">Aktion</div>
+              </div>
+              <div className="divide-y divide-border max-h-64 overflow-auto">
+                {offenders.map((o) => (
+                  <div key={o.package_id} className="grid grid-cols-12 gap-1 px-3 py-1.5 text-xs items-center">
+                    <div className="col-span-4 min-w-0">
+                      <div className="truncate font-medium text-foreground">{o.package_title}</div>
+                      <div className="text-[10px] text-muted-foreground font-mono truncate">{o.blocker_reason}</div>
+                    </div>
+                    <div className="col-span-2 text-[10px] font-mono text-muted-foreground truncate">{o.track}</div>
+                    <div className="col-span-1 text-center">
+                      <Badge variant="outline" className={`text-[9px] h-4 px-1 ${o.allowed ? 'border-success/30 text-success' : 'border-muted-foreground/30 text-muted-foreground'}`}>
+                        {o.allowed ? 'Y' : 'N'}
+                      </Badge>
+                    </div>
+                    <div className="col-span-1 text-center">
+                      <Badge variant="outline" className={`text-[9px] h-4 px-1 ${o.required ? 'border-primary/30 text-primary' : 'border-muted-foreground/30 text-muted-foreground'}`}>
+                        {o.required ? 'Y' : 'N'}
+                      </Badge>
+                    </div>
+                    <div className="col-span-2 text-center text-[11px] tabular-nums font-mono">
+                      <span className="text-foreground">{o.published_count}</span>
+                      <span className="text-muted-foreground"> / </span>
+                      <span className="text-warning">{o.publishable_count}</span>
+                    </div>
+                    <div className="col-span-2 flex justify-end gap-1">
+                      <Button
+                        size="sm" variant="ghost" className="h-6 px-2 text-[10px]"
+                        disabled={backfill.isPending}
+                        onClick={() => backfill.mutate({ dryRun: false, packageId: o.package_id })}
+                      >
+                        Heal
+                      </Button>
+                      <Button
+                        size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-destructive"
+                        disabled={rollback.isPending || o.published_count === 0}
+                        onClick={() => { setRollbackReason(''); setConfirmOpen({ kind: 'rollback', pkg: o }); }}
+                      >
+                        <Undo2 className="h-3 w-3 mr-1" />Rollback
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm" variant="ghost" className="h-6 px-2 text-[10px]"
-                      disabled={backfill.isPending}
-                      onClick={() => backfill.mutate({ dryRun: false, packageId: o.package_id })}
-                    >
-                      Heal
-                    </Button>
-                    <Button
-                      size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-destructive"
-                      disabled={rollback.isPending || o.published_count === 0}
-                      onClick={() => { setRollbackReason(''); setConfirmOpen({ kind: 'rollback', pkg: o }); }}
-                    >
-                      <Undo2 className="h-3 w-3 mr-1" />Rollback
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
