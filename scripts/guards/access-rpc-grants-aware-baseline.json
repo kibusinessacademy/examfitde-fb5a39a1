@@ -1,3 +1,4 @@
 [
-  "check_unified_access"
+  "check_unified_access",
+  "fn_run_access_ssot_drift_heal"
 ]

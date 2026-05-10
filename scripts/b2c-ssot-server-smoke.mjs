@@ -33,6 +33,10 @@ const baseBody = {
 
 async function runMode(mode) {
   const body = { ...baseBody, mode };
+  if (mode === 'access_e2e') {
+    if (process.env.SMOKE_ACCESS_DROP_ENTITLEMENT === 'true') body.drop_entitlement = true;
+    if (process.env.SMOKE_ACCESS_DRIFT_DENY !== 'false') body.assert_drift_denies = true;
+  }
   console.log(`\n[server-smoke] === MODE: ${mode} ===`);
   const res = await fetch(`${SUPABASE_URL}/functions/v1/b2c-ssot-smoke`, {
     method: 'POST',
@@ -67,6 +71,14 @@ async function runMode(mode) {
     if (b?.tutor?.reason === 'no_entitlement') failures.push(`tutor reason=no_entitlement`);
     if (b?.storage !== true) failures.push(`storage!=true`);
     if (b?.product !== true) failures.push(`product!=true`);
+    // Optional drift-deny assertion (when SMOKE_ACCESS_DRIFT_DENY=true)
+    if (json.drift_denied) {
+      const d = json.drift_denied;
+      for (const f of feats) if (d[f] !== false) failures.push(`drift_deny ${f} expected=false got=${d[f]}`);
+      if (d?.tutor?.allowed === true) failures.push(`drift_deny tutor still allowed`);
+      if (d?.storage !== false) failures.push(`drift_deny storage expected=false`);
+      if (d?.product !== false) failures.push(`drift_deny product expected=false`);
+    }
   }
   return { ok: json.ok && failures.length === 0, mode, failures, order_id: json.order_id };
 }

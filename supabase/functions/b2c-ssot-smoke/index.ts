@@ -790,6 +790,51 @@ async function runAccessE2eMode(sb: any, body: any, log: (...m: unknown[]) => vo
     grantOnly = await assertFeatureAccess("grant_only");
   }
 
+  // Optional: NEGATIVE assertion — drop BOTH grant AND entitlement and verify
+  // all gates DENY. Proves the access functions are not fail-open and that
+  // can_access_product / tutor_access_check / has_storage_entitlement correctly
+  // reject when neither source is present.
+  let driftDenied: Record<string, any> | null = null;
+  if (body.assert_drift_denies === true) {
+    await sb.from("entitlements")
+      .delete()
+      .eq("user_id", userId)
+      .eq("curriculum_id", curriculumId)
+      .eq("source_ref", orderId);
+    await sb.from("learner_course_grants")
+      .delete()
+      .eq("user_id", userId)
+      .eq("order_id", orderId);
+    await new Promise((r) => setTimeout(r, 200));
+
+    const features = ["learning_course", "exam_trainer", "ai_tutor", "oral_trainer"] as const;
+    const denyOut: Record<string, any> = {};
+    for (const feat of features) {
+      const { data } = await sb.rpc("check_product_access_by_curriculum" as any, {
+        p_user_id: userId, p_curriculum_id: curriculumId, p_feature: feat,
+      });
+      denyOut[feat] = data;
+      if (data !== false) failures.push(`[drift_deny] feature ${feat} expected=false got=${data} (gate fail-open!)`);
+    }
+    const { data: tutor } = await sb.rpc("tutor_access_check" as any, {
+      p_user_id: userId, p_curriculum_id: curriculumId, p_daily_limit: 200,
+    });
+    denyOut.tutor = tutor;
+    if (tutor?.allowed === true) failures.push(`[drift_deny] tutor still allowed (fail-open!)`);
+    const { data: storage } = await sb.rpc("has_storage_entitlement" as any, {
+      p_user_id: userId, p_curriculum_id: curriculumId,
+    });
+    denyOut.storage = storage;
+    if (storage !== false) failures.push(`[drift_deny] storage expected=false got=${storage} (fail-open!)`);
+    const { data: prodAccess } = await sb.rpc("can_access_product" as any, {
+      p_user_id: userId, p_product_id: productId,
+    });
+    denyOut.product = prodAccess;
+    if (prodAccess !== false) failures.push(`[drift_deny] can_access_product expected=false got=${prodAccess} (fail-open!)`);
+
+    driftDenied = denyOut;
+  }
+
   if (body.cleanup === true) {
     const { data: invs2 } = await sb.from("invoices").select("id").eq("order_id", orderId);
     await sb.from("ledger_entries").delete().eq("order_id", orderId);
@@ -813,6 +858,7 @@ async function runAccessE2eMode(sb: any, body: any, log: (...m: unknown[]) => vo
     curriculum_id: curriculumId,
     baseline,
     grant_only: grantOnly,
+    drift_denied: driftDenied,
     failures,
   }, null, 2), { status: failures.length === 0 ? 200 : 500, headers: cors });
 }
