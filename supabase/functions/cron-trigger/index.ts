@@ -57,6 +57,13 @@ const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<strin
       "seo-retry-failed-submissions": JSON.stringify({ source: "cron" }),
     },
   },
+  // Welle 2 Loop 2 — drains the 6 post-publish growth job_types
+  "post-publish-growth": {
+    functions: ["post-publish-growth-worker"],
+    bodies: {
+      "post-publish-growth-worker": JSON.stringify({ source: "cron" }),
+    },
+  },
   daily: {
     functions: ["curriculum-discovery", "regulatory-monitor"],
     bodies: {
