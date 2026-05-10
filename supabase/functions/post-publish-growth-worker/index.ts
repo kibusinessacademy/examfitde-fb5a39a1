@@ -127,7 +127,7 @@ async function handlePostPublishBlog(
 
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) {
-    return { status: "failed", reason: "missing_LOVABLE_API_KEY" };
+    return { status: "noop", reason: "noop_missing_secret", details: { secret: "LOVABLE_API_KEY" } };
   }
 
   const titleBase = pkg.title || "Prüfungstraining";
@@ -151,6 +151,9 @@ async function handlePostPublishBlog(
     });
     if (!aiResp.ok) {
       const t = await aiResp.text();
+      if (aiResp.status === 429 || aiResp.status === 402) {
+        return { status: "noop", reason: `ai_gateway_${aiResp.status === 429 ? "rate_limited" : "credits_exhausted"}`, details: { body: t.slice(0, 300) } };
+      }
       return { status: "failed", reason: `ai_gateway_${aiResp.status}`, details: { body: t.slice(0, 300) } };
     }
     const j = await aiResp.json();
@@ -415,7 +418,7 @@ async function handleOgImageGenerate(
 
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) {
-    return { status: "failed", reason: "missing_LOVABLE_API_KEY" };
+    return { status: "noop", reason: "noop_missing_secret", details: { secret: "LOVABLE_API_KEY" } };
   }
 
   // Generate via Lovable AI image model
@@ -435,6 +438,9 @@ async function handleOgImageGenerate(
     });
     if (!r.ok) {
       const t = await r.text();
+      if (r.status === 429 || r.status === 402) {
+        return { status: "noop", reason: `ai_image_${r.status === 429 ? "rate_limited" : "credits_exhausted"}`, details: { body: t.slice(0, 300) } };
+      }
       return { status: "failed", reason: `ai_image_${r.status}`, details: { body: t.slice(0, 300) } };
     }
     const j = await r.json();
