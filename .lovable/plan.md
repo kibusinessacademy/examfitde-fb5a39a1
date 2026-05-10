@@ -1,219 +1,118 @@
-# ExamFit — Engagement / Oral / Readiness Expansion (S6)
 
-## 0. Recon-Ergebnis (SSOT-Bestand, NICHT neu bauen)
+# Post-Publish Growth Orchestration v1 — Umsetzungsplan
 
-| Domäne | Existiert bereits | Erweitern statt ersetzen |
-|---|---|---|
-| Mastery | `learner_competency_state`, `learner_mastery_event_log`, `recalculate_mastery`, `update_mastery_from_attempt`, `update_mastery_from_minicheck`, `mastery_engine_config`, `admin_simulate_mastery_decay/_path` | Decay-Triggers + Misconception-Aggregat |
-| Readiness | `readiness_scores`, `readiness_snapshots`, `exam_readiness_snapshots`, `calculate_readiness_score_v2`, `compute_readiness`, `ops_learner_visible_readiness`, `learner_get_mastery_summary`, `learner_next_best_step`, `get_next_best_action` | Erklärbarkeit (Reason-Codes), Risk-Engine, B2B-Aggregate |
-| Daily | `daily_challenges`, `daily_question_picks`, `humor_daily_pick` | Per-User-Adaptive-Picker, Mini-Check-Schicht, Streak-Hook |
-| Streak | `learner_profiles.streak_current/_best`, `update_learning_streak` | Consistency-Modell (5/7, Recovery), Audit-Log |
-| Oral | `oral_exam_sessions/_turns/_questions/_blueprints`, `get_adaptive_oral_exam_prompts`, `log_oral_exam_turn`, `fn_resolve_oral_trainer_mode`, `cleanup_oral_exam_ephemeral` | Session-Memory-Aggregat, Bewertungs-Pipeline |
-| Gamification | `user_badges` (key/label/icon/curriculum/metadata) | Badge-Definitions-Registry + Trigger |
-| Retention | `retention_events`, `retention_actions` | Adaptive-Reminder-Decider als Worker |
-| B2B | `organization_learners` | Cohort-View + RPC |
-| Tutor | `ai_tutor_sessions/_audit/_logs/_messages/_policies`, `ai_tutor_context_index`, Strict-RAG (Core-Rule) | Oral-Mode + Refusal-Pflicht |
-| Tracking | `conversion_events` (v2, 6 Pflicht-Events) | Erweitern um 10 neue `daily_*/oral_*/readiness_*/badge_*` Events |
+Der Superprompt umfasst 8 Phasen mit ~40 neuen Artefakten (Migrationen, Edge Functions, Crons, RPCs, Cockpit-Cards, Tests). Das ist zu groß für einen Loop. Ich schlage eine **Drei-Wellen-Strategie** vor, mit klaren Quality-Gates zwischen den Wellen.
 
-**Kein Neuaufbau** — alles wird über Extension-Migrations + Worker + Views angeschlossen.
+## Welle 1 (P0 — sofort, dieser Loop)
 
-## 1. Zielarchitektur (One-Pager)
+Schließt die kritischsten Lücken aus dem Audit:
 
-```text
-                ┌─────────────────────┐
-   Lern-Event ─►│ learner_mastery_    │── Trigger ─┐
-   (attempt,    │ event_log (SSOT)    │            │
-   minicheck,   └──────────┬──────────┘            ▼
-   simulation)             │              ┌─────────────────┐
-                           ▼              │ recalc_mastery  │
-                ┌─────────────────────┐   │ + decay         │
-                │ learner_competency_ │◄──┘                 │
-                │ state               │                     │
-                └──────────┬──────────┘                     ▼
-                           │             ┌────────────────────────┐
-                           ├────────────►│ readiness_engine_v3    │
-                           │             │ (calculate_readiness_  │
-                           │             │  score_v2 EXTENDED)    │
-                           │             └───────────┬────────────┘
-                           │                         ▼
-                           │             ┌────────────────────────┐
-                           │             │ readiness_snapshots    │
-                           │             │ (+ reason_codes jsonb) │
-                           │             └─────┬──────────────────┘
-                           ▼                   ▼
-                ┌─────────────────────┐  ┌─────────────────┐
-                │ daily_engagement_   │  │ readiness_risk_ │
-                │ runner (cron 6h)    │  │ events (NEU)    │
-                └──────────┬──────────┘  └────────┬────────┘
-                           │                      │
-                           ▼                      ▼
-                ┌─────────────────────┐  ┌─────────────────┐
-                │ daily_challenges    │  │ retention_events│
-                │ (per user, adaptive)│  │ adaptive_reminder│
-                └─────────────────────┘  └─────────────────┘
-                           │                      │
-                           └──────────┬───────────┘
-                                      ▼
-                       conversion_events (v3, +10 Events)
-                                      │
-                                      ▼
-                              GTM/DataLayer
-```
+1. **Phase 1 — Fanout-Trigger** `trg_fn_post_publish_growth_fanout()` 
+   - feuert nur bei echtem `draft/queued/building → published`-Übergang + `is_published=true`
+   - enqueued idempotent 9 Jobs via `ops_job_type_registry` (neue job_types vorher registrieren)
+   - Idempotency-Key: `post_publish_growth:{package_id}:{job_type}`
+   - Insert `conversion_events.event_type='package_published'` (mit `package_id`, `curriculum_id`, `persona`)
+   - Audit `auto_heal_log` action_type=`post_publish_growth_fanout`
+   - **Kollisionscheck**: bestehende Trigger `trg_auto_publish_seo_pages` + `trg_seo_pages_auto_publish_on_package` → ein Duplikat löschen, anderer bleibt für SEO-Pages-Status-Flip (anderer Concern)
 
-## 2. Datenmodell-Erweiterungen (SSOT-Pflege, KEINE neuen Wahrheiten)
+2. **Phase 2 — Sitemap + IndexNow Verkabelung**
+   - Recon zuerst: welche Edge Functions (`generate-sitemap`, `seo-submit-indexnow`, `seo-retry-failed-submissions`) existieren?
+   - Bestehende verkabeln, fehlende minimal ergänzen
+   - 2 Crons: `seo-indexnow-submit-30min`, `seo-retry-failed-submissions-15min`
+   - Submit-Log-Tabelle nur falls nicht vorhanden
 
-**Erweitern (ALTER):**
-- `readiness_snapshots` += `reason_codes jsonb`, `risk_level text`, `next_action_key text`, `version text`
-- `learner_profiles` += `consistency_7d numeric`, `consistency_30d numeric`, `morning_evening_pattern text`, `recovery_count int`, `exam_target_date date`, `exam_type text`
-- `daily_challenges` += `adaptive_strategy text`, `weakness_targets uuid[]`, `expected_minutes int`, `completion_minutes int`, `streak_contribution boolean`
-- `oral_exam_sessions` += `kommunikationssicherheit_score`, `vollstaendigkeit_score`, `next_training_recs jsonb`
-- `user_badges` += `level text` (bronze/silber/gold/pruefungsreif), `awarded_by text` (rule key)
+3. **Phase 3 — Funnel Tracking P0 Fix** (Tracking-Drift 26 paid → 1 checkout_complete, 0 pricing_view)
+   - `pricing_view` auto-fire auf Pricing-Detail-Routes (nutzt vorhandenen `useTrackPageView`)
+   - CTA-Klick auf Pricing/Checkout → `checkout_started`
+   - Stripe webhook `purchase_completed` Parität prüfen
+   - Pflichtfelder: `package_id`, `curriculum_id`, `persona`, `source_page`, `page_path`
+   - View `v_funnel_event_loss` + Cron `funnel-loss-detect-hourly` mit Alarm <95% Parität
 
-**Neue Tabellen (nur wo keine SSOT existiert):**
-- `badge_definitions` (`badge_key PK`, `category`, `level`, `rule_key`, `criteria jsonb`, `active`) — Single source für Badge-Vergabe-Regeln
-- `engagement_daily_state` (`user_id+day PK`, `daily_check_status`, `streak_active`, `consistency_7d`, `tasks_completed jsonb`, `next_action jsonb`) — Lese-Cache (Materialisiert), keine Wahrheit
-- `oral_session_memory` (`user_id`, `competency_id`, `weak_terms jsonb`, `recurring_errors jsonb`, `language_patterns jsonb`, `last_seen_at`) — Aggregat aus `oral_exam_turns`
-- `readiness_risk_events` (`user_id`, `curriculum_id`, `risk_type` enum [`competency_critical`,`stagnation`,`decay`,`oral_unsicherheit`,`exam_proximity`], `severity int`, `reason_codes jsonb`, `auto_action_key text`)
-- `b2b_cohort_readiness` MATERIALIZED VIEW (org_id × curriculum × week, NUR Aggregate, keine Personen)
+4. **Phase 8 (Welle 1 Subset)** — minimaler Smoke-Test:
+   - Publish enqueued alle 9 Jobs genau einmal
+   - Re-Publish erzeugt keine Duplikate
+   - Insert in `auto_heal_log` korrekt
 
-**Generated Columns / Triggers:**
-- `learner_mastery_event_log` AFTER INSERT → enqueue `readiness_recompute` (debounce 60s pro user×curriculum)
-- `oral_exam_turns` AFTER INSERT → upsert `oral_session_memory`
-- `readiness_snapshots` AFTER INSERT mit `risk_level IN ('critical','high')` → INSERT `readiness_risk_events`
+## Welle 2 (P1 — Folge-Loop)
 
-## 3. Workers & Cron (Queue-driven, replay-safe)
+5. **Phase 4** — Blog + Distribution Verkabelung pro Paket (Worker-Recon zuerst)
+6. **Phase 5** — Email Sequence Enrollment (Job + Detector, Opt-in respektieren)
+7. **Phase 7** — Self-Heal Detectors (Views + Crons für 9 Drift-Klassen)
 
-| Job-Type | Worker (Edge) | Cron | Idempotenz |
-|---|---|---|---|
-| `daily_engagement_assemble` | `daily-engagement-runner` | `0 4 * * *` UTC | `(user_id, day)` PK |
-| `readiness_recompute` | `readiness-engine` | enqueue-driven | `(user_id, curriculum_id)` debounce |
-| `readiness_risk_scan` | `readiness-risk-scanner` | `*/30 * * * *` | risk_event hash |
-| `engagement_reminder_decide` | `adaptive-reminder-decider` | `0 * * * *` | `(user_id, day, channel)` |
-| `oral_memory_aggregate` | `oral-memory-aggregator` | nach Turn-Insert | upsert |
-| `b2b_cohort_refresh` | `b2b-cohort-refresher` | `15 * * * *` | matview refresh |
-| `badge_evaluator` | `badge-evaluator` | `*/15 * * * *` | `(user_id, badge_key)` UK |
+## Welle 3 (P2 — Cockpit + Tests)
 
-**Alle** Worker:
-- First-Heartbeat-Contract (S5b) Pflicht
-- `markFirstHeartbeat` als erste Aktion
-- PHK-sensitive → Burst v3 Cap (S5d)
-- Audit in `auto_heal_log`
-
-## 4. Readiness-Engine v3 (explainable)
-
-`calculate_readiness_score_v2` → wrappen in `calculate_readiness_score_v3(user_id, curriculum_id)` returns `(score, reason_codes jsonb, risk_level)`.
-
-Inputs (gewichtet, in `mastery_engine_config` parametrisiert):
-- mastery coverage 30% · simulation 20% · oral 15% · consistency 10% · confidence 10% · decay-penalty 10% · weakness-count-penalty 5%
-
-Output reason_codes z.B.:
-```json
-[{"code":"WEAK_LF4","weight":-12},{"code":"ORAL_UNSICHER","weight":-8},{"code":"CONSISTENCY_OK","weight":+6}]
-```
-
-UI-Komponente `<ReadinessHero/>` zeigt Score + Top-3-Reasons + Countdown.
-
-## 5. Oral-Exam-Erweiterung
-
-- Neue Worker-Pipeline: `oral-session-evaluator` ruft Lovable AI Gateway (Gemini 2.5 Pro) mit Strict-RAG Citation-Block-Kontrakt aus `ai_tutor_policies`. Refusal-Phrase Pflicht.
-- Bewertungs-Schema (Generated): fachlichkeit/struktur/begriffssicherheit/praxisbezug/vollstaendigkeit/kommunikation × 0–100.
-- `oral_session_memory` füttert `get_adaptive_oral_exam_prompts` (Adaptivität schon vorhanden, nur Memory-Quelle erweitern).
-
-## 6. Engagement-System (Daily/Streak/Countdown)
-
-- `daily-engagement-runner`: pro aktiven User (last_activity ≤ 14d) wählt 3–5 Fragen aus `exam_questions` gefiltert nach `learner_competency_state.mastery_score < 0.7` + Blueprint-Coverage. Persistiert in `daily_challenges`.
-- Streak-Logik: `update_learning_streak` erweitern → Consistency 5/7, Recovery-Tag (verpasster Tag bricht NICHT bei Streak ≥ 3 Wochen).
-- Countdown: aus `learner_profiles.exam_target_date` + Readiness → Card im Dashboard.
-
-## 7. Gamification ohne Toxicity
-
-`badge_definitions` als SSOT. Beispiele:
-- `lf5_sicher` (rule: competency_id=X mastery≥0.85)
-- `consistency_3w` (rule: 21 days consistency_7d ≥ 5)
-- `oral_ready` (rule: 3 oral sessions ≥ 75)
-
-`badge-evaluator` setzt Trigger über `learner_mastery_event_log` und `oral_exam_sessions`. Kein XP, keine Coins.
-
-## 8. B2B Readiness Layer
-
-- `admin_get_b2b_cohort_readiness(org_id, curriculum_id)` (SECURITY DEFINER, has_role `org_admin`)
-- Liefert nur **aggregierte** Cohort-Metriken aus MV `b2b_cohort_readiness`. Keine Personenbezüge ohne Opt-in.
-- Dashboard `/b2b/readiness/:org` mit Cohort-Heatmap + Risk-Indicators.
-
-## 9. Analytics / Tracking-Erweiterung
-
-In `conversion_events` (Generated Column `package_id` schon da) zusätzliche Events:
-`daily_check_started/_completed`, `readiness_changed`, `streak_updated`, `oral_exam_started/_completed`, `badge_unlocked`, `weakness_recovered`, `countdown_viewed`, `onboarding_completed`.
-
-Guard: `scripts/guards/engagement-events-guard.mjs` validiert Pflichtfelder pro Event-Typ in CI.
-
-## 10. UI-Komponentenplan (Mobile-First, Design-System v2 Tokens)
-
-`src/components/learner/`:
-- `ReadinessHero.tsx`, `DailyMissionCard.tsx`, `WeaknessRadar.tsx`, `CountdownCard.tsx`, `OralReadinessCard.tsx`, `LearningRhythmHeatmap.tsx`, `CompetencyGraph.tsx`, `NextBestActionCard.tsx`
-
-Neue Page `/lernen/heute` als Daily-Hub. Bestehende `/dashboard` bleibt; Hero ersetzt nur den oberen Slot.
-
-## 11. Governance, CI, Healing
-
-- **DB**: alle neuen Tabellen mit RLS (`user_id = auth.uid()` für Learner-Daten; `has_role(org_admin)` für B2B-Aggregate)
-- **CI**:
-  - `s6-readiness-engine.test.ts` (reason_codes deterministisch)
-  - `s6-engagement-events.test.ts` (Event-Pflichtfelder)
-  - `s6-oral-rag-citation.test.ts` (Refusal-Phrase erzwungen)
-  - `s6-badge-rules.test.ts` (jede Definition hat Rule-Key)
-  - First-Heartbeat-Drift (S5d) für alle neuen Worker
-- **Healing**: `admin_get_engagement_drift` View — User mit `learner_competency_state` aber ohne `daily_challenges` letzte 7d → enqueue `daily_engagement_assemble`.
-
-## 12. Rollout-Plan (4 Wellen, je 1 Migration-Concern)
-
-| Welle | Inhalt | Risk |
-|---|---|---|
-| **W1 — Foundation** | ALTER readiness_snapshots/learner_profiles/daily_challenges, neue Tabellen badge_definitions/engagement_daily_state/oral_session_memory/readiness_risk_events, RLS, MV b2b_cohort_readiness | low |
-| **W2 — Engines** | calculate_readiness_score_v3, update_learning_streak v2, oral-session-evaluator, badge-evaluator, daily-engagement-runner (alle Edge) | medium |
-| **W3 — UI** | 8 Learner-Komponenten + /lernen/heute, B2B-Cohort-Page, Tracking-Wires | low |
-| **W4 — Crons + Guards** | 7 Cron-Jobs scharf, CI-Guards, Healing-View, Memory-Update | low |
-
-Jede Welle: separate Migration · Smoke-SQL · Rollback-Hint · `auto_heal_log` Audit · CI-Test grün.
-
-## 13. Risk-Assessment & Mitigations
-
-| Risiko | Mitigation |
-|---|---|
-| Decay-Loop floods readiness_recompute | 60s debounce pro user×curriculum + queue-side dedupe |
-| LLM-Drift im Oral | Strict-RAG Citation Pflicht + Refusal-Phrase + ai_tutor_audit |
-| Phantom Badges (Race) | UK `(user_id, badge_key, curriculum_id)` + ON CONFLICT DO NOTHING |
-| B2B-Datenleck | RLS strikt; Aggregate-MV hat KEINE user_id; RPC has_role-gated |
-| Streak-Toxicity | Recovery-Tage + Consistency statt Brutto-Streak in UI primär |
-| Daily-Coldstart bei neuen Usern | Onboarding seedet 3 leichte Fragen aus `daily_question_picks` Pool |
-| Performance Mastery-Recompute | Bestehender Pfad unverändert; nur AFTER INSERT enqueue |
-
-## 14. Was NICHT in S6 kommt (bewusst)
-
-- Keine eigene Push-Infra (nutzt vorhandene `email-sequence-worker` + retention_events).
-- Keine neuen Avatare/Coins.
-- Keine direkte client-seitige Mastery-Schreibwege.
-- Keine parallele Streak-Logik außerhalb `update_learning_streak`.
-
-## 15. Erste konkrete Migration (W1) — bereit zum Ziehen nach Approval
-
-```sql
-ALTER TABLE readiness_snapshots
-  ADD COLUMN IF NOT EXISTS reason_codes jsonb DEFAULT '[]'::jsonb,
-  ADD COLUMN IF NOT EXISTS next_action_key text,
-  ADD COLUMN IF NOT EXISTS version text DEFAULT 'v3';
-ALTER TABLE learner_profiles
-  ADD COLUMN IF NOT EXISTS consistency_7d numeric DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS consistency_30d numeric DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS exam_target_date date,
-  ADD COLUMN IF NOT EXISTS exam_type text;
-CREATE TABLE IF NOT EXISTS badge_definitions (...);
-CREATE TABLE IF NOT EXISTS engagement_daily_state (...);
-CREATE TABLE IF NOT EXISTS oral_session_memory (...);
-CREATE TABLE IF NOT EXISTS readiness_risk_events (...);
--- + RLS + Indexe + auto_heal_log Audit
-```
+8. **Phase 6** — 8 Cockpit-Cards (Admin-RPCs, read-only)
+9. **Phase 8 Vollumfang** — Regression-Tests + CI-Guards
 
 ---
 
-**Nächster Schritt nach Freigabe**: Welle 1 als einzelne Migration ziehen, danach W2-Worker einzeln deployen, je mit Smoke + Test.
+## Technische Details Welle 1
+
+### Neue Job-Types (in `ops_job_type_registry` registrieren)
+```text
+seo_sitemap_regen          (lane: seo,        requires_package_id: false, is_governance: false)
+seo_indexnow_submit        (lane: seo,        requires_package_id: true)
+package_post_publish_blog  (lane: content,    requires_package_id: true)
+seo_internal_links_rebuild (lane: seo,        requires_package_id: false)
+package_og_image_generate  (lane: content,    requires_package_id: true)
+package_distribution_plan  (lane: marketing,  requires_package_id: true)
+package_campaign_assets_generate (lane: marketing, requires_package_id: true)
+package_email_sequence_enroll    (lane: marketing, requires_package_id: true)
+```
+(`package_auto_generate_seo_suite` existiert bereits)
+
+### Trigger-Kontrakt
+```text
+AFTER UPDATE OF status, is_published ON course_packages
+WHEN (NEW.status='published' AND NEW.is_published=true
+      AND (OLD.status IS DISTINCT FROM NEW.status OR OLD.is_published IS DISTINCT FROM NEW.is_published))
+```
+Anti-Doppel-Trigger durch `EXISTS (job_queue WHERE correlation_id = idempotency_key AND status IN ('queued','processing'))`-Check pro Job.
+
+### Funnel-Loss-View
+```sql
+v_funnel_event_loss:
+  paid_orders_24h, checkout_complete_24h, pricing_view_24h,
+  parity_pct = checkout_complete / paid_orders,
+  status = CASE WHEN parity_pct < 0.95 THEN 'CRIT' WHEN <0.99 THEN 'WARN' ELSE 'OK' END
+```
+Cron loggt jede Stunde in `auto_heal_log` (auch noop) → respektiert `mem://architektur/ops/data-holes-ssot-v1`.
+
+### Verbotsregeln (aus Memory)
+- Keine `text-white`/`bg-X/10` in Cockpit-Cards (Welle 3) — Tokens
+- Admin-Views: `REVOKE FROM PUBLIC,authenticated` + nur via SECURITY DEFINER RPC mit `has_role`
+- COUNT(*) statt COUNT()
+- `package_id` als Top-Level-Spalte in `conversion_events` nutzen (generated column existiert)
+- Bronze-Lock-Guard respektiert (Trigger blockt nur council/auto_publish/integrity, NICHT die neuen Growth-Jobs — Growth darf auch auf Bronze laufen)
+- `bronze_lock_override` NICHT setzen (nicht relevant)
+- Migration-Discipline: Schema introspecten, ein Concern pro Migration, Smoke + Rollback-Hint
+
+### Migrationen Welle 1 (4 Stück, getrennt)
+1. `growth_fanout_register_job_types` — 8 neue Einträge in `ops_job_type_registry`
+2. `growth_fanout_trigger_v1` — Funktion + Trigger + Helper `fn_growth_idempotency_key`
+3. `growth_fanout_dedupe_legacy_seo_trigger` — eines der zwei Duplikat-Trigger droppen
+4. `funnel_loss_view_and_cron` — `v_funnel_event_loss` + RPC + cron job
+
+### Frontend-Fixes Welle 1 (sehr klein)
+- `useTrackPageView` deckt `/pricing` schon ab → prüfen ob Pricing-Detail-Routen matchen, ggf. erweitern
+- Pricing-Detail-Page: explizit `pricing_view` mit `package_id`/`persona` (statt nur Path)
+- Checkout-CTAs: `checkout_started` Event-Konsistenz
+
+---
+
+## Was NICHT in dieser Welle passiert
+- Keine neuen Cockpit-Cards (Welle 3)
+- Keine Email-Enrollment-Logik (Welle 2)
+- Kein Blog-Generation-Worker (Welle 2)
+- Kein vollständiger Test-Suite-Aufbau (Welle 3)
+
+---
+
+## Risiken & Rollback
+- **Risiko 1**: Trigger feuert auf Bestand wenn Pakete `UPDATE`d werden ohne Statusänderung → durch `IS DISTINCT FROM`-Guard abgesichert
+- **Risiko 2**: Job-Queue-Flut bei Backfill → Welle 1 macht KEINEN Backfill der bereits 49 published Pakete; separater opt-in RPC `admin_backfill_post_publish_growth(package_id)` für gezielten manuellen Trigger
+- **Rollback**: jede Migration reverse-Hint im Header (`DROP TRIGGER`, `DELETE FROM ops_job_type_registry WHERE ...`)
+
+---
+
+**Bestätige bitte**, dass ich mit **Welle 1 (Phasen 1–3 + Smoke)** starte. Welle 2 + 3 als separate Loops.
