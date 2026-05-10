@@ -22,7 +22,7 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
   process.exit(1);
 }
 
-const MODES = (process.env.SMOKE_MODES || 'single,bundle,refund')
+const MODES = (process.env.SMOKE_MODES || 'single,bundle,refund,access_e2e')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
 const baseBody = {
