@@ -64,6 +64,8 @@ import { PreHeartbeatKillRiskCard } from "@/components/admin/heal/cards/PreHeart
 import { PreHeartbeatKillForensicsCard } from "@/components/admin/heal/cards/PreHeartbeatKillForensicsCard";
 import { AggregateStateDiffCard } from "@/components/admin/heal/cards/AggregateStateDiffCard";
 import { HealStatusCard } from "@/components/admin/heal/cards/HealStatusCard";
+import { SoftDriftMcRepairCard } from "@/components/admin/heal/cards/SoftDriftMcRepairCard";
+import { JobTypeWorkerAuditCard } from "@/components/admin/heal/cards/JobTypeWorkerAuditCard";
 import { ExamPoolDriftLogCard } from "@/components/admin/heal/cards/ExamPoolDriftLogCard";
 import { StaleDraftsCard } from "@/components/admin/heal/cards/StaleDraftsCard";
 import { ContentGapTopupCard } from "@/components/admin/heal/cards/ContentGapTopupCard";
@@ -322,6 +324,8 @@ export default function HealCockpitPage() {
             <StuckPatternsCard />
             <BronzeQuarantineCard />
             <HealStatusCard />
+            <SoftDriftMcRepairCard />
+            <JobTypeWorkerAuditCard />
             <StaleDraftsCard />
             <LearningIntegrityExecutiveCard />
             <LxiNoLessonsRepairCard />
