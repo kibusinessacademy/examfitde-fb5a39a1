@@ -97,7 +97,14 @@ export function HandbookPublishDriftCard() {
       qc.invalidateQueries({ queryKey: ['handbook-chapters'] });
       refetch();
     },
-    onError: (e: any) => toast.error(`Rollback fehlgeschlagen: ${e?.message ?? 'unbekannt'}`),
+    onError: (e: any) => {
+      const msg = String(e?.message ?? '');
+      if (/forbidden|permission denied|42501/i.test(msg)) {
+        toast.error('Rollback verweigert: Admin-/service-role-Rechte erforderlich.');
+      } else {
+        toast.error(`Rollback fehlgeschlagen: ${msg || 'unbekannt'}`);
+      }
+    },
   });
 
   const smoke = useMutation({
