@@ -1,8 +1,22 @@
 ---
-name: Access E2E Smoke + Grants-Aware Guard v1
-description: b2c-ssot-smoke mode=access_e2e mit drop_entitlement, grants-aware can_access_product Path D/D2, CI-Guard für neue Access-RPCs
+name: Access E2E Smoke + Grants-Aware Guard v1.1
+description: b2c-ssot-smoke mode=access_e2e mit drop_entitlement+assert_drift_denies (3-State), grants-aware can_access_product Path D/D2, gehärteter CI-Guard für neue Access-RPCs (current_user_entitlements/get_user_entitlements*/has_entitlement* Patterns + erweiterte Naming)
 type: feature
 ---
+
+## v1.1 Update 2026-05-10
+**3-State Smoke**: access_e2e prüft jetzt:
+1. **baseline** (entitlement+grant) → allowed=true, source=entitlement
+2. **grant_only** (drop_entitlement) → allowed=true, source=grant (Path D)
+3. **drift_denied** (drop both) → allowed=false (kein fail-open)
+
+Verifiziert 2026-05-10 alle 3 States grün mit cleanup=true.
+
+**Guard hardening**: ACCESS_NAME_RE erweitert um `*_is_allowed`, `fn_*access*`, `grant_*access*`. readsEntitlementsOnly fängt jetzt auch `get_user_entitlements*`, `current_user_entitlements`, `has_entitlement*`. Baseline +`fn_run_access_ssot_drift_heal` (intentional entitlement-writer).
+
+**Server-Smoke**: SMOKE_ACCESS_DRIFT_DENY default ON, optional SMOKE_ACCESS_DROP_ENTITLEMENT.
+
+
 **SSOT Layer 2 (Verification)** für den Single Choke-Point aus access-ssot-single-choke-point-v1.
 
 ## b2c-ssot-smoke mode=access_e2e
