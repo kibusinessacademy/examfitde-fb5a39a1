@@ -35,6 +35,12 @@ const REQUIRED = [
   "admin_get_heal_queue_audit",
   "admin_get_drift_coverage_matrix",
   "heal_alert_config",
+  "heal_alert_destinations",
+  "heal_alert_notifications",
+  "admin_upsert_heal_alert_destination",
+  "admin_delete_heal_alert_destination",
+  "admin_get_heal_alert_notifications",
+  "heal-alerts-dispatch-5min",
 ];
 
 if (!fs.existsSync(MIG_DIR)) {
