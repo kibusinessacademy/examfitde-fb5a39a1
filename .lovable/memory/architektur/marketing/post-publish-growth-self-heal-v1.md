@@ -31,3 +31,9 @@ Iteriert v_post_publish_growth_coverage × 7 artifact job_types. Bei p_repair=tr
 - Cron `post-publish-growth-health-snapshot-hourly` (`7 * * * *`) — stündlicher Snapshot.
 - Admin RPC `admin_get_post_publish_growth_health_trends(p_days int default 7)` — Trend-Reihe für 7d/30d, has_role admin.
 - UI: `PostPublishGrowthHealthCard` zeigt 7d/30d-Toggle, Coverage-Lines (7 Artefakte, recharts) + Mini-Sparklines für Stuck-Jobs und OPS_GUARD. Keine Fake-Historie — leerer Zeitraum wird sauber kommuniziert.
+
+## v1.3 (Welle 3.2 Abschluss — Drilldown + Retention, 2026-05-10)
+- Smoke grün: Cron 217 active (`7 * * * *`), Initial-Snapshot vorhanden, Audit success, RPC liefert Trends.
+- Retention: `fn_cleanup_post_publish_growth_health_snapshots(p_retain_days default 90)` löscht Snapshots > 90d, schreibt Audit `post_publish_growth_health_snapshot_cleanup` (success/noop). Daily-Cron `post-publish-growth-health-snapshot-cleanup-daily` (`23 3 * * *`). Smoke-Run: 0 deleted (clean baseline).
+- Drilldown: `admin_get_post_publish_growth_health_snapshot_detail(uuid)` (admin-only) liefert kompletten Snapshot inkl. top_issues. Trends-RPC neu mit `id`-Spalte (DROP+CREATE wegen Signaturänderung).
+- UI: HealthCard hat Klick auf Coverage-/Stuck-/OPS_GUARD-Charts → Dialog mit Coverage-Bars + Top-Drift; zusätzlich Quick-Pick-Liste der letzten 8 Snapshots als Buttons.
