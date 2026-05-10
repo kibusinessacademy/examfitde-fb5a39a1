@@ -71,7 +71,14 @@ export function HandbookPublishDriftCard() {
       qc.invalidateQueries({ queryKey: ['handbook-chapters'] });
       refetch();
     },
-    onError: (e: any) => toast.error(`Fehler: ${e?.message ?? 'unbekannt'}`),
+    onError: (e: any) => {
+      const msg = String(e?.message ?? '');
+      if (/forbidden|permission denied|42501/i.test(msg)) {
+        toast.error('Backfill verweigert: Admin-/service-role-Rechte erforderlich.');
+      } else {
+        toast.error(`Fehler: ${msg || 'unbekannt'}`);
+      }
+    },
   });
 
   const rollback = useMutation({
