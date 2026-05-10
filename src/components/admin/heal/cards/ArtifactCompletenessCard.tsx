@@ -14,7 +14,14 @@ import { ClipboardCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-type GapItem = { gap: string; count: number };
+type GapItem = {
+  priority: number; gap: string; count: number;
+  severity: "critical" | "warn" | "info" | "ok";
+  recommended_action: string;
+  recommended_step: string | null;
+  reason: string;
+};
+type NextAction = { action?: string; reason?: string } & Partial<GapItem>;
 type PkgRow = {
   package_id: string;
   title: string;
@@ -25,7 +32,8 @@ type PkgRow = {
   exam: { approved: number; total: number; target: number; missing: number };
   handbook: { sections_total: number; sections_filled: number; missing: number };
   steps: { total: number; done: number; open: Array<{ step_key: string; status: string }> };
-  gaps: GapItem[];
+  prioritized_gaps: GapItem[];
+  next_action: NextAction;
 };
 
 export function ArtifactCompletenessCard() {
