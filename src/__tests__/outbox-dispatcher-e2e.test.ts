@@ -20,9 +20,10 @@ maybe("outbox dispatcher E2E (real rows, no Slack/Resend)", () => {
   beforeAll(async () => { await supabase.rpc("admin_e2e_outbox_cleanup"); });
   afterAll(async () => { await supabase.rpc("admin_e2e_outbox_cleanup"); });
 
-  const enqueue = async (scenario: string, outcome: string, max = 5) => {
+  const enqueue = async (scenario: string, outcome: string, max = 5, idemKey?: string) => {
     const { data, error } = await supabase.rpc("admin_e2e_outbox_enqueue", {
       p_scenario: scenario, p_outcome: outcome, p_max_attempts: max,
+      p_idempotency_key: idemKey ?? null,
     });
     expect(error).toBeNull();
     return data as unknown as string;
