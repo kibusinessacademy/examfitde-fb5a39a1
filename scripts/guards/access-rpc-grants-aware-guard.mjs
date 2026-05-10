@@ -88,19 +88,25 @@ export function readsEntitlementsOnly(body) {
 const violations = [];
 const inspected = [];
 
-for (const file of listMigrations()) {
+// Migrations are timestamp-prefixed; sort ascending and keep only the LATEST
+// definition per function name (CREATE OR REPLACE semantics).
+const latestByName = new Map(); // name -> { file, body }
+for (const file of listMigrations().sort()) {
   const sql = fs.readFileSync(file, "utf-8");
-  const fns = extractFunctions(sql);
-  for (const fn of fns) {
+  for (const fn of extractFunctions(sql)) {
     if (!isAccessShaped(fn.name)) continue;
-    inspected.push({ file, name: fn.name });
-    if (baseline.has(fn.name)) continue;
-    if (readsEntitlementsOnly(fn.body)) {
-      violations.push(
-        `❌ ${file}: function ${fn.name}() reads entitlements without honoring learner_course_grants. ` +
-          `Either reference learner_course_grants directly or delegate to one of: ${SSOT_DELEGATES.join(", ")}.`,
-      );
-    }
+    latestByName.set(fn.name, { file, body: fn.body });
+  }
+}
+
+for (const [name, { file, body }] of latestByName) {
+  inspected.push({ file, name });
+  if (baseline.has(name)) continue;
+  if (readsEntitlementsOnly(body)) {
+    violations.push(
+      `❌ ${file}: function ${name}() reads entitlements without honoring learner_course_grants. ` +
+        `Either reference learner_course_grants directly or delegate to one of: ${SSOT_DELEGATES.join(", ")}.`,
+    );
   }
 }
 
