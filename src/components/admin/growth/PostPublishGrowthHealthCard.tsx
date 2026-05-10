@@ -315,7 +315,23 @@ export default function PostPublishGrowthHealthCard() {
 
                   {lastSnapshot && (
                     <div className="text-[10px] text-text-secondary">
-                      Letzter Snapshot: {new Date(lastSnapshot.run_at).toLocaleString('de-DE')} · Status {lastSnapshot.status} · {trendChartData.length} Datenpunkte
+                      Letzter Snapshot: {new Date(lastSnapshot.run_at).toLocaleString('de-DE')} · Status {lastSnapshot.status} · {trendChartData.length} Datenpunkte · klicke einen Chart-Punkt für Details
+                    </div>
+                  )}
+
+                  {trends.data && trends.data.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 pt-1">
+                      <span className="text-[10px] text-text-secondary mr-1">Drilldown:</span>
+                      {trends.data.slice(-8).reverse().map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setSelectedSnapshotId(s.id)}
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border-subtle hover:bg-surface-elevated text-text-secondary hover:text-text-primary"
+                        >
+                          {new Date(s.run_at).toLocaleString('de-DE', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </>
@@ -324,6 +340,72 @@ export default function PostPublishGrowthHealthCard() {
           </>
         )}
       </CardContent>
+
+      <Dialog open={!!selectedSnapshotId} onOpenChange={(o) => !o && setSelectedSnapshotId(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              Snapshot Detail
+              {detail.data && statusBadge(detail.data.status as Health['status'])}
+            </DialogTitle>
+            <DialogDescription>
+              {detail.data
+                ? new Date(detail.data.run_at).toLocaleString('de-DE')
+                : 'Lade…'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detail.isLoading && (
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <Loader2 className="h-4 w-4 animate-spin" /> Lade Snapshot…
+            </div>
+          )}
+          {detail.error && (
+            <div className="text-sm text-status-error-text">Fehler: {(detail.error as Error).message}</div>
+          )}
+          {detail.data && (
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div className="text-text-secondary">Total published</div><div className="font-mono text-text-primary text-right">{detail.data.total_published}</div>
+                <div className="text-text-secondary">Stuck pending</div><div className="font-mono text-text-primary text-right">{detail.data.stuck_pending_count}</div>
+                <div className="text-text-secondary">Stuck processing</div><div className="font-mono text-text-primary text-right">{detail.data.stuck_processing_count}</div>
+                <div className="text-text-secondary">OPS_GUARD failures 24h</div>
+                <div className={`font-mono text-right ${detail.data.ops_guard_growth_failures_24h > 0 ? 'text-status-error-text' : 'text-text-primary'}`}>{detail.data.ops_guard_growth_failures_24h}</div>
+              </div>
+
+              <div className="space-y-1">
+                {COVERAGE_ROWS.map(({ key, label }) => {
+                  const pct = (detail.data![key as keyof SnapshotDetail] as number) ?? 0;
+                  const tone = pct >= 90 ? 'success' : pct >= 50 ? 'warning' : 'error';
+                  return (
+                    <div key={String(key)} className="grid grid-cols-12 items-center gap-2">
+                      <div className="col-span-5 text-text-secondary">{label}</div>
+                      <div className="col-span-6"><Progress value={pct} className="h-2" /></div>
+                      <div className={`col-span-1 text-right font-mono text-status-${tone}-text`}>{Number(pct).toFixed(0)}%</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-md border border-border-subtle bg-surface-sunken p-2">
+                <div className="text-[11px] font-medium text-text-primary mb-1">Top Drift in diesem Snapshot</div>
+                {Array.isArray(detail.data.top_issues) && detail.data.top_issues.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {detail.data.top_issues.map((i) => (
+                      <Badge key={i.label} variant="outline" className="text-[10px]">
+                        {i.label}: {i.missing_count} fehlen
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-text-secondary">Keine Drift erfasst.</div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
+
