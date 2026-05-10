@@ -91,6 +91,18 @@ export default function ProductPage() {
         productSlug: product.canonicalSlug,
         metadata: { cta_type: ctaType },
       });
+      // SSOT funnel events with package_id (Pflichtfeld für strict-events).
+      const sourcePage = `/produkt/${product.canonicalSlug}`;
+      trackFunnel('cta_clicked', {
+        package_id: product.packageId ?? null,
+        source_page: sourcePage,
+        metadata: { cta_type: ctaType, product_slug: product.canonicalSlug },
+      });
+      trackFunnel('checkout_start', {
+        package_id: product.packageId ?? null,
+        source_page: sourcePage,
+        metadata: { cta_type: ctaType, product_slug: product.canonicalSlug },
+      });
       // Route to correct URL based on CTA type
       const url =
         ctaType === 'secondary' && product.ctas.secondaryUrl
