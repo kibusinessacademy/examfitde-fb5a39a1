@@ -382,6 +382,7 @@ export default function HealCockpitPage() {
                 <PreHeartbeatKillForensicsCard />
                 <AggregateStateDiffCard />
                 <QualityGateDecisionsCard />
+                <OpsCancelSkipRiseCard />
                 <AutoPulseImpactCard />
                 <ControlLaneRequeueCard />
                 <QualityCouncilDriftCard />
