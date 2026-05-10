@@ -151,6 +151,9 @@ async function handlePostPublishBlog(
     });
     if (!aiResp.ok) {
       const t = await aiResp.text();
+      if (aiResp.status === 429 || aiResp.status === 402) {
+        return { status: "noop", reason: `ai_gateway_${aiResp.status === 429 ? "rate_limited" : "credits_exhausted"}`, details: { body: t.slice(0, 300) } };
+      }
       return { status: "failed", reason: `ai_gateway_${aiResp.status}`, details: { body: t.slice(0, 300) } };
     }
     const j = await aiResp.json();
