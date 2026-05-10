@@ -373,15 +373,28 @@ export default function GrowthQualityScoreCard() {
             </div>
 
             <div className="space-y-2">
-              <div className="text-xs font-medium text-text-primary">Avg Subscores</div>
+              <div className="text-xs font-medium text-text-primary">Avg Subscores · Bulk-Repair Top-10 Worst</div>
               {SUBSCORE_ROWS.map(({ key, label }) => {
                 const pct = Number(summary.data!.avg_subscores?.[key] ?? 0);
+                const isPending = bulkDispatch.isPending && bulkSubscore === key;
                 return (
                   <div key={key} className="grid grid-cols-12 items-center gap-2 text-xs">
-                    <div className="col-span-4 text-text-secondary">{label}</div>
-                    <div className="col-span-7"><Progress value={pct} className="h-2" /></div>
+                    <div className="col-span-3 text-text-secondary">{label}</div>
+                    <div className="col-span-6"><Progress value={pct} className="h-2" /></div>
                     <div className={`col-span-1 text-right font-mono text-status-${tone(pct)}-text`}>
                       {pct.toFixed(0)}
+                    </div>
+                    <div className="col-span-2 text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={bulkDispatch.isPending}
+                        onClick={() => bulkDispatch.mutate(key)}
+                        className="h-6 text-[10px] px-2"
+                      >
+                        {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wrench className="h-3 w-3 mr-1" />}
+                        Bulk
+                      </Button>
                     </div>
                   </div>
                 );
