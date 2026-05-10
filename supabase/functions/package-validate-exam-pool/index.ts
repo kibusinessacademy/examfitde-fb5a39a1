@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { markFirstHeartbeat } from "../_shared/first-heartbeat.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";
@@ -463,6 +464,9 @@ Deno.serve(async (req) => {
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
+
+  // S5b — First-Heartbeat-Contract: mark BEFORE any heavy gate/DB/AI work.
+  await markFirstHeartbeat(sb, p.job_id ?? body.job_id ?? null);
 
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
