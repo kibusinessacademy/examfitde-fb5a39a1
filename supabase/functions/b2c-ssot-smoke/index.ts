@@ -858,6 +858,7 @@ async function runAccessE2eMode(sb: any, body: any, log: (...m: unknown[]) => vo
     curriculum_id: curriculumId,
     baseline,
     grant_only: grantOnly,
+    drift_denied: driftDenied,
     failures,
   }, null, 2), { status: failures.length === 0 ? 200 : 500, headers: cors });
 }
