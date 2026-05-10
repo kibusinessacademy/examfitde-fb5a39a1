@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, RefreshCw, Wrench, AlertTriangle, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react';
+import { Loader2, RefreshCw, Wrench, AlertTriangle, CheckCircle2, AlertCircle, TrendingUp, Trash2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -165,6 +166,57 @@ export default function PostPublishGrowthHealthCard() {
     const payload = e?.activePayload?.[0]?.payload;
     if (payload?.id) setSelectedSnapshotId(payload.id);
   };
+
+  // ===== Retention =====
+  const cleanupStatus = useQuery({
+    queryKey: ['post-publish-growth-cleanup-status'],
+    queryFn: async (): Promise<any> => {
+      const { data, error } = await supabase.rpc('admin_get_post_publish_growth_cleanup_status' as any);
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
+  const [retentionInput, setRetentionInput] = useState<string>('');
+  useEffect(() => {
+    if (cleanupStatus.data?.retain_days != null && retentionInput === '') {
+      setRetentionInput(String(cleanupStatus.data.retain_days));
+    }
+  }, [cleanupStatus.data?.retain_days]);
+
+  const saveRetention = useMutation({
+    mutationFn: async (days: number) => {
+      const { data, error } = await supabase.rpc(
+        'admin_set_post_publish_growth_retention_days' as any,
+        { p_days: days },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Retention gespeichert');
+      qc.invalidateQueries({ queryKey: ['post-publish-growth-cleanup-status'] });
+    },
+    onError: (err: any) => toast.error('Speichern fehlgeschlagen', { description: err?.message }),
+  });
+
+  const runCleanup = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        'fn_cleanup_post_publish_growth_health_snapshots' as any,
+        {},
+      );
+      if (error) throw error;
+      return data as number;
+    },
+    onSuccess: (deleted) => {
+      toast.success(`Cleanup: ${deleted} Snapshots entfernt`);
+      qc.invalidateQueries({ queryKey: ['post-publish-growth-cleanup-status'] });
+      qc.invalidateQueries({ queryKey: ['post-publish-growth-health-trends'] });
+    },
+    onError: (err: any) => toast.error('Cleanup fehlgeschlagen', { description: err?.message }),
+  });
 
   return (
     <Card>
@@ -334,6 +386,95 @@ export default function PostPublishGrowthHealthCard() {
                       ))}
                     </div>
                   )}
+                </>
+              )}
+            </div>
+
+            {/* ===== Retention Config ===== */}
+            <div className="rounded-md border border-border-subtle bg-surface-sunken p-3 space-y-2">
+              <div className="text-xs font-medium text-text-primary flex items-center gap-1">
+                <Trash2 className="h-3 w-3" /> Snapshot Retention
+              </div>
+              {cleanupStatus.isLoading && (
+                <div className="text-xs text-text-secondary flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />Lade Status…
+                </div>
+              )}
+              {cleanupStatus.data && (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="text-text-secondary">Aufbewahrung (Tage):</span>
+                    <Input
+                      type="number"
+                      min={7}
+                      max={3650}
+                      value={retentionInput}
+                      onChange={(e) => setRetentionInput(e.target.value)}
+                      className="h-7 w-24 text-xs font-mono"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px]"
+                      disabled={
+                        saveRetention.isPending ||
+                        !retentionInput ||
+                        Number(retentionInput) === Number(cleanupStatus.data.retain_days)
+                      }
+                      onClick={() => {
+                        const n = Number(retentionInput);
+                        if (Number.isFinite(n) && n >= 7) saveRetention.mutate(n);
+                        else toast.error('Mindestens 7 Tage');
+                      }}
+                    >
+                      {saveRetention.isPending ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Save className="h-3 w-3 mr-1" />
+                      )}
+                      Speichern
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px]"
+                      onClick={() => runCleanup.mutate()}
+                      disabled={runCleanup.isPending}
+                    >
+                      {runCleanup.isPending ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3 mr-1" />
+                      )}
+                      Cleanup jetzt
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                    <div className="text-text-secondary">Snapshots gespeichert</div>
+                    <div className="font-mono text-right text-text-primary">
+                      {cleanupStatus.data.snapshot_count}
+                    </div>
+                    <div className="text-text-secondary">Ältester Snapshot</div>
+                    <div className="font-mono text-right text-text-primary">
+                      {cleanupStatus.data.oldest_snapshot_at
+                        ? new Date(cleanupStatus.data.oldest_snapshot_at).toLocaleString('de-DE')
+                        : '—'}
+                    </div>
+                    <div className="text-text-secondary">Letzter Cleanup-Lauf</div>
+                    <div className="font-mono text-right text-text-primary">
+                      {cleanupStatus.data.last_cleanup?.created_at
+                        ? `${new Date(cleanupStatus.data.last_cleanup.created_at).toLocaleString('de-DE')} · ${cleanupStatus.data.last_cleanup.result_status}`
+                        : '— (noch keiner)'}
+                    </div>
+                    {cleanupStatus.data.last_cleanup?.metadata?.deleted != null && (
+                      <>
+                        <div className="text-text-secondary">Letzter Cleanup gelöscht</div>
+                        <div className="font-mono text-right text-text-primary">
+                          {cleanupStatus.data.last_cleanup.metadata.deleted}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </>
               )}
             </div>

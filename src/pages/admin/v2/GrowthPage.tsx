@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings, Euro, Share2, Search, Target, RefreshCw, Radar, Zap, Rocket, Tag, Music, Laugh, Activity, ScrollText } from 'lucide-react';
 const PostPublishGrowthFanoutCard = lazy(() => import('@/components/admin/growth/PostPublishGrowthFanoutCard'));
 const PostPublishGrowthHealthCard = lazy(() => import('@/components/admin/growth/PostPublishGrowthHealthCard'));
+const GrowthQualityScoreCard = lazy(() => import('@/components/admin/growth/GrowthQualityScoreCard'));
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -167,6 +168,7 @@ export default function GrowthPage() {
         <TabsContent value="intel" className="mt-4"><Suspense fallback={<Loading />}><MarketingIntelligencePanel /></Suspense></TabsContent>
         <TabsContent value="fanout" className="mt-4 space-y-4">
           <Suspense fallback={<Loading />}><PostPublishGrowthHealthCard /></Suspense>
+          <Suspense fallback={<Loading />}><GrowthQualityScoreCard /></Suspense>
           <Suspense fallback={<Loading />}><PostPublishGrowthFanoutCard /></Suspense>
         </TabsContent>
       </Tabs>
