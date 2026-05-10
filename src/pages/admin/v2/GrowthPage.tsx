@@ -118,12 +118,10 @@ export default function GrowthPage() {
             <Laugh className="h-3 w-3" /> Humor QC
           </TabsTrigger>
           <TabsTrigger value="intel" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg data-[state=active]:text-primary">
-            <Activity className="h-3 w-3" /> Intel
+            <Activity className="h-3 w-3" /> Marketing-Intel
           </TabsTrigger>
           <TabsTrigger value="fanout" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
             <ScrollText className="h-3 w-3" /> Post-Publish Fanout
-          </TabsTrigger>
-            <Activity className="h-3 w-3" /> Marketing-Intel
           </TabsTrigger>
         </TabsList>
 
