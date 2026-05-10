@@ -7,6 +7,8 @@ import { useSingleBeruf, useCurriculumProductBySlug } from '@/hooks/useSEOPages'
 import { SEO_TEMPLATES, SITE_URL, PRODUCT_PRICES, generateProductSchema } from '@/lib/seo';
 import { PRICING } from '@/config/pricing';
 import { trackConversion } from '@/lib/seo-tracking';
+import { trackFunnel } from '@/lib/conversionTracking';
+import { useResolvePackageContext } from '@/hooks/useResolvePackageContext';
 import { BundleHero } from '@/components/landing/bundle/BundleHero';
 import { BundleModulesBlock } from '@/components/landing/bundle/BundleModulesBlock';
 import { BundleComparisonBlock } from '@/components/landing/bundle/BundleComparisonBlock';
