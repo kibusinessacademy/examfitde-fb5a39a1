@@ -390,6 +390,7 @@ export default function HealCockpitPage() {
                 <ArtifactCompletenessCard />
                 <WorkerOutputBreakdownCard />
                 <PackageHealLogViewerCard />
+                <HealRunDrilldownCard />
                 <AutoPulseImpactCard />
                 <ControlLaneRequeueCard />
                 <QualityCouncilDriftCard />
