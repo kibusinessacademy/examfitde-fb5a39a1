@@ -21,10 +21,11 @@ import { toast } from 'sonner';
 
 type Offender = {
   package_id: string; package_title: string;
+  track: string; allowed: boolean; required: boolean;
   chapter_count: number; published_count: number;
   publishable_count: number; blocker_reason: string;
 };
-type TrackPolicy = { track: string; allowed: boolean; requires_handbook: boolean; gates: string[] };
+type TrackPolicy = { track: string; allowed: boolean; required: boolean; requires_handbook?: boolean; gates: string[] };
 type Summary = {
   drift_packages: number;
   chapters_publishable_pending: number;
@@ -70,7 +71,14 @@ export function HandbookPublishDriftCard() {
       qc.invalidateQueries({ queryKey: ['handbook-chapters'] });
       refetch();
     },
-    onError: (e: any) => toast.error(`Fehler: ${e?.message ?? 'unbekannt'}`),
+    onError: (e: any) => {
+      const msg = String(e?.message ?? '');
+      if (/forbidden|permission denied|42501/i.test(msg)) {
+        toast.error('Backfill verweigert: Admin-/service-role-Rechte erforderlich.');
+      } else {
+        toast.error(`Fehler: ${msg || 'unbekannt'}`);
+      }
+    },
   });
 
   const rollback = useMutation({
@@ -89,7 +97,14 @@ export function HandbookPublishDriftCard() {
       qc.invalidateQueries({ queryKey: ['handbook-chapters'] });
       refetch();
     },
-    onError: (e: any) => toast.error(`Rollback fehlgeschlagen: ${e?.message ?? 'unbekannt'}`),
+    onError: (e: any) => {
+      const msg = String(e?.message ?? '');
+      if (/forbidden|permission denied|42501/i.test(msg)) {
+        toast.error('Rollback verweigert: Admin-/service-role-Rechte erforderlich.');
+      } else {
+        toast.error(`Rollback fehlgeschlagen: ${msg || 'unbekannt'}`);
+      }
+    },
   });
 
   const smoke = useMutation({
@@ -104,7 +119,14 @@ export function HandbookPublishDriftCard() {
       if (res?.pass) toast.success(`Smoke OK · ${(res?.results ?? []).length} Tests bestanden`);
       else toast.error(`Smoke FAILED · ${failed.length} Tests fehlgeschlagen`);
     },
-    onError: (e: any) => toast.error(`Smoke-Fehler: ${e?.message ?? 'unbekannt'}`),
+    onError: (e: any) => {
+      const msg = String(e?.message ?? '');
+      if (/forbidden|permission denied|42501/i.test(msg)) {
+        toast.error('Smoke verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff. Bitte als Admin einloggen.');
+      } else {
+        toast.error(`Smoke-Fehler: ${msg || 'unbekannt'}`);
+      }
+    },
   });
 
   if (isLoading) {
@@ -199,14 +221,24 @@ export function HandbookPublishDriftCard() {
               <div key={track} className="rounded-lg border border-border p-2 text-[11px] leading-snug">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-medium text-foreground">{track}</span>
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] h-4 px-1.5 ${
-                      p.allowed ? 'border-success/30 text-success' : 'border-muted-foreground/30 text-muted-foreground'
-                    }`}
-                  >
-                    {p.allowed ? 'allowed' : 'disallowed'}
-                  </Badge>
+                  <div className="flex gap-1">
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] h-4 px-1.5 ${
+                        p.allowed ? 'border-success/30 text-success' : 'border-muted-foreground/30 text-muted-foreground'
+                      }`}
+                    >
+                      {p.allowed ? 'allowed' : 'disallowed'}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] h-4 px-1.5 ${
+                        p.required ? 'border-primary/30 text-primary' : 'border-muted-foreground/30 text-muted-foreground'
+                      }`}
+                    >
+                      {p.required ? 'required' : 'optional'}
+                    </Badge>
+                  </div>
                 </div>
                 <div className="mt-1 text-muted-foreground font-mono break-words">
                   {p.gates.join(' · ')}
@@ -219,33 +251,57 @@ export function HandbookPublishDriftCard() {
         {offenders.length > 0 && (
           <div className="space-y-1">
             <div className="text-xs font-medium text-foreground">Top Offenders</div>
-            <div className="rounded-lg border border-border divide-y divide-border max-h-64 overflow-auto">
-              {offenders.map((o) => (
-                <div key={o.package_id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-foreground">{o.package_title}</div>
-                    <div className="text-[10px] text-muted-foreground font-mono truncate">
-                      {o.blocker_reason} · {o.published_count}/{o.publishable_count} published
+            <div className="rounded-lg border border-border overflow-hidden">
+              <div className="grid grid-cols-12 gap-1 px-3 py-1.5 text-[10px] font-mono text-muted-foreground bg-muted/30 border-b border-border">
+                <div className="col-span-4">Paket</div>
+                <div className="col-span-2">Track</div>
+                <div className="col-span-1 text-center">Allow</div>
+                <div className="col-span-1 text-center">Req</div>
+                <div className="col-span-2 text-center">Pub / Pubable</div>
+                <div className="col-span-2 text-right">Aktion</div>
+              </div>
+              <div className="divide-y divide-border max-h-64 overflow-auto">
+                {offenders.map((o) => (
+                  <div key={o.package_id} className="grid grid-cols-12 gap-1 px-3 py-1.5 text-xs items-center">
+                    <div className="col-span-4 min-w-0">
+                      <div className="truncate font-medium text-foreground">{o.package_title}</div>
+                      <div className="text-[10px] text-muted-foreground font-mono truncate">{o.blocker_reason}</div>
+                    </div>
+                    <div className="col-span-2 text-[10px] font-mono text-muted-foreground truncate">{o.track}</div>
+                    <div className="col-span-1 text-center">
+                      <Badge variant="outline" className={`text-[9px] h-4 px-1 ${o.allowed ? 'border-success/30 text-success' : 'border-muted-foreground/30 text-muted-foreground'}`}>
+                        {o.allowed ? 'Y' : 'N'}
+                      </Badge>
+                    </div>
+                    <div className="col-span-1 text-center">
+                      <Badge variant="outline" className={`text-[9px] h-4 px-1 ${o.required ? 'border-primary/30 text-primary' : 'border-muted-foreground/30 text-muted-foreground'}`}>
+                        {o.required ? 'Y' : 'N'}
+                      </Badge>
+                    </div>
+                    <div className="col-span-2 text-center text-[11px] tabular-nums font-mono">
+                      <span className="text-foreground">{o.published_count}</span>
+                      <span className="text-muted-foreground"> / </span>
+                      <span className="text-warning">{o.publishable_count}</span>
+                    </div>
+                    <div className="col-span-2 flex justify-end gap-1">
+                      <Button
+                        size="sm" variant="ghost" className="h-6 px-2 text-[10px]"
+                        disabled={backfill.isPending}
+                        onClick={() => backfill.mutate({ dryRun: false, packageId: o.package_id })}
+                      >
+                        Heal
+                      </Button>
+                      <Button
+                        size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-destructive"
+                        disabled={rollback.isPending || o.published_count === 0}
+                        onClick={() => { setRollbackReason(''); setConfirmOpen({ kind: 'rollback', pkg: o }); }}
+                      >
+                        <Undo2 className="h-3 w-3 mr-1" />Rollback
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm" variant="ghost" className="h-6 px-2 text-[10px]"
-                      disabled={backfill.isPending}
-                      onClick={() => backfill.mutate({ dryRun: false, packageId: o.package_id })}
-                    >
-                      Heal
-                    </Button>
-                    <Button
-                      size="sm" variant="ghost" className="h-6 px-2 text-[10px] text-destructive"
-                      disabled={rollback.isPending || o.published_count === 0}
-                      onClick={() => { setRollbackReason(''); setConfirmOpen({ kind: 'rollback', pkg: o }); }}
-                    >
-                      <Undo2 className="h-3 w-3 mr-1" />Rollback
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -302,10 +358,20 @@ export function HandbookPublishDriftCard() {
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle>Rollback: {confirmOpen.pkg.package_title}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Setzt alle {confirmOpen.pkg.published_count} published Handbook-Chapters
-                  dieses Pakets auf is_published=false. Audit wird in auto_heal_log
-                  geschrieben.
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div>
+                      Setzt alle <span className="font-mono text-foreground">{confirmOpen.pkg.published_count}</span> published Handbook-Chapters
+                      dieses Pakets auf <span className="font-mono">is_published=false</span>.
+                      Audit wird in <span className="font-mono">auto_heal_log</span> geschrieben.
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 rounded-md border border-border p-2 text-[11px] font-mono">
+                      <div>Track: <span className="text-foreground">{confirmOpen.pkg.track}</span></div>
+                      <div>Policy: <span className="text-foreground">{confirmOpen.pkg.allowed ? 'allowed' : 'disallowed'} · {confirmOpen.pkg.required ? 'required' : 'optional'}</span></div>
+                      <div>Blocker: <span className="text-warning">{confirmOpen.pkg.blocker_reason}</span></div>
+                      <div>Published / Publishable: <span className="text-foreground">{confirmOpen.pkg.published_count}</span> / <span className="text-warning">{confirmOpen.pkg.publishable_count}</span></div>
+                    </div>
+                  </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <Input
