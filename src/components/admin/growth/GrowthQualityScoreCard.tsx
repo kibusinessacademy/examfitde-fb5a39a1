@@ -264,6 +264,29 @@ function PackageDetailDialog({
 export default function GrowthQualityScoreCard() {
   const [maxScore, setMaxScore] = useState(60);
   const [drilldownId, setDrilldownId] = useState<string | null>(null);
+  const [bulkSubscore, setBulkSubscore] = useState<string | null>(null);
+  const qcRoot = useQueryClient();
+
+  const bulkDispatch = useMutation({
+    mutationFn: async (subscore: string) => {
+      setBulkSubscore(subscore);
+      const { data, error } = await supabase.rpc('admin_bulk_dispatch_growth_quality_repair' as any, {
+        p_subscore: subscore,
+        p_limit: 10,
+      });
+      if (error) throw error;
+      return data as { subscore: string; dispatched: number; skipped: number };
+    },
+    onSuccess: (res) => {
+      toast.success(`Bulk-Repair ${res.subscore}`, {
+        description: `enqueued: ${res.dispatched} · skipped: ${res.skipped}`,
+      });
+      qcRoot.invalidateQueries({ queryKey: ['growth-quality-summary'] });
+      qcRoot.invalidateQueries({ queryKey: ['growth-quality-details'] });
+    },
+    onError: (err: Error) => toast.error('Bulk-Repair fehlgeschlagen', { description: err.message }),
+    onSettled: () => setBulkSubscore(null),
+  });
 
   const summary = useQuery({
     queryKey: ['growth-quality-summary'],
