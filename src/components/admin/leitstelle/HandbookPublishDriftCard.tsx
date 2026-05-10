@@ -344,10 +344,20 @@ export function HandbookPublishDriftCard() {
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle>Rollback: {confirmOpen.pkg.package_title}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Setzt alle {confirmOpen.pkg.published_count} published Handbook-Chapters
-                  dieses Pakets auf is_published=false. Audit wird in auto_heal_log
-                  geschrieben.
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div>
+                      Setzt alle <span className="font-mono text-foreground">{confirmOpen.pkg.published_count}</span> published Handbook-Chapters
+                      dieses Pakets auf <span className="font-mono">is_published=false</span>.
+                      Audit wird in <span className="font-mono">auto_heal_log</span> geschrieben.
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 rounded-md border border-border p-2 text-[11px] font-mono">
+                      <div>Track: <span className="text-foreground">{confirmOpen.pkg.track}</span></div>
+                      <div>Policy: <span className="text-foreground">{confirmOpen.pkg.allowed ? 'allowed' : 'disallowed'} · {confirmOpen.pkg.required ? 'required' : 'optional'}</span></div>
+                      <div>Blocker: <span className="text-warning">{confirmOpen.pkg.blocker_reason}</span></div>
+                      <div>Published / Publishable: <span className="text-foreground">{confirmOpen.pkg.published_count}</span> / <span className="text-warning">{confirmOpen.pkg.publishable_count}</span></div>
+                    </div>
+                  </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <Input
