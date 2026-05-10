@@ -558,7 +558,7 @@ async function drainOnce(sb: any) {
       .update({
         status: dbStatus,
         completed_at: new Date().toISOString(),
-        error_message: outcome.status === "failed" ? (outcome.reason ?? null) : null,
+        last_error: outcome.status === "failed" ? (outcome.reason ?? null) : null,
         result: { outcome: outcome.status, reason: outcome.reason ?? null, details: outcome.details ?? null },
       })
       .eq("id", job.id);
