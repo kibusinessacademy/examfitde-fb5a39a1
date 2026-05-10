@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { markFirstHeartbeat } from "../_shared/first-heartbeat.ts";
 import { checkContamination } from "../_shared/contamination-guard.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { callAIJSON } from "../_shared/ai-client.ts";

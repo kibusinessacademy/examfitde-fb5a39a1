@@ -4,6 +4,7 @@ import { markStepDone } from "../_shared/steps.ts";
 import { assertSchemaReady } from "../_shared/schema-gate.ts";
 import { bootstrapLLMLogging } from "../_shared/llm-log-bootstrap.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { markFirstHeartbeat } from "../_shared/first-heartbeat.ts";
 import { calculateHybridTargetFromDefaults } from "../_shared/hybridExamTarget.ts";
 import { getRemainingGenerationBudget, MAX_QUESTIONS_PER_PACKAGE, getTieredTarget, getEffectiveMaxCap } from "../_shared/exam-pool-limits.ts";
 import type { HybridTargetResult } from "../_shared/hybridExamTarget.ts";
