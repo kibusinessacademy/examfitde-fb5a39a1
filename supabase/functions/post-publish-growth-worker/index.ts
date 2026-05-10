@@ -127,7 +127,7 @@ async function handlePostPublishBlog(
 
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) {
-    return { status: "failed", reason: "missing_LOVABLE_API_KEY" };
+    return { status: "noop", reason: "noop_missing_secret", details: { secret: "LOVABLE_API_KEY" } };
   }
 
   const titleBase = pkg.title || "Prüfungstraining";
