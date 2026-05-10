@@ -30,7 +30,7 @@ function BundleDetailPageComponent() {
   const [showStickyCta, setShowStickyCta] = useState(false);
 
   const { data: pkgCtx } = useResolvePackageContext({
-    curriculumId: beruf?.curriculum_id ?? null,
+    curriculumId: product?.curriculum_id ?? null,
   });
 
   // pricing_view-Äquivalent (existiert nicht im Enum) → product_view, sobald Page geladen
