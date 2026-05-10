@@ -390,6 +390,7 @@ export default function HealCockpitPage() {
                 <QualityGateDecisionsCard />
                 <OpsCancelSkipRiseCard />
                 <LessonJoinParityCard />
+                <HealAutomationControlCard />
                 <ArtifactCompletenessCard />
                 <WorkerOutputBreakdownCard />
                 <PackageHealLogViewerCard />
