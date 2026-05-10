@@ -7,6 +7,7 @@ import { generateFAQSchema, generateBreadcrumbSchema, generateCourseSchema, SITE
 import { PRICING } from '@/config/pricing';
 import { useCertificationCatalog, useCertificationSEOPage } from '@/hooks/useCertificationSEO';
 import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
+import { useResolvePackageContext } from '@/hooks/useResolvePackageContext';
 import { trackConversion } from '@/lib/seo-tracking';
 import { trackFunnel } from '@/lib/conversionTracking';
 import {
