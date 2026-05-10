@@ -47,6 +47,15 @@ const REQUIRED = [
   "fn_simulate_parity_cron_guard",
   "fn_simulate_parity_cron_guard_outbox",
   "fn_simulate_dispatch_parity_notification",
+  "admin_get_heal_alert_config",
+  "admin_upsert_heal_alert_config",
+  "fn_evaluate_notification_delivery_escalation",
+  "admin_get_delivery_escalation_status",
+  "admin_get_notification_outbox_entries",
+  "admin_e2e_outbox_enqueue",
+  "admin_e2e_outbox_dispatch_step",
+  "admin_e2e_outbox_cleanup",
+  "notification-delivery-escalation-hourly",
 ];
 
 if (!fs.existsSync(MIG_DIR)) {
