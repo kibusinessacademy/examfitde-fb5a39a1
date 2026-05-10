@@ -118,4 +118,46 @@ maybe("outbox dispatcher E2E (real rows, no Slack/Resend)", () => {
     expect(row.attempts).toBe(r.attempts);
     expect(row.last_error).toBe(r.last_error);
   });
+
+  it("idempotent enqueue: same key returns same row id while non-terminal", async () => {
+    const k = `idem-${Date.now()}`;
+    const a = await enqueue("late", "webhook_500", 5, k);
+    const b = await enqueue("late", "webhook_500", 5, k);
+    const c = await enqueue("late", "webhook_500", 5, `${k}-other`);
+    expect(b).toBe(a);
+    expect(c).not.toBe(a);
+    // Advance once → still pending key reuses same row
+    await step(a);
+    const d = await enqueue("late", "webhook_500", 5, k);
+    expect(d).toBe(a);
+  });
+
+  it("after terminal state, idempotency key starts a fresh row", async () => {
+    const k = `idem-term-${Date.now()}`;
+    const a = await enqueue("late", "ok", 5, k);
+    await step(a); // → sent (terminal)
+    const b = await enqueue("late", "ok", 5, k);
+    expect(b).not.toBe(a);
+  });
+
+  it("retries on row A do not mutate row B (per-row isolation)", async () => {
+    const a = await enqueue("late", "webhook_500", 4, `iso-a-${Date.now()}`);
+    const b = await enqueue("late", "webhook_500", 4, `iso-b-${Date.now()}`);
+    const bBefore = await snap(b);
+    // Drive A to dlq
+    for (let i = 0; i < 4; i++) {
+      const r = await step(a);
+      if (r.terminal) break;
+    }
+    const aAfter = await snap(a);
+    const bAfter = await snap(b);
+    expect(aAfter.status).toBe("dlq");
+    expect(aAfter.attempts).toBe(4);
+    // B is untouched
+    expect(bAfter.status).toBe(bBefore.status);
+    expect(bAfter.attempts).toBe(bBefore.attempts);
+    expect(bAfter.last_error).toBe(bBefore.last_error);
+    expect(bAfter.next_attempt_at).toBe(bBefore.next_attempt_at);
+  });
 });
+
