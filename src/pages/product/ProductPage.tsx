@@ -5,6 +5,7 @@ import { useProductPageSSOT } from '@/hooks/useProductPageSSOT';
 import { useResolvePaywall } from '@/hooks/useResolvePaywall';
 import { ProductPageTemplate } from '@/components/product/ProductPageTemplate';
 import { trackEvent } from '@/lib/tracking/track';
+import { trackFunnel } from '@/lib/conversionTracking';
 
 export default function ProductPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -54,7 +55,8 @@ export default function ProductPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [product]);
 
-  // Pricing section visibility tracking
+  // Pricing section visibility tracking — SSOT pricing_view in conversion_events
+  // (zusätzlich zu legacy tracking_events, damit funnel-loss-detector greift).
   useEffect(() => {
     if (!product) return;
     const pricingEl = document.getElementById('pricing');
@@ -66,6 +68,11 @@ export default function ProductPage() {
           trackEvent({
             eventName: 'pricing_view',
             productSlug: product.canonicalSlug,
+          });
+          trackFunnel('pricing_view', {
+            package_id: product.packageId ?? null,
+            source_page: `/produkt/${product.canonicalSlug}`,
+            metadata: { product_slug: product.canonicalSlug },
           });
           observer.disconnect();
         }
@@ -83,6 +90,18 @@ export default function ProductPage() {
         eventName: 'product_cta_click',
         productSlug: product.canonicalSlug,
         metadata: { cta_type: ctaType },
+      });
+      // SSOT funnel events with package_id (Pflichtfeld für strict-events).
+      const sourcePage = `/produkt/${product.canonicalSlug}`;
+      trackFunnel('cta_clicked', {
+        package_id: product.packageId ?? null,
+        source_page: sourcePage,
+        metadata: { cta_type: ctaType, product_slug: product.canonicalSlug },
+      });
+      trackFunnel('checkout_start', {
+        package_id: product.packageId ?? null,
+        source_page: sourcePage,
+        metadata: { cta_type: ctaType, product_slug: product.canonicalSlug },
       });
       // Route to correct URL based on CTA type
       const url =

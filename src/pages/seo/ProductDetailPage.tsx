@@ -7,6 +7,8 @@ import { useSingleBeruf, useCurriculumProductBySlug } from '@/hooks/useSEOPages'
 import { SEO_TEMPLATES, SITE_URL, PRODUCT_PRICES, generateProductSchema } from '@/lib/seo';
 import { PRICING } from '@/config/pricing';
 import { trackConversion } from '@/lib/seo-tracking';
+import { trackFunnel } from '@/lib/conversionTracking';
+import { useResolvePackageContext } from '@/hooks/useResolvePackageContext';
 import { BundleHero } from '@/components/landing/bundle/BundleHero';
 import { BundleModulesBlock } from '@/components/landing/bundle/BundleModulesBlock';
 import { BundleComparisonBlock } from '@/components/landing/bundle/BundleComparisonBlock';
@@ -27,11 +29,27 @@ function BundleDetailPageComponent() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [showStickyCta, setShowStickyCta] = useState(false);
 
+  const { data: pkgCtx } = useResolvePackageContext({
+    curriculumId: product?.curriculum_id ?? null,
+  });
+
   // pricing_view-Äquivalent (existiert nicht im Enum) → product_view, sobald Page geladen
   useEffect(() => {
     if (!beruf) return;
     trackConversion({ event: 'product_view', source: 'bundle_page', label: slug });
   }, [beruf, slug]);
+
+  // SSOT pricing_view → conversion_events sobald package_id resolved (funnel-loss-Pflicht).
+  useEffect(() => {
+    if (!beruf || !pkgCtx?.package_id) return;
+    trackFunnel('pricing_view', {
+      package_id: pkgCtx.package_id,
+      curriculum_id: pkgCtx.curriculum_id,
+      persona: pkgCtx.persona,
+      source_page: `/bundle/${slug}`,
+      metadata: { bundle_slug: slug, beruf: beruf.title },
+    });
+  }, [product?.curriculum_id, pkgCtx?.package_id, slug]);
 
   // Sticky-CTA: zeigen, wenn Hero aus dem Viewport ist
   useEffect(() => {
@@ -48,8 +66,23 @@ function BundleDetailPageComponent() {
   const handleCheckoutStart = useCallback((source: string) => {
     trackConversion({ event: 'cta_click', source, label: 'bundle_checkout_start' });
     trackConversion({ event: 'checkout_start', source, label: slug });
+    const sourcePage = `/bundle/${slug}`;
+    trackFunnel('cta_clicked', {
+      package_id: pkgCtx?.package_id ?? null,
+      curriculum_id: pkgCtx?.curriculum_id ?? null,
+      persona: pkgCtx?.persona ?? null,
+      source_page: sourcePage,
+      metadata: { source, bundle_slug: slug },
+    });
+    trackFunnel('checkout_start', {
+      package_id: pkgCtx?.package_id ?? null,
+      curriculum_id: pkgCtx?.curriculum_id ?? null,
+      persona: pkgCtx?.persona ?? null,
+      source_page: sourcePage,
+      metadata: { source, bundle_slug: slug },
+    });
     navigate('/shop');
-  }, [navigate, slug]);
+  }, [navigate, slug, pkgCtx]);
 
   const seo = useMemo(() => beruf ? SEO_TEMPLATES.bundle(beruf.title) : null, [beruf]);
   const price = PRODUCT_PRICES.bundle;

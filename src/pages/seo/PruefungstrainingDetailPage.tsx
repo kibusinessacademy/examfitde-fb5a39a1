@@ -7,6 +7,7 @@ import { generateFAQSchema, generateBreadcrumbSchema, generateCourseSchema, SITE
 import { PRICING } from '@/config/pricing';
 import { useCertificationCatalog, useCertificationSEOPage } from '@/hooks/useCertificationSEO';
 import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
+import { useResolvePackageContext } from '@/hooks/useResolvePackageContext';
 import { trackConversion } from '@/lib/seo-tracking';
 import { trackFunnel } from '@/lib/conversionTracking';
 import {
@@ -58,6 +59,10 @@ const PruefungstrainingDetailPage = () => {
       .slice(0, 6);
   }, [cert, catalog]);
 
+  const { data: pkgCtx } = useResolvePackageContext({
+    certificationId: cert?.id ?? null,
+  });
+
   useEffect(() => {
     if (cert) {
       trackConversion({ event: 'product_view', source: 'product_page', label: cert.slug });
@@ -67,6 +72,19 @@ const PruefungstrainingDetailPage = () => {
       });
     }
   }, [cert?.slug]);
+
+  // SSOT pricing_view → conversion_events (mit package_id sobald resolved).
+  // Einmal pro Paket-Auflösung; vor funnel-loss-detector entscheidend.
+  useEffect(() => {
+    if (!cert || !pkgCtx?.package_id) return;
+    trackFunnel('pricing_view', {
+      package_id: pkgCtx.package_id,
+      curriculum_id: pkgCtx.curriculum_id,
+      persona: pkgCtx.persona,
+      source_page: `/pruefungstraining/${cert.slug}`,
+      metadata: { cert_slug: cert.slug, cert_id: cert.id },
+    });
+  }, [cert?.id, pkgCtx?.package_id]);
 
   if (isCategory) return <PruefungstrainingCategoryPage />;
 
@@ -389,11 +407,26 @@ const PruefungstrainingDetailPage = () => {
                       className="w-full gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 text-lg"
                       onClick={() => {
                         trackConversion({ event: 'checkout_start', source: 'product_pricing', label: cert.slug });
-                        // Funnel-Tiefe: add_to_cart vor checkout_start
+                        const sourcePage = `/pruefungstraining/${cert.slug}`;
                         trackFunnel('add_to_cart', {
+                          package_id: pkgCtx?.package_id ?? null,
+                          curriculum_id: pkgCtx?.curriculum_id ?? null,
+                          persona: pkgCtx?.persona ?? null,
+                          source_page: sourcePage,
                           metadata: { source: 'product_pricing', slug: cert.slug, cert_id: cert.id, price: PRICING.defaultPrice },
                         });
+                        trackFunnel('cta_clicked', {
+                          package_id: pkgCtx?.package_id ?? null,
+                          curriculum_id: pkgCtx?.curriculum_id ?? null,
+                          persona: pkgCtx?.persona ?? null,
+                          source_page: sourcePage,
+                          metadata: { source: 'product_pricing', slug: cert.slug, cert_id: cert.id },
+                        });
                         trackFunnel('checkout_start', {
+                          package_id: pkgCtx?.package_id ?? null,
+                          curriculum_id: pkgCtx?.curriculum_id ?? null,
+                          persona: pkgCtx?.persona ?? null,
+                          source_page: sourcePage,
                           metadata: { source: 'product_pricing', slug: cert.slug, cert_id: cert.id },
                         });
                       }}
