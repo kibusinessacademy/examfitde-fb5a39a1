@@ -1,0 +1,25 @@
+name: Post-Publish Growth Policies Guard
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/post-publish-growth-worker/**'
+      - 'supabase/migrations/**'
+      - 'scripts/guards/post-publish-growth-policies-guard.mjs'
+      - '.github/workflows/post-publish-growth-policies-guard.yml'
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Run guard
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/guards/post-publish-growth-policies-guard.mjs
