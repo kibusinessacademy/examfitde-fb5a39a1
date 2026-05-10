@@ -1686,10 +1686,14 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   bootstrapLLMLogging(sb, "package_generate_exam_pool");
-  await assertSchemaReady("package-generate-exam-pool", sb);
 
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
+
+  // S5b — First-Heartbeat-Contract: mark BEFORE assertSchemaReady / any heavy work.
+  await markFirstHeartbeat(sb, p.job_id ?? body.job_id ?? null);
+
+  await assertSchemaReady("package-generate-exam-pool", sb);
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
   const examTarget = Number(p.options?.exam_target ?? 1000);

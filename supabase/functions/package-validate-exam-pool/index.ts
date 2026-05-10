@@ -464,6 +464,9 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const p = body.payload || body;
 
+  // S5b — First-Heartbeat-Contract: mark BEFORE any heavy gate/DB/AI work.
+  await markFirstHeartbeat(sb, p.job_id ?? body.job_id ?? null);
+
   const packageId = p.package_id;
   const curriculumId = p.curriculum_id;
   const certificationId = p.certification_id || null;
