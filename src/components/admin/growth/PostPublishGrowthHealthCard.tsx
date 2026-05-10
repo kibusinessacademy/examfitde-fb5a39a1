@@ -167,6 +167,57 @@ export default function PostPublishGrowthHealthCard() {
     if (payload?.id) setSelectedSnapshotId(payload.id);
   };
 
+  // ===== Retention =====
+  const cleanupStatus = useQuery({
+    queryKey: ['post-publish-growth-cleanup-status'],
+    queryFn: async (): Promise<any> => {
+      const { data, error } = await supabase.rpc('admin_get_post_publish_growth_cleanup_status' as any);
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
+  const [retentionInput, setRetentionInput] = useState<string>('');
+  useEffect(() => {
+    if (cleanupStatus.data?.retain_days != null && retentionInput === '') {
+      setRetentionInput(String(cleanupStatus.data.retain_days));
+    }
+  }, [cleanupStatus.data?.retain_days]);
+
+  const saveRetention = useMutation({
+    mutationFn: async (days: number) => {
+      const { data, error } = await supabase.rpc(
+        'admin_set_post_publish_growth_retention_days' as any,
+        { p_days: days },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Retention gespeichert');
+      qc.invalidateQueries({ queryKey: ['post-publish-growth-cleanup-status'] });
+    },
+    onError: (err: any) => toast.error('Speichern fehlgeschlagen', { description: err?.message }),
+  });
+
+  const runCleanup = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        'fn_cleanup_post_publish_growth_health_snapshots' as any,
+        {},
+      );
+      if (error) throw error;
+      return data as number;
+    },
+    onSuccess: (deleted) => {
+      toast.success(`Cleanup: ${deleted} Snapshots entfernt`);
+      qc.invalidateQueries({ queryKey: ['post-publish-growth-cleanup-status'] });
+      qc.invalidateQueries({ queryKey: ['post-publish-growth-health-trends'] });
+    },
+    onError: (err: any) => toast.error('Cleanup fehlgeschlagen', { description: err?.message }),
+  });
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
