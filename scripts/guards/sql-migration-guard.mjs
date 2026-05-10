@@ -231,6 +231,54 @@ const RULES = [
     severity: "warn",
     test: () => null, // Cross-file check — handled separately in main()
   },
+  {
+    // Markdown-rendering eats `*` in chat copy-paste. Detect leftover patterns.
+    // Hyper-specific to avoid column-alignment false positives.
+    id: "R15_markdown_stripped_multiply",
+    desc: "Markdown-Rendering hat vermutlich '*' geschluckt — z.B. '100.0  field', '::numeric  100'. Bitte explizit '*' setzen.",
+    test: (s) => {
+      const violations = [];
+      // Pattern A: decimal literal followed by 2+ spaces and identifier,
+      // NOT followed by an SQL keyword/punct that would explain alignment.
+      const reA = /\b\d+\.\d+  +([a-z_][a-z0-9_]*)\b/gi;
+      for (const m of s.matchAll(reA)) {
+        const next = m[1].toLowerCase();
+        if (["as", "from", "where", "and", "or", "then", "else", "end", "when", "is"].includes(next)) continue;
+        violations.push(`possibly stripped '*' near offset ${m.index}: "${m[0].trim()}"`);
+      }
+      // Pattern B: ::numeric  <number>  (very rarely legit)
+      for (const m of s.matchAll(/::numeric  +\d/gi)) {
+        violations.push(`possibly stripped '*' near offset ${m.index}: "${m[0].trim()}"`);
+      }
+      return violations.length ? violations : null;
+    },
+  },
+  {
+    id: "R16_count_alias_empty",
+    desc: "COUNT(alias.) ohne Spalte verboten — Markdown-Rendering hat '*' verschluckt. Nutze COUNT(alias.id) oder COUNT(*).",
+    test: (s) => {
+      const m = [...s.matchAll(/\bcount\s*\(\s*[a-z_][a-z0-9_]*\.\s*\)/gi)];
+      return m.length ? m.map((x) => `bad COUNT near offset ${x.index}: "${x[0]}"`) : null;
+    },
+  },
+  {
+    id: "R17_drop_view_dependency_hint",
+    desc: "DROP VIEW erkannt — Pre-Deploy pg_depend-Check empfohlen (warn).",
+    severity: "warn",
+    test: (s) => {
+      const violations = [];
+      const re = /\bDROP\s+VIEW\s+(?:IF\s+EXISTS\s+)?([\w.]+)/gi;
+      let m;
+      while ((m = re.exec(s))) {
+        // Skip if a 'CREATE VIEW <same>' follows in same file (pure replace)
+        const tail = s.slice(m.index);
+        const sameRecreate = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?VIEW\\s+${m[1].replace(/\./g, "\\.")}\\b`, "i");
+        if (sameRecreate.test(tail)) continue;
+        violations.push(`DROP VIEW ${m[1]} without same-file CREATE — verify pg_depend has no dependents`);
+      }
+      return violations.length ? violations : null;
+    },
+  },
 ];
 
 function lintFile(path) {
@@ -328,6 +376,36 @@ async function runShadowReplay(changedFiles) {
       const isChanged = changedSet.has(resolve(f));
       const tag = isChanged ? "🟡 CHANGED" : "  prior  ";
       try {
+        // Pre-DROP dependency probe (CHANGED files only) — fail fast if a
+        // DROP VIEW would break dependents that the migration does not also
+        // recreate. Mirrors the manual pg_depend check.
+        if (isChanged) {
+          const dropRe = /\bDROP\s+VIEW\s+(?:IF\s+EXISTS\s+)?([\w.]+)/gi;
+          let dm;
+          while ((dm = dropRe.exec(stripCommentsAndStrings(sql)))) {
+            const viewName = dm[1];
+            const recreateRe = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?VIEW\\s+${viewName.replace(/\./g, "\\.")}\\b`, "i");
+            const willRecreate = recreateRe.test(sql);
+            try {
+              const r = await client.query(
+                `SELECT dn.nspname||'.'||dv.relname AS dep
+                   FROM pg_depend d
+                   JOIN pg_rewrite r ON r.oid = d.objid
+                   JOIN pg_class dv ON dv.oid = r.ev_class
+                   JOIN pg_namespace dn ON dn.oid = dv.relnamespace
+                  WHERE d.refobjid = $1::regclass
+                    AND dv.relname <> split_part($2, '.', array_length(string_to_array($2,'.'),1))`,
+                [viewName, viewName],
+              );
+              if (r.rows.length && !willRecreate) {
+                console.error(`  ✖ pre-drop dependency check failed for ${viewName}: ${r.rows.map((x) => x.dep).join(", ")}`);
+                return { ran: true, ok: false, error: `dependents on ${viewName}`, file: rel };
+              }
+            } catch {
+              /* view does not exist yet in shadow — ignore */
+            }
+          }
+        }
         if (perFileRollback) {
           await client.query("BEGIN");
           await client.query(sql);
