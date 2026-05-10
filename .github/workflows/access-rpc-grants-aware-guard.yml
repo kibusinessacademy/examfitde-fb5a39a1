@@ -1,0 +1,22 @@
+name: access-rpc-grants-aware-guard
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**.sql'
+      - 'scripts/guards/access-rpc-grants-aware-guard.mjs'
+      - 'scripts/guards/access-rpc-grants-aware-baseline.json'
+      - '.github/workflows/access-rpc-grants-aware-guard.yml'
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: node scripts/guards/access-rpc-grants-aware-guard.mjs
