@@ -650,3 +650,169 @@ async function runRefundMode(sb: any, body: any, log: (...m: unknown[]) => void)
   }, null, 2), { status: failures.length === 0 ? 200 : 500, headers: cors });
 }
 
+
+// ================================================================
+// MODE: access_e2e — End-to-End Access Assertions
+// Setup: synth paid order (single-product) → asserts:
+//   - check_product_access_by_curriculum(feat) == true for all 4 features
+//   - tutor_access_check.allowed === true   (no reason='no_entitlement')
+//   - has_storage_entitlement === true
+// Optional: { drop_entitlement: true } removes the entitlement and re-asserts
+//   that grant-only access still satisfies tutor + storage (Path D).
+// ================================================================
+async function runAccessE2eMode(sb: any, body: any, log: (...m: unknown[]) => void): Promise<Response> {
+  const failures: string[] = [];
+  const userId = await resolveUserId(sb, body);
+  if (!userId) {
+    return new Response(JSON.stringify({ ok: false, mode: "access_e2e", error: "no user found" }), {
+      status: 400, headers: cors,
+    });
+  }
+
+  // Pick product with curriculum_id
+  let productId: string | null = body.product_id ?? null;
+  let productTitle: string | null = null;
+  let curriculumId: string | null = null;
+  if (productId) {
+    const { data } = await sb.from("products").select("title, curriculum_id").eq("id", productId).maybeSingle();
+    productTitle = data?.title ?? null;
+    curriculumId = data?.curriculum_id ?? null;
+  } else {
+    const { data } = await sb.from("products")
+      .select("id, title, curriculum_id")
+      .not("curriculum_id", "is", null)
+      .eq("status", "active")
+      .order("updated_at", { ascending: false })
+      .limit(1).maybeSingle();
+    productId = data?.id ?? null;
+    productTitle = data?.title ?? null;
+    curriculumId = data?.curriculum_id ?? null;
+  }
+  if (!productId || !curriculumId) {
+    return new Response(JSON.stringify({
+      ok: false, mode: "access_e2e", error: "no product+curriculum",
+    }), { status: 400, headers: cors });
+  }
+
+  // Synth paid order
+  const sessionId = `cs_test_access_${crypto.randomUUID()}`;
+  const piId = `pi_test_access_${crypto.randomUUID()}`;
+  const stripeInvId = `in_test_access_${crypto.randomUUID().slice(0, 8)}`;
+  const totalCents = 4900;
+  const subtotal = Math.round(totalCents / 1.19);
+  const tax = totalCents - subtotal;
+
+  const { data: order, error: orderErr } = await sb.from("orders").insert({
+    buyer_user_id: userId,
+    billing_email: "smoke-access@test.local",
+    billing_name: "Access E2E Smoke",
+    currency: "eur", country: "DE", tax_mode: "gross",
+    subtotal_cents: subtotal, tax_cents: tax, total_cents: totalCents,
+    status: "pending",
+    stripe_checkout_session_id: sessionId,
+    stripe_payment_intent_id: piId,
+    stripe_fee_cents: 150,
+    stripe_invoice_id: stripeInvId,
+    stripe_invoice_pdf_url: "https://invoice.test/pdf",
+    stripe_customer_id: "cus_test_access",
+  }).select("id").single();
+  if (orderErr || !order) {
+    return new Response(JSON.stringify({
+      ok: false, mode: "access_e2e", error: "order insert", detail: orderErr,
+    }), { status: 500, headers: cors });
+  }
+  const orderId = order.id;
+
+  await sb.from("order_items").insert({
+    order_id: orderId, product_id: productId, description: productTitle ?? "Access Smoke",
+    quantity: 1, unit_amount_net_cents: subtotal, unit_amount_gross_cents: totalCents,
+    tax_rate: 19.0, tax_amount_cents: tax,
+  });
+  await sb.from("orders").update({ status: "paid" }).eq("id", orderId);
+  log("access_e2e: order paid", orderId);
+
+  // Wait briefly for trigger fulfillment to land
+  await new Promise((r) => setTimeout(r, 500));
+
+  async function assertFeatureAccess(label: string): Promise<Record<string, any>> {
+    const features = ["learning_course", "exam_trainer", "ai_tutor", "oral_trainer"] as const;
+    const out: Record<string, any> = {};
+    for (const feat of features) {
+      const { data, error } = await sb.rpc("check_product_access_by_curriculum" as any, {
+        p_user_id: userId,
+        p_curriculum_id: curriculumId,
+        p_feature: feat,
+      });
+      if (error) failures.push(`[${label}] check_product_access_by_curriculum(${feat}) error: ${error.message}`);
+      out[feat] = data;
+      if (data !== true) failures.push(`[${label}] feature ${feat} allowed=${data} (expected true)`);
+    }
+    const { data: tutor, error: tErr } = await sb.rpc("tutor_access_check" as any, {
+      p_user_id: userId, p_curriculum_id: curriculumId, p_daily_limit: 200,
+    });
+    if (tErr) failures.push(`[${label}] tutor_access_check error: ${tErr.message}`);
+    out.tutor = tutor;
+    if (!tutor || tutor.allowed !== true) {
+      failures.push(`[${label}] tutor_access_check.allowed=${tutor?.allowed} reason=${tutor?.reason}`);
+    }
+    if (tutor?.reason === "no_entitlement") {
+      failures.push(`[${label}] tutor reason='no_entitlement' — Path D broken`);
+    }
+    const { data: storage, error: sErr } = await sb.rpc("has_storage_entitlement" as any, {
+      p_user_id: userId, p_curriculum_id: curriculumId,
+    });
+    if (sErr) failures.push(`[${label}] has_storage_entitlement error: ${sErr.message}`);
+    out.storage = storage;
+    if (storage !== true) failures.push(`[${label}] has_storage_entitlement=${storage} (expected true)`);
+
+    const { data: prodAccess, error: pErr } = await sb.rpc("can_access_product" as any, {
+      p_user_id: userId, p_product_id: productId,
+    });
+    if (pErr) failures.push(`[${label}] can_access_product error: ${pErr.message}`);
+    out.product = prodAccess;
+    if (prodAccess !== true) failures.push(`[${label}] can_access_product=${prodAccess} (expected true)`);
+
+    return out;
+  }
+
+  const baseline = await assertFeatureAccess("with_entitlement");
+
+  // Optional: simulate "grant-only" user by removing the entitlement row(s)
+  // and re-running assertions. This proves Path D (grant-aware) works alone.
+  let grantOnly: Record<string, any> | null = null;
+  if (body.drop_entitlement === true) {
+    await sb.from("entitlements")
+      .delete()
+      .eq("user_id", userId)
+      .eq("curriculum_id", curriculumId)
+      .eq("source_ref", orderId);
+    await new Promise((r) => setTimeout(r, 200));
+    grantOnly = await assertFeatureAccess("grant_only");
+  }
+
+  if (body.cleanup === true) {
+    const { data: invs2 } = await sb.from("invoices").select("id").eq("order_id", orderId);
+    await sb.from("ledger_entries").delete().eq("order_id", orderId);
+    await sb.from("payments").delete().eq("order_id", orderId);
+    if (invs2 && invs2.length > 0) {
+      await sb.from("invoice_items").delete().in("invoice_id", invs2.map((r: any) => r.id));
+      await sb.from("invoices").delete().eq("order_id", orderId);
+    }
+    await sb.from("order_items").delete().eq("order_id", orderId);
+    await sb.from("learner_course_grants").delete().eq("order_id", orderId);
+    await sb.from("entitlements").delete().eq("user_id", userId).eq("source_ref", orderId);
+    await sb.from("orders").delete().eq("id", orderId);
+  }
+
+  return new Response(JSON.stringify({
+    ok: failures.length === 0,
+    mode: "access_e2e",
+    order_id: orderId,
+    user_id: userId,
+    product_id: productId,
+    curriculum_id: curriculumId,
+    baseline,
+    grant_only: grantOnly,
+    failures,
+  }, null, 2), { status: failures.length === 0 ? 200 : 500, headers: cors });
+}
