@@ -1,5 +1,5 @@
 ---
-name: Post-Publish Growth Self-Heal v1.1 (Welle 3 + 3.1 Hardening)
+name: Post-Publish Growth Self-Heal v1.2 (Welle 3 + 3.1 + 3.2 Trends)
 description: fn_run_post_publish_growth_health_check(p_repair,p_limit=25,p_job_type) — chunked CTE statt TEMP TABLE, Anti-Join Cooldown + LIMIT vor Loop. Detect 90ms / Repair 1.5–2.6s (gemessen 142 published × 7 Artefakt-Typen, 674 Drift). Partial-Index idx_auto_heal_log_growth_repair WHERE action_type LIKE 'post_publish_growth_repair:%'. 30min Cooldown via auto_heal_log, 25 repairs/run cap, idempotency_key growth_repair:{jt}:{pkg}:{YYYYMMDDHH}. admin_get_post_publish_growth_health + admin_run_post_publish_growth_repair(p_repair,p_limit,p_job_type) admin-gated. Cron post-publish-growth-health-15min (jobid 214). CI guard scripts/guards/post-publish-growth-policies-guard.mjs (npm run guard:growth-policies + workflow post-publish-growth-policies-guard.yml). UI PostPublishGrowthHealthCard im Fanout-Tab.
 type: feature
 ---
@@ -23,3 +23,11 @@ Iteriert v_post_publish_growth_coverage × 7 artifact job_types. Bei p_repair=tr
 - [x] Cron 15min, 25/run cap
 - [x] Admin RPC + Card
 - [x] CI-Guard
+
+## v1.2 (Welle 3.2 — Trends, 2026-05-10)
+- Neu: Tabelle `post_publish_growth_health_snapshots` (run_at, status, 7 Coverage-%, stuck pending/processing, ops_guard 24h, top_issues jsonb). RLS lockdown — nur service_role schreibt/liest direkt.
+- SSOT-Refactor: `fn_compute_post_publish_growth_health()` (kein has_role-Gate, service_role) liefert die Live-Health. `admin_get_post_publish_growth_health` delegiert nach has_role-Check. Verhindert "permission denied" beim Cron-Capture (auth.uid() ist NULL).
+- `fn_capture_post_publish_growth_health_snapshot()` schreibt einen Snapshot + Audit in auto_heal_log (action_type='post_publish_growth_health_snapshot', metadata={snapshot_id,status}).
+- Cron `post-publish-growth-health-snapshot-hourly` (`7 * * * *`) — stündlicher Snapshot.
+- Admin RPC `admin_get_post_publish_growth_health_trends(p_days int default 7)` — Trend-Reihe für 7d/30d, has_role admin.
+- UI: `PostPublishGrowthHealthCard` zeigt 7d/30d-Toggle, Coverage-Lines (7 Artefakte, recharts) + Mini-Sparklines für Stuck-Jobs und OPS_GUARD. Keine Fake-Historie — leerer Zeitraum wird sauber kommuniziert.

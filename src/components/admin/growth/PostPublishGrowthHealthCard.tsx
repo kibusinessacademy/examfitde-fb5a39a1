@@ -1,12 +1,22 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, RefreshCw, Wrench, AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, RefreshCw, Wrench, AlertTriangle, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
 
 type Health = {
   status: 'OK' | 'WARN' | 'CRIT';
@@ -23,6 +33,22 @@ type Health = {
   ops_guard_growth_failures_24h: number;
   top_issues: { label: string; missing_count: number }[];
   last_run_at: string | null;
+};
+
+type TrendRow = {
+  run_at: string;
+  status: string;
+  total_published: number;
+  coverage_blog_pct: number;
+  coverage_og_image_pct: number;
+  coverage_indexnow_pct: number;
+  coverage_sitemap_pct: number;
+  coverage_internal_links_pct: number;
+  coverage_campaign_assets_pct: number;
+  coverage_distribution_pct: number;
+  stuck_pending_count: number;
+  stuck_processing_count: number;
+  ops_guard_growth_failures_24h: number;
 };
 
 const COVERAGE_ROWS: { key: keyof Health; label: string }[] = [
@@ -43,6 +69,7 @@ function statusBadge(status: Health['status']) {
 
 export default function PostPublishGrowthHealthCard() {
   const qc = useQueryClient();
+  const [trendDays, setTrendDays] = useState<7 | 30>(7);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['post-publish-growth-health'],
@@ -53,6 +80,20 @@ export default function PostPublishGrowthHealthCard() {
     },
     staleTime: 60_000,
     refetchInterval: 120_000,
+  });
+
+  const trends = useQuery({
+    queryKey: ['post-publish-growth-health-trends', trendDays],
+    queryFn: async (): Promise<TrendRow[]> => {
+      const { data, error } = await supabase.rpc(
+        'admin_get_post_publish_growth_health_trends' as any,
+        { p_days: trendDays },
+      );
+      if (error) throw error;
+      return (data ?? []) as TrendRow[];
+    },
+    staleTime: 60_000,
+    refetchInterval: 300_000,
   });
 
   const repair = useMutation({
@@ -67,6 +108,7 @@ export default function PostPublishGrowthHealthCard() {
       });
       qc.invalidateQueries({ queryKey: ['post-publish-growth-health'] });
       qc.invalidateQueries({ queryKey: ['post-publish-growth-fanout'] });
+      qc.invalidateQueries({ queryKey: ['post-publish-growth-health-trends'] });
     },
     onError: (err: any) => toast.error('Repair failed', { description: err?.message }),
   });
@@ -76,6 +118,25 @@ export default function PostPublishGrowthHealthCard() {
     const t = new Date(data.last_run_at);
     return `${t.toLocaleDateString()} ${t.toLocaleTimeString()}`;
   }, [data?.last_run_at]);
+
+  const trendChartData = useMemo(() => {
+    return (trends.data ?? []).map((r) => ({
+      t: new Date(r.run_at).toLocaleString('de-DE', {
+        month: '2-digit', day: '2-digit', hour: '2-digit',
+      }),
+      blog: Number(r.coverage_blog_pct),
+      og: Number(r.coverage_og_image_pct),
+      indexnow: Number(r.coverage_indexnow_pct),
+      sitemap: Number(r.coverage_sitemap_pct),
+      internal_links: Number(r.coverage_internal_links_pct),
+      campaign: Number(r.coverage_campaign_assets_pct),
+      distribution: Number(r.coverage_distribution_pct),
+      stuck: r.stuck_pending_count + r.stuck_processing_count,
+      ops_guard: r.ops_guard_growth_failures_24h,
+    }));
+  }, [trends.data]);
+
+  const lastSnapshot = trends.data?.[trends.data.length - 1];
 
   return (
     <Card>
@@ -137,6 +198,101 @@ export default function PostPublishGrowthHealthCard() {
                 </div>
               </div>
             )}
+
+            {/* ===== Trends ===== */}
+            <div className="rounded-md border border-border-subtle bg-surface-sunken p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-medium text-text-primary flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" /> Verlauf (Snapshot stündlich)
+                </div>
+                <div className="flex gap-1">
+                  {[7, 30].map((d) => (
+                    <Button
+                      key={d}
+                      size="sm"
+                      variant={trendDays === d ? 'default' : 'outline'}
+                      onClick={() => setTrendDays(d as 7 | 30)}
+                      className="h-6 text-[10px] px-2"
+                    >
+                      {d}d
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {trends.isLoading && (
+                <div className="flex items-center gap-2 text-xs text-text-secondary">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Lade Verlauf…
+                </div>
+              )}
+              {trends.error && (
+                <div className="text-xs text-status-error-text">Trend-Fehler: {(trends.error as Error).message}</div>
+              )}
+              {trends.data && trendChartData.length === 0 && (
+                <div className="text-xs text-text-secondary">
+                  Noch keine Snapshots im Zeitraum — der erste Snapshot wurde gerade erzeugt; weitere folgen stündlich.
+                </div>
+              )}
+
+              {trendChartData.length > 0 && (
+                <>
+                  <div className="text-[10px] text-text-secondary uppercase tracking-wide">Coverage %</div>
+                  <div className="h-[180px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={trendChartData}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                        <XAxis dataKey="t" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} />
+                        <Tooltip contentStyle={{ fontSize: 11 }} />
+                        <Legend wrapperStyle={{ fontSize: 9 }} />
+                        <Line type="monotone" dataKey="blog" stroke="hsl(var(--chart-1))" strokeWidth={1.5} dot={false} />
+                        <Line type="monotone" dataKey="og" stroke="hsl(var(--chart-2))" strokeWidth={1.5} dot={false} />
+                        <Line type="monotone" dataKey="indexnow" stroke="hsl(var(--chart-3))" strokeWidth={1.5} dot={false} />
+                        <Line type="monotone" dataKey="sitemap" stroke="hsl(var(--chart-4))" strokeWidth={1.5} dot={false} />
+                        <Line type="monotone" dataKey="internal_links" stroke="hsl(var(--chart-5))" strokeWidth={1.5} dot={false} />
+                        <Line type="monotone" dataKey="campaign" stroke="hsl(var(--primary))" strokeWidth={1.5} dot={false} />
+                        <Line type="monotone" dataKey="distribution" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-[10px] text-text-secondary uppercase tracking-wide mb-1">Stuck Jobs</div>
+                      <div className="h-[80px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={trendChartData}>
+                            <XAxis dataKey="t" tick={false} hide />
+                            <YAxis tick={{ fontSize: 9 }} width={24} />
+                            <Tooltip contentStyle={{ fontSize: 11 }} />
+                            <Line type="monotone" dataKey="stuck" stroke="hsl(var(--status-warning-text))" strokeWidth={1.5} dot={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-text-secondary uppercase tracking-wide mb-1">OPS_GUARD failures 24h</div>
+                      <div className="h-[80px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={trendChartData}>
+                            <XAxis dataKey="t" tick={false} hide />
+                            <YAxis tick={{ fontSize: 9 }} width={24} />
+                            <Tooltip contentStyle={{ fontSize: 11 }} />
+                            <Line type="monotone" dataKey="ops_guard" stroke="hsl(var(--status-error-text))" strokeWidth={1.5} dot={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+
+                  {lastSnapshot && (
+                    <div className="text-[10px] text-text-secondary">
+                      Letzter Snapshot: {new Date(lastSnapshot.run_at).toLocaleString('de-DE')} · Status {lastSnapshot.status} · {trendChartData.length} Datenpunkte
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </>
         )}
       </CardContent>
