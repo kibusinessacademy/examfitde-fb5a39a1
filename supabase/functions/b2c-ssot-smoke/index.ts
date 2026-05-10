@@ -71,6 +71,13 @@ Deno.serve(async (req) => {
     return await runRefundMode(sb, body, log);
   }
 
+  // ============================================================
+  // MODE: access_e2e — paid order → assert tutor + storage + 4 features allowed
+  // ============================================================
+  if (mode === "access_e2e") {
+    return await runAccessE2eMode(sb, body, log);
+  }
+
   // 1. Resolve User + Product
   let userId: string | null = body.user_id ?? null;
   if (!userId) {
