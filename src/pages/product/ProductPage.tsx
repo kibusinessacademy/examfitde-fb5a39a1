@@ -55,7 +55,8 @@ export default function ProductPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [product]);
 
-  // Pricing section visibility tracking
+  // Pricing section visibility tracking — SSOT pricing_view in conversion_events
+  // (zusätzlich zu legacy tracking_events, damit funnel-loss-detector greift).
   useEffect(() => {
     if (!product) return;
     const pricingEl = document.getElementById('pricing');
@@ -67,6 +68,11 @@ export default function ProductPage() {
           trackEvent({
             eventName: 'pricing_view',
             productSlug: product.canonicalSlug,
+          });
+          trackFunnel('pricing_view', {
+            package_id: product.packageId ?? null,
+            source_page: `/produkt/${product.canonicalSlug}`,
+            metadata: { product_slug: product.canonicalSlug },
           });
           observer.disconnect();
         }
