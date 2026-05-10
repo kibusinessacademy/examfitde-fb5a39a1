@@ -129,6 +129,7 @@ export default function PostPublishGrowthHealthCard() {
 
   const trendChartData = useMemo(() => {
     return (trends.data ?? []).map((r) => ({
+      id: r.id,
       t: new Date(r.run_at).toLocaleString('de-DE', {
         month: '2-digit', day: '2-digit', hour: '2-digit',
       }),
@@ -145,6 +146,25 @@ export default function PostPublishGrowthHealthCard() {
   }, [trends.data]);
 
   const lastSnapshot = trends.data?.[trends.data.length - 1];
+
+  const detail = useQuery({
+    queryKey: ['post-publish-growth-health-snapshot', selectedSnapshotId],
+    enabled: !!selectedSnapshotId,
+    queryFn: async (): Promise<SnapshotDetail | null> => {
+      const { data, error } = await supabase.rpc(
+        'admin_get_post_publish_growth_health_snapshot_detail' as any,
+        { p_snapshot_id: selectedSnapshotId },
+      );
+      if (error) throw error;
+      return (data as SnapshotDetail) ?? null;
+    },
+    staleTime: 60_000,
+  });
+
+  const handleChartClick = (e: any) => {
+    const payload = e?.activePayload?.[0]?.payload;
+    if (payload?.id) setSelectedSnapshotId(payload.id);
+  };
 
   return (
     <Card>
