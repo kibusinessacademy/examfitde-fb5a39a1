@@ -21,10 +21,11 @@ import { toast } from 'sonner';
 
 type Offender = {
   package_id: string; package_title: string;
+  track: string; allowed: boolean; required: boolean;
   chapter_count: number; published_count: number;
   publishable_count: number; blocker_reason: string;
 };
-type TrackPolicy = { track: string; allowed: boolean; requires_handbook: boolean; gates: string[] };
+type TrackPolicy = { track: string; allowed: boolean; required: boolean; requires_handbook?: boolean; gates: string[] };
 type Summary = {
   drift_packages: number;
   chapters_publishable_pending: number;
