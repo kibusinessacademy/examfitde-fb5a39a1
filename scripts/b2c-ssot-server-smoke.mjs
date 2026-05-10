@@ -59,6 +59,15 @@ async function runMode(mode) {
     const missing = required.filter((k) => (checks[k] ?? 0) < 1);
     if (missing.length) failures.push(`missing artefacts: ${missing.join(',')}`);
   }
+  if (mode === 'access_e2e') {
+    const b = json.baseline || {};
+    const feats = ['learning_course','exam_trainer','ai_tutor','oral_trainer'];
+    for (const f of feats) if (b[f] !== true) failures.push(`access ${f}!=true`);
+    if (b?.tutor?.allowed !== true) failures.push(`tutor allowed!=true (reason=${b?.tutor?.reason})`);
+    if (b?.tutor?.reason === 'no_entitlement') failures.push(`tutor reason=no_entitlement`);
+    if (b?.storage !== true) failures.push(`storage!=true`);
+    if (b?.product !== true) failures.push(`product!=true`);
+  }
   return { ok: json.ok && failures.length === 0, mode, failures, order_id: json.order_id };
 }
 
