@@ -267,7 +267,7 @@ export default function PostPublishGrowthHealthCard() {
                   <div className="text-[10px] text-text-secondary uppercase tracking-wide">Coverage %</div>
                   <div className="h-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={trendChartData}>
+                      <LineChart data={trendChartData} onClick={handleChartClick} style={{ cursor: 'pointer' }}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                         <XAxis dataKey="t" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
                         <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} />
