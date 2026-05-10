@@ -79,9 +79,13 @@ export function isGrantsAware(body) {
 }
 
 export function readsEntitlementsOnly(body) {
-  // Touches entitlements / check_user_entitlement but NOT grants/SSOT delegates.
+  // Touches entitlements / known entitlement-only RPCs but NOT grants/SSOT delegates.
   const touchesEnt =
-    /\bentitlements\b/i.test(body) || /\bcheck_user_entitlement\s*\(/i.test(body);
+    /\bentitlements\b/i.test(body) ||
+    /\bcheck_user_entitlement\s*\(/i.test(body) ||
+    /\bget_user_entitlements[a-z0-9_]*\s*\(/i.test(body) ||
+    /\bcurrent_user_entitlements\s*\(/i.test(body) ||
+    /\bhas_entitlement[a-z0-9_]*\s*\(/i.test(body);
   return touchesEnt && !isGrantsAware(body);
 }
 
