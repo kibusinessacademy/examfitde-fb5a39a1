@@ -54,6 +54,7 @@ import { ArtifactCompletenessCard } from "@/components/admin/heal/cards/Artifact
 import { LessonJoinParityCard } from "@/components/admin/heal/cards/LessonJoinParityCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
+import { AccessSsotHealthCard } from "@/components/admin/heal/cards/AccessSsotHealthCard";
 import { WorkerOutputBreakdownCard } from "@/components/admin/heal/cards/WorkerOutputBreakdownCard";
 import { PackageHealLogViewerCard } from "@/components/admin/heal/cards/PackageHealLogViewerCard";
 import { HealRunDrilldownCard } from "@/components/admin/heal/cards/HealRunDrilldownCard";
@@ -393,6 +394,7 @@ export default function HealCockpitPage() {
                 <LessonJoinParityCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
+                <AccessSsotHealthCard />
                 <ArtifactCompletenessCard />
                 <WorkerOutputBreakdownCard />
                 <PackageHealLogViewerCard />
