@@ -53,16 +53,34 @@ test.describe('Handbook Publish Rollback (RPC contract)', () => {
     );
     expect((await ch.json()).length).toBe(0);
 
-    // Verify auto_heal_log entry
+    // Verify auto_heal_log entry — full metadata contract
     const log = await fetch(
-      `${SUPABASE_URL}/rest/v1/auto_heal_log?action_type=eq.handbook_publish_rollback&target_id=eq.${pkg.package_id}&order=created_at.desc&limit=1&select=action_type,result_status,metadata`,
+      `${SUPABASE_URL}/rest/v1/auto_heal_log?action_type=eq.handbook_publish_rollback&target_id=eq.${pkg.package_id}&order=created_at.desc&limit=1&select=action_type,target_type,result_status,metadata`,
       { headers: headers() },
     );
     const rows = (await log.json()) as Array<any>;
     expect(rows.length).toBe(1);
-    expect(rows[0].result_status).toBe('success');
-    expect(rows[0].metadata?.reason).toBe(reason);
-    expect(rows[0].metadata?.unpublished).toBeGreaterThan(0);
+    const row = rows[0];
+    expect(row.action_type).toBe('handbook_publish_rollback');
+    expect(row.target_type).toBe('package');
+    expect(row.result_status).toBe('success');
+    const md = row.metadata ?? {};
+    expect(md.package_id).toBe(pkg.package_id);
+    expect(md.curriculum_id).toBe(pkg.curriculum_id);
+    expect(md.reason).toBe(reason);
+    expect(md.unpublished).toBe(result.unpublished);
+    expect(md.before_published).toBe(result.before_published);
+    expect(md.after_published).toBe(0);
+    expect(typeof md.chapter_count).toBe('number');
+    expect(typeof md.publishable_count).toBe('number');
+    // Policy snapshot fields
+    expect(md).toHaveProperty('track');
+    expect(md).toHaveProperty('allowed');
+    expect(md).toHaveProperty('required');
+    expect(md).toHaveProperty('blocker_reason');
+    // Counts coherence
+    expect(md.chapter_count).toBeGreaterThanOrEqual(md.publishable_count);
+    expect(md.before_published).toBeGreaterThan(0);
 
     // Restore: backfill so we don't leave drift behind
     await rpc('admin_backfill_publishable_handbook_chapters', {
