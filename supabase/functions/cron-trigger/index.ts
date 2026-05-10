@@ -38,6 +38,12 @@ const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<strin
     functions: [],
     bodies: {},
   },
+  "heal-alerts": {
+    functions: ["heal-alert-notify"],
+    bodies: {
+      "heal-alert-notify": JSON.stringify({ source: "cron" }),
+    },
+  },
   daily: {
     functions: ["curriculum-discovery", "regulatory-monitor"],
     bodies: {
