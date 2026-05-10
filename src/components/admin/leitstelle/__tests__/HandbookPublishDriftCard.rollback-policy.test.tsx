@@ -61,8 +61,7 @@ describe('HandbookPublishDriftCard — rollback dialog mirrors displayed policy'
 
     await waitFor(() => expect(screen.getByText(/Rollback: Test Paket/)).toBeInTheDocument());
     expect(screen.getByText(/allowed · required/)).toBeInTheDocument();
-    expect(screen.getByText('DRIFT_PARTIAL_PUBLISHED')).toBeInTheDocument();
-    // Published / Publishable counts
+    expect(screen.getAllByText('DRIFT_PARTIAL_PUBLISHED').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Published \/ Publishable/)).toBeInTheDocument();
   });
 
@@ -79,7 +78,7 @@ describe('HandbookPublishDriftCard — rollback dialog mirrors displayed policy'
     fireEvent.click(screen.getAllByRole('button', { name: /Rollback/i })[0]);
     await waitFor(() => expect(screen.getByText(/Rollback: Test Paket/)).toBeInTheDocument());
     expect(screen.getByText(/disallowed · optional/)).toBeInTheDocument();
-    expect(screen.getByText('POLICY_TRACK_DISALLOWED')).toBeInTheDocument();
+    expect(screen.getAllByText('POLICY_TRACK_DISALLOWED').length).toBeGreaterThanOrEqual(1);
   });
 });
 
