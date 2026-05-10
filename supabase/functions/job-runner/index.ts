@@ -5,7 +5,7 @@ import { PIPELINE_GRAPH, validatePipelineGraph, STEP_TO_JOB_TYPE, ARTIFACT_IMPAC
 import { LANE_DISPATCH_ORDER, jobTypesForLane, allocateLaneBudgets, redistributeLaneBudgets, enforcePerTypeCaps, enforceHeavyJobBudget, HEAVY_JOB_TICK_BUDGET_SECONDS, ESTIMATED_RUNTIME_SECONDS, PER_TYPE_TICK_CAPS, type RunnerLane } from "../_shared/runner-lanes.ts";
 import { getRunnerConfig } from "../_shared/worker-config.ts";
 import { checkArtifacts } from "../_shared/artifact-resolver.ts";
-import { enqueueJob, allowedPackageStatusesForJobType } from "../_shared/enqueue.ts";
+import { enqueueJob, allowedPackageStatusesForJobType, canRunOnPublishedPackage } from "../_shared/enqueue.ts";
 import { isRepairActionEligible } from "../_shared/repair-eligibility.ts";
 import { verifyArtifact, buildVerifyAuditMeta } from "../_shared/artifact-verifier.ts";
 import { emitRunnerHeartbeat } from "../_shared/runner-health.ts";
@@ -754,7 +754,7 @@ Deno.serve(async (req) => {
           "council_review",
         ])
         : allowedPackageStatusesForJobType(job.job_type);
-      const notExecutable = !!pkgState.published_at || !allowedStatuses.has(pkgState.status ?? "");
+      const notExecutable = (!!pkgState.published_at && !canRunOnPublishedPackage(job.job_type)) || !allowedStatuses.has(pkgState.status ?? "");
       if (notExecutable) {
         const reason = `OPS_GUARD:PACKAGE_NOT_EXECUTABLE status=${pkgState.status ?? "missing"} published_at=${pkgState.published_at ? "set" : "null"}`;
         // Use "cancelled" — this is a deterministic block, not a failure.

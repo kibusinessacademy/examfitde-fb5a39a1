@@ -4,6 +4,7 @@
   "package_generate_glossary": "default",
   "package_generate_oral_exam": "default",
   "package_generate_lesson_minichecks": "default",
+  "package_repair_lesson_minichecks": "default",
   "mass_enrich_competencies_v2": "default",
   "pool_fill_lf_gaps": "default",
   "pool_fill_bloom_gaps": "default",

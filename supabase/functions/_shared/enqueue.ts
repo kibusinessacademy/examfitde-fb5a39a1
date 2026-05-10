@@ -68,7 +68,16 @@ const REPAIR_JOB_TYPES = new Set([
   "package_generate_oral_exam",
   "package_generate_handbook",
   "package_run_integrity_check",
+  "package_repair_lesson_minichecks",
 ]);
+
+const PUBLISHED_PACKAGE_JOB_TYPES = new Set([
+  "package_repair_lesson_minichecks",
+]);
+
+export function canRunOnPublishedPackage(jobType: string): boolean {
+  return PUBLISHED_PACKAGE_JOB_TYPES.has(jobType);
+}
 
 /**
  * PREBUILD jobs run BEFORE a package transitions to `building`.
@@ -87,6 +96,10 @@ const PREBUILD_JOB_TYPES = new Set([
 ]);
 
 export function allowedPackageStatusesForJobType(jobType: string): Set<string> {
+  if (canRunOnPublishedPackage(jobType)) {
+    return new Set(["building", "blocked", "quality_gate_failed", "published"]);
+  }
+
   if (COUNCIL_JOB_TYPES.has(jobType)) {
     return new Set(["building", "council_review", "quality_gate_failed"]);
   }
@@ -112,7 +125,7 @@ export function canEnqueueForPackageState(
   jobType: string,
   pkg: { status: string | null; published_at?: string | null; blocked_reason?: string | null },
 ): { ok: boolean; reason: string } {
-  if (pkg.published_at) {
+  if (pkg.published_at && !canRunOnPublishedPackage(jobType)) {
     return { ok: false, reason: "already_published" };
   }
 
