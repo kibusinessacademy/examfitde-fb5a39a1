@@ -1,10 +1,22 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, RefreshCw, Gauge, AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Loader2, RefreshCw, Gauge, AlertTriangle, CheckCircle2, AlertCircle, Wrench, ExternalLink,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 type Summary = {
@@ -33,15 +45,24 @@ type DetailRow = {
   score_og_image: number;
 };
 
-const SUBSCORE_ROWS: { key: keyof Summary['avg_subscores']; label: string }[] = [
-  { key: 'blog_quality', label: 'Blog Quality' },
-  { key: 'seo_meta', label: 'SEO Meta' },
-  { key: 'internal_links', label: 'Internal Links' },
-  { key: 'cta', label: 'CTA' },
-  { key: 'funnel_events', label: 'Funnel Events (30d)' },
-  { key: 'email_sequence', label: 'Email Sequence' },
-  { key: 'distribution', label: 'Distribution' },
-  { key: 'og_image', label: 'OG Image' },
+type PackageDetail = {
+  package: { id: string; title: string; package_key: string; status: string; published_at: string; curriculum_id: string };
+  scores: Record<string, number> | null;
+  signals: Record<string, unknown>;
+  recent_jobs: Array<{ id: string; job_type: string; status: string; created_at: string; completed_at: string | null; last_error: string | null; idempotency_key: string }>;
+  recent_heal_log: Array<{ created_at: string; action_type: string; result_status: string; result_detail: string | null; metadata: Record<string, unknown> }>;
+  computed_at: string;
+};
+
+const SUBSCORE_ROWS: { key: string; label: string; signalKey?: string }[] = [
+  { key: 'blog_quality',   label: 'Blog Quality',       signalKey: 'blog_articles_count' },
+  { key: 'seo_meta',       label: 'SEO Meta' },
+  { key: 'internal_links', label: 'Internal Links',     signalKey: 'internal_links_count' },
+  { key: 'cta',            label: 'CTA' },
+  { key: 'funnel_events',  label: 'Funnel Events (30d)', signalKey: 'funnel_events_30d' },
+  { key: 'email_sequence', label: 'Email Sequence',     signalKey: 'email_sequence_enrollments' },
+  { key: 'distribution',   label: 'Distribution',       signalKey: 'distribution_targets_count' },
+  { key: 'og_image',       label: 'OG Image',           signalKey: 'og_image_url' },
 ];
 
 function tone(pct: number) {
@@ -70,8 +91,179 @@ function gateBadge(avg: number) {
   );
 }
 
+function PackageDetailDialog({
+  packageId,
+  open,
+  onClose,
+}: {
+  packageId: string | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+
+  const detail = useQuery({
+    queryKey: ['growth-quality-package-detail', packageId],
+    enabled: !!packageId && open,
+    queryFn: async (): Promise<PackageDetail> => {
+      const { data, error } = await supabase.rpc('admin_get_growth_quality_package_detail' as any, {
+        p_package_id: packageId!,
+      });
+      if (error) throw error;
+      return data as PackageDetail;
+    },
+    staleTime: 30_000,
+  });
+
+  const dispatch = useMutation({
+    mutationFn: async (subscore: string) => {
+      const { data, error } = await supabase.rpc('admin_dispatch_growth_quality_repair' as any, {
+        p_package_id: packageId!,
+        p_subscore: subscore,
+      });
+      if (error) throw error;
+      return data as { status: string; reason?: string; job_id: string; subscore: string; job_type: string };
+    },
+    onSuccess: (res) => {
+      if (res.status === 'enqueued') {
+        toast.success(`Repair enqueued: ${res.subscore}`, { description: `${res.job_type} · ${res.job_id.slice(0, 8)}` });
+      } else {
+        toast.warning(`Repair übersprungen: ${res.subscore}`, { description: res.reason });
+      }
+      qc.invalidateQueries({ queryKey: ['growth-quality-package-detail', packageId] });
+      qc.invalidateQueries({ queryKey: ['growth-quality-summary'] });
+      qc.invalidateQueries({ queryKey: ['growth-quality-details'] });
+    },
+    onError: (err: Error) => {
+      toast.error('Repair fehlgeschlagen', { description: err.message });
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Wrench className="h-4 w-4" />
+            Growth Quality Drilldown
+          </DialogTitle>
+          <DialogDescription>
+            {detail.data ? (
+              <>
+                <span className="font-medium text-text-primary">{detail.data.package.title}</span>{' '}
+                <span className="font-mono text-[10px] text-text-secondary">{detail.data.package.package_key}</span>
+              </>
+            ) : 'Lade Paket-Detail…'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {detail.isLoading && (
+          <div className="flex items-center gap-2 text-text-secondary text-sm">
+            <Loader2 className="h-4 w-4 animate-spin" />Lade…
+          </div>
+        )}
+        {detail.error && (
+          <div className="text-sm text-status-error-text">Fehler: {(detail.error as Error).message}</div>
+        )}
+
+        {detail.data && (
+          <ScrollArea className="max-h-[60vh] pr-3">
+            <div className="space-y-4">
+              <div className="rounded-md border border-border-subtle bg-surface-sunken p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-medium text-text-primary">Subscores</div>
+                  {detail.data.scores && gateBadge(Number(detail.data.scores.growth_quality_score ?? 0))}
+                </div>
+                <div className="space-y-2">
+                  {SUBSCORE_ROWS.map(({ key, label, signalKey }) => {
+                    const pct = Number(detail.data!.scores?.[key] ?? 0);
+                    const signal = signalKey ? detail.data!.signals?.[signalKey] : undefined;
+                    return (
+                      <div key={key} className="grid grid-cols-12 items-center gap-2 text-xs">
+                        <div className="col-span-3 text-text-secondary">{label}</div>
+                        <div className="col-span-5"><Progress value={pct} className="h-2" /></div>
+                        <div className={`col-span-1 text-right font-mono text-status-${tone(pct)}-text`}>
+                          {pct.toFixed(0)}
+                        </div>
+                        <div className="col-span-2 text-right text-[10px] text-text-secondary truncate" title={String(signal ?? '')}>
+                          {signal === undefined || signal === null ? '–' : String(signal).slice(0, 20)}
+                        </div>
+                        <div className="col-span-1 text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={dispatch.isPending}
+                            onClick={() => dispatch.mutate(key)}
+                            className="h-6 text-[10px] px-2"
+                          >
+                            <Wrench className="h-3 w-3 mr-1" />Fix
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-md border border-border-subtle p-3">
+                <div className="text-xs font-medium text-text-primary mb-2">Letzte Repair-/Growth-Jobs</div>
+                {detail.data.recent_jobs.length === 0 ? (
+                  <div className="text-xs text-text-secondary">Keine Jobs gefunden.</div>
+                ) : (
+                  <div className="space-y-1">
+                    {detail.data.recent_jobs.map((j) => (
+                      <div key={j.id} className="flex items-center justify-between gap-2 text-[11px] border-t border-border-subtle py-1">
+                        <div className="font-mono text-text-secondary">{j.job_type}</div>
+                        <div className={`font-mono text-status-${j.status === 'completed' ? 'success' : j.status === 'failed' ? 'error' : 'warning'}-text`}>
+                          {j.status}
+                        </div>
+                        <div className="text-text-secondary">{new Date(j.created_at).toLocaleString('de-DE')}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-md border border-border-subtle p-3">
+                <div className="text-xs font-medium text-text-primary mb-2">Repair-Audit (auto_heal_log)</div>
+                {detail.data.recent_heal_log.length === 0 ? (
+                  <div className="text-xs text-text-secondary">Noch keine Repair-Aktionen für dieses Paket.</div>
+                ) : (
+                  <div className="space-y-1">
+                    {detail.data.recent_heal_log.map((h, i) => (
+                      <div key={i} className="text-[11px] border-t border-border-subtle py-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-text-secondary">{h.action_type}</span>
+                          <span className={`font-mono text-status-${h.result_status === 'enqueued' ? 'success' : h.result_status === 'skipped' ? 'warning' : 'error'}-text`}>
+                            {h.result_status}
+                          </span>
+                        </div>
+                        <div className="text-text-secondary">
+                          {new Date(h.created_at).toLocaleString('de-DE')} · {h.result_detail ?? ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={() => detail.refetch()} disabled={detail.isFetching}>
+            <RefreshCw className={`h-3 w-3 mr-1 ${detail.isFetching ? 'animate-spin' : ''}`} />Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={onClose}>Schließen</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function GrowthQualityScoreCard() {
   const [maxScore, setMaxScore] = useState(60);
+  const [drilldownId, setDrilldownId] = useState<string | null>(null);
 
   const summary = useQuery({
     queryKey: ['growth-quality-summary'],
@@ -107,7 +299,7 @@ export default function GrowthQualityScoreCard() {
             {summary.data && gateBadge(summary.data.avg_score)}
           </CardTitle>
           <CardDescription>
-            8-Dimensionen Quality-Gate für published packages · Score 0–100
+            8-Dimensionen Quality-Gate für published packages · Score 0–100 · Klick auf Paket öffnet Repair-Drilldown
           </CardDescription>
         </div>
         <Button
@@ -214,11 +406,16 @@ export default function GrowthQualityScoreCard() {
                         <th className="text-right px-1" title="Email Sequence">ES</th>
                         <th className="text-right px-1" title="Distribution">D</th>
                         <th className="text-right px-1" title="OG Image">OG</th>
+                        <th className="text-right px-1"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {details.data.map((r) => (
-                        <tr key={r.package_id} className="border-t border-border-subtle">
+                        <tr
+                          key={r.package_id}
+                          className="border-t border-border-subtle hover:bg-surface-elevated cursor-pointer"
+                          onClick={() => setDrilldownId(r.package_id)}
+                        >
                           <td className="py-1 pr-2 text-text-primary">
                             <div className="truncate max-w-[260px]">{r.title}</div>
                             <div className="text-text-secondary font-mono text-[9px]">{r.package_key}</div>
@@ -234,6 +431,9 @@ export default function GrowthQualityScoreCard() {
                           <td className="text-right font-mono px-1">{r.score_email_sequence}</td>
                           <td className="text-right font-mono px-1">{r.score_distribution}</td>
                           <td className="text-right font-mono px-1">{r.score_og_image}</td>
+                          <td className="text-right px-1">
+                            <ExternalLink className="h-3 w-3 inline text-text-secondary" />
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -249,6 +449,12 @@ export default function GrowthQualityScoreCard() {
           </>
         )}
       </CardContent>
+
+      <PackageDetailDialog
+        packageId={drilldownId}
+        open={!!drilldownId}
+        onClose={() => setDrilldownId(null)}
+      />
     </Card>
   );
 }
