@@ -45,6 +45,7 @@ const REQUIRED = [
   "admin_get_notification_delivery_health",
   "notification-delivery-health-hourly",
   "fn_simulate_parity_cron_guard",
+  "fn_simulate_parity_cron_guard_outbox",
 ];
 
 if (!fs.existsSync(MIG_DIR)) {
