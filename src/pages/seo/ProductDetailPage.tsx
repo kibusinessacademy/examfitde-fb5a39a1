@@ -49,7 +49,7 @@ function BundleDetailPageComponent() {
       source_page: `/bundle/${slug}`,
       metadata: { bundle_slug: slug, beruf: beruf.title },
     });
-  }, [beruf?.curriculum_id, pkgCtx?.package_id, slug]);
+  }, [product?.curriculum_id, pkgCtx?.package_id, slug]);
 
   // Sticky-CTA: zeigen, wenn Hero aus dem Viewport ist
   useEffect(() => {
