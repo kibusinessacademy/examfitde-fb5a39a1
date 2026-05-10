@@ -1,57 +1,107 @@
 /**
- * E2E: Non-admin user clicking the Handbook "Smoke" button must see a clear
- * "access denied" message (toast) and NOT see a success result.
+ * E2E: Role-based denial snapshots for the canonical German "Smoke verweigert"
+ * message in HandbookPublishDriftCard.
  *
- * Strategy: Stub supabase.rpc('admin_smoke_handbook_publish_policy') at the
- * network layer to return PostgREST 403 / 42501, then verify the German
- * access-denied toast surfaces.
+ * Three contexts are exercised — all must surface the IDENTICAL canonical
+ * message and never reveal a success state:
+ *
+ *   1) no admin role          → PostgREST 403 / 42501  (permission denied)
+ *   2) wrong scope role       → PostgREST 403 / 42501  (forbidden: admin role required)
+ *   3) expired/invalid session → PostgREST 401          (JWT expired)
+ *
+ * The card's `forbiddenMessage()` helper produces:
+ *   "Smoke verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff. Bitte als Admin einloggen."
+ *
+ * That string is the snapshot oracle — any drift in the German wording will
+ * fail every scenario simultaneously.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { loginAs } from './helpers/auth';
 
-test.describe('Handbook Smoke — non-admin access denied', () => {
-  test('non-admin click → toast surfaces forbidden message, no success state', async ({ page }) => {
-    // Intercept the rpc POST and return PostgREST permission-denied
-    await page.route(/\/rest\/v1\/rpc\/admin_smoke_handbook_publish_policy(\?.*)?$/, async (route) => {
-      await route.fulfill({
-        status: 403,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          code: '42501',
-          message: 'permission denied for function admin_smoke_handbook_publish_policy',
-          details: null,
-          hint: null,
-        }),
-      });
+const RPC_RE = /\/rest\/v1\/rpc\/admin_smoke_handbook_publish_policy(\?.*)?$/;
+
+const CANONICAL_DENIAL =
+  'Smoke verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff. Bitte als Admin einloggen.';
+
+type Scenario = {
+  name: string;
+  status: number;
+  body: Record<string, unknown>;
+};
+
+const SCENARIOS: Scenario[] = [
+  {
+    name: 'no admin role (42501)',
+    status: 403,
+    body: {
+      code: '42501',
+      message: 'permission denied for function admin_smoke_handbook_publish_policy',
+      details: null,
+      hint: null,
+    },
+  },
+  {
+    name: 'wrong scope (forbidden)',
+    status: 403,
+    body: {
+      code: '42501',
+      message: 'forbidden: admin role required',
+      details: null,
+      hint: null,
+    },
+  },
+  {
+    name: 'expired session (401 JWT)',
+    status: 401,
+    body: {
+      code: 'PGRST301',
+      message: 'JWT expired',
+      details: null,
+      hint: null,
+    },
+  },
+];
+
+async function stubRpc(page: Page, scenario: Scenario) {
+  await page.route(RPC_RE, async (route) => {
+    await route.fulfill({
+      status: scenario.status,
+      contentType: 'application/json',
+      body: JSON.stringify(scenario.body),
     });
-
-    // Authenticate as a non-admin learner (any non-admin user is fine).
-    try {
-      await loginAs(page, 'qa_allaccess');
-    } catch {
-      test.skip(true, 'No learner credentials configured for this env');
-    }
-
-    // Navigate to the Leitstelle (admin page is route-guarded → if redirected,
-    // we still want to assert the UI cannot grant smoke success).
-    await page.goto('/admin/leitstelle', { waitUntil: 'domcontentloaded' });
-
-    const card = page.getByTestId('handbook-publish-drift');
-    if (!(await card.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      // Route-guard kicked in → already a valid "denied" outcome.
-      await expect(page).not.toHaveURL(/\/admin\/leitstelle/);
-      return;
-    }
-
-    const smokeBtn = card.getByRole('button', { name: /Smoke/i });
-    await smokeBtn.click();
-
-    // Sonner toast: matches the exact message from the card's onError handler.
-    await expect(
-      page.getByText(/Smoke verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff\. Bitte als Admin einloggen\./),
-    ).toBeVisible({ timeout: 5_000 });
-
-    // Negative assertion: no success toast appeared.
-    await expect(page.getByText(/Smoke OK/i)).toHaveCount(0);
   });
+}
+
+test.describe('Handbook Smoke — canonical denial message (role-based snapshots)', () => {
+  for (const scenario of SCENARIOS) {
+    test(`denial → canonical toast: ${scenario.name}`, async ({ page }) => {
+      await stubRpc(page, scenario);
+
+      try {
+        await loginAs(page, 'qa_allaccess');
+      } catch {
+        test.skip(true, 'No learner credentials configured for this env');
+      }
+
+      await page.goto('/admin/leitstelle', { waitUntil: 'domcontentloaded' });
+
+      const card = page.getByTestId('handbook-publish-drift');
+      if (!(await card.isVisible({ timeout: 5_000 }).catch(() => false))) {
+        // Route-guard kicked in → still a valid denial outcome (no success path)
+        await expect(page).not.toHaveURL(/\/admin\/leitstelle/);
+        return;
+      }
+
+      const smokeBtn = card.getByRole('button', { name: /Smoke/i });
+      await smokeBtn.click();
+
+      // Snapshot: canonical message MUST appear verbatim.
+      await expect(
+        page.getByText(CANONICAL_DENIAL, { exact: false }),
+      ).toBeVisible({ timeout: 5_000 });
+
+      // Negative assertion: no success toast.
+      await expect(page.getByText(/Smoke OK/i)).toHaveCount(0);
+    });
+  }
 });
