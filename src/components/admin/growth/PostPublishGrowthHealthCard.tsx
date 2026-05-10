@@ -77,6 +77,7 @@ function statusBadge(status: Health['status']) {
 export default function PostPublishGrowthHealthCard() {
   const qc = useQueryClient();
   const [trendDays, setTrendDays] = useState<7 | 30>(7);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['post-publish-growth-health'],
