@@ -19,6 +19,23 @@ import { BookOpen, AlertTriangle, CheckCircle2, PlayCircle, Loader2, Undo2, Flas
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+/**
+ * Canonical 42501 / forbidden detector — covers PostgREST error shapes
+ * (code === '42501', status 401/403, and German/English message variants).
+ */
+export function isForbiddenError(e: any): boolean {
+  if (!e) return false;
+  if (e.code === '42501') return true;
+  if (typeof e.status === 'number' && (e.status === 401 || e.status === 403)) return true;
+  const msg = String(e?.message ?? '') + ' ' + String(e?.details ?? '') + ' ' + String(e?.hint ?? '');
+  return /\b(42501|forbidden|permission\s*denied|not\s*authorized|unauthor[is]z?ed)\b/i.test(msg);
+}
+
+/** Canonical German "verweigert"-Message, identisch über alle Aktionen. */
+export function forbiddenMessage(action: 'Smoke' | 'Backfill' | 'Rollback'): string {
+  return `${action} verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff. Bitte als Admin einloggen.`;
+}
+
 type Offender = {
   package_id: string; package_title: string;
   track: string; allowed: boolean; required: boolean;
@@ -72,12 +89,8 @@ export function HandbookPublishDriftCard() {
       refetch();
     },
     onError: (e: any) => {
-      const msg = String(e?.message ?? '');
-      if (/forbidden|permission denied|42501/i.test(msg)) {
-        toast.error('Backfill verweigert: Admin-/service-role-Rechte erforderlich.');
-      } else {
-        toast.error(`Fehler: ${msg || 'unbekannt'}`);
-      }
+      if (isForbiddenError(e)) toast.error(forbiddenMessage('Backfill'));
+      else toast.error(`Fehler: ${String(e?.message ?? 'unbekannt')}`);
     },
   });
 
@@ -98,12 +111,8 @@ export function HandbookPublishDriftCard() {
       refetch();
     },
     onError: (e: any) => {
-      const msg = String(e?.message ?? '');
-      if (/forbidden|permission denied|42501/i.test(msg)) {
-        toast.error('Rollback verweigert: Admin-/service-role-Rechte erforderlich.');
-      } else {
-        toast.error(`Rollback fehlgeschlagen: ${msg || 'unbekannt'}`);
-      }
+      if (isForbiddenError(e)) toast.error(forbiddenMessage('Rollback'));
+      else toast.error(`Rollback fehlgeschlagen: ${String(e?.message ?? 'unbekannt')}`);
     },
   });
 
@@ -120,12 +129,8 @@ export function HandbookPublishDriftCard() {
       else toast.error(`Smoke FAILED · ${failed.length} Tests fehlgeschlagen`);
     },
     onError: (e: any) => {
-      const msg = String(e?.message ?? '');
-      if (/forbidden|permission denied|42501/i.test(msg)) {
-        toast.error('Smoke verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff. Bitte als Admin einloggen.');
-      } else {
-        toast.error(`Smoke-Fehler: ${msg || 'unbekannt'}`);
-      }
+      if (isForbiddenError(e)) toast.error(forbiddenMessage('Smoke'));
+      else toast.error(`Smoke-Fehler: ${String(e?.message ?? 'unbekannt')}`);
     },
   });
 

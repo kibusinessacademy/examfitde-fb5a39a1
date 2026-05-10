@@ -48,7 +48,7 @@ test.describe('Handbook Smoke — non-admin access denied', () => {
 
     // Sonner toast: matches the exact message from the card's onError handler.
     await expect(
-      page.getByText(/Smoke verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff/i),
+      page.getByText(/Smoke verweigert: Diese Aktion erfordert Admin- oder service-role-Zugriff\. Bitte als Admin einloggen\./),
     ).toBeVisible({ timeout: 5_000 });
 
     // Negative assertion: no success toast appeared.
