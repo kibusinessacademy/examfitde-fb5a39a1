@@ -66,3 +66,62 @@ maybe("parity-cron-guard regression", () => {
     });
   });
 });
+
+// E2E dispatcher dry-run — exercises the actual outbox row lifecycle
+// (pending → sent|skipped|failed|dlq) without invoking Slack/Resend.
+const url2 = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const key2 = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const maybeE2E = url2 && key2 ? describe : describe.skip;
+
+maybeE2E("parity-cron-guard outbox dispatcher (dry-run)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { createClient } = require("@supabase/supabase-js");
+  const supabase = createClient(url2!, key2!);
+  const call = async (scenario: string, outcome = "ok") => {
+    const { data, error } = await supabase.rpc("fn_simulate_dispatch_parity_notification", {
+      p_scenario: scenario, p_outcome: outcome, p_max_attempts: 5,
+    });
+    expect(error).toBeNull();
+    return data as any;
+  };
+
+  it("fresh → no enqueue, no transitions", async () => {
+    const r = await call("fresh", "ok");
+    expect(r.enqueued).toBe(false);
+    expect(r.reason).toBe("cron_guard_status_ok");
+  });
+
+  it("late + ok → 1 attempt, status sent", async () => {
+    const r = await call("late", "ok");
+    expect(r.enqueued).toBe(true);
+    expect(r.final_status).toBe("sent");
+    expect(r.final_attempts).toBe(1);
+    expect(r.reached_dlq).toBe(false);
+  });
+
+  it("missing + missing_secret → status skipped (no retry)", async () => {
+    const r = await call("missing", "missing_secret");
+    expect(r.enqueued).toBe(true);
+    expect(r.final_status).toBe("skipped");
+    expect(r.final_attempts).toBe(1);
+    expect(r.last_error).toMatch(/missing_secret/);
+  });
+
+  it("missing + webhook_500 → 5 retries then dlq", async () => {
+    const r = await call("missing", "webhook_500");
+    expect(r.enqueued).toBe(true);
+    expect(r.final_status).toBe("dlq");
+    expect(r.final_attempts).toBe(5);
+    expect(r.reached_dlq).toBe(true);
+    // Transitions: initial pending + 5 attempts
+    expect(Array.isArray(r.transitions)).toBe(true);
+    expect(r.transitions.length).toBe(6);
+  });
+
+  it("late + webhook_500 → retry path produces medium severity", async () => {
+    const r = await call("late", "webhook_500");
+    expect(r.enqueued).toBe(true);
+    expect(r.final_status).toBe("dlq");
+    expect(r.evaluation.expected_severity).toBe("medium");
+  });
+});
