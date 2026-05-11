@@ -29,16 +29,6 @@ DECLARE
   v_audit_count int;
   v_test_label text;
   v_failures int := 0;
-
-  PROCEDURE assert(label text, cond boolean) AS $proc$
-  BEGIN
-    IF cond THEN
-      RAISE NOTICE 'PASS  %', label;
-    ELSE
-      RAISE WARNING 'FAIL  %', label;
-    END IF;
-  END;
-  $proc$ LANGUAGE plpgsql;
 BEGIN
   -- Use a real curriculum to satisfy FK
   SELECT id INTO v_curr_id FROM curricula LIMIT 1;
