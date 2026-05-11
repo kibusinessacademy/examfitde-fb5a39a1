@@ -150,6 +150,7 @@ export function SeoRollbackDialog({
       );
       qc.invalidateQueries({ queryKey: ["heal-cockpit", "seo-feature-flags"] });
       qc.invalidateQueries({ queryKey: ["heal-cockpit", "seo-job-health"] });
+      qc.invalidateQueries({ queryKey: ["heal-cockpit", "seo-flag-toggle-log", flagKey] });
       setReason("");
       setConfirmOpen(false);
       onOpenChange(false);
