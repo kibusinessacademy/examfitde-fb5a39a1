@@ -31,7 +31,9 @@ import {
   AlertTriangle,
   AlertCircle,
   ShieldAlert,
+  Search,
 } from "lucide-react";
+import { SeoAlertDrilldownDialog } from "./SeoAlertDrilldownDialog";
 
 type SeoJobHealthRow = {
   job_type: string;
