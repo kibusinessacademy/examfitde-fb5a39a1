@@ -24,6 +24,7 @@ complete_job (beide Overloads) committet NUR via WHERE status='processing' (CAS)
 
 
 ## Memories
+- [Integrity Deterministic Pulse v2](mem://architektur/ops/integrity-deterministic-pulse-v2) — 8 Stage-Boundaries, pulse(stage), kein setInterval, meta.last_stage+heartbeat_log Forensik
 - [Revenue Funnel Loop A](mem://architektur/marketing/revenue-funnel-loop-a-v1) — SSOT Marketing→CRM→Checkout, 6 Pflicht-Events, DOI, Lead-Scoring
 - [Email Activation Loop B](mem://architektur/marketing/email-activation-loop-b-v1) — 4 Sequenzen, Trigger, Worker, Idempotency-Key
 - [License & AI-Tutor Loop C](mem://architektur/marketing/license-rollout-loop-c-v1) — tutor_access_check, Strict-RAG Citations, learner_course_grants, ai_tutor_audit
