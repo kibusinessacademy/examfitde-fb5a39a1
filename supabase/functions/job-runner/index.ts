@@ -2420,8 +2420,36 @@ Deno.serve(async (req) => {
       }
       // ── 5. Completed ───────────────────────────────────────────────
       else {
+        // ── INTEGRITY GATE ROUTING (v2): integrity-check returns ok:true even when gate fails.
+        // Without this branch, the runner would mark job 'completed', firing trg_job_complete_reconcile_step,
+        // which writes package_steps.status='done' → governance trigger raises EXCEPTION
+        // (integrity_passed=false) → entire job_queue UPDATE rolls back → job stuck in 'processing'.
+        // SSOT: integrity_passed/gate_passed at top level OR nested in result.report.
+        const isIntegrity = job.job_type === "package_run_integrity_check";
+        const integrityPassed = isIntegrity
+          ? (parsed?.integrity_passed ?? parsed?.gate_passed ?? parsed?.report?.integrity_passed ?? parsed?.report?.gate_passed)
+          : undefined;
+        if (isIntegrity && integrityPassed === false) {
+          const errCode = parsed?.error_code || "QUALITY_THRESHOLD_NOT_MET";
+          console.warn(`[job-runner] INTEGRITY_GATE_FAIL pkg=${job.payload?.package_id?.slice(0, 8)} score=${parsed?.score ?? parsed?.report?.score} hard_fails=${parsed?.hard_fail_count ?? parsed?.report?.hard_fail_count} → failed (${errCode})`);
+          finalState = {
+            status: "failed",
+            patch: {
+              error: errCode,
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+              completed_at: tsNow,
+              meta: {
+                ...(job.meta || {}),
+                last_error_code: errCode,
+                gate_passed: false,
+                score: parsed?.score ?? parsed?.report?.score ?? null,
+                hard_fail_count: parsed?.hard_fail_count ?? parsed?.report?.hard_fail_count ?? null,
+              },
+            },
+          };
+        }
         // ── SKIP GUARD (defensive): catch ok:true + skipped:true that wasn't caught in 4b ──
-        if (parsed && parsed.skipped === true) {
+        else if (parsed && parsed.skipped === true) {
           console.log(`[job-runner] ${fnName} SKIPPED (ok:true path): ${parsed.reason || "no reason"}`);
           finalState = {
             status: "completed",
