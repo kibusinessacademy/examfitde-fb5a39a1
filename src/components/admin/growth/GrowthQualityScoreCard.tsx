@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -272,10 +272,52 @@ function BulkConfigDialog({
 }: { open: boolean; onClose: () => void }) {
   const qcRoot = useQueryClient();
   const [limit, setLimit] = useState(10);
-  const [maxScore, setMaxScore] = useState(50);
+  const [timeWindowHours, setTimeWindowHours] = useState(24);
   const [selected, setSelected] = useState<Set<string>>(new Set(SUBSCORE_KEYS));
   const [running, setRunning] = useState<string | null>(null);
   const [results, setResults] = useState<Array<{ subscore: string; dispatched: number; skipped: number; error?: string }>>([]);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [isDefault, setIsDefault] = useState<boolean>(true);
+
+  const config = useQuery({
+    queryKey: ['admin-bulk-loop-config'],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('admin_get_growth_bulk_loop_config' as any);
+      if (error) throw error;
+      return data as { loop_limit: number; subscores: string[]; time_window_hours: number; updated_at: string | null; is_default: boolean };
+    },
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (config.data) {
+      setLimit(config.data.loop_limit);
+      setTimeWindowHours(config.data.time_window_hours);
+      setSelected(new Set(config.data.subscores));
+      setSavedAt(config.data.updated_at);
+      setIsDefault(!!config.data.is_default);
+    }
+  }, [config.data]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('admin_save_growth_bulk_loop_config' as any, {
+        p_loop_limit: limit,
+        p_subscores: Array.from(selected),
+        p_time_window_hours: timeWindowHours,
+      });
+      if (error) throw error;
+      return data as { saved: boolean; updated_at: string };
+    },
+    onSuccess: (res) => {
+      toast.success('Konfiguration gespeichert');
+      setSavedAt(res.updated_at);
+      setIsDefault(false);
+      qcRoot.invalidateQueries({ queryKey: ['admin-bulk-loop-config'] });
+    },
+    onError: (e: Error) => toast.error('Speichern fehlgeschlagen', { description: e.message }),
+  });
 
   const toggle = (k: string) => {
     const next = new Set(selected);
@@ -285,6 +327,8 @@ function BulkConfigDialog({
 
   const run = async () => {
     setResults([]);
+    // Auto-save before run so server-side config matches what we executed
+    try { await save.mutateAsync(); } catch { /* swallowed: toast already shown */ }
     for (const sub of SUBSCORE_KEYS) {
       if (!selected.has(sub)) continue;
       setRunning(sub);
@@ -304,7 +348,7 @@ function BulkConfigDialog({
     qcRoot.invalidateQueries({ queryKey: ['growth-quality-summary'] });
     qcRoot.invalidateQueries({ queryKey: ['growth-quality-details'] });
     toast.success('Bulk-Repair Loop fertig', {
-      description: `${selected.size} Subscores · limit=${limit}`,
+      description: `${selected.size} Subscores · limit=${limit} · window=${timeWindowHours}h`,
     });
   };
 
@@ -316,10 +360,15 @@ function BulkConfigDialog({
             <Settings2 className="h-4 w-4" />Bulk-Repair Loop konfigurieren
           </DialogTitle>
           <DialogDescription>
-            Pro Run: Subscore-Auswahl + Limit pro Subscore. Filtert Worst &lt; max-score (RPC: subscore &lt; 50 hardcoded — Threshold-Anzeige nur Hinweis).
+            Konfiguration wird serverseitig pro Admin gespeichert. Loop-Start speichert automatisch.
           </DialogDescription>
         </DialogHeader>
 
+        {config.isLoading ? (
+          <div className="flex items-center gap-2 text-xs text-text-secondary py-4">
+            <Loader2 className="h-3 w-3 animate-spin" />Lade gespeicherte Konfiguration…
+          </div>
+        ) : (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label className="text-xs">Limit pro Subscore: <span className="font-mono">{limit}</span></Label>
@@ -327,8 +376,8 @@ function BulkConfigDialog({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs">Max-Score Hinweis (RPC nutzt &lt;50): <span className="font-mono">{maxScore}</span></Label>
-            <Slider value={[maxScore]} min={20} max={100} step={5} onValueChange={(v) => setMaxScore(v[0])} />
+            <Label className="text-xs">Zeitfenster (Idempotenz / Re-Dispatch-Cooldown): <span className="font-mono">{timeWindowHours}h</span></Label>
+            <Slider value={[timeWindowHours]} min={1} max={168} step={1} onValueChange={(v) => setTimeWindowHours(v[0])} />
           </div>
 
           <div className="space-y-2">
@@ -353,6 +402,12 @@ function BulkConfigDialog({
             </div>
           </div>
 
+          <div className="text-[10px] text-text-secondary">
+            {isDefault
+              ? 'Noch keine eigene Konfiguration gespeichert (Defaults aktiv).'
+              : `Zuletzt gespeichert: ${savedAt ? new Date(savedAt).toLocaleString('de-DE') : '—'}`}
+          </div>
+
           {results.length > 0 && (
             <div className="rounded-md border border-border-subtle bg-surface-sunken p-2 space-y-1 text-[11px]">
               <div className="font-medium text-text-primary">Ergebnis</div>
@@ -367,11 +422,15 @@ function BulkConfigDialog({
             </div>
           )}
         </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={!!running}>Schließen</Button>
-          <Button size="sm" onClick={run} disabled={!!running || selected.size === 0}>
-            {running ? <><Loader2 className="h-3 w-3 animate-spin mr-1" />Läuft: {running}</> : <><Wrench className="h-3 w-3 mr-1" />Loop starten</>}
+          <Button variant="outline" size="sm" onClick={() => save.mutate()} disabled={save.isPending || !!running || selected.size === 0}>
+            {save.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}Nur speichern
+          </Button>
+          <Button size="sm" onClick={run} disabled={!!running || selected.size === 0 || config.isLoading}>
+            {running ? <><Loader2 className="h-3 w-3 animate-spin mr-1" />Läuft: {running}</> : <><Wrench className="h-3 w-3 mr-1" />Speichern + Loop starten</>}
           </Button>
         </DialogFooter>
       </DialogContent>
