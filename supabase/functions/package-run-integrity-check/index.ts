@@ -2037,7 +2037,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ ok: true, report });
+    await heartbeat.pulse("handler_done");
+    return json({ ok: true, report, heartbeat_tick_count: heartbeat.tickCount() });
 
   } catch (e) {
     // ✅ P0 FIX: ALWAYS write last_error on crash — prevents silent-fail state
