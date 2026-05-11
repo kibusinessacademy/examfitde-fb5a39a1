@@ -615,6 +615,8 @@ export default function GrowthQualityScoreCard() {
         )}
       </CardContent>
 
+      <BulkConfigDialog open={bulkConfigOpen} onClose={() => setBulkConfigOpen(false)} />
+
       <PackageDetailDialog
         packageId={drilldownId}
         open={!!drilldownId}
