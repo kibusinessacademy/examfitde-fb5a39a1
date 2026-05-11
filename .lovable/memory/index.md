@@ -20,6 +20,7 @@ Growth-OS: Vor jedem User-facing Feature → 14-Punkte Pre-Brief (mem://constrai
 Queue-Health: terminale Verdicts (STALE_REAP_LOOP_TERMINAL, BRONZE_LOCK_TERMINAL, PHANTOM_STEP_BLOCKED) NIE als 'retriable' klassifizieren — siehe TERMINAL_ERROR_PATTERNS in useAdminQueueSSOT + isTerminalFailure(). Smart-NBA + Bulk-Requeue müssen sie ausschließen. Drift sichtbar via PublishWorkflowStatusCard (publish-ready / processing / STALE_REAP).
 Tracking-Mirror: TrackingEvents.landingView() schreibt DUAL — tracking_events (Usage-Timeline) UND conversion_events via trackFunnel (Funnel-SSOT für GA4/GTM/Reports). Niemals nur eine Senke nutzen wenn Event auch im Funnel-Schema steht.
 Mastery-Engine-Konstanten (τ, α, anchor, REPAIR/DRILL/REINFORCE) NUR aus mastery_engine_config via fn_get_mastery_config lesen — niemals hardcoded außer Fallback. Quiz/Exam/Tutor schreiben Mastery NUR via record_attempt_mastery_bulk oder update_mastery_from_attempt (single choke-point).
+complete_job (beide Overloads) committet NUR via WHERE status='processing' (CAS) — verhindert Reaper-vs-Completion-Kollision. Long-Running Worker (z.B. package-run-integrity-check) MÜSSEN setInterval-Heartbeat-Loop ≤30s + initialen void-tick haben.
 
 
 ## Memories
