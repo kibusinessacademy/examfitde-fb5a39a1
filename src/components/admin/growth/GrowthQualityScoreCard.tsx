@@ -444,20 +444,30 @@ export default function GrowthQualityScoreCard() {
             8-Dimensionen Quality-Gate für published packages · Score 0–100 · Klick auf Paket öffnet Repair-Drilldown
           </CardDescription>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            summary.refetch();
-            details.refetch();
-          }}
-          disabled={summary.isFetching || details.isFetching}
-        >
-          <RefreshCw
-            className={`h-3 w-3 mr-1 ${summary.isFetching || details.isFetching ? 'animate-spin' : ''}`}
-          />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setBulkConfigOpen(true)}
+          >
+            <Settings2 className="h-3 w-3 mr-1" />
+            Bulk-Loop
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              summary.refetch();
+              details.refetch();
+            }}
+            disabled={summary.isFetching || details.isFetching}
+          >
+            <RefreshCw
+              className={`h-3 w-3 mr-1 ${summary.isFetching || details.isFetching ? 'animate-spin' : ''}`}
+            />
+            Refresh
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {summary.isLoading && (
