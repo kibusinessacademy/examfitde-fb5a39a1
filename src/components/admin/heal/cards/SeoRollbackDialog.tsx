@@ -51,6 +51,8 @@ import {
   History,
   CheckCircle2,
   PowerOff,
+  Activity,
+  Filter as FilterIcon,
 } from "lucide-react";
 import { parseHealError } from "@/components/admin/queue/healErrorParser";
 
