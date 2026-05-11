@@ -1937,10 +1937,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ✅ Mark run_integrity_check step — SSOT-aligned semantics:
-    // - gate_passed=true  → status=done, ok=true  (downstream can proceed)
-    // - gate_passed=false → status=done, ok=false  (report generated, but gate failed)
-    // This ensures reconcile_integrity_passed and meta.ok express the same truth.
+    // ✅ Mark run_integrity_check step — SSOT-aligned semantics (v2 governance-safe):
+    // - gate_passed=true  → status=done   (downstream can proceed)
+    // - gate_passed=false → status=failed (governance trigger forbids done with integrity_passed=false)
+    // Setting failed here keeps the SSOT consistent and prevents the AFTER-trigger on job_queue
+    // from rolling back the runner's terminal write via fn_guard_governance_step_finalization.
     const gatePassed = gate.hardFails.length === 0 && gate.score >= 85;
     try {
       const { data: stepRow } = await sb
@@ -1954,8 +1955,8 @@ Deno.serve(async (req) => {
       await sb
         .from("package_steps")
         .update({
-          status: "done",
-          last_error: gatePassed ? null : `Integrity gate failed: score=${gate.score}, hard_fails=${gate.hardFails.length}`,
+          status: gatePassed ? "done" : "failed",
+          last_error: gatePassed ? null : `QUALITY_THRESHOLD_NOT_MET: score=${gate.score}, hard_fails=${gate.hardFails.length}`,
           meta: {
             ...prevMeta,
             // Execution metadata (technical)
