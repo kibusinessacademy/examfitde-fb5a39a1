@@ -37,9 +37,9 @@ BEGIN
   END IF;
 
   -- Create ephemeral test package
-  INSERT INTO course_packages(id, title, slug, status, curriculum_id, package_key)
-  VALUES (gen_random_uuid(), 'PHANTOM_GUARD_TEST', 'phantom-guard-test-'||substr(gen_random_uuid()::text,1,8),
-          'building', v_curr_id, 'phantom_guard_test_'||substr(gen_random_uuid()::text,1,8))
+  INSERT INTO course_packages(id, title, status, curriculum_id, package_key)
+  VALUES (gen_random_uuid(), 'PHANTOM_GUARD_TEST', 'building', v_curr_id,
+          'phantom_guard_test_'||substr(gen_random_uuid()::text,1,8))
   RETURNING id INTO v_pkg_id;
 
   RAISE NOTICE '── Test package: %', v_pkg_id;
