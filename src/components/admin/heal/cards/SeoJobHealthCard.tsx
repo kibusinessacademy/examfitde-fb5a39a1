@@ -161,6 +161,18 @@ export function SeoJobHealthCard() {
     staleTime: 60_000,
   });
 
+  const thresholds = useQuery({
+    queryKey: ["heal-cockpit", "seo-alert-thresholds"],
+    queryFn: async (): Promise<ThresholdRow[]> => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_seo_alert_thresholds" as never,
+      );
+      if (error) throw error;
+      return (data as unknown as ThresholdRow[]) ?? [];
+    },
+    staleTime: 60_000,
+  });
+
   const sortedRows = useMemo(() => {
     const rows = health.data ?? [];
     return [...rows].sort(
