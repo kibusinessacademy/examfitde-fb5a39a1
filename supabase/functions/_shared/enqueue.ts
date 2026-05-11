@@ -114,6 +114,16 @@ export function allowedPackageStatusesForJobType(jobType: string): Set<string> {
     ]);
   }
 
+  // Coverage-gap repair runs BEFORE building can succeed — must include `queued`.
+  // Producer fn_enqueue_competency_fill_for_gap_packages targets coverage_gap_blocking_publish
+  // packages which sit in `queued` until the gap is closed.
+  if (
+    jobType === "package_repair_exam_pool_competency_coverage" ||
+    jobType === "package_repair_exam_pool_lf_coverage"
+  ) {
+    return new Set(["queued", "building", "blocked", "quality_gate_failed"]);
+  }
+
   if (REPAIR_JOB_TYPES.has(jobType)) {
     return new Set(["building", "blocked", "quality_gate_failed"]);
   }
