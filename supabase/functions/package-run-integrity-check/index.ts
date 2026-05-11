@@ -1120,29 +1120,46 @@ function serializeErr(e: any): { name: string; message: string; stack: string; c
  * jobs with a tick_at < 3min as alive.
  */
 /**
- * Wave: Integrity Heartbeat Loop + Reaper CAS (2026-05-11).
+ * Wave: Deterministic Pulse at Stage Boundaries (2026-05-11, replaces v1 setInterval loop).
  *
- * Tick interval is fixed to 30s per the heartbeat contract:
- *   - first heartbeat is fired immediately (markFirstHeartbeat happens
- *     even earlier in the handler, this is the SECOND signal),
- *   - subsequent ticks every 30_000ms,
- *   - the reaper cutoff for STALE_AFTER_HEARTBEAT is 10min, so 30s gives
- *     ~20 grace ticks before the worker is considered stalled.
+ * Why no setInterval anymore:
+ *   Supabase Edge Runtime suspends timers during long await sections in
+ *   CPU/IO-heavy handlers — observed: heartbeat_tick_count stuck at 1 despite
+ *   480s+ runtime, even though the loop was wired correctly. setInterval is
+ *   not deterministic in this environment.
  *
- * The increment-counter `meta.heartbeat_tick_count` is used by the
- * `s5b-integrity-heartbeat-loop.contract.test.ts` smoke to assert that a
- * long-running integrity job emits **at least 2 heartbeats** within its
- * lifetime (first + ≥1 loop tick).
+ * New contract: the handler calls `await heartbeat.pulse('<stage>')` at every
+ * known stage boundary. Each pulse:
+ *   - increments tickCount
+ *   - records {tick, stage, at_ms} into meta.heartbeat_log (last 25 entries)
+ *   - writes last_heartbeat_at via heartbeat_job_processing RPC (CAS-guarded fallback)
+ *
+ * INTEGRITY_HEARTBEAT_MS is retained for documentation / external readers
+ * (it is now the **maximum allowed gap between two pulses** that any new
+ * stage boundary insertion must respect — not a timer interval).
+ *
+ * The contract test `s5b-integrity-heartbeat-loop.contract.test.ts` asserts
+ * that the handler invokes pulse() at ≥6 stage boundaries.
  */
 export const INTEGRITY_HEARTBEAT_MS = 30_000;
-function startIntegrityHeartbeat(sb: any, jobId: string | null, packageId: string): { stop: () => void } {
-  if (!jobId) return { stop: () => {} };
+type IntegrityHeartbeat = {
+  pulse: (stage: string) => Promise<void>;
+  stop: () => void;
+  tickCount: () => number;
+};
+function startIntegrityHeartbeat(sb: any, jobId: string | null, packageId: string): IntegrityHeartbeat {
+  if (!jobId) return { pulse: async () => {}, stop: () => {}, tickCount: () => 0 };
   const WORKER_ID = `integrity-check-${crypto.randomUUID().slice(0, 8)}`;
+  const STARTED_MS = Date.now();
   let stopped = false;
   let tickCount = 0;
-  const tick = async () => {
+  const pulseLog: Array<{ tick: number; stage: string; at_ms: number }> = [];
+  const pulse = async (stage: string): Promise<void> => {
     if (stopped) return;
     tickCount += 1;
+    const entry = { tick: tickCount, stage, at_ms: Date.now() - STARTED_MS };
+    pulseLog.push(entry);
+    if (pulseLog.length > 25) pulseLog.shift();
     try {
       const { error } = await sb.rpc("heartbeat_job_processing", {
         p_job_id: jobId,
@@ -1151,7 +1168,9 @@ function startIntegrityHeartbeat(sb: any, jobId: string | null, packageId: strin
           source: "package-run-integrity-check",
           pkg: packageId.slice(0, 8),
           heartbeat_tick_count: tickCount,
+          last_stage: stage,
           tick_at: new Date().toISOString(),
+          heartbeat_log: pulseLog.slice(-10),
         },
       });
       if (error) {
@@ -1162,6 +1181,8 @@ function startIntegrityHeartbeat(sb: any, jobId: string | null, packageId: strin
           processing_tick_at: new Date().toISOString(),
           last_heartbeat_source: "integrity-check",
           heartbeat_tick_count: tickCount,
+          last_stage: stage,
+          heartbeat_log: pulseLog.slice(-10),
         };
         await sb.from("job_queue").update({
           meta: nextMeta,
@@ -1169,16 +1190,13 @@ function startIntegrityHeartbeat(sb: any, jobId: string | null, packageId: strin
         }).eq("id", jobId).eq("status", "processing");
       }
     } catch (e) {
-      console.warn(`[integrity-check] heartbeat failed pkg=${packageId.slice(0, 8)}: ${(e as Error).message}`);
+      console.warn(`[integrity-check] pulse(${stage}) failed pkg=${packageId.slice(0, 8)}: ${(e as Error).message}`);
     }
   };
-  void tick();
-  const handle = setInterval(tick, INTEGRITY_HEARTBEAT_MS);
   return {
-    stop: () => {
-      stopped = true;
-      clearInterval(handle);
-    },
+    pulse,
+    stop: () => { stopped = true; },
+    tickCount: () => tickCount,
   };
 }
 
