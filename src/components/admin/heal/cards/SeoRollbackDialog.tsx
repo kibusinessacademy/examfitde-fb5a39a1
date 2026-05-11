@@ -328,16 +328,76 @@ export function SeoRollbackDialog({
             </ScrollArea>
           </section>
 
+          {/* Audit-Log: last toggles */}
+          <section className="space-y-1.5">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
+              <History className="h-3.5 w-3.5" />
+              Letzte Toggles für diesen Flag
+            </h3>
+            {auditQ.isLoading ? (
+              <Skeleton className="h-12 w-full" />
+            ) : auditQ.isError ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive-bg-subtle px-3 py-2 text-xs text-destructive">
+                Fehler: {(auditQ.error as Error).message}
+              </div>
+            ) : (auditQ.data ?? []).length === 0 ? (
+              <div className="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-xs text-text-secondary">
+                Noch keine Toggles in <code className="font-mono">auto_heal_log</code>.
+              </div>
+            ) : (
+              <ul className="space-y-1">
+                {(auditQ.data ?? []).map((a) => (
+                  <li
+                    key={a.log_id}
+                    className="rounded-md border border-border-subtle bg-surface-sunken px-2.5 py-1.5 text-[11px]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-text-primary">
+                        {String(a.previous_enabled)} → {String(a.new_enabled)}
+                      </span>
+                      <span className="text-text-secondary">
+                        {new Date(a.created_at).toLocaleString("de-DE", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
+                      </span>
+                    </div>
+                    {a.reason && (
+                      <div className="mt-0.5 truncate text-text-secondary" title={a.reason}>
+                        <em>„{a.reason}"</em>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={toggleM.isPending}
+            >
               Abbrechen
             </Button>
             <Button
               variant={target ? "default" : "destructive"}
               disabled={!reasonValid || toggleM.isPending}
               onClick={() => setConfirmOpen(true)}
+              title={!reasonValid ? "Grund mit ≥ 5 Zeichen angeben" : undefined}
             >
-              {target ? "Aktivieren" : "Deaktivieren"}
+              {target ? (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Aktivieren
+                </>
+              ) : (
+                <>
+                  <PowerOff className="h-3.5 w-3.5" />
+                  Deaktivieren
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
