@@ -52,9 +52,17 @@ type SeoJobHealthRow = {
   failure_rate_pct_1h: number | null;
   oldest_pending_age_minutes: number | null;
   alert_severity: string | null;
+  alert_reasons: string[] | null;
 };
 
 type FlagRow = { flag_key: string; enabled: boolean | null };
+
+type ThresholdRow = {
+  threshold_key: string;
+  threshold_value: number;
+  severity: string;
+  description: string | null;
+};
 
 function severityBadge(sev: string | null) {
   const s = (sev ?? "ok").toLowerCase();
@@ -149,6 +157,18 @@ export function SeoJobHealthCard() {
         .like("flag_key", "seo_%");
       if (error) throw error;
       return (data as unknown as FlagRow[]) ?? [];
+    },
+    staleTime: 60_000,
+  });
+
+  const thresholds = useQuery({
+    queryKey: ["heal-cockpit", "seo-alert-thresholds"],
+    queryFn: async (): Promise<ThresholdRow[]> => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_seo_alert_thresholds" as never,
+      );
+      if (error) throw error;
+      return (data as unknown as ThresholdRow[]) ?? [];
     },
     staleTime: 60_000,
   });
@@ -277,6 +297,30 @@ export function SeoJobHealthCard() {
           </div>
         ) : null}
 
+        {/* Inline thresholds preview */}
+        {thresholds.data && thresholds.data.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border-subtle bg-surface-sunken px-2.5 py-1.5 text-[11px]">
+            <span className="text-text-secondary">Schwellwerte:</span>
+            {thresholds.data.map((t) => (
+              <Badge
+                key={t.threshold_key}
+                variant="outline"
+                className="font-mono text-[10px]"
+                title={t.description ?? undefined}
+              >
+                {t.threshold_key}={Number(t.threshold_value)}
+              </Badge>
+            ))}
+            <button
+              type="button"
+              onClick={() => setThresholdsOpen(true)}
+              className="ml-auto text-text-secondary underline-offset-2 hover:underline"
+            >
+              bearbeiten
+            </button>
+          </div>
+        ) : null}
+
         {health.isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : health.isError ? (
@@ -331,7 +375,14 @@ export function SeoJobHealthCard() {
                     <td className="py-1.5 pr-2 font-mono text-text-primary">
                       {r.job_type}
                     </td>
-                    <td className="py-1.5 pr-2">
+                    <td
+                      className="py-1.5 pr-2"
+                      title={
+                        r.alert_reasons && r.alert_reasons.length > 0
+                          ? r.alert_reasons.join("\n")
+                          : "Keine Schwellwert-Verletzung"
+                      }
+                    >
                       {severityBadge(r.alert_severity)}
                     </td>
                     <td className="py-1.5 pr-2 text-right tabular-nums">

@@ -13,7 +13,7 @@
  *  - Context section: last 10 integrity-gate failures
  *    (integrity_passed=false / QUALITY_THRESHOLD_NOT_MET)
  */
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -39,6 +39,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -49,6 +51,8 @@ import {
   History,
   CheckCircle2,
   PowerOff,
+  Activity,
+  Filter as FilterIcon,
 } from "lucide-react";
 import { parseHealError } from "@/components/admin/queue/healErrorParser";
 
@@ -97,18 +101,82 @@ export function SeoRollbackDialog({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const target = !currentEnabled;
 
+  // Filter state (debounced 300ms for text/number inputs)
+  const [filterMinScore, setFilterMinScore] = useState<string>("");
+  const [filterErrorCode, setFilterErrorCode] = useState<string>("");
+  const [filterPackageId, setFilterPackageId] = useState<string>("");
+  const [filterHardFailOnly, setFilterHardFailOnly] = useState(false);
+  const [debouncedFilters, setDebouncedFilters] = useState({
+    minScore: "",
+    errorCode: "",
+    packageId: "",
+  });
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedFilters({
+        minScore: filterMinScore.trim(),
+        errorCode: filterErrorCode.trim(),
+        packageId: filterPackageId.trim(),
+      });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [filterMinScore, filterErrorCode, filterPackageId]);
+
+  const filterParams = useMemo(() => {
+    const params: Record<string, unknown> = { p_limit: 10, p_window_minutes: 60 };
+    const ms = debouncedFilters.minScore ? Number(debouncedFilters.minScore) : NaN;
+    if (Number.isFinite(ms)) params.p_min_score = ms;
+    if (debouncedFilters.errorCode) params.p_error_code = debouncedFilters.errorCode;
+    // basic uuid sanity (36 chars w/ dashes); skip otherwise to avoid 22P02
+    if (/^[0-9a-f-]{36}$/i.test(debouncedFilters.packageId)) {
+      params.p_package_id = debouncedFilters.packageId;
+    }
+    if (filterHardFailOnly) params.p_hard_fail_only = true;
+    return params;
+  }, [debouncedFilters, filterHardFailOnly]);
+
+  const filtersActive =
+    !!debouncedFilters.minScore ||
+    !!debouncedFilters.errorCode ||
+    /^[0-9a-f-]{36}$/i.test(debouncedFilters.packageId) ||
+    filterHardFailOnly;
+
   const failuresQ = useQuery({
     enabled: open,
-    queryKey: ["heal-cockpit", "integrity-gate-failures"],
+    queryKey: ["heal-cockpit", "integrity-gate-failures", filterParams],
     queryFn: async (): Promise<GateFailureRow[]> => {
       const { data, error } = await supabase.rpc(
         "admin_get_recent_integrity_gate_failures" as never,
-        { p_limit: 10, p_window_minutes: 60 } as never,
+        filterParams as never,
       );
       if (error) throw error;
       return (data as unknown as GateFailureRow[]) ?? [];
     },
     staleTime: 30_000,
+  });
+
+  const telemetryQ = useQuery({
+    enabled: open,
+    queryKey: ["heal-cockpit", "seo-toggle-telemetry", flagKey],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_seo_toggle_telemetry" as never,
+        { p_flag_key: flagKey } as never,
+      );
+      if (error) throw error;
+      return (data as Array<{
+        flag_key: string;
+        toggles_24h: number;
+        toggles_7d: number;
+        enable_count_7d: number;
+        disable_count_7d: number;
+        last_toggle_at: string | null;
+        last_toggle_actor: string | null;
+        last_toggle_direction: string | null;
+        rollback_frequency_score: number | null;
+      }>)?.[0] ?? null;
+    },
+    staleTime: 15_000,
   });
 
   const auditQ = useQuery({
@@ -151,6 +219,7 @@ export function SeoRollbackDialog({
       qc.invalidateQueries({ queryKey: ["heal-cockpit", "seo-feature-flags"] });
       qc.invalidateQueries({ queryKey: ["heal-cockpit", "seo-job-health"] });
       qc.invalidateQueries({ queryKey: ["heal-cockpit", "seo-flag-toggle-log", flagKey] });
+      qc.invalidateQueries({ queryKey: ["heal-cockpit", "seo-toggle-telemetry", flagKey] });
       setReason("");
       setConfirmOpen(false);
       onOpenChange(false);
@@ -245,6 +314,66 @@ export function SeoRollbackDialog({
             />
           </div>
 
+          {/* Telemetry panel */}
+          <section className="rounded-md border border-border-subtle bg-surface-sunken px-3 py-2">
+            <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-text-primary">
+              <Activity className="h-3.5 w-3.5" />
+              Toggle-Telemetrie
+            </div>
+            {telemetryQ.isLoading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : !telemetryQ.data ? (
+              <div className="text-[11px] text-text-secondary">
+                Noch keine Toggle-Historie für diesen Flag.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] sm:grid-cols-4">
+                <div>
+                  <span className="text-text-secondary">24h:</span>{" "}
+                  <span className="font-mono tabular-nums">
+                    {telemetryQ.data.toggles_24h ?? 0}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-text-secondary">7d:</span>{" "}
+                  <span className="font-mono tabular-nums">
+                    {telemetryQ.data.toggles_7d ?? 0}
+                  </span>{" "}
+                  <span className="text-text-secondary">
+                    ({telemetryQ.data.enable_count_7d ?? 0}↑/
+                    {telemetryQ.data.disable_count_7d ?? 0}↓)
+                  </span>
+                </div>
+                <div>
+                  <span className="text-text-secondary">Score:</span>{" "}
+                  <span
+                    className={`font-mono tabular-nums ${
+                      (telemetryQ.data.rollback_frequency_score ?? 0) >= 0.6
+                        ? "text-destructive"
+                        : (telemetryQ.data.rollback_frequency_score ?? 0) >= 0.3
+                          ? "text-warning"
+                          : ""
+                    }`}
+                    title="Rollback-Frequency-Score (0–1, höher = unruhiger)"
+                  >
+                    {Number(telemetryQ.data.rollback_frequency_score ?? 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="text-text-secondary">
+                  Letzter:{" "}
+                  {telemetryQ.data.last_toggle_at
+                    ? `${telemetryQ.data.last_toggle_direction ?? "?"} · ${new Date(
+                        telemetryQ.data.last_toggle_at,
+                      ).toLocaleString("de-DE", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}`
+                    : "—"}
+                </div>
+              </div>
+            )}
+          </section>
+
           {/* Integrity-Gate context */}
           <section className="space-y-1.5">
             <h3 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
@@ -258,6 +387,76 @@ export function SeoRollbackDialog({
               endete. Hilft zu beurteilen, ob der Rollback orthogonal zum
               Pipeline-Stress ist.
             </p>
+
+            {/* Filter bar */}
+            <div className="flex flex-wrap items-end gap-2 rounded-md border border-border-subtle bg-surface-sunken px-2 py-1.5">
+              <div className="flex items-center gap-1 text-[11px] text-text-secondary">
+                <FilterIcon className="h-3 w-3" />
+                Filter:
+              </div>
+              <div className="space-y-0.5">
+                <Label htmlFor="flt-min-score" className="text-[10px] text-text-secondary">
+                  min Score
+                </Label>
+                <Input
+                  id="flt-min-score"
+                  type="number"
+                  inputMode="decimal"
+                  className="h-7 w-20 text-xs"
+                  value={filterMinScore}
+                  onChange={(e) => setFilterMinScore(e.target.value)}
+                  placeholder="z.B. 85"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <Label htmlFor="flt-error-code" className="text-[10px] text-text-secondary">
+                  error_code
+                </Label>
+                <Input
+                  id="flt-error-code"
+                  className="h-7 w-44 font-mono text-xs"
+                  value={filterErrorCode}
+                  onChange={(e) => setFilterErrorCode(e.target.value)}
+                  placeholder="QUALITY_THRESHOLD_NOT_MET"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <Label htmlFor="flt-pkg-id" className="text-[10px] text-text-secondary">
+                  package_id (UUID)
+                </Label>
+                <Input
+                  id="flt-pkg-id"
+                  className="h-7 w-64 font-mono text-xs"
+                  value={filterPackageId}
+                  onChange={(e) => setFilterPackageId(e.target.value)}
+                  placeholder="00000000-…"
+                />
+              </div>
+              <label className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+                <Checkbox
+                  checked={filterHardFailOnly}
+                  onCheckedChange={(c) => setFilterHardFailOnly(c === true)}
+                  aria-label="Nur hard_fail"
+                />
+                hard_fail&nbsp;only
+              </label>
+              {filtersActive ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto h-7 px-2 text-[11px]"
+                  onClick={() => {
+                    setFilterMinScore("");
+                    setFilterErrorCode("");
+                    setFilterPackageId("");
+                    setFilterHardFailOnly(false);
+                  }}
+                >
+                  Reset
+                </Button>
+              ) : null}
+            </div>
+
             <ScrollArea className="max-h-48 rounded-md border border-border-subtle">
               {failuresQ.isLoading ? (
                 <Skeleton className="h-24 w-full" />

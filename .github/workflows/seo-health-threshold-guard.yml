@@ -1,0 +1,25 @@
+name: SEO Health Threshold Guard
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/admin/heal/cards/Seo*.tsx'
+      - 'scripts/guards/seo-health-threshold-guard.mjs'
+      - 'supabase/migrations/**'
+      - '.github/workflows/seo-health-threshold-guard.yml'
+  workflow_dispatch:
+
+jobs:
+  guard:
+    name: SEO Threshold SSOT
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Run Guard
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/guards/seo-health-threshold-guard.mjs
