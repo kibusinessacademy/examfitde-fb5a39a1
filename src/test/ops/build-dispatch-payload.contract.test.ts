@@ -48,4 +48,18 @@ describe("buildDispatchPayload — payload contract defaults", () => {
     expect(out.mode).toBeUndefined();
     expect(out.document_id).toBeUndefined();
   });
+
+  it("emits BOTH job_id and _job_id (PHK first-heartbeat contract)", () => {
+    const out = buildDispatchPayload({
+      ...baseJob,
+      job_type: "package_run_integrity_check",
+      payload: {},
+    });
+    // Workers' markFirstHeartbeat() reads `job_id`; without it the heartbeat
+    // RPC is a silent no-op and the reaper PHK-kills the job after 3min.
+    expect(out.job_id).toBe(baseJob.id);
+    expect(out._job_id).toBe(baseJob.id);
+    expect(out.job_type).toBe("package_run_integrity_check");
+    expect(out._job_type).toBe("package_run_integrity_check");
+  });
 });
