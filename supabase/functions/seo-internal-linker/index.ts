@@ -144,8 +144,17 @@ Deno.serve(async (req) => {
       linkReport.push({ doc_id: doc.id, links_added: linksAdded.length });
     }
 
+    // Result-Shape Contract (content-runner classifier):
+    //   ok=true + (generated>0 || batch_complete=true) → completed
+    //   else → EMPTY_RESULT (DLQ via fn_drain_stuck_empty_result_growth_jobs)
+    // Linker batch is finite — once we processed the published-doc snapshot,
+    // there is nothing left to do, so batch_complete=true with remaining=0.
+    const totalLinks = linkReport.reduce((sum, r) => sum + r.links_added, 0);
     return new Response(JSON.stringify({
-      success: true,
+      ok: true,
+      generated: totalLinks,
+      batch_complete: true,
+      remaining: 0,
       documents_processed: documents.length,
       documents_updated: updated,
       report: linkReport,
