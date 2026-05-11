@@ -50,6 +50,16 @@ export function buildDispatchPayload(job: JobRow): Record<string, unknown> {
   payload._job_id = job.id;
   payload._job_type = job.job_type;
 
+  // ── 5. Per-job-type payload contract defaults ──
+  // Some handlers require explicit fields the producer does not supply
+  // (e.g. post-publish growth detector enqueues seo_internal_links with
+  // {package_id, curriculum_id} but seo-internal-linker requires
+  // {document_id} OR {mode:"batch"}). Default to batch mode so the worker
+  // can drain whatever links are due, instead of HTTP 400 looping.
+  if (job.job_type === "seo_internal_links" && !payload.document_id && !payload.mode) {
+    payload.mode = "batch";
+  }
+
   return payload;
 }
 
