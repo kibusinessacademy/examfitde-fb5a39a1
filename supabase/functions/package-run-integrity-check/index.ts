@@ -1540,6 +1540,7 @@ Deno.serve(async (req) => {
     } catch (gErr) {
       console.warn(`[integrity-check] no-progress-guard threw: ${(gErr as Error).message}`);
     }
+    await heartbeat.pulse("progress_recorded");
 
     const updatePayload: Record<string, unknown> = {
       integrity_report: report,
