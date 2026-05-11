@@ -382,6 +382,13 @@ export function SeoJobHealthCard() {
         onOpenChange={(o) => !o && setDrilldownJobType(null)}
         jobType={drilldownJobType}
       />
+
+      <SeoRollbackDialog
+        open={rollbackOpen}
+        onOpenChange={setRollbackOpen}
+        flagKey="seo_sitemap_refresh_producer_enabled"
+        currentEnabled={sitemapFlag?.enabled ?? null}
+      />
     </Card>
   );
 }
