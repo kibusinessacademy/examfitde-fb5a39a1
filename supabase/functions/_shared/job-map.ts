@@ -350,7 +350,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   seo_foundation:                    { pool: "default", edgeFunction: "generate-seo-slug" },
   seo_audit:                         { pool: "default", edgeFunction: "ihk-quality-audit" },
   seo_internal_links:                { pool: "default", edgeFunction: "seo-internal-linker" },
-  seo_sitemap_refresh:               { pool: "default", edgeFunction: "generate-sitemap" },
+  // seo_sitemap_refresh decommissioned 2026-05-11 — sitemap is global on-demand at /functions/v1/generate-sitemap
   seo_generate:                      { pool: "default", edgeFunction: "seo-generate" },
   seo_qc_check:                      { pool: "default", edgeFunction: "seo-qc-check" },
   seo_publish:                       { pool: "default", edgeFunction: "seo-publish" },

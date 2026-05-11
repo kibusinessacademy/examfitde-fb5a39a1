@@ -102,13 +102,13 @@ export const PIPELINE_TEMPLATES = {
   },
   'seo-content': {
     label: 'SEO Content Pipeline',
-    description: 'Landing + Blog + FAQ generieren, QC prüfen, Internal Linking, Sitemap aktualisieren.',
+    description: 'Landing + Blog + FAQ generieren, QC prüfen, Internal Linking. Sitemap ist global on-demand.',
     icon: 'FileText',
     jobs: [
       { job_type: 'seo_generate' },
       { job_type: 'seo_qc_check' },
       { job_type: 'seo_internal_links' },
-      { job_type: 'seo_sitemap_refresh' },
+      // seo_sitemap_refresh decommissioned 2026-05-11
     ],
   },
   'quality-only': {

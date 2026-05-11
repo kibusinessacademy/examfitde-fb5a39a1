@@ -124,7 +124,7 @@ const GENERATION_JOB_TYPES_LANE = new Set([
   "seo_internal_links",
   "seo_generate",
   "seo_qc_check",
-  "seo_sitemap_refresh",
+  // seo_sitemap_refresh decommissioned 2026-05-11 — global on-demand sitemap
   "package_auto_generate_seo_suite",  // Post-publish marketing orchestrator
   // IHK upgrade
   "upgrade_ihk",
@@ -149,7 +149,7 @@ const MARKETING_JOB_TYPES = new Set([
   "seo_internal_links",
   "seo_generate",
   "seo_qc_check",
-  "seo_sitemap_refresh",
+  // seo_sitemap_refresh decommissioned 2026-05-11
 ]);
 
 /**
