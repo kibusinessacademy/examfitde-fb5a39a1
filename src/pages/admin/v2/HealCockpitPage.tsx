@@ -388,6 +388,7 @@ export default function HealCockpitPage() {
                   <PendingAgeHistogramCard />
                   <CancelReasonBreakdownCard />
                 </div>
+                <CancelHotspotsCard />
                 <PreHeartbeatKillRiskCard />
                 <PreHeartbeatKillForensicsCard />
                 <AggregateStateDiffCard />
