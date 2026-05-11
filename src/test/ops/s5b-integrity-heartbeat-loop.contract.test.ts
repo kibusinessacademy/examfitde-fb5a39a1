@@ -70,7 +70,7 @@ describe("Integrity worker · heartbeat-loop emits ≥2 ticks in 65s window", ()
 
     let rpcCalls = 0;
     const sb = {
-      rpc: vi.fn(async (name: string) => {
+      rpc: vi.fn(async (name: string, _args?: Record<string, unknown>) => {
         if (name === "heartbeat_job_processing") rpcCalls += 1;
         return { data: true, error: null };
       }),
