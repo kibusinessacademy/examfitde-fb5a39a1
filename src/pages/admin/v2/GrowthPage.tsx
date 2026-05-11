@@ -4,6 +4,7 @@ import { Loader2, Globe, ArrowLeft, BarChart3, FileText, Image, Link2, Settings,
 const PostPublishGrowthFanoutCard = lazy(() => import('@/components/admin/growth/PostPublishGrowthFanoutCard'));
 const PostPublishGrowthHealthCard = lazy(() => import('@/components/admin/growth/PostPublishGrowthHealthCard'));
 const GrowthQualityScoreCard = lazy(() => import('@/components/admin/growth/GrowthQualityScoreCard'));
+const GrowthRepairFoundationCard = lazy(() => import('@/components/admin/growth/GrowthRepairFoundationCard'));
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
