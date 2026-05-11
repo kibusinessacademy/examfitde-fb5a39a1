@@ -52,9 +52,17 @@ type SeoJobHealthRow = {
   failure_rate_pct_1h: number | null;
   oldest_pending_age_minutes: number | null;
   alert_severity: string | null;
+  alert_reasons: string[] | null;
 };
 
 type FlagRow = { flag_key: string; enabled: boolean | null };
+
+type ThresholdRow = {
+  threshold_key: string;
+  threshold_value: number;
+  severity: string;
+  description: string | null;
+};
 
 function severityBadge(sev: string | null) {
   const s = (sev ?? "ok").toLowerCase();
