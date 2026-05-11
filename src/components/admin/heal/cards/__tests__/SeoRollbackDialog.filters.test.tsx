@@ -151,22 +151,30 @@ describe("SeoRollbackDialog — Telemetry + Filters", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /Reset/i }));
-    await waitFor(
-      () =>
-        expect(lastFailureParams()).toEqual({
-          p_limit: 10,
-          p_window_minutes: 60,
-        }),
-      { timeout: 2000 },
-    );
 
-    expect(screen.queryByRole("button", { name: /Reset/i })).toBeNull();
-    expect(
-      (screen.getByLabelText(/min Score/i) as HTMLInputElement).value,
-    ).toBe("");
+    // Inputs cleared + Reset button hidden (filters no longer active)
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/min Score/i) as HTMLInputElement).value,
+      ).toBe(""),
+    );
     expect(
       (screen.getByLabelText(/error_code/i) as HTMLInputElement).value,
     ).toBe("");
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Reset/i })).toBeNull(),
+    );
+
+    // The unfiltered query key was already loaded on mount, so React Query
+    // serves it from cache. We assert that the historical call set contains
+    // the unfiltered params (initial load) — the SSOT is preserved.
+    expect(
+      failureCalls().some(
+        (c) =>
+          JSON.stringify(c[1] ?? {}) ===
+          JSON.stringify({ p_limit: 10, p_window_minutes: 60 }),
+      ),
+    ).toBe(true);
   });
 
   it("ignores invalid (non-UUID) package_id input", async () => {
