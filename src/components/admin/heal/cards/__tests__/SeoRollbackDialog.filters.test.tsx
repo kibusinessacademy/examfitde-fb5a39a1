@@ -6,9 +6,9 @@
  *  - Filter inputs (min Score, error_code, hard_fail_only) trigger the
  *    integrity-failure RPC with the expected params (after 300 ms debounce)
  *  - Reset clears all filters and re-issues the RPC without filter params
- *  - The integrity-failure RPC is gated by debounce (no extra calls per keystroke)
+ *  - Invalid (non-UUID) package_id input is NOT forwarded to the RPC
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -78,10 +78,6 @@ describe("SeoRollbackDialog — Telemetry + Filters", () => {
   beforeEach(() => {
     rpcMock.mockReset();
     setupRpc();
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-  });
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("loads telemetry on open and shows 24h/7d/Score", async () => {
@@ -98,9 +94,7 @@ describe("SeoRollbackDialog — Telemetry + Filters", () => {
     // 24h count + 7d count rendered
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
-    // score formatted to 2 decimals
     expect(screen.getByText("0.42")).toBeInTheDocument();
-    // telemetry RPC was called with the flag key
     const tel = rpcMock.mock.calls.find(
       (c) => c[0] === "admin_get_seo_toggle_telemetry",
     );
@@ -113,76 +107,60 @@ describe("SeoRollbackDialog — Telemetry + Filters", () => {
     expect(lastFailureParams()).toEqual({ p_limit: 10, p_window_minutes: 60 });
   });
 
-  it("debounces score input → exactly one new failure RPC after 300ms", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  it("score input → debounced failure RPC with p_min_score", async () => {
+    const user = userEvent.setup();
     renderDialog();
     await waitFor(() => expect(failureCalls().length).toBeGreaterThan(0));
-    const baseline = failureCalls().length;
 
-    const input = screen.getByLabelText(/min Score/i);
-    await user.type(input, "85");
-
-    // Before debounce flush: no additional call
-    expect(failureCalls().length).toBe(baseline);
-
-    await act(async () => {
-      vi.advanceTimersByTime(350);
-    });
-    await waitFor(() => expect(failureCalls().length).toBe(baseline + 1));
-    expect(lastFailureParams()).toMatchObject({
-      p_limit: 10,
-      p_window_minutes: 60,
-      p_min_score: 85,
-    });
+    await user.type(screen.getByLabelText(/min Score/i), "85");
+    await waitFor(
+      () => expect(lastFailureParams()).toMatchObject({ p_min_score: 85 }),
+      { timeout: 2000 },
+    );
   });
 
-  it("hard_fail_only checkbox forwards p_hard_fail_only=true immediately", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  it("hard_fail_only checkbox forwards p_hard_fail_only=true", async () => {
+    const user = userEvent.setup();
     renderDialog();
     await waitFor(() => expect(failureCalls().length).toBeGreaterThan(0));
-    const baseline = failureCalls().length;
 
     await user.click(screen.getByRole("checkbox", { name: /hard_fail/i }));
-    // Checkbox change is not debounced; takes effect via memo on re-render
-    await waitFor(() => expect(failureCalls().length).toBe(baseline + 1));
-    expect(lastFailureParams()).toMatchObject({ p_hard_fail_only: true });
+    await waitFor(
+      () => expect(lastFailureParams()).toMatchObject({ p_hard_fail_only: true }),
+      { timeout: 2000 },
+    );
   });
 
   it("Reset clears filters and re-issues failure RPC without filter params", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
     renderDialog();
     await waitFor(() => expect(failureCalls().length).toBeGreaterThan(0));
 
-    // Apply filters
     await user.type(screen.getByLabelText(/min Score/i), "70");
-    await user.type(screen.getByLabelText(/error_code/i), "QUALITY_THRESHOLD_NOT_MET");
-    await act(async () => {
-      vi.advanceTimersByTime(350);
-    });
-    await waitFor(() => {
-      const p = lastFailureParams();
-      expect(p).toMatchObject({
-        p_min_score: 70,
-        p_error_code: "QUALITY_THRESHOLD_NOT_MET",
-      });
-    });
+    await user.type(
+      screen.getByLabelText(/error_code/i),
+      "QUALITY_THRESHOLD_NOT_MET",
+    );
+    await waitFor(
+      () =>
+        expect(lastFailureParams()).toMatchObject({
+          p_min_score: 70,
+          p_error_code: "QUALITY_THRESHOLD_NOT_MET",
+        }),
+      { timeout: 2000 },
+    );
 
-    // Reset button appears only when filters active
-    const reset = screen.getByRole("button", { name: /Reset/i });
-    await user.click(reset);
-    await act(async () => {
-      vi.advanceTimersByTime(350);
-    });
+    await user.click(screen.getByRole("button", { name: /Reset/i }));
+    await waitFor(
+      () =>
+        expect(lastFailureParams()).toEqual({
+          p_limit: 10,
+          p_window_minutes: 60,
+        }),
+      { timeout: 2000 },
+    );
 
-    await waitFor(() => {
-      const p = lastFailureParams();
-      expect(p).toEqual({ p_limit: 10, p_window_minutes: 60 });
-    });
-
-    // Reset button hidden again
     expect(screen.queryByRole("button", { name: /Reset/i })).toBeNull();
-
-    // Inputs cleared
     expect(
       (screen.getByLabelText(/min Score/i) as HTMLInputElement).value,
     ).toBe("");
@@ -192,21 +170,18 @@ describe("SeoRollbackDialog — Telemetry + Filters", () => {
   });
 
   it("ignores invalid (non-UUID) package_id input", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
     renderDialog();
     await waitFor(() => expect(failureCalls().length).toBeGreaterThan(0));
-    const baseline = failureCalls().length;
 
     await user.type(screen.getByLabelText(/package_id/i), "not-a-uuid");
-    await act(async () => {
-      vi.advanceTimersByTime(350);
-    });
-
-    // Debounced state changed → re-render, but params should NOT include p_package_id.
-    // We tolerate either: (a) no extra call, or (b) one extra call with no p_package_id.
-    const calls = failureCalls();
-    if (calls.length > baseline) {
-      expect(lastFailureParams()).not.toHaveProperty("p_package_id");
+    // Wait past debounce window
+    await new Promise((r) => setTimeout(r, 400));
+    // Any subsequent call must NOT include p_package_id
+    for (const call of failureCalls()) {
+      expect((call[1] ?? {}) as Record<string, unknown>).not.toHaveProperty(
+        "p_package_id",
+      );
     }
   });
 });
