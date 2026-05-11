@@ -32,9 +32,11 @@ import {
   AlertCircle,
   ShieldAlert,
   Search,
+  Sliders,
 } from "lucide-react";
 import { SeoAlertDrilldownDialog } from "./SeoAlertDrilldownDialog";
 import { SeoRollbackDialog } from "./SeoRollbackDialog";
+import { SeoThresholdsDialog } from "./SeoThresholdsDialog";
 
 type SeoJobHealthRow = {
   job_type: string;
@@ -124,6 +126,7 @@ function toCsv(rows: SeoJobHealthRow[]): string {
 export function SeoJobHealthCard() {
   const [drilldownJobType, setDrilldownJobType] = useState<string | null>(null);
   const [rollbackOpen, setRollbackOpen] = useState(false);
+  const [thresholdsOpen, setThresholdsOpen] = useState(false);
   const health = useQuery({
     queryKey: ["heal-cockpit", "seo-job-health"],
     queryFn: async (): Promise<SeoJobHealthRow[]> => {
@@ -204,6 +207,15 @@ export function SeoJobHealthCard() {
                   : severityBadge("critical")}
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setThresholdsOpen(true)}
+            title="Alert-Schwellwerte konfigurieren"
+            aria-label="Schwellwerte konfigurieren"
+          >
+            <Sliders className="h-3 w-3" />
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -389,6 +401,8 @@ export function SeoJobHealthCard() {
         flagKey="seo_sitemap_refresh_producer_enabled"
         currentEnabled={sitemapFlag?.enabled ?? null}
       />
+
+      <SeoThresholdsDialog open={thresholdsOpen} onOpenChange={setThresholdsOpen} />
     </Card>
   );
 }
