@@ -1119,31 +1119,61 @@ function serializeErr(e: any): { name: string; message: string; stack: string; c
  * SSOT: Heartbeat-aware stale detection in fn_release_stale_job_locks treats
  * jobs with a tick_at < 3min as alive.
  */
+/**
+ * Wave: Integrity Heartbeat Loop + Reaper CAS (2026-05-11).
+ *
+ * Tick interval is fixed to 30s per the heartbeat contract:
+ *   - first heartbeat is fired immediately (markFirstHeartbeat happens
+ *     even earlier in the handler, this is the SECOND signal),
+ *   - subsequent ticks every 30_000ms,
+ *   - the reaper cutoff for STALE_AFTER_HEARTBEAT is 10min, so 30s gives
+ *     ~20 grace ticks before the worker is considered stalled.
+ *
+ * The increment-counter `meta.heartbeat_tick_count` is used by the
+ * `s5b-integrity-heartbeat-loop.contract.test.ts` smoke to assert that a
+ * long-running integrity job emits **at least 2 heartbeats** within its
+ * lifetime (first + ≥1 loop tick).
+ */
+export const INTEGRITY_HEARTBEAT_MS = 30_000;
 function startIntegrityHeartbeat(sb: any, jobId: string | null, packageId: string): { stop: () => void } {
   if (!jobId) return { stop: () => {} };
-  const HEARTBEAT_MS = 25_000;
   const WORKER_ID = `integrity-check-${crypto.randomUUID().slice(0, 8)}`;
   let stopped = false;
+  let tickCount = 0;
   const tick = async () => {
     if (stopped) return;
+    tickCount += 1;
     try {
       const { error } = await sb.rpc("heartbeat_job_processing", {
         p_job_id: jobId,
         p_worker_id: WORKER_ID,
-        p_meta: { source: "package-run-integrity-check", pkg: packageId.slice(0, 8) },
+        p_meta: {
+          source: "package-run-integrity-check",
+          pkg: packageId.slice(0, 8),
+          heartbeat_tick_count: tickCount,
+          tick_at: new Date().toISOString(),
+        },
       });
       if (error) {
         // Fallback: direct meta update if RPC signature differs
         const { data: cur } = await sb.from("job_queue").select("meta").eq("id", jobId).maybeSingle();
-        const nextMeta = { ...(cur?.meta ?? {}), processing_tick_at: new Date().toISOString(), last_heartbeat_source: "integrity-check" };
-        await sb.from("job_queue").update({ meta: nextMeta }).eq("id", jobId);
+        const nextMeta = {
+          ...(cur?.meta ?? {}),
+          processing_tick_at: new Date().toISOString(),
+          last_heartbeat_source: "integrity-check",
+          heartbeat_tick_count: tickCount,
+        };
+        await sb.from("job_queue").update({
+          meta: nextMeta,
+          last_heartbeat_at: new Date().toISOString(),
+        }).eq("id", jobId).eq("status", "processing");
       }
     } catch (e) {
       console.warn(`[integrity-check] heartbeat failed pkg=${packageId.slice(0, 8)}: ${(e as Error).message}`);
     }
   };
   void tick();
-  const handle = setInterval(tick, HEARTBEAT_MS);
+  const handle = setInterval(tick, INTEGRITY_HEARTBEAT_MS);
   return {
     stop: () => {
       stopped = true;
