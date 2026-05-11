@@ -2493,10 +2493,11 @@ Deno.serve(async (req) => {
         delete cleanedMeta.last_transient_at;
 
         // ── MATERIALIZATION GUARD: verify artifact exists before completing ──
-        const artifactCheck = await verifyArtifact(sb, job);
-        const auditMeta = buildVerifyAuditMeta(artifactCheck);
+        // Skip if an earlier branch (integrity gate-fail, skipped) already set finalState.
+        const artifactCheck = finalState ? { ok: true } as any : await verifyArtifact(sb, job);
+        const auditMeta = finalState ? {} : buildVerifyAuditMeta(artifactCheck);
 
-        if (!artifactCheck.ok) {
+        if (!finalState && !artifactCheck.ok) {
           console.warn(`[job-runner] MATERIALIZATION_GUARD: ${job.job_type} blocked — ${artifactCheck.reason} (count=${artifactCheck.count ?? "n/a"})`);
           if (artifactCheck.permanent) {
             finalState = {
