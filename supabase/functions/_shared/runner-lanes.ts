@@ -149,7 +149,7 @@ const MARKETING_JOB_TYPES = new Set([
   "seo_internal_links",
   "seo_generate",
   "seo_qc_check",
-  "seo_sitemap_refresh",
+  // seo_sitemap_refresh decommissioned 2026-05-11
 ]);
 
 /**
