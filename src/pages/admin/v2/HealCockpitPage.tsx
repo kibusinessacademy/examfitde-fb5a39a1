@@ -45,6 +45,7 @@ import { AdminPageHeader } from "@/components/admin/v2/AdminPageHeader";
 import { ThroughputCard } from "@/components/admin/heal/cards/ThroughputCard";
 import { LaneHealthCard } from "@/components/admin/heal/cards/LaneHealthCard";
 import { CancelReasonBreakdownCard } from "@/components/admin/heal/cards/CancelReasonBreakdownCard";
+import { CancelHotspotsCard } from "@/components/admin/heal/cards/CancelHotspotsCard";
 import { PendingAgeHistogramCard } from "@/components/admin/heal/cards/PendingAgeHistogramCard";
 import { WorkerThroughputForensicsCard } from "@/components/admin/heal/cards/WorkerThroughputForensicsCard";
 import { RecoveryPulseHistoryCard } from "@/components/admin/heal/cards/RecoveryPulseHistoryCard";
