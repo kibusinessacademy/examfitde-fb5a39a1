@@ -314,6 +314,66 @@ export function SeoRollbackDialog({
             />
           </div>
 
+          {/* Telemetry panel */}
+          <section className="rounded-md border border-border-subtle bg-surface-sunken px-3 py-2">
+            <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-text-primary">
+              <Activity className="h-3.5 w-3.5" />
+              Toggle-Telemetrie
+            </div>
+            {telemetryQ.isLoading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : !telemetryQ.data ? (
+              <div className="text-[11px] text-text-secondary">
+                Noch keine Toggle-Historie für diesen Flag.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] sm:grid-cols-4">
+                <div>
+                  <span className="text-text-secondary">24h:</span>{" "}
+                  <span className="font-mono tabular-nums">
+                    {telemetryQ.data.toggles_24h ?? 0}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-text-secondary">7d:</span>{" "}
+                  <span className="font-mono tabular-nums">
+                    {telemetryQ.data.toggles_7d ?? 0}
+                  </span>{" "}
+                  <span className="text-text-secondary">
+                    ({telemetryQ.data.enable_count_7d ?? 0}↑/
+                    {telemetryQ.data.disable_count_7d ?? 0}↓)
+                  </span>
+                </div>
+                <div>
+                  <span className="text-text-secondary">Score:</span>{" "}
+                  <span
+                    className={`font-mono tabular-nums ${
+                      (telemetryQ.data.rollback_frequency_score ?? 0) >= 0.6
+                        ? "text-destructive"
+                        : (telemetryQ.data.rollback_frequency_score ?? 0) >= 0.3
+                          ? "text-warning"
+                          : ""
+                    }`}
+                    title="Rollback-Frequency-Score (0–1, höher = unruhiger)"
+                  >
+                    {Number(telemetryQ.data.rollback_frequency_score ?? 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="text-text-secondary">
+                  Letzter:{" "}
+                  {telemetryQ.data.last_toggle_at
+                    ? `${telemetryQ.data.last_toggle_direction ?? "?"} · ${new Date(
+                        telemetryQ.data.last_toggle_at,
+                      ).toLocaleString("de-DE", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}`
+                    : "—"}
+                </div>
+              </div>
+            )}
+          </section>
+
           {/* Integrity-Gate context */}
           <section className="space-y-1.5">
             <h3 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
@@ -327,6 +387,76 @@ export function SeoRollbackDialog({
               endete. Hilft zu beurteilen, ob der Rollback orthogonal zum
               Pipeline-Stress ist.
             </p>
+
+            {/* Filter bar */}
+            <div className="flex flex-wrap items-end gap-2 rounded-md border border-border-subtle bg-surface-sunken px-2 py-1.5">
+              <div className="flex items-center gap-1 text-[11px] text-text-secondary">
+                <FilterIcon className="h-3 w-3" />
+                Filter:
+              </div>
+              <div className="space-y-0.5">
+                <Label htmlFor="flt-min-score" className="text-[10px] text-text-secondary">
+                  min Score
+                </Label>
+                <Input
+                  id="flt-min-score"
+                  type="number"
+                  inputMode="decimal"
+                  className="h-7 w-20 text-xs"
+                  value={filterMinScore}
+                  onChange={(e) => setFilterMinScore(e.target.value)}
+                  placeholder="z.B. 85"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <Label htmlFor="flt-error-code" className="text-[10px] text-text-secondary">
+                  error_code
+                </Label>
+                <Input
+                  id="flt-error-code"
+                  className="h-7 w-44 font-mono text-xs"
+                  value={filterErrorCode}
+                  onChange={(e) => setFilterErrorCode(e.target.value)}
+                  placeholder="QUALITY_THRESHOLD_NOT_MET"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <Label htmlFor="flt-pkg-id" className="text-[10px] text-text-secondary">
+                  package_id (UUID)
+                </Label>
+                <Input
+                  id="flt-pkg-id"
+                  className="h-7 w-64 font-mono text-xs"
+                  value={filterPackageId}
+                  onChange={(e) => setFilterPackageId(e.target.value)}
+                  placeholder="00000000-…"
+                />
+              </div>
+              <label className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+                <Checkbox
+                  checked={filterHardFailOnly}
+                  onCheckedChange={(c) => setFilterHardFailOnly(c === true)}
+                  aria-label="Nur hard_fail"
+                />
+                hard_fail&nbsp;only
+              </label>
+              {filtersActive ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ml-auto h-7 px-2 text-[11px]"
+                  onClick={() => {
+                    setFilterMinScore("");
+                    setFilterErrorCode("");
+                    setFilterPackageId("");
+                    setFilterHardFailOnly(false);
+                  }}
+                >
+                  Reset
+                </Button>
+              ) : null}
+            </div>
+
             <ScrollArea className="max-h-48 rounded-md border border-border-subtle">
               {failuresQ.isLoading ? (
                 <Skeleton className="h-24 w-full" />
