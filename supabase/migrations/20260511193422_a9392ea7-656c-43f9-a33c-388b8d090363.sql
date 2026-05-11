@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.admin_smoke_phantom_producer_guard_v1() TO authenticated, service_role, anon;
