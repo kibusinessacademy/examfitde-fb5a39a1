@@ -375,7 +375,14 @@ export function SeoJobHealthCard() {
                     <td className="py-1.5 pr-2 font-mono text-text-primary">
                       {r.job_type}
                     </td>
-                    <td className="py-1.5 pr-2">
+                    <td
+                      className="py-1.5 pr-2"
+                      title={
+                        r.alert_reasons && r.alert_reasons.length > 0
+                          ? r.alert_reasons.join("\n")
+                          : "Keine Schwellwert-Verletzung"
+                      }
+                    >
                       {severityBadge(r.alert_severity)}
                     </td>
                     <td className="py-1.5 pr-2 text-right tabular-nums">
