@@ -108,7 +108,7 @@ BEGIN
 
   -- Test A4 (negative): done finished 5 minutes ago → Guard A NOT triggered.
   -- (Other guards or downstream may still cancel; here we only assert audit not written.)
-  INSERT INTO package_steps(id, package_id, step_key, status, finished_at, updated_at)
+  INSERT INTO package_steps(id, package_id, step_key, status, finished_at, updated_at, meta)
   VALUES (gen_random_uuid(), v_pkg_id, v_step_key, 'done'::step_status, now() - interval '5 minutes', now() - interval '5 minutes', '{"ok":"true"}'::jsonb)
   RETURNING id INTO v_step_id;
 
