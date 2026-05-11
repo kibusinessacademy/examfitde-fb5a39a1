@@ -49,7 +49,7 @@ BEGIN
   -- ============================================================
 
   -- Test A1: done, finished 5s ago → SKIP
-  INSERT INTO package_steps(id, package_id, step_key, status, finished_at, updated_at)
+  INSERT INTO package_steps(id, package_id, step_key, status, finished_at, updated_at, meta)
   VALUES (gen_random_uuid(), v_pkg_id, v_step_key, 'done'::step_status, now() - interval '5 seconds', now() - interval '5 seconds', '{"ok":"true"}'::jsonb)
   RETURNING id INTO v_step_id;
 
