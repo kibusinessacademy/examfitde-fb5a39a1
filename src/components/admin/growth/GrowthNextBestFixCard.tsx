@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Target, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, Target, ExternalLink, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 type Row = {
@@ -106,6 +108,13 @@ export default function GrowthNextBestFixCard() {
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     {REASON_LABEL[r.reason_code ?? ''] ?? r.reason_code ?? '—'}
+                  </div>
+                  <div className="mt-2 flex justify-end">
+                    <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                      <Link to={`/admin/studio/${r.package_id}`}>
+                        Paketdetail <ArrowRight className="ml-1 h-3 w-3" />
+                      </Link>
+                    </Button>
                   </div>
                 </li>
               ))}
