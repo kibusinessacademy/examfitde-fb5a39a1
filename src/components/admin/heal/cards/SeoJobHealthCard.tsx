@@ -11,7 +11,7 @@
  *  - CSV export
  *  - Rollback-flag hint for ops_feature_flags.seo_sitemap_refresh_producer_enabled
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Card,
@@ -31,7 +31,9 @@ import {
   AlertTriangle,
   AlertCircle,
   ShieldAlert,
+  Search,
 } from "lucide-react";
+import { SeoAlertDrilldownDialog } from "./SeoAlertDrilldownDialog";
 
 type SeoJobHealthRow = {
   job_type: string;
@@ -119,6 +121,7 @@ function toCsv(rows: SeoJobHealthRow[]): string {
 }
 
 export function SeoJobHealthCard() {
+  const [drilldownJobType, setDrilldownJobType] = useState<string | null>(null);
   const health = useQuery({
     queryKey: ["heal-cockpit", "seo-job-health"],
     queryFn: async (): Promise<SeoJobHealthRow[]> => {
@@ -281,6 +284,9 @@ export function SeoJobHealthCard() {
                   <th className="py-1.5 pr-2 text-right font-medium">
                     Oldest&nbsp;(min)
                   </th>
+                  <th className="py-1.5 pr-2 text-right font-medium">
+                    <span className="sr-only">Details</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -324,6 +330,18 @@ export function SeoJobHealthCard() {
                     <td className="py-1.5 pr-2 text-right tabular-nums">
                       {r.oldest_pending_age_minutes ?? "—"}
                     </td>
+                    <td className="py-1.5 pr-2 text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-1.5"
+                        onClick={() => setDrilldownJobType(r.job_type)}
+                        title="Alert-Details + Jobs anzeigen"
+                        aria-label={`Drilldown ${r.job_type}`}
+                      >
+                        <Search className="h-3 w-3" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -333,9 +351,16 @@ export function SeoJobHealthCard() {
 
         <div className="text-[10px] text-text-secondary">
           Quelle: <code className="font-mono">admin_get_seo_job_health()</code>{" "}
-          • Auto-Refresh 60 s • Severity-Sort
+          • Auto-Refresh 60 s • Severity-Sort • Klick auf{" "}
+          <Search className="inline h-2.5 w-2.5" /> öffnet Alert-/Job-Drilldown.
         </div>
       </CardContent>
+
+      <SeoAlertDrilldownDialog
+        open={drilldownJobType !== null}
+        onOpenChange={(o) => !o && setDrilldownJobType(null)}
+        jobType={drilldownJobType}
+      />
     </Card>
   );
 }
