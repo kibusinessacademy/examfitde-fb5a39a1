@@ -2420,8 +2420,36 @@ Deno.serve(async (req) => {
       }
       // ── 5. Completed ───────────────────────────────────────────────
       else {
+        // ── INTEGRITY GATE ROUTING (v2): integrity-check returns ok:true even when gate fails.
+        // Without this branch, the runner would mark job 'completed', firing trg_job_complete_reconcile_step,
+        // which writes package_steps.status='done' → governance trigger raises EXCEPTION
+        // (integrity_passed=false) → entire job_queue UPDATE rolls back → job stuck in 'processing'.
+        // SSOT: integrity_passed/gate_passed at top level OR nested in result.report.
+        const isIntegrity = job.job_type === "package_run_integrity_check";
+        const integrityPassed = isIntegrity
+          ? (parsed?.integrity_passed ?? parsed?.gate_passed ?? parsed?.report?.integrity_passed ?? parsed?.report?.gate_passed)
+          : undefined;
+        if (isIntegrity && integrityPassed === false) {
+          const errCode = parsed?.error_code || "QUALITY_THRESHOLD_NOT_MET";
+          console.warn(`[job-runner] INTEGRITY_GATE_FAIL pkg=${job.payload?.package_id?.slice(0, 8)} score=${parsed?.score ?? parsed?.report?.score} hard_fails=${parsed?.hard_fail_count ?? parsed?.report?.hard_fail_count} → failed (${errCode})`);
+          finalState = {
+            status: "failed",
+            patch: {
+              error: errCode,
+              result: typeof parsed === "object" ? parsed : { raw: parsed },
+              completed_at: tsNow,
+              meta: {
+                ...(job.meta || {}),
+                last_error_code: errCode,
+                gate_passed: false,
+                score: parsed?.score ?? parsed?.report?.score ?? null,
+                hard_fail_count: parsed?.hard_fail_count ?? parsed?.report?.hard_fail_count ?? null,
+              },
+            },
+          };
+        }
         // ── SKIP GUARD (defensive): catch ok:true + skipped:true that wasn't caught in 4b ──
-        if (parsed && parsed.skipped === true) {
+        else if (parsed && parsed.skipped === true) {
           console.log(`[job-runner] ${fnName} SKIPPED (ok:true path): ${parsed.reason || "no reason"}`);
           finalState = {
             status: "completed",
@@ -2465,10 +2493,11 @@ Deno.serve(async (req) => {
         delete cleanedMeta.last_transient_at;
 
         // ── MATERIALIZATION GUARD: verify artifact exists before completing ──
-        const artifactCheck = await verifyArtifact(sb, job);
-        const auditMeta = buildVerifyAuditMeta(artifactCheck);
+        // Skip if an earlier branch (integrity gate-fail, skipped) already set finalState.
+        const artifactCheck = finalState ? { ok: true } as any : await verifyArtifact(sb, job);
+        const auditMeta = finalState ? {} : buildVerifyAuditMeta(artifactCheck);
 
-        if (!artifactCheck.ok) {
+        if (!finalState && !artifactCheck.ok) {
           console.warn(`[job-runner] MATERIALIZATION_GUARD: ${job.job_type} blocked — ${artifactCheck.reason} (count=${artifactCheck.count ?? "n/a"})`);
           if (artifactCheck.permanent) {
             finalState = {
@@ -2503,7 +2532,7 @@ Deno.serve(async (req) => {
               };
             }
           }
-        } else {
+        } else if (!finalState) {
           finalState = {
             status: "completed",
             patch: {
@@ -2610,17 +2639,50 @@ Deno.serve(async (req) => {
       if (patchError !== undefined) {
         dbPatch.last_error = patchError;
       }
-      const { error: updateErr } = await sb.from("job_queue").update(dbPatch).eq("id", job.id);
+      // CAS: only flip if still 'processing' — prevents Reaper-vs-Completion race
+      // and silently-overwriting reaper-requeued rows. If 0 rows updated, audit + skip.
+      const { data: casUpdated, error: updateErr } = await sb
+        .from("job_queue")
+        .update(dbPatch)
+        .eq("id", job.id)
+        .eq("status", "processing")
+        .select("id");
       if (updateErr) {
         console.error(`[job-runner] CRITICAL: DB update failed for job ${job.id} (${job.job_type}) → ${finalState.status}: ${updateErr.message}`);
         // Retry once without meta (meta serialization issues are common)
         const { meta: _metaDrop, ...retryPatch } = dbPatch;
-        const { error: retryErr } = await sb.from("job_queue").update(retryPatch).eq("id", job.id);
+        const { error: retryErr } = await sb
+          .from("job_queue")
+          .update(retryPatch)
+          .eq("id", job.id)
+          .eq("status", "processing");
         if (retryErr) {
           console.error(`[job-runner] CRITICAL: Retry also failed for job ${job.id}: ${retryErr.message}`);
         } else {
           console.log(`[job-runner] Retry without meta succeeded for job ${job.id}`);
         }
+      } else if (!casUpdated || casUpdated.length === 0) {
+        // Row was no longer 'processing' (likely reaper requeued or external mutation).
+        const { data: observed } = await sb
+          .from("job_queue").select("status").eq("id", job.id).maybeSingle();
+        console.warn(`[job-runner] CAS_CONFLICT job=${job.id} type=${job.job_type} target=${finalState.status} observed=${observed?.status ?? "missing"} — skipping write`);
+        try {
+          await sb.from("auto_heal_log").insert({
+            action_type: "complete_job_cas_conflict",
+            target_type: "job",
+            target_id: job.id,
+            trigger_source: "job-runner",
+            result_status: "skipped",
+            result_detail: `CAS conflict: target=${finalState.status} observed=${observed?.status ?? "missing"}`,
+            metadata: {
+              job_id: job.id,
+              job_type: job.job_type,
+              target_status: finalState.status,
+              observed_status: observed?.status ?? null,
+              package_id: job.payload?.package_id ?? null,
+            },
+          });
+        } catch (_e) { /* best-effort */ }
       }
 
       // ── STEP SYNC: Update package_steps on permanent/terminal failures ──
