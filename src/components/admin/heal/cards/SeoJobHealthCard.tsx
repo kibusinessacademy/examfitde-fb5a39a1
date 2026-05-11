@@ -121,6 +121,7 @@ function toCsv(rows: SeoJobHealthRow[]): string {
 }
 
 export function SeoJobHealthCard() {
+  const [drilldownJobType, setDrilldownJobType] = useState<string | null>(null);
   const health = useQuery({
     queryKey: ["heal-cockpit", "seo-job-health"],
     queryFn: async (): Promise<SeoJobHealthRow[]> => {
