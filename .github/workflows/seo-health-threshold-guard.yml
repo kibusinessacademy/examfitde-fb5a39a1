@@ -3,23 +3,73 @@ name: SEO Health Threshold Guard
 on:
   pull_request:
     paths:
-      - 'src/components/admin/heal/cards/Seo*.tsx'
+      - 'src/components/admin/heal/**'
       - 'scripts/guards/seo-health-threshold-guard.mjs'
       - 'supabase/migrations/**'
+      - 'tests/e2e/sanity.seo-heal-cockpit.spec.ts'
       - '.github/workflows/seo-health-threshold-guard.yml'
+  push:
+    branches: ["main"]
+  schedule:
+    - cron: "31 */6 * * *"
   workflow_dispatch:
+
+permissions: read-all
 
 jobs:
   guard:
-    name: SEO Threshold SSOT
+    name: SEO Threshold SSOT (live)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - name: Run Guard
+      - name: Run Threshold SSOT Guard
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/guards/seo-health-threshold-guard.mjs
+
+  rpc-contract:
+    name: SEO RPC Contract + Filter Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - name: Run SEO RPC + Telemetry Filter tests
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          npx vitest run \
+            src/components/admin/heal/cards/__tests__/seoRpcContract.test.ts \
+            src/components/admin/heal/cards/__tests__/SeoRollbackDialog.filters.test.tsx \
+            --reporter=verbose
+
+  e2e-smoke:
+    name: SEO Heal Cockpit Smoke (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run SEO Heal Cockpit smoke
+        env:
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+        run: npx playwright test tests/e2e/sanity.seo-heal-cockpit.spec.ts --reporter=line
