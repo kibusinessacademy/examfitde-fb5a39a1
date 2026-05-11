@@ -34,6 +34,7 @@ import {
   Search,
 } from "lucide-react";
 import { SeoAlertDrilldownDialog } from "./SeoAlertDrilldownDialog";
+import { SeoRollbackDialog } from "./SeoRollbackDialog";
 
 type SeoJobHealthRow = {
   job_type: string;
