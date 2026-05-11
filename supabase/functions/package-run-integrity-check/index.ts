@@ -1347,7 +1347,9 @@ Deno.serve(async (req) => {
     }
 
     // ── Run COURSE_READY gate ──
+    await heartbeat.pulse("pre_course_ready_gate");
     const gate = await runCourseReadyGate(sb, courseId, currId, packageId);
+    await heartbeat.pulse("post_course_ready_gate");
 
     // ── FIX (Phase 2c followup): Handle deferred / no-curriculum early returns ──
     // runCourseReadyGate may return early with metrics.deferred=true or metrics.noCurriculum=true.
