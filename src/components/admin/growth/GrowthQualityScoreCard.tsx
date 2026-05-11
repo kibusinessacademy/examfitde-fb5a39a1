@@ -14,8 +14,11 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  Loader2, RefreshCw, Gauge, AlertTriangle, CheckCircle2, AlertCircle, Wrench, ExternalLink,
+  Loader2, RefreshCw, Gauge, AlertTriangle, CheckCircle2, AlertCircle, Wrench, ExternalLink, Settings2,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
