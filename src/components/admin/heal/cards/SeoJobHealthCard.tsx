@@ -123,6 +123,7 @@ function toCsv(rows: SeoJobHealthRow[]): string {
 
 export function SeoJobHealthCard() {
   const [drilldownJobType, setDrilldownJobType] = useState<string | null>(null);
+  const [rollbackOpen, setRollbackOpen] = useState(false);
   const health = useQuery({
     queryKey: ["heal-cockpit", "seo-job-health"],
     queryFn: async (): Promise<SeoJobHealthRow[]> => {
