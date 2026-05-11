@@ -2532,7 +2532,7 @@ Deno.serve(async (req) => {
               };
             }
           }
-        } else {
+        } else if (!finalState) {
           finalState = {
             status: "completed",
             patch: {
