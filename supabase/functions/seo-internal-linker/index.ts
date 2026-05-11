@@ -5,7 +5,14 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 /**
  * SEO Internal Linker
  * Builds link graph between SEO documents, Berufe pages, and product pages.
- * Inserts relevant internal links into content_md.
+ * Inserts relevant internal links into content_md AND upserts them as SSOT
+ * rows into seo_internal_link_suggestions (F2.b).
+ *
+ * SSOT-Write contract (F2.b, depends on F2.a schema hardening):
+ *   - Conflict-Key: (source_url, target_url, link_type)
+ *   - status='active' on insert/update
+ *   - Rows with status='rejected' are NEVER revived (filtered before upsert)
+ *   - source_doc_id set when known
  */
 Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
@@ -66,14 +73,32 @@ Deno.serve(async (req) => {
       cluster: "/wissen",
     };
 
+    const docUrlFor = (d: { doc_type: string; slug: string }) =>
+      `${docTypeUrlMap[d.doc_type] || "/wissen"}/${d.slug}`;
+
+    // Per-link record we will upsert into seo_internal_link_suggestions
+    type LinkRow = {
+      source_url: string;
+      target_url: string;
+      link_type: string;
+      anchor_text: string;
+      source_title: string | null;
+      target_title: string | null;
+      source_doc_id: string | null;
+      target_doc_id: string | null;
+    };
+
     let updated = 0;
     const linkReport: Array<{ doc_id: string; links_added: number }> = [];
+    const allLinkRows: LinkRow[] = [];
 
     for (const doc of documents) {
       let content = doc.content_md || "";
       const linksAdded: Array<{ anchor: string; url: string }> = [];
+      const docLinkRows: LinkRow[] = [];
+      const sourceUrl = docUrlFor(doc);
 
-      // 1) Link to related SEO docs (same beruf, different type)
+      // 1) Link to related SEO docs (same beruf, different type) → cluster_to_cluster
       if (doc.beruf_id && allDocs) {
         const related = allDocs.filter(d =>
           d.id !== doc.id &&
@@ -82,24 +107,30 @@ Deno.serve(async (req) => {
         );
 
         for (const rel of related.slice(0, 3)) {
-          const baseUrl = docTypeUrlMap[rel.doc_type] || "/wissen";
-          const linkUrl = `${baseUrl}/${rel.slug}`;
+          const linkUrl = docUrlFor(rel);
           const anchor = rel.title;
 
-          // Only add if not already linked
           if (!content.includes(linkUrl) && !content.includes(`](${linkUrl})`)) {
-            // Find a good insertion point (after the first H2)
             const h2Match = content.match(/^## .+$/m);
             if (h2Match && h2Match.index !== undefined) {
               const afterH2 = content.indexOf("\n", h2Match.index + h2Match[0].length);
               if (afterH2 !== -1) {
-                // Find end of next paragraph
                 const nextParagraphEnd = content.indexOf("\n\n", afterH2 + 1);
                 if (nextParagraphEnd !== -1) {
                   const insertPos = nextParagraphEnd;
                   const linkText = `\n\n> 💡 **Tipp:** Lies auch unseren Artikel [${anchor}](${linkUrl}) für weitere Informationen.`;
                   content = content.slice(0, insertPos) + linkText + content.slice(insertPos);
                   linksAdded.push({ anchor, url: linkUrl });
+                  docLinkRows.push({
+                    source_url: sourceUrl,
+                    target_url: linkUrl,
+                    link_type: "cluster_to_cluster",
+                    anchor_text: anchor,
+                    source_title: doc.title,
+                    target_title: rel.title,
+                    source_doc_id: doc.id,
+                    target_doc_id: rel.id,
+                  });
                 }
               }
             }
@@ -107,28 +138,46 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 2) Link to Beruf detail page
+      // 2) Link to Beruf detail page → cluster_to_pillar
       if (doc.beruf_id && berufMap.has(doc.beruf_id)) {
         const berufName = berufMap.get(doc.beruf_id)!;
         const berufSlug = generateSlug(berufName);
         const berufUrl = `/berufe/${berufSlug}`;
 
         if (!content.includes(berufUrl)) {
-          // Replace first mention of beruf name with link
           const berufRegex = new RegExp(`(?<!\\[)${escapeRegex(berufName)}(?!\\])(?!\\()`, "i");
           if (berufRegex.test(content)) {
             content = content.replace(berufRegex, `[${berufName}](${berufUrl})`);
             linksAdded.push({ anchor: berufName, url: berufUrl });
+            docLinkRows.push({
+              source_url: sourceUrl,
+              target_url: berufUrl,
+              link_type: "cluster_to_pillar",
+              anchor_text: berufName,
+              source_title: doc.title,
+              target_title: berufName,
+              source_doc_id: doc.id,
+              target_doc_id: null,
+            });
           }
         }
       }
 
-      // 3) Link to shop/product page
+      // 3) Link to shop/product page → cluster_to_product
       if (!content.includes("/shop") && doc.doc_type !== "product") {
-        // Add shop CTA at the end if not present
         if (!content.includes("Prüfungstraining starten")) {
           content += `\n\n---\n\n**Bereit für die Prüfung?** [Entdecke unser Prüfungstraining](/shop) und starte optimal vorbereitet in deine Abschlussprüfung.`;
           linksAdded.push({ anchor: "Prüfungstraining", url: "/shop" });
+          docLinkRows.push({
+            source_url: sourceUrl,
+            target_url: "/shop",
+            link_type: "cluster_to_product",
+            anchor_text: "Prüfungstraining",
+            source_title: doc.title,
+            target_title: "Prüfungstraining Shop",
+            source_doc_id: doc.id,
+            target_doc_id: null,
+          });
         }
       }
 
@@ -141,14 +190,90 @@ Deno.serve(async (req) => {
         updated++;
       }
 
+      allLinkRows.push(...docLinkRows);
       linkReport.push({ doc_id: doc.id, links_added: linksAdded.length });
     }
 
-    // Result-Shape Contract (content-runner classifier):
-    //   ok=true + (generated>0 || batch_complete=true) → completed
-    //   else → EMPTY_RESULT (DLQ via fn_drain_stuck_empty_result_growth_jobs)
-    // Linker batch is finite — once we processed the published-doc snapshot,
-    // there is nothing left to do, so batch_complete=true with remaining=0.
+    // ---- F2.b: SSOT-Upsert into seo_internal_link_suggestions ----
+    // Conflict-Key: (source_url, target_url, link_type)
+    // Filter rejected rows BEFORE upsert (never auto-revive).
+    let upserted = 0;
+    let skippedRejected = 0;
+
+    if (allLinkRows.length > 0) {
+      // Pull existing rejected keys for this batch
+      const sourceUrls = Array.from(new Set(allLinkRows.map(r => r.source_url)));
+      const targetUrls = Array.from(new Set(allLinkRows.map(r => r.target_url)));
+      const { data: rejectedRows } = await admin
+        .from("seo_internal_link_suggestions")
+        .select("source_url, target_url, link_type")
+        .eq("status", "rejected")
+        .in("source_url", sourceUrls)
+        .in("target_url", targetUrls);
+
+      const rejectedKey = new Set(
+        (rejectedRows || []).map(r => `${r.source_url}\u0001${r.target_url}\u0001${r.link_type}`)
+      );
+
+      const upsertable = allLinkRows.filter(r => {
+        const k = `${r.source_url}\u0001${r.target_url}\u0001${r.link_type}`;
+        if (rejectedKey.has(k)) {
+          skippedRejected++;
+          return false;
+        }
+        return true;
+      });
+
+      if (upsertable.length > 0) {
+        const payload = upsertable.map(r => ({
+          source_url: r.source_url,
+          target_url: r.target_url,
+          link_type: r.link_type,
+          anchor_text: r.anchor_text,
+          source_title: r.source_title,
+          target_title: r.target_title,
+          source_doc_id: r.source_doc_id,
+          target_doc_id: r.target_doc_id,
+          status: "active",
+          reason: "auto:internal-linker",
+          updated_at: new Date().toISOString(),
+        }));
+
+        const { error: upErr, count } = await admin
+          .from("seo_internal_link_suggestions")
+          .upsert(payload, {
+            onConflict: "source_url,target_url,link_type",
+            ignoreDuplicates: false,
+            count: "exact",
+          });
+
+        if (upErr) {
+          console.error("[seo-internal-linker] upsert error:", upErr);
+        } else {
+          upserted = count ?? upsertable.length;
+        }
+      }
+    }
+
+    // ---- Audit ----
+    await admin.from("auto_heal_log").insert({
+      action_type: "seo_internal_linker_run",
+      target_type: "system",
+      result_status: "ok",
+      trigger_source: isBatch ? "batch" : "single",
+      metadata: {
+        mode: isBatch ? "batch" : "single",
+        documents_processed: documents.length,
+        documents_updated: updated,
+        suggestions_upserted: upserted,
+        suggestions_skipped_rejected: skippedRejected,
+        total_links_generated: allLinkRows.length,
+      },
+    });
+
+    // ---- Result-Shape (UNCHANGED — F2 contract from sitemap-decommission-and-linker-result-shape-v1) ----
+    // ok=true + (generated>0 || batch_complete=true) → completed
+    // else → EMPTY_RESULT (DLQ via fn_drain_stuck_empty_result_growth_jobs)
     const totalLinks = linkReport.reduce((sum, r) => sum + r.links_added, 0);
     return new Response(JSON.stringify({
       ok: true,
@@ -157,6 +282,8 @@ Deno.serve(async (req) => {
       remaining: 0,
       documents_processed: documents.length,
       documents_updated: updated,
+      suggestions_upserted: upserted,
+      suggestions_skipped_rejected: skippedRejected,
       report: linkReport,
     }), { status: 200, headers });
   } catch (error) {
