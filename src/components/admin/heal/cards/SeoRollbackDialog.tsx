@@ -111,6 +111,28 @@ export function SeoRollbackDialog({
     staleTime: 30_000,
   });
 
+  const auditQ = useQuery({
+    enabled: open,
+    queryKey: ["heal-cockpit", "seo-flag-toggle-log", flagKey],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_seo_feature_flag_toggle_log" as never,
+        { p_flag_key: flagKey, p_limit: 5 } as never,
+      );
+      if (error) throw error;
+      return (data as Array<{
+        log_id: string;
+        flag_key: string;
+        previous_enabled: boolean | null;
+        new_enabled: boolean | null;
+        reason: string | null;
+        actor_uid: string | null;
+        created_at: string;
+      }>) ?? [];
+    },
+    staleTime: 15_000,
+  });
+
   const toggleM = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.rpc(
