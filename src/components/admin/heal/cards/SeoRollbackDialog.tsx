@@ -13,7 +13,7 @@
  *  - Context section: last 10 integrity-gate failures
  *    (integrity_passed=false / QUALITY_THRESHOLD_NOT_MET)
  */
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
