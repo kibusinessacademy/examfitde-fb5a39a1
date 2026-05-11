@@ -1,15 +1,17 @@
-// growth-quality-repair-worker
-// ─────────────────────────────
-// Claims and processes pending jobs of types:
-//   - growth_quality_repair_cta
-//   - growth_quality_repair_funnel_audit
+// growth-quality-repair-worker (Welle 5.2 — Foundation-Bridge)
+// ─────────────────────────────────────────────────────────────
+// Claims pending jobs of types:
+//   - growth_quality_repair_cta             (subscore=cta)
+//   - growth_quality_repair_funnel_audit    (subscore=funnel_events)
 //
 // For each claimed job:
-//   1. Run corresponding audit RPC (fn_audit_growth_cta / fn_audit_growth_funnel)
-//   2. Write result to job_queue.result + mark completed
-//   3. Audit-log into auto_heal_log (action_type='growth_quality_repair_worker')
-//
-// Triggered by cron (every 5 min) or manual invoke. Returns a summary.
+//   1. fn_growth_repair_start_run(package_id, subscore, job_id)  → snapshots pre_score
+//   2. Run audit RPC (fn_audit_growth_cta / fn_audit_growth_funnel)
+//   3. fn_growth_repair_complete_run(run_id, artifact_ref, …)    → applies gate
+//        - audit_only modules: kein council
+//        - Fail-Closed wenn post_score IS NULL (Welle 5.2)
+//   4. job_queue → completed/failed (mit run_id im result)
+//   5. auto_heal_log Audit
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -27,6 +29,11 @@ const TYPE_TO_RPC: Record<string, string> = {
   growth_quality_repair_funnel_audit: "fn_audit_growth_funnel",
 };
 
+const TYPE_TO_SUBSCORE: Record<string, string> = {
+  growth_quality_repair_cta: "cta",
+  growth_quality_repair_funnel_audit: "funnel_events",
+};
+
 const MAX_CLAIM = 10;
 
 Deno.serve(async (req) => {
@@ -41,7 +48,6 @@ Deno.serve(async (req) => {
   const startedAt = new Date().toISOString();
   const lockToken = `growth-quality-repair-worker:${crypto.randomUUID()}`;
 
-  // 1. Claim up to MAX_CLAIM pending jobs (oldest first)
   const { data: claimables, error: claimErr } = await supa
     .from("job_queue")
     .select("id, job_type, package_id, payload, attempts")
@@ -61,7 +67,6 @@ Deno.serve(async (req) => {
   const results: Array<Record<string, unknown>> = [];
 
   for (const job of claimables ?? []) {
-    // Soft-claim: flip pending → processing only if still pending
     const { data: claimed, error: lockErr } = await supa
       .from("job_queue")
       .update({
@@ -82,46 +87,89 @@ Deno.serve(async (req) => {
     }
 
     const rpcName = TYPE_TO_RPC[job.job_type];
+    const subscore = TYPE_TO_SUBSCORE[job.job_type];
     const packageId = job.package_id ?? (job.payload as any)?.package_id;
 
-    if (!rpcName || !packageId) {
+    if (!rpcName || !subscore || !packageId) {
       await markJob(supa, job.id, "failed", null, "missing_rpc_or_package_id");
-      await audit(supa, packageId, job.job_type, "failed", "missing_rpc_or_package_id", {
-        job_id: job.id,
-      });
+      await audit(supa, packageId, job.job_type, "failed", "missing_rpc_or_package_id", { job_id: job.id });
       results.push({ job_id: job.id, status: "failed", reason: "missing_rpc_or_package_id" });
       continue;
     }
 
+    // 1. Start repair-run (snapshots pre_score, enforces module enabled)
+    const { data: runId, error: startErr } = await supa.rpc("fn_growth_repair_start_run", {
+      p_package_id: packageId,
+      p_subscore: subscore,
+      p_job_id: job.id,
+    });
+
+    if (startErr || !runId) {
+      const msg = startErr?.message ?? "start_run_failed";
+      await markJob(supa, job.id, "failed", null, msg);
+      await audit(supa, packageId, job.job_type, "failed", msg, { job_id: job.id, phase: "start_run" });
+      results.push({ job_id: job.id, status: "failed", reason: msg });
+      continue;
+    }
+
+    // 2. Audit
     const { data: auditResult, error: rpcErr } = await supa.rpc(rpcName, {
       p_package_id: packageId,
     });
 
-    if (rpcErr) {
-      await markJob(supa, job.id, "failed", null, rpcErr.message);
-      await audit(supa, packageId, job.job_type, "failed", rpcErr.message, {
-        job_id: job.id,
+    // 3. Complete repair-run (applies fail-closed gate)
+    const { data: completeRes, error: completeErr } = await supa.rpc(
+      "fn_growth_repair_complete_run",
+      {
+        p_run_id: runId,
+        p_artifact_ref: auditResult ?? null,
+        p_council_verdict: null,
+        p_council_score: null,
+        p_error: rpcErr ? rpcErr.message : null,
+      },
+    );
+
+    const finalStatus = (completeRes as any)?.status as string | undefined;
+    const gateReasons = (completeRes as any)?.gate_reasons ?? [];
+
+    if (completeErr) {
+      await markJob(supa, job.id, "failed", { run_id: runId, complete_error: completeErr.message }, completeErr.message);
+      await audit(supa, packageId, job.job_type, "failed", completeErr.message, {
+        job_id: job.id, run_id: runId, phase: "complete_run",
       });
-      results.push({ job_id: job.id, status: "failed", reason: rpcErr.message });
+      results.push({ job_id: job.id, run_id: runId, status: "failed", reason: completeErr.message });
       continue;
     }
 
-    await markJob(supa, job.id, "completed", auditResult, null);
-    await audit(
+    // job_queue mirrors run outcome
+    const jobStatus: "completed" | "failed" =
+      finalStatus === "completed" ? "completed" : "failed";
+    await markJob(
       supa,
-      packageId,
-      job.job_type,
-      "completed",
-      (auditResult as any)?.verdict ?? "ok",
-      { job_id: job.id, verdict: (auditResult as any)?.verdict, recommended_action: (auditResult as any)?.recommended_action },
+      job.id,
+      jobStatus,
+      { run_id: runId, run_status: finalStatus, audit: auditResult, gate_reasons: gateReasons },
+      jobStatus === "failed" ? `gate_${finalStatus}: ${gateReasons.join(",")}` : null,
     );
+
+    await audit(supa, packageId, job.job_type, finalStatus ?? "unknown",
+      `subscore=${subscore} verdict=${(auditResult as any)?.verdict ?? "n/a"}`,
+      {
+        job_id: job.id,
+        run_id: runId,
+        run_status: finalStatus,
+        gate_reasons: gateReasons,
+        audit_verdict: (auditResult as any)?.verdict,
+      });
 
     results.push({
       job_id: job.id,
+      run_id: runId,
       package_id: packageId,
       job_type: job.job_type,
-      status: "completed",
-      verdict: (auditResult as any)?.verdict,
+      subscore,
+      run_status: finalStatus,
+      gate_reasons: gateReasons,
     });
   }
 
@@ -169,6 +217,6 @@ async function audit(
     target_type: "package",
     result_status: resultStatus,
     result_detail: resultDetail,
-    metadata: { ...metadata, job_type: jobType, worker: "growth-quality-repair-worker" },
+    metadata: { ...metadata, job_type: jobType, worker: "growth-quality-repair-worker", wave: "5.2" },
   });
 }
