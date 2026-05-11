@@ -170,18 +170,39 @@ export function SeoRollbackDialog({
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-warning" />
-              SEO Feature-Flag Rollback
+              {target ? (
+                <CheckCircle2 className="h-4 w-4 text-success" />
+              ) : (
+                <PowerOff className="h-4 w-4 text-destructive" />
+              )}
+              SEO Feature-Flag {target ? "Aktivieren" : "Deaktivieren"}
             </DialogTitle>
             <DialogDescription>
-              Destruktive Aktion: deaktiviert/aktiviert{" "}
-              <code className="font-mono">{flagKey}</code> in{" "}
-              <code className="font-mono">ops_feature_flags</code>.
+              {target ? (
+                <>
+                  Aktiviert <code className="font-mono">{flagKey}</code> wieder.
+                  Producer beginnt sofort mit dem Enqueuen neuer Jobs.
+                </>
+              ) : (
+                <>
+                  <strong className="text-warning">Achtung:</strong>{" "}
+                  Deaktiviert <code className="font-mono">{flagKey}</code>.
+                  Restjobs drainen normal, aber{" "}
+                  <strong>keine neuen Jobs</strong> werden enqueued, bis du
+                  reaktivierst.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           {/* State diff */}
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-md border border-border-subtle bg-surface-sunken p-3">
+          <div
+            className={`grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-md border p-3 ${
+              target
+                ? "border-success/30 bg-success-bg-subtle"
+                : "border-warning/30 bg-warning-bg-subtle"
+            }`}
+          >
             <div>
               <div className="text-[10px] uppercase tracking-wide text-text-secondary">
                 Aktuell
