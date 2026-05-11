@@ -52,6 +52,7 @@ import { QualityGateDecisionsCard } from "@/components/admin/heal/cards/QualityG
 import { OpsCancelSkipRiseCard } from "@/components/admin/heal/cards/OpsCancelSkipRiseCard";
 import { ArtifactCompletenessCard } from "@/components/admin/heal/cards/ArtifactCompletenessCard";
 import { LessonJoinParityCard } from "@/components/admin/heal/cards/LessonJoinParityCard";
+import { SeoJobHealthCard } from "@/components/admin/heal/cards/SeoJobHealthCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
 import { AccessSsotHealthCard } from "@/components/admin/heal/cards/AccessSsotHealthCard";
@@ -392,6 +393,7 @@ export default function HealCockpitPage() {
                 <QualityGateDecisionsCard />
                 <OpsCancelSkipRiseCard />
                 <LessonJoinParityCard />
+                <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
                 <AccessSsotHealthCard />
