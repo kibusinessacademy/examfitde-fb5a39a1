@@ -34,6 +34,7 @@ import {
   Search,
 } from "lucide-react";
 import { SeoAlertDrilldownDialog } from "./SeoAlertDrilldownDialog";
+import { SeoRollbackDialog } from "./SeoRollbackDialog";
 
 type SeoJobHealthRow = {
   job_type: string;
@@ -122,6 +123,7 @@ function toCsv(rows: SeoJobHealthRow[]): string {
 
 export function SeoJobHealthCard() {
   const [drilldownJobType, setDrilldownJobType] = useState<string | null>(null);
+  const [rollbackOpen, setRollbackOpen] = useState(false);
   const health = useQuery({
     queryKey: ["heal-cockpit", "seo-job-health"],
     queryFn: async (): Promise<SeoJobHealthRow[]> => {
@@ -226,21 +228,40 @@ export function SeoJobHealthCard() {
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {sitemapFlag && sitemapFlag.enabled === false ? (
-          <div className="rounded-md border border-warning/30 bg-warning-bg-subtle px-3 py-2 text-xs text-text-secondary">
-            <strong className="font-semibold text-text-primary">
-              Rollback aktiv:
-            </strong>{" "}
-            <code className="font-mono">
-              ops_feature_flags.seo_sitemap_refresh_producer_enabled = false
-            </code>
-            . Der Sitemap-Refresh-Producer ist pausiert. Restjobs drainen
-            normal; neue Jobs werden nicht enqueued.
-          </div>
-        ) : sitemapFlag ? (
-          <div className="rounded-md border border-emerald-500/30 bg-success-bg-subtle px-3 py-2 text-xs text-text-secondary">
-            Sitemap-Refresh-Producer:{" "}
-            <code className="font-mono">enabled</code>.
+        {sitemapFlag ? (
+          <div
+            className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs ${
+              sitemapFlag.enabled === false
+                ? "border-warning/30 bg-warning-bg-subtle"
+                : "border-emerald-500/30 bg-success-bg-subtle"
+            }`}
+          >
+            <div className="text-text-secondary">
+              {sitemapFlag.enabled === false ? (
+                <>
+                  <strong className="font-semibold text-text-primary">
+                    Rollback aktiv:
+                  </strong>{" "}
+                  <code className="font-mono">
+                    seo_sitemap_refresh_producer_enabled = false
+                  </code>
+                  . Producer pausiert; Restjobs drainen normal.
+                </>
+              ) : (
+                <>
+                  Sitemap-Refresh-Producer:{" "}
+                  <code className="font-mono">enabled</code>.
+                </>
+              )}
+            </div>
+            <Button
+              size="sm"
+              variant={sitemapFlag.enabled === false ? "default" : "outline"}
+              onClick={() => setRollbackOpen(true)}
+              title="Flag toggeln (admin-gated, audited)"
+            >
+              {sitemapFlag.enabled === false ? "Aktivieren" : "Rollback…"}
+            </Button>
           </div>
         ) : null}
 
@@ -360,6 +381,13 @@ export function SeoJobHealthCard() {
         open={drilldownJobType !== null}
         onOpenChange={(o) => !o && setDrilldownJobType(null)}
         jobType={drilldownJobType}
+      />
+
+      <SeoRollbackDialog
+        open={rollbackOpen}
+        onOpenChange={setRollbackOpen}
+        flagKey="seo_sitemap_refresh_producer_enabled"
+        currentEnabled={sitemapFlag?.enabled ?? null}
       />
     </Card>
   );
