@@ -101,18 +101,82 @@ export function SeoRollbackDialog({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const target = !currentEnabled;
 
+  // Filter state (debounced 300ms for text/number inputs)
+  const [filterMinScore, setFilterMinScore] = useState<string>("");
+  const [filterErrorCode, setFilterErrorCode] = useState<string>("");
+  const [filterPackageId, setFilterPackageId] = useState<string>("");
+  const [filterHardFailOnly, setFilterHardFailOnly] = useState(false);
+  const [debouncedFilters, setDebouncedFilters] = useState({
+    minScore: "",
+    errorCode: "",
+    packageId: "",
+  });
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedFilters({
+        minScore: filterMinScore.trim(),
+        errorCode: filterErrorCode.trim(),
+        packageId: filterPackageId.trim(),
+      });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [filterMinScore, filterErrorCode, filterPackageId]);
+
+  const filterParams = useMemo(() => {
+    const params: Record<string, unknown> = { p_limit: 10, p_window_minutes: 60 };
+    const ms = debouncedFilters.minScore ? Number(debouncedFilters.minScore) : NaN;
+    if (Number.isFinite(ms)) params.p_min_score = ms;
+    if (debouncedFilters.errorCode) params.p_error_code = debouncedFilters.errorCode;
+    // basic uuid sanity (36 chars w/ dashes); skip otherwise to avoid 22P02
+    if (/^[0-9a-f-]{36}$/i.test(debouncedFilters.packageId)) {
+      params.p_package_id = debouncedFilters.packageId;
+    }
+    if (filterHardFailOnly) params.p_hard_fail_only = true;
+    return params;
+  }, [debouncedFilters, filterHardFailOnly]);
+
+  const filtersActive =
+    !!debouncedFilters.minScore ||
+    !!debouncedFilters.errorCode ||
+    /^[0-9a-f-]{36}$/i.test(debouncedFilters.packageId) ||
+    filterHardFailOnly;
+
   const failuresQ = useQuery({
     enabled: open,
-    queryKey: ["heal-cockpit", "integrity-gate-failures"],
+    queryKey: ["heal-cockpit", "integrity-gate-failures", filterParams],
     queryFn: async (): Promise<GateFailureRow[]> => {
       const { data, error } = await supabase.rpc(
         "admin_get_recent_integrity_gate_failures" as never,
-        { p_limit: 10, p_window_minutes: 60 } as never,
+        filterParams as never,
       );
       if (error) throw error;
       return (data as unknown as GateFailureRow[]) ?? [];
     },
     staleTime: 30_000,
+  });
+
+  const telemetryQ = useQuery({
+    enabled: open,
+    queryKey: ["heal-cockpit", "seo-toggle-telemetry", flagKey],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_seo_toggle_telemetry" as never,
+        { p_flag_key: flagKey } as never,
+      );
+      if (error) throw error;
+      return (data as Array<{
+        flag_key: string;
+        toggles_24h: number;
+        toggles_7d: number;
+        enable_count_7d: number;
+        disable_count_7d: number;
+        last_toggle_at: string | null;
+        last_toggle_actor: string | null;
+        last_toggle_direction: string | null;
+        rollback_frequency_score: number | null;
+      }>)?.[0] ?? null;
+    },
+    staleTime: 15_000,
   });
 
   const auditQ = useQuery({
