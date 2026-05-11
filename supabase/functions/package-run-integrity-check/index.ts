@@ -1769,8 +1769,10 @@ Deno.serve(async (req) => {
       delete (updatePayload as any).status;
     }
 
+    await heartbeat.pulse("pre_persist");
     const { error: uErr } = await sb.from("course_packages").update(updatePayload).eq("id", packageId);
     if (uErr) throw uErr;
+    await heartbeat.pulse("post_persist");
 
     // ── P0 PERSISTENCE VERIFICATION ──
     // Invariant: if we wrote integrity_report, it MUST be persisted.
