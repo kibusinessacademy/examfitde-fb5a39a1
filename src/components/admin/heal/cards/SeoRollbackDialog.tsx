@@ -42,7 +42,14 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ShieldAlert, ArrowRight, AlertTriangle } from "lucide-react";
+import {
+  ShieldAlert,
+  ArrowRight,
+  AlertTriangle,
+  History,
+  CheckCircle2,
+  PowerOff,
+} from "lucide-react";
 import { parseHealError } from "@/components/admin/queue/healErrorParser";
 
 type GateFailureRow = {
