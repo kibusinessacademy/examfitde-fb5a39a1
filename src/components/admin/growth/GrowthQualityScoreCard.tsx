@@ -264,10 +264,126 @@ function PackageDetailDialog({
   );
 }
 
+const SUBSCORE_KEYS = SUBSCORE_ROWS.map(r => r.key);
+
+function BulkConfigDialog({
+  open,
+  onClose,
+}: { open: boolean; onClose: () => void }) {
+  const qcRoot = useQueryClient();
+  const [limit, setLimit] = useState(10);
+  const [maxScore, setMaxScore] = useState(50);
+  const [selected, setSelected] = useState<Set<string>>(new Set(SUBSCORE_KEYS));
+  const [running, setRunning] = useState<string | null>(null);
+  const [results, setResults] = useState<Array<{ subscore: string; dispatched: number; skipped: number; error?: string }>>([]);
+
+  const toggle = (k: string) => {
+    const next = new Set(selected);
+    next.has(k) ? next.delete(k) : next.add(k);
+    setSelected(next);
+  };
+
+  const run = async () => {
+    setResults([]);
+    for (const sub of SUBSCORE_KEYS) {
+      if (!selected.has(sub)) continue;
+      setRunning(sub);
+      try {
+        const { data, error } = await supabase.rpc('admin_bulk_dispatch_growth_quality_repair' as any, {
+          p_subscore: sub,
+          p_limit: limit,
+        });
+        if (error) throw error;
+        const r = data as { subscore: string; dispatched: number; skipped: number };
+        setResults(prev => [...prev, { subscore: sub, dispatched: r.dispatched, skipped: r.skipped }]);
+      } catch (e) {
+        setResults(prev => [...prev, { subscore: sub, dispatched: 0, skipped: 0, error: (e as Error).message }]);
+      }
+    }
+    setRunning(null);
+    qcRoot.invalidateQueries({ queryKey: ['growth-quality-summary'] });
+    qcRoot.invalidateQueries({ queryKey: ['growth-quality-details'] });
+    toast.success('Bulk-Repair Loop fertig', {
+      description: `${selected.size} Subscores · limit=${limit}`,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings2 className="h-4 w-4" />Bulk-Repair Loop konfigurieren
+          </DialogTitle>
+          <DialogDescription>
+            Pro Run: Subscore-Auswahl + Limit pro Subscore. Filtert Worst &lt; max-score (RPC: subscore &lt; 50 hardcoded — Threshold-Anzeige nur Hinweis).
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-xs">Limit pro Subscore: <span className="font-mono">{limit}</span></Label>
+            <Slider value={[limit]} min={1} max={50} step={1} onValueChange={(v) => setLimit(v[0])} />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Max-Score Hinweis (RPC nutzt &lt;50): <span className="font-mono">{maxScore}</span></Label>
+            <Slider value={[maxScore]} min={20} max={100} step={5} onValueChange={(v) => setMaxScore(v[0])} />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Subscores ({selected.size}/{SUBSCORE_KEYS.length})</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {SUBSCORE_ROWS.map(({ key, label }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`bulk-${key}`}
+                    checked={selected.has(key)}
+                    onCheckedChange={() => toggle(key)}
+                  />
+                  <Label htmlFor={`bulk-${key}`} className="text-xs cursor-pointer">{label}</Label>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="h-6 text-[10px]"
+                onClick={() => setSelected(new Set(SUBSCORE_KEYS))}>Alle</Button>
+              <Button size="sm" variant="outline" className="h-6 text-[10px]"
+                onClick={() => setSelected(new Set())}>Keine</Button>
+            </div>
+          </div>
+
+          {results.length > 0 && (
+            <div className="rounded-md border border-border-subtle bg-surface-sunken p-2 space-y-1 text-[11px]">
+              <div className="font-medium text-text-primary">Ergebnis</div>
+              {results.map((r, i) => (
+                <div key={i} className="flex justify-between font-mono">
+                  <span className="text-text-secondary">{r.subscore}</span>
+                  <span className={r.error ? 'text-status-error-text' : 'text-status-success-text'}>
+                    {r.error ? `err: ${r.error.slice(0, 30)}` : `enq:${r.dispatched} skip:${r.skipped}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={!!running}>Schließen</Button>
+          <Button size="sm" onClick={run} disabled={!!running || selected.size === 0}>
+            {running ? <><Loader2 className="h-3 w-3 animate-spin mr-1" />Läuft: {running}</> : <><Wrench className="h-3 w-3 mr-1" />Loop starten</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function GrowthQualityScoreCard() {
   const [maxScore, setMaxScore] = useState(60);
   const [drilldownId, setDrilldownId] = useState<string | null>(null);
   const [bulkSubscore, setBulkSubscore] = useState<string | null>(null);
+  const [bulkConfigOpen, setBulkConfigOpen] = useState(false);
   const qcRoot = useQueryClient();
 
   const bulkDispatch = useMutation({
