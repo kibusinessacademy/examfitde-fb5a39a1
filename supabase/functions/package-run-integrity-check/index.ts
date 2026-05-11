@@ -1291,6 +1291,7 @@ Deno.serve(async (req) => {
         error: `PREREQ_NOT_DONE: ${prereqStep}`,
       }, 200);
     }
+    await heartbeat.pulse("prereq_done");
 
     // ── BACKLOG GATE: Don't run integrity if large QC backlog still pending ──
     // Prevents premature integrity checks that produce false negatives and wasteful retries
