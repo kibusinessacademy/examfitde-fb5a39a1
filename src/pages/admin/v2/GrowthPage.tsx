@@ -5,6 +5,7 @@ const PostPublishGrowthFanoutCard = lazy(() => import('@/components/admin/growth
 const PostPublishGrowthHealthCard = lazy(() => import('@/components/admin/growth/PostPublishGrowthHealthCard'));
 const GrowthQualityScoreCard = lazy(() => import('@/components/admin/growth/GrowthQualityScoreCard'));
 const GrowthRepairFoundationCard = lazy(() => import('@/components/admin/growth/GrowthRepairFoundationCard'));
+const GrowthNextBestFixCard = lazy(() => import('@/components/admin/growth/GrowthNextBestFixCard'));
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -170,6 +171,7 @@ export default function GrowthPage() {
         <TabsContent value="fanout" className="mt-4 space-y-4">
           <Suspense fallback={<Loading />}><PostPublishGrowthHealthCard /></Suspense>
           <Suspense fallback={<Loading />}><GrowthQualityScoreCard /></Suspense>
+          <Suspense fallback={<Loading />}><GrowthNextBestFixCard /></Suspense>
           <Suspense fallback={<Loading />}><GrowthRepairFoundationCard /></Suspense>
           <Suspense fallback={<Loading />}><PostPublishGrowthFanoutCard /></Suspense>
         </TabsContent>

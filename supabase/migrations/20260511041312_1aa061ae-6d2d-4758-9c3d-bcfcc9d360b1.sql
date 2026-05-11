@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.fn_growth_classify_next_best_fix(jsonb, text) TO authenticated, anon;
