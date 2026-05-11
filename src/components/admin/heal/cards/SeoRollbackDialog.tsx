@@ -42,7 +42,14 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ShieldAlert, ArrowRight, AlertTriangle } from "lucide-react";
+import {
+  ShieldAlert,
+  ArrowRight,
+  AlertTriangle,
+  History,
+  CheckCircle2,
+  PowerOff,
+} from "lucide-react";
 import { parseHealError } from "@/components/admin/queue/healErrorParser";
 
 type GateFailureRow = {
@@ -104,6 +111,28 @@ export function SeoRollbackDialog({
     staleTime: 30_000,
   });
 
+  const auditQ = useQuery({
+    enabled: open,
+    queryKey: ["heal-cockpit", "seo-flag-toggle-log", flagKey],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_seo_feature_flag_toggle_log" as never,
+        { p_flag_key: flagKey, p_limit: 5 } as never,
+      );
+      if (error) throw error;
+      return (data as Array<{
+        log_id: string;
+        flag_key: string;
+        previous_enabled: boolean | null;
+        new_enabled: boolean | null;
+        reason: string | null;
+        actor_uid: string | null;
+        created_at: string;
+      }>) ?? [];
+    },
+    staleTime: 15_000,
+  });
+
   const toggleM = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.rpc(
@@ -121,6 +150,7 @@ export function SeoRollbackDialog({
       );
       qc.invalidateQueries({ queryKey: ["heal-cockpit", "seo-feature-flags"] });
       qc.invalidateQueries({ queryKey: ["heal-cockpit", "seo-job-health"] });
+      qc.invalidateQueries({ queryKey: ["heal-cockpit", "seo-flag-toggle-log", flagKey] });
       setReason("");
       setConfirmOpen(false);
       onOpenChange(false);
@@ -140,18 +170,39 @@ export function SeoRollbackDialog({
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-warning" />
-              SEO Feature-Flag Rollback
+              {target ? (
+                <CheckCircle2 className="h-4 w-4 text-success" />
+              ) : (
+                <PowerOff className="h-4 w-4 text-destructive" />
+              )}
+              SEO Feature-Flag {target ? "Aktivieren" : "Deaktivieren"}
             </DialogTitle>
             <DialogDescription>
-              Destruktive Aktion: deaktiviert/aktiviert{" "}
-              <code className="font-mono">{flagKey}</code> in{" "}
-              <code className="font-mono">ops_feature_flags</code>.
+              {target ? (
+                <>
+                  Aktiviert <code className="font-mono">{flagKey}</code> wieder.
+                  Producer beginnt sofort mit dem Enqueuen neuer Jobs.
+                </>
+              ) : (
+                <>
+                  <strong className="text-warning">Achtung:</strong>{" "}
+                  Deaktiviert <code className="font-mono">{flagKey}</code>.
+                  Restjobs drainen normal, aber{" "}
+                  <strong>keine neuen Jobs</strong> werden enqueued, bis du
+                  reaktivierst.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           {/* State diff */}
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-md border border-border-subtle bg-surface-sunken p-3">
+          <div
+            className={`grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-md border p-3 ${
+              target
+                ? "border-success/30 bg-success-bg-subtle"
+                : "border-warning/30 bg-warning-bg-subtle"
+            }`}
+          >
             <div>
               <div className="text-[10px] uppercase tracking-wide text-text-secondary">
                 Aktuell
@@ -277,16 +328,76 @@ export function SeoRollbackDialog({
             </ScrollArea>
           </section>
 
+          {/* Audit-Log: last toggles */}
+          <section className="space-y-1.5">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
+              <History className="h-3.5 w-3.5" />
+              Letzte Toggles für diesen Flag
+            </h3>
+            {auditQ.isLoading ? (
+              <Skeleton className="h-12 w-full" />
+            ) : auditQ.isError ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive-bg-subtle px-3 py-2 text-xs text-destructive">
+                Fehler: {(auditQ.error as Error).message}
+              </div>
+            ) : (auditQ.data ?? []).length === 0 ? (
+              <div className="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-xs text-text-secondary">
+                Noch keine Toggles in <code className="font-mono">auto_heal_log</code>.
+              </div>
+            ) : (
+              <ul className="space-y-1">
+                {(auditQ.data ?? []).map((a) => (
+                  <li
+                    key={a.log_id}
+                    className="rounded-md border border-border-subtle bg-surface-sunken px-2.5 py-1.5 text-[11px]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-text-primary">
+                        {String(a.previous_enabled)} → {String(a.new_enabled)}
+                      </span>
+                      <span className="text-text-secondary">
+                        {new Date(a.created_at).toLocaleString("de-DE", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
+                      </span>
+                    </div>
+                    {a.reason && (
+                      <div className="mt-0.5 truncate text-text-secondary" title={a.reason}>
+                        <em>„{a.reason}"</em>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={toggleM.isPending}
+            >
               Abbrechen
             </Button>
             <Button
               variant={target ? "default" : "destructive"}
               disabled={!reasonValid || toggleM.isPending}
               onClick={() => setConfirmOpen(true)}
+              title={!reasonValid ? "Grund mit ≥ 5 Zeichen angeben" : undefined}
             >
-              {target ? "Aktivieren" : "Deaktivieren"}
+              {target ? (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Aktivieren
+                </>
+              ) : (
+                <>
+                  <PowerOff className="h-3.5 w-3.5" />
+                  Deaktivieren
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -321,12 +432,21 @@ export function SeoRollbackDialog({
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={toggleM.isPending}
+              className={
+                target
+                  ? undefined
+                  : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              }
               onClick={(e) => {
                 e.preventDefault();
                 toggleM.mutate();
               }}
             >
-              {toggleM.isPending ? "Speichere…" : "Bestätigen"}
+              {toggleM.isPending
+                ? "Speichere…"
+                : target
+                  ? "Ja, aktivieren"
+                  : "Ja, deaktivieren"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
