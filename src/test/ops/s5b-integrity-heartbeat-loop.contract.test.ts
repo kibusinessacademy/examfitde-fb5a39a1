@@ -1,19 +1,24 @@
 /**
- * Wave: Integrity Heartbeat Loop + Reaper CAS — contract tests.
+ * Wave: Deterministic Pulse at Stage Boundaries — contract tests.
+ *
+ * Replaces the v1 setInterval-based loop test. The Supabase Edge Runtime
+ * suspends timers during long await sections, so the integrity worker now
+ * uses explicit `await heartbeat.pulse('<stage>')` calls at every known
+ * stage boundary instead of a setInterval tick.
  *
  * 1) Static contract on package-run-integrity-check worker:
- *    - exports INTEGRITY_HEARTBEAT_MS ≤ 30_000
- *    - calls startIntegrityHeartbeat(...) inside the handler
- *    - increments meta.heartbeat_tick_count on every tick
- *    - first heartbeat is fired immediately (`void tick()` before setInterval)
+ *    - exports INTEGRITY_HEARTBEAT_MS (kept for documentation)
+ *    - NO setInterval-based heartbeat loop anymore
+ *    - exposes startIntegrityHeartbeat returning { pulse, stop, tickCount }
+ *    - increments meta.heartbeat_tick_count and writes heartbeat_log
+ *    - handler invokes heartbeat.pulse(...) at ≥6 stage boundaries
  *
- * 2) Long-running heartbeat-loop simulation (Vitest fake timers):
- *    - Stub `sb.rpc("heartbeat_job_processing", …)` and run for 65s.
- *    - Expect ≥ 2 heartbeat calls (1 immediate + at least 1 loop tick).
+ * 2) Pulse simulation:
+ *    - Stub `sb.rpc("heartbeat_job_processing", …)` and call pulse 6 times.
+ *    - Expect rpc to be called 6× with monotonically increasing tick counts.
  *
  * 3) DB contract: complete_job CAS smoke RPC must refuse anon and the
- *    function must exist (no syntax errors). The actual positive/negative
- *    truth-table is verified inside the migration's DO-block.
+ *    function must exist (no syntax errors).
  */
 import { describe, it, expect, vi } from "vitest";
 import fs from "node:fs";
@@ -26,8 +31,8 @@ const WORKER = path.resolve(
 );
 const SRC = fs.readFileSync(WORKER, "utf8");
 
-describe("Integrity worker · heartbeat-loop static contract", () => {
-  it("exports INTEGRITY_HEARTBEAT_MS ≤ 30_000", () => {
+describe("Integrity worker · deterministic-pulse static contract", () => {
+  it("exports INTEGRITY_HEARTBEAT_MS (documentation contract, ≤ 30_000)", () => {
     expect(SRC).toMatch(/export const INTEGRITY_HEARTBEAT_MS\s*=\s*(\d[_\d]*)/);
     const m = SRC.match(/INTEGRITY_HEARTBEAT_MS\s*=\s*(\d[_\d]*)/)!;
     const v = Number(m[1].replace(/_/g, ""));
@@ -35,28 +40,46 @@ describe("Integrity worker · heartbeat-loop static contract", () => {
     expect(v).toBeLessThanOrEqual(30_000);
   });
 
-  it("registers a setInterval-based heartbeat loop", () => {
-    expect(SRC).toMatch(/setInterval\(\s*tick\s*,\s*INTEGRITY_HEARTBEAT_MS\s*\)/);
+  it("does NOT use setInterval for heartbeats (deterministic pulse only)", () => {
+    expect(SRC).not.toMatch(/setInterval\(\s*tick\s*,/);
+    expect(SRC).not.toMatch(/setInterval\(\s*pulse\s*,/);
   });
 
-  it("fires first heartbeat immediately before the interval kicks in", () => {
-    // void tick() must appear before setInterval(tick, …) inside the heartbeat factory
-    const idxVoidTick = SRC.indexOf("void tick();");
-    const idxInterval = SRC.indexOf("setInterval(tick, INTEGRITY_HEARTBEAT_MS)");
-    expect(idxVoidTick).toBeGreaterThan(0);
-    expect(idxInterval).toBeGreaterThan(idxVoidTick);
+  it("startIntegrityHeartbeat returns { pulse, stop, tickCount }", () => {
+    expect(SRC).toMatch(/pulse:\s*\(stage:\s*string\)\s*=>\s*Promise<void>/);
+    expect(SRC).toMatch(/tickCount:\s*\(\)\s*=>\s*number/);
+    expect(SRC).toMatch(/stop:\s*\(\)\s*=>\s*void/);
   });
 
-  it("each tick increments meta.heartbeat_tick_count", () => {
-    expect(SRC).toMatch(/heartbeat_tick_count:\s*tickCount/);
+  it("each pulse increments heartbeat_tick_count and appends to heartbeat_log", () => {
     expect(SRC).toMatch(/tickCount\s*\+=\s*1/);
+    expect(SRC).toMatch(/heartbeat_tick_count:\s*tickCount/);
+    expect(SRC).toMatch(/heartbeat_log:\s*pulseLog\.slice\(-10\)/);
   });
 
   it("fallback heartbeat path also writes last_heartbeat_at AND CAS-guards on status='processing'", () => {
-    // Fallback when RPC signature differs must still set last_heartbeat_at
-    // and only touch rows in status='processing' (CAS).
     expect(SRC).toMatch(/last_heartbeat_at:\s*new Date\(\)\.toISOString\(\)/);
     expect(SRC).toMatch(/\.eq\("status",\s*"processing"\)/);
+  });
+
+  it("handler invokes heartbeat.pulse() at all required stage boundaries", () => {
+    const REQUIRED_STAGES = [
+      "handler_start",
+      "prereq_done",
+      "pre_course_ready_gate",
+      "post_course_ready_gate",
+      "progress_recorded",
+      "pre_persist",
+      "post_persist",
+      "handler_done",
+    ];
+    for (const stage of REQUIRED_STAGES) {
+      const re = new RegExp(`heartbeat\\.pulse\\(\\s*["']${stage}["']\\s*\\)`);
+      expect(SRC, `missing pulse('${stage}')`).toMatch(re);
+    }
+    // Sanity: at least 6 pulse callsites in handler
+    const pulseCalls = SRC.match(/heartbeat\.pulse\(/g) ?? [];
+    expect(pulseCalls.length).toBeGreaterThanOrEqual(6);
   });
 
   it("handler invokes startIntegrityHeartbeat after package_id validation", () => {
@@ -64,39 +87,56 @@ describe("Integrity worker · heartbeat-loop static contract", () => {
   });
 });
 
-describe("Integrity worker · heartbeat-loop emits ≥2 ticks in 65s window", () => {
-  it("simulates a long-running job and asserts at least 2 heartbeats", async () => {
-    vi.useFakeTimers();
-
+describe("Integrity worker · pulse() emits ≥1 RPC per call with monotonic tickCount", () => {
+  it("simulates 6 stage-boundary pulses and asserts 6 RPC calls + monotonic counters", async () => {
     let rpcCalls = 0;
+    const tickCountsSeen: number[] = [];
     const sb = {
-      rpc: vi.fn(async (name: string, _args?: Record<string, unknown>) => {
-        if (name === "heartbeat_job_processing") rpcCalls += 1;
+      rpc: vi.fn(async (name: string, args?: Record<string, unknown>) => {
+        if (name === "heartbeat_job_processing") {
+          rpcCalls += 1;
+          const meta = (args as any)?.p_meta ?? {};
+          if (typeof meta.heartbeat_tick_count === "number") {
+            tickCountsSeen.push(meta.heartbeat_tick_count);
+          }
+        }
         return { data: true, error: null };
       }),
-      from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { meta: {} } }) }) }) }),
+      from: () => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { meta: {} } }) }) }),
+        update: () => ({ eq: () => ({ eq: async () => ({ data: null, error: null }) }) }),
+      }),
     };
 
     // Inline the loop's behavior so the test is hermetic (no Deno import).
     const HEARTBEAT_MS = 30_000;
     let stopped = false;
     let tickCount = 0;
-    const tick = async () => {
+    const pulseLog: Array<{ tick: number; stage: string }> = [];
+    const pulse = async (stage: string) => {
       if (stopped) return;
       tickCount += 1;
-      await sb.rpc("heartbeat_job_processing", {});
+      pulseLog.push({ tick: tickCount, stage });
+      await sb.rpc("heartbeat_job_processing", {
+        p_meta: { heartbeat_tick_count: tickCount, last_stage: stage },
+      });
     };
-    void tick();
-    const handle = setInterval(tick, HEARTBEAT_MS);
 
-    await vi.advanceTimersByTimeAsync(65_000);
+    const stages = [
+      "handler_start",
+      "prereq_done",
+      "pre_course_ready_gate",
+      "post_course_ready_gate",
+      "progress_recorded",
+      "pre_persist",
+    ];
+    for (const s of stages) await pulse(s);
     stopped = true;
-    clearInterval(handle);
-    vi.useRealTimers();
 
-    // 1 immediate + 2 interval ticks at 30s + 60s = 3 calls in 65s
-    expect(rpcCalls).toBeGreaterThanOrEqual(2);
-    expect(tickCount).toBeGreaterThanOrEqual(2);
+    expect(rpcCalls).toBe(stages.length);
+    expect(tickCount).toBe(stages.length);
+    expect(tickCountsSeen).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(pulseLog.map((p) => p.stage)).toEqual(stages);
   });
 });
 
@@ -120,8 +160,6 @@ describe("complete_job · CAS contract (DB-side)", () => {
       p_job_id: "00000000-0000-0000-0000-000000000000",
       p_result: { smoke: true },
     });
-    // Either forbidden (RLS) or row-not-found (returns false). Both prove the
-    // function exists and has no syntax errors.
     if (error) {
       expect(error.message).not.toMatch(/syntax|operator does not exist|function .* does not exist/i);
     }
