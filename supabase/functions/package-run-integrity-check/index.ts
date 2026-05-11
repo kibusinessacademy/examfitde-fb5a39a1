@@ -2039,7 +2039,17 @@ Deno.serve(async (req) => {
     }
 
     await heartbeat.pulse("handler_done");
-    return json({ ok: true, report, heartbeat_tick_count: heartbeat.tickCount() });
+    return json({
+      ok: true,
+      // ── Top-level gate signals (SSOT for job-runner integrity-gate routing) ──
+      integrity_passed: gatePassed,
+      gate_passed: gatePassed,
+      score: gate.score,
+      hard_fail_count: gate.hardFails.length,
+      error_code: gatePassed ? null : "QUALITY_THRESHOLD_NOT_MET",
+      report,
+      heartbeat_tick_count: heartbeat.tickCount(),
+    });
 
   } catch (e) {
     // ✅ P0 FIX: ALWAYS write last_error on crash — prevents silent-fail state
