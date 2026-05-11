@@ -432,12 +432,21 @@ export function SeoRollbackDialog({
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={toggleM.isPending}
+              className={
+                target
+                  ? undefined
+                  : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              }
               onClick={(e) => {
                 e.preventDefault();
                 toggleM.mutate();
               }}
             >
-              {toggleM.isPending ? "Speichere…" : "Bestätigen"}
+              {toggleM.isPending
+                ? "Speichere…"
+                : target
+                  ? "Ja, aktivieren"
+                  : "Ja, deaktivieren"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
