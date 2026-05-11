@@ -2639,17 +2639,50 @@ Deno.serve(async (req) => {
       if (patchError !== undefined) {
         dbPatch.last_error = patchError;
       }
-      const { error: updateErr } = await sb.from("job_queue").update(dbPatch).eq("id", job.id);
+      // CAS: only flip if still 'processing' — prevents Reaper-vs-Completion race
+      // and silently-overwriting reaper-requeued rows. If 0 rows updated, audit + skip.
+      const { data: casUpdated, error: updateErr } = await sb
+        .from("job_queue")
+        .update(dbPatch)
+        .eq("id", job.id)
+        .eq("status", "processing")
+        .select("id");
       if (updateErr) {
         console.error(`[job-runner] CRITICAL: DB update failed for job ${job.id} (${job.job_type}) → ${finalState.status}: ${updateErr.message}`);
         // Retry once without meta (meta serialization issues are common)
         const { meta: _metaDrop, ...retryPatch } = dbPatch;
-        const { error: retryErr } = await sb.from("job_queue").update(retryPatch).eq("id", job.id);
+        const { error: retryErr } = await sb
+          .from("job_queue")
+          .update(retryPatch)
+          .eq("id", job.id)
+          .eq("status", "processing");
         if (retryErr) {
           console.error(`[job-runner] CRITICAL: Retry also failed for job ${job.id}: ${retryErr.message}`);
         } else {
           console.log(`[job-runner] Retry without meta succeeded for job ${job.id}`);
         }
+      } else if (!casUpdated || casUpdated.length === 0) {
+        // Row was no longer 'processing' (likely reaper requeued or external mutation).
+        const { data: observed } = await sb
+          .from("job_queue").select("status").eq("id", job.id).maybeSingle();
+        console.warn(`[job-runner] CAS_CONFLICT job=${job.id} type=${job.job_type} target=${finalState.status} observed=${observed?.status ?? "missing"} — skipping write`);
+        try {
+          await sb.from("auto_heal_log").insert({
+            action_type: "complete_job_cas_conflict",
+            target_type: "job",
+            target_id: job.id,
+            trigger_source: "job-runner",
+            result_status: "skipped",
+            result_detail: `CAS conflict: target=${finalState.status} observed=${observed?.status ?? "missing"}`,
+            metadata: {
+              job_id: job.id,
+              job_type: job.job_type,
+              target_status: finalState.status,
+              observed_status: observed?.status ?? null,
+              package_id: job.payload?.package_id ?? null,
+            },
+          });
+        } catch (_e) { /* best-effort */ }
       }
 
       // ── STEP SYNC: Update package_steps on permanent/terminal failures ──
