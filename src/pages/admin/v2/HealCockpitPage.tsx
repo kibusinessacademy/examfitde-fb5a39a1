@@ -393,6 +393,7 @@ export default function HealCockpitPage() {
                 <QualityGateDecisionsCard />
                 <OpsCancelSkipRiseCard />
                 <LessonJoinParityCard />
+                <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
                 <AccessSsotHealthCard />
