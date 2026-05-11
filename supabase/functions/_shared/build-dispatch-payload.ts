@@ -47,8 +47,15 @@ export function buildDispatchPayload(job: JobRow): Record<string, unknown> {
   }
 
   // ── 4. Job metadata ──
+  // SSOT: emit BOTH _job_id (legacy/internal) AND job_id (worker-facing).
+  // Workers' markFirstHeartbeat() reads `job_id` — without it the heartbeat
+  // RPC is a silent no-op and the reaper PHK-kills the job after 3min,
+  // even though the function ran successfully (root cause of the May-11
+  // package_run_integrity_check PHK epidemic).
   payload._job_id = job.id;
+  payload.job_id = job.id;
   payload._job_type = job.job_type;
+  payload.job_type = job.job_type;
 
   // ── 5. Per-job-type payload contract defaults ──
   // Some handlers require explicit fields the producer does not supply
