@@ -1211,7 +1211,7 @@ Deno.serve(async (req) => {
   await markFirstHeartbeat(sb, body.job_id ?? p?.job_id ?? p?.jobId);
 
   let packageId: string | null = null;
-  let heartbeat: { stop: () => void } = { stop: () => {} };
+  let heartbeat: IntegrityHeartbeat = { pulse: async () => {}, stop: () => {}, tickCount: () => 0 };
 
   try {
     // ── Payload normalization: accept both camelCase and snake_case ──
@@ -1225,6 +1225,7 @@ Deno.serve(async (req) => {
 
     // Start heartbeat AFTER package_id is validated so we never tick on garbage
     heartbeat = startIntegrityHeartbeat(sb, jobId, packageId);
+    await heartbeat.pulse("handler_start");
 
     // ── Guard: only run for building packages (unless force=true) ──
     const { data: pkgData } = await sb
