@@ -19,6 +19,7 @@ import { LxiQueuedNoLessonsReinitCard } from "@/components/admin/heal/cards/LxiQ
 import { ForensicAuditRunnerCard } from "@/components/admin/heal/cards/ForensicAuditRunnerCard";
 import { PricingHealAuditCard } from "@/components/admin/heal/cards/PricingHealAuditCard";
 import { DagBlockedDashboardCard } from "@/components/admin/heal/cards/DagBlockedDashboardCard";
+import { DeferredJobsPullForwardCard } from "@/components/admin/heal/cards/DeferredJobsPullForwardCard";
 
 export function HealCockpitTabContent() {
   return (
