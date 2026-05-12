@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
         target_type: "course_package",
         target_id: packageId ?? null,
         result_status: "skipped",
-        reason: `recent_inserts_${recentN}_within_${IDEMPOTENCY_WINDOW_MIN}min`,
+        result_detail: `recent_inserts_${recentN}_within_${IDEMPOTENCY_WINDOW_MIN}min`,
         metadata: {
           idempotency_key: idempotencyKey,
           gap_signature: gapSignature,
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
         target_type: "course_package",
         target_id: packageId,
         result_status: "in_progress",
-        reason: `attempt_planned_max_${MAX_QUESTIONS_PER_RUN}`,
+        result_detail: `attempt_planned_max_${MAX_QUESTIONS_PER_RUN}`,
         metadata: {
           idempotency_key: idempotencyKey,
           gap_signature: gapSignature,
@@ -476,7 +476,7 @@ Antworte NUR als JSON:
         target_type: "course_package",
         target_id: packageId,
         result_status: "ok",
-        reason: `inserted_${inserts.length}_cap_${MAX_QUESTIONS_PER_RUN}`,
+        result_detail: `inserted_${inserts.length}_cap_${MAX_QUESTIONS_PER_RUN}`,
         metadata: {
           idempotency_key: idempotencyKey,
           gap_signature: gapSignature,
