@@ -195,17 +195,28 @@ export function DrainOrchestratorCard() {
               const batch = lastBatches.find(
                 (b) => b.action_type === `drain_${key}_batch`,
               );
-              const m = batch?.metadata ?? {};
+              const m = (batch?.metadata ?? {}) as Record<string, any>;
               const enq = m.enqueued ?? 0;
-              const active = m.active;
-              const cap = m.cap ?? cfg.wipCap;
-              const rawReason = m.skipped_reason as string | undefined;
+              const active = m.active ?? m.wip ?? m.in_flight;
+              const cap = m.cap ?? m.wip_cap ?? cfg.wipCap;
+              const rawReason = (m.skipped_reason ?? m.stopped_reason) as string | undefined;
               const reasonLabel = rawReason
                 ? STOP_REASON_LABEL[rawReason] ?? rawReason
                 : enq > 0
                 ? "ok – enqueued"
                 : "—";
               const status = batch?.result_status ?? "—";
+              // Curated metadata-keys (per class). Rest fällt in raw-JSON.
+              const KNOWN = new Set([
+                "enqueued", "active", "wip", "in_flight", "cap", "wip_cap",
+                "skipped_reason", "stopped_reason",
+              ]);
+              const extraEntries = Object.entries(m).filter(
+                ([k]) => !KNOWN.has(k),
+              );
+              const health = m.health ?? lastRun?.metadata?.health;
+              const globalCap = lastRun?.metadata?.global_cap ?? 20;
+              const totalEnq = lastRun?.metadata?.total_enqueued ?? 0;
               return (
                 <div
                   key={key}
@@ -225,8 +236,13 @@ export function DrainOrchestratorCard() {
                   <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground">
                     <span>WIP: <span className="font-mono text-foreground">{active ?? "?"}/{cap}</span></span>
                     <span>Batch-Limit: <span className="font-mono text-foreground">{cfg.batch}</span></span>
+                    <span>Global-Cap: <span className="font-mono text-foreground">{totalEnq}/{globalCap}</span></span>
+                    <span>Health: <span className="font-mono text-foreground">{health?.healthy === false ? "degraded" : health?.healthy ? "ok" : "?"}</span></span>
                     <span className="col-span-2">Job-Type: <span className="font-mono text-foreground">{cfg.jobType}</span></span>
                     <span className="col-span-2">Eligible: <span className="text-foreground">{cfg.eligibility}</span></span>
+                    <span className="col-span-2">
+                      Raw skipped_reason: <span className="font-mono text-foreground">{rawReason ?? "—"}</span>
+                    </span>
                     {batch && (
                       <span className="col-span-2">
                         Letzter Batch:{" "}
@@ -234,6 +250,23 @@ export function DrainOrchestratorCard() {
                       </span>
                     )}
                   </div>
+                  {extraEntries.length > 0 && (
+                    <details className="text-[11px]">
+                      <summary className="cursor-pointer text-muted-foreground">
+                        Metadata ({extraEntries.length})
+                      </summary>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1 text-muted-foreground">
+                        {extraEntries.map(([k, v]) => (
+                          <span key={k} className="col-span-2 sm:col-span-1 break-all">
+                            <span className="font-mono">{k}:</span>{" "}
+                            <span className="font-mono text-foreground">
+                              {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
               );
             })}
