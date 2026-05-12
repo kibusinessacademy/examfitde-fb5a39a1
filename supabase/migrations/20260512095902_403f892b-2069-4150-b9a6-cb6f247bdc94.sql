@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.fn_is_bronze_locked(uuid) TO anon;
