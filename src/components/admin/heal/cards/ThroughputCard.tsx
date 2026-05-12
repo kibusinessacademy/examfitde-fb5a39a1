@@ -25,31 +25,46 @@ export function ThroughputCard({ windowHours = 6 }: Props) {
     refetchInterval: 30_000,
   });
 
+  const d = throughput.data;
+  const claimable = d?.pending_claimable_now ?? 0;
+  const deferred = d?.pending_deferred_future ?? 0;
+  const terminal = d?.pending_admin_terminal ?? 0;
+
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold">Queue Throughput ({windowHours}h)</h3>
         <Badge variant="outline" className="text-[10px]">live · v2</Badge>
       </div>
-      {throughput.data ? (
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <Metric label="jobs/h" value={throughput.data.jobs_per_hour ?? 0} />
-          <Metric label={`done (${windowHours}h)`} value={throughput.data.completed_total ?? 0} />
-          <Metric label="duration p50" value={`${throughput.data.duration_p50_sec ?? 0}s`} />
-          <Metric label="duration p95" value={`${throughput.data.duration_p95_sec ?? 0}s`} />
-          <Metric label="pending wait p50" value={`${Math.round((throughput.data.pending_wait_p50_sec ?? 0) / 60)}m`} />
-          <Metric
-            label="pending wait p95"
-            value={`${Math.round((throughput.data.pending_wait_p95_sec ?? 0) / 60)}m`}
-            danger={(throughput.data.pending_wait_p95_sec ?? 0) > 3600}
-          />
-          <Metric label="lifecycle p95" value={`${throughput.data.lifecycle_p95_sec ?? 0}s`} />
-          <Metric
-            label="oldest processing"
-            value={`${Math.round(throughput.data.processing_oldest_sec ?? 0)}s`}
-            danger={(throughput.data.processing_oldest_sec ?? 0) > 600}
-          />
-        </div>
+      {d ? (
+        <>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <Metric label="jobs/h" value={d.jobs_per_hour ?? 0} />
+            <Metric label={`done (${windowHours}h)`} value={d.completed_total ?? 0} />
+            <Metric label="duration p50" value={`${d.duration_p50_sec ?? 0}s`} />
+            <Metric label="duration p95" value={`${d.duration_p95_sec ?? 0}s`} />
+            <Metric label="pending wait p50" value={`${Math.round((d.pending_wait_p50_sec ?? 0) / 60)}m`} />
+            <Metric
+              label="pending wait p95"
+              value={`${Math.round((d.pending_wait_p95_sec ?? 0) / 60)}m`}
+              danger={(d.pending_wait_p95_sec ?? 0) > 3600}
+            />
+            <Metric label="lifecycle p95" value={`${d.lifecycle_p95_sec ?? 0}s`} />
+            <Metric
+              label="oldest processing"
+              value={`${Math.round(d.processing_oldest_sec ?? 0)}s`}
+              danger={(d.processing_oldest_sec ?? 0) > 600}
+            />
+          </div>
+          <div className="mt-3 pt-2 border-t border-border flex flex-wrap gap-2 text-[10px]">
+            <Badge variant="secondary">claimable now: {claimable}</Badge>
+            <Badge variant="outline">deferred (run_after future): {deferred}</Badge>
+            {terminal > 0 && <Badge variant="outline">admin_terminal: {terminal}</Badge>}
+            <span className="text-text-muted self-center" title={String(d.metric_definition ?? "")}>
+              p50/p95 = effective wait (ohne deferred & terminal)
+            </span>
+          </div>
+        </>
       ) : (
         <Skeleton className="h-24 w-full" />
       )}
