@@ -1,69 +1,69 @@
 ---
-name: Publish-Readiness-Gate v1
-description: SSOT-Klassifikation für Publish-Readiness via integrity_report.v3.summary.hard_fail_reasons. Coverage ist KEIN Readiness-Signal. View v_publish_readiness_gate + RPCs admin_get_publish_readiness_gate + admin_reconcile_stale_integrity_only. Alte Coverage-RPC deprecated/redirected.
+name: Publish-Readiness-Gate v2 (BRONZE_REVIEW_CLEAN)
+description: SSOT-Klassifikation für Publish-Readiness via integrity_report.v3.summary.hard_fail_reasons. Coverage ist KEIN Readiness-Signal. View v_publish_readiness_gate v2 mit BRONZE_REVIEW_CLEAN-Klasse trennt Audit-Bronze-Flag von echtem Review-Bedarf. Reconciler-RPC v3 mit Step×Gate-Class-Matrix.
 type: feature
 ---
 
-# Publish-Readiness-Gate v1
+# Publish-Readiness-Gate v2
 
-**Lehre aus Batch 1 (2026-05-12):** `admin_reconcile_coverage_met_integrity_false` enqueuete 8 Pakete basierend auf `competency_question_coverage_pct ≥ 80`. Ergebnis: 4/8 Erfolg (echte STALE_INTEGRITY), 4/8 Hard-Fail mit `QUALITY_THRESHOLD_NOT_MET` — drei davon mit `TOO_FEW_APPROVED(116-348/500)`, einer mit `HARDISH_TOO_LOW`. Coverage misst Verteilung (jede LF hat Fragen), NICHT absolute Pool-Größe.
+**Lehre aus Batch 1 (2026-05-12):** Coverage misst Verteilung, NICHT Pool-Größe. `admin_reconcile_coverage_met_integrity_false` enqueuete 8 Pakete basierend auf coverage≥80 → 4/8 Hard-Fail (TOO_FEW_APPROVED, HARDISH_TOO_LOW).
+
+**Lehre aus v1→v2:** Bronze-Flag (`feature_flags.bronze.requires_review=true`) wurde historisch von `reconciler_bronze_branch` gesetzt. Manche Pakete sind aber heute clean (score=100, hard_fails=[]). Pure bronze-Klassifikation blockierte sie unnötig im Reconciler.
 
 ## SSOT-Regel
 
 **Coverage ist kein Publish-Readiness-Signal. `integrity_report.v3.summary.hard_fail_reasons` ist die SSOT.**
 
-## Architektur
+## Gate-Klassen (v2)
 
-### View `v_publish_readiness_gate` (service_role + supabase_read_only_user)
-Klassifiziert jedes building/queued Paket in genau eine `gate_class`:
+View `v_publish_readiness_gate` (service_role only). Precedence top-down:
 
 | Klasse | Bedingung | Heal-Pfad |
 |---|---|---|
+| COUNCIL_PENDING | active package_quality_council job | warten |
+| AUTO_PUBLISH_PENDING | active package_auto_publish job | warten |
+| **BRONZE_REVIEW_CLEAN** | bronze_locked AND hard_fails=[] AND score≥85 | Reconciler enqueue mit `bronze_lock_override=true` |
+| BRONZE_REVIEW_REQUIRED | bronze_locked + nicht clean | admin_bronze_tail_auto_unlock / Manual-Review |
+| POOL_GAP_REPAIR | hard_fail enthält TOO_FEW_APPROVED | repair_exam_pool_quality |
+| BLOOM_GAP_REPAIR | hard_fail BLOOM_GATE/MISSING_UNDERSTAND/EVALUATE | repair_exam_pool_quality |
+| TRAP_GAP_REPAIR | hard_fail TRAP_COVERAGE_BLOCK/HARDISH_TOO_LOW/ELITE_CONTEXT/CONFLICT_TYPE_LOW | repair_exam_pool_quality |
 | READY | hard_fails=[] AND score≥85 AND integrity_passed=true AND NOT bronze_locked | → Council/Auto-Publish |
-| BRONZE_REVIEW_REQUIRED | bronze_locked OR (hard_fails=[] AND score 75–84) | → admin_bronze_tail_auto_unlock / bronze_lock_override |
-| STALE_INTEGRITY | hard_fails=[] AND score≥85 AND integrity_passed=false AND no active job | → admin_reconcile_stale_integrity_only |
-| POOL_GAP_REPAIR | hard_fail enthält TOO_FEW_APPROVED | → repair_exam_pool_quality (kein Integrity-Retry!) |
-| BLOOM_GAP_REPAIR | hard_fail enthält BLOOM_GATE/MISSING_UNDERSTAND/MISSING_EVALUATE | → repair_exam_pool_quality (Bloom) |
-| TRAP_GAP_REPAIR | hard_fail enthält TRAP_COVERAGE_BLOCK/HARDISH_TOO_LOW/ELITE_CONTEXT/CONFLICT_TYPE_LOW | → repair_exam_pool_quality (Trap) |
-| COUNCIL_PENDING | active package_quality_council job | → warten |
-| AUTO_PUBLISH_PENDING | active package_auto_publish job | → warten |
-| NEEDS_INTEGRITY_FIRST | kein Report oder score<75 | → run_integrity_check (regulär) |
+| BRONZE_REVIEW_REQUIRED | hard_fails=[] AND score 75–84 (NICHT bronze_locked) | Bronze-Branch |
+| STALE_INTEGRITY | hard_fails=[] AND score≥85 AND integrity_passed=false AND no active integrity job | admin_reconcile_stale_integrity_only |
+| NEEDS_INTEGRITY_FIRST | kein Report oder score<75 | run_integrity_check (regulär) |
 
-Precedence: bronze_locked > active tail-job > pool/bloom/trap > score-based.
+## RPC `admin_reconcile_queued_tail_without_job` v3
 
-### RPC `admin_get_publish_readiness_gate(p_class, p_limit)`
-SECURITY DEFINER + has_role-Gate. Read-only Klassifikations-Lese.
+Step×Gate-Class-Allowlist (strict):
 
-### RPC `admin_reconcile_stale_integrity_only(p_limit, p_dry_run, p_min_age_hours, p_wip_cap)`
-- Eligibility ausschließlich `gate_class='STALE_INTEGRITY'` + `hours_since_integrity ≥ p_min_age_hours` (default 6h)
-- WIP-Cap (default 35) gegen system-weite Pending+Processing
-- Enqueue: `package_run_integrity_check` mit `bronze_lock_override=true`, `enqueue_source='stale_integrity_reconcile'`
-- Audit: `stale_integrity_reconcile_dry_run|enqueued|skipped|summary`
+| Step | erlaubte Gate-Classes |
+|---|---|
+| run_integrity_check | STALE_INTEGRITY |
+| quality_council | READY, COUNCIL_PENDING, **BRONZE_REVIEW_CLEAN** |
+| auto_publish | READY, AUTO_PUBLISH_PENDING, **BRONZE_REVIEW_CLEAN** |
 
-### Deprecated: `admin_reconcile_coverage_met_integrity_false`
-Hart umverdrahtet auf neue RPC. Audit `coverage_only_reconcile_deprecated_call`. Returntyp jsonb (war TABLE) — DROP+CREATE war nötig.
+Bronze-Lock-Trigger wird automatisch via `bronze_lock_override=true` umgangen wenn Gate-Class=`BRONZE_REVIEW_CLEAN` ODER `bronze_locked=true`. Audit `enqueue_source='queued_tail_reconciler_v3_gate_aware'`.
 
-## Baseline 2026-05-12 (234 building/queued)
+## Baseline 2026-05-12 (231 building/queued, post-v2)
 
 | Klasse | n |
 |---|---|
-| NEEDS_INTEGRITY_FIRST | 110 |
-| BRONZE_REVIEW_REQUIRED | 77 |
+| NEEDS_INTEGRITY_FIRST | 103 |
+| BRONZE_REVIEW_REQUIRED | 46 |
+| BRONZE_REVIEW_CLEAN | 28 |
 | READY | 25 |
-| POOL_GAP_REPAIR | 10 |
-| COUNCIL_PENDING | 9 |
+| COUNCIL_PENDING | 16 |
+| POOL_GAP_REPAIR | 11 |
 | TRAP_GAP_REPAIR | 2 |
-| AUTO_PUBLISH_PENDING | 1 |
-| STALE_INTEGRITY | 0 |
 
-Auffällig: Alle 9 Batch-1-Canaries sind `bronze_locked=true` aus historischem Tagging (siehe Bronze v2). Bronze-Auto-Unlock (memory v4) ist der nächste Heal-Pfad für die Score-100-Pakete.
+Live-Validation 2026-05-12: 2 BRONZE_REVIEW_CLEAN Pakete (Fleischer/Textilnäher, score=100) erfolgreich enqueued.
 
-## Smoke
-```sql
-SELECT gate_class, COUNT(*) FROM v_publish_readiness_gate GROUP BY 1;
-SELECT public.admin_reconcile_stale_integrity_only(10, true, 6.0, 35);
-```
+## Deprecated
+- `admin_reconcile_coverage_met_integrity_false` → redirect auf `admin_reconcile_stale_integrity_only`. Audit `coverage_only_reconcile_deprecated_call`.
 
 ## Migrations
-- `20260512_v_publish_readiness_gate` — View + getter RPC
+- `20260512_v_publish_readiness_gate` — v1 View+RPC
 - `20260512_admin_reconcile_stale_integrity_only` — RPC v2 + deprecate v1
+- `20260512_v_queued_tail_without_job_v2` — Status `queued` in next_tail_step
+- `20260512_admin_reconcile_queued_tail_v2_gate_aware` — Gate-Filter in RPC
+- `20260512_v_publish_readiness_gate_v2_bronze_review_clean` — BRONZE_REVIEW_CLEAN + RPC v3
