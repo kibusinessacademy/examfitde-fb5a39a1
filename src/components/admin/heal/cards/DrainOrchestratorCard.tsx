@@ -181,29 +181,84 @@ export function DrainOrchestratorCard() {
             <span className="font-medium">
               total enqueued {lastRun.metadata?.total_enqueued ?? 0}
             </span>{" "}
-            · health {lastRun.metadata?.health?.healthy ? "ok" : "degraded"}
+            · health {lastRun.metadata?.health?.healthy ? "ok" : "degraded"} · global cap{" "}
+            {lastRun.metadata?.global_cap ?? 20}
           </div>
         )}
 
+        {/* Klassen-Matrix: Stop-Reason + Grenzwerte aus letztem Lauf */}
+        <div>
+          <p className="text-xs font-medium mb-2">Stop-Reason &amp; Grenzwerte je Klasse</p>
+          <div className="space-y-1">
+            {(Object.keys(CLASS_CONFIG) as Array<keyof typeof CLASS_CONFIG>).map((key) => {
+              const cfg = CLASS_CONFIG[key];
+              const batch = lastBatches.find(
+                (b) => b.action_type === `drain_${key}_batch`,
+              );
+              const m = batch?.metadata ?? {};
+              const enq = m.enqueued ?? 0;
+              const active = m.active;
+              const cap = m.cap ?? cfg.wipCap;
+              const rawReason = m.skipped_reason as string | undefined;
+              const reasonLabel = rawReason
+                ? STOP_REASON_LABEL[rawReason] ?? rawReason
+                : enq > 0
+                ? "ok – enqueued"
+                : "—";
+              const status = batch?.result_status ?? "—";
+              return (
+                <div
+                  key={key}
+                  className="text-xs border rounded px-2 py-2 space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-medium">{key.toUpperCase()}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={enq > 0 ? "default" : status === "noop" ? "muted" : "outline"}>
+                        +{enq}
+                      </Badge>
+                      <Badge variant={rawReason ? "warning" : "success"}>
+                        {reasonLabel}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground">
+                    <span>WIP: <span className="font-mono text-foreground">{active ?? "?"}/{cap}</span></span>
+                    <span>Batch-Limit: <span className="font-mono text-foreground">{cfg.batch}</span></span>
+                    <span className="col-span-2">Job-Type: <span className="font-mono text-foreground">{cfg.jobType}</span></span>
+                    <span className="col-span-2">Eligible: <span className="text-foreground">{cfg.eligibility}</span></span>
+                    {batch && (
+                      <span className="col-span-2">
+                        Letzter Batch:{" "}
+                        {formatDistanceToNow(new Date(batch.created_at), { addSuffix: true })} · status {status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {lastBatches.length > 0 && (
-          <div>
-            <p className="text-xs font-medium mb-2">Letzte Batches</p>
-            <div className="space-y-1">
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground">
+              Batch-Historie ({lastBatches.length})
+            </summary>
+            <div className="space-y-1 mt-2">
               {lastBatches.map((b, i) => {
                 const enq = b.metadata?.enqueued ?? 0;
                 const reason = b.metadata?.skipped_reason;
                 return (
                   <div
                     key={i}
-                    className="flex items-center justify-between text-xs border rounded px-2 py-1"
+                    className="flex items-center justify-between border rounded px-2 py-1"
                   >
                     <span className="font-mono">
                       {b.action_type.replace("drain_", "").replace("_batch", "")}
                     </span>
                     <div className="flex items-center gap-2">
-                      <Badge variant={enq > 0 ? "default" : "outline"}>
-                        +{enq}
-                      </Badge>
+                      <Badge variant={enq > 0 ? "default" : "outline"}>+{enq}</Badge>
                       {reason && <Badge variant="outline">{reason}</Badge>}
                       <span className="text-muted-foreground">
                         {formatDistanceToNow(new Date(b.created_at), { addSuffix: true })}
@@ -213,7 +268,7 @@ export function DrainOrchestratorCard() {
                 );
               })}
             </div>
-          </div>
+          </details>
         )}
       </CardContent>
     </Card>
