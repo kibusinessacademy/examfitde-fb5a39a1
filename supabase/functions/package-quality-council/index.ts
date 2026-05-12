@@ -379,12 +379,32 @@ Deno.serve(async (req) => {
       .update({ meta: finalMeta, last_error: null })
       .eq("package_id", packageId).eq("step_key", "quality_council");
 
+    // SSOT: council_approved-Artifact MUSS gesetzt werden, wenn Verdict bronze+ ist
+    // (Score >= 75 und Status in PASS/REVIEW_REQUIRED/APPROVED). Vor markStepDone schreiben,
+    // damit ein nachgelagerter Fehler im Step-Done-Pfad das Artifact nicht verschluckt.
+    const verdictAllowsApproval =
+      typeof verdict.score === "number" &&
+      verdict.score >= 75 &&
+      ["PASS", "REVIEW_REQUIRED", "APPROVED"].includes(String(verdict.status ?? "").toUpperCase());
+
+    if (verdictAllowsApproval) {
+      const { error: approveErr } = await sb
+        .from("course_packages")
+        .update({ council_approved: true, council_approved_at: new Date().toISOString() })
+        .eq("id", packageId)
+        .eq("council_approved", false);
+      if (approveErr) {
+        console.error(`[QualityCouncil] Failed to set council_approved=true: ${approveErr.message}`);
+      } else {
+        console.log(`[QualityCouncil] council_approved artifact written for ${packageId.slice(0, 8)} (score=${verdict.score}, status=${verdict.status})`);
+      }
+    } else {
+      console.log(`[QualityCouncil] council_approved skipped for ${packageId.slice(0, 8)}: score=${verdict.score}, status=${verdict.status} (below bronze threshold)`);
+    }
+
     try {
       await markStepDone(sb, { packageId, stepKey: "quality_council", meta: finalMeta });
       console.log(`[QualityCouncil] ✅ Step done for ${packageId.slice(0, 8)}: score=${verdict.score} promoted=${promotedSoFar} ms=${budget.elapsed()}`);
-
-      const { error: approveErr } = await sb.from("course_packages").update({ council_approved: true }).eq("id", packageId);
-      if (approveErr) console.error(`[QualityCouncil] Failed to set council_approved=true: ${approveErr.message}`);
     } catch (stepErr) {
       console.error(`[QualityCouncil] ⛔ markStepDone failed for ${packageId.slice(0, 8)}: ${(stepErr as Error).message}`);
     }
