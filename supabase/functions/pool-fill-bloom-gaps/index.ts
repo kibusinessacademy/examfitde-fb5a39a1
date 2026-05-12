@@ -162,6 +162,47 @@ Deno.serve(async (req) => {
       `[bloom-gap-fill] Gaps found: ${bloomGaps.length} bloom, ${diffGaps.length} difficulty, ${compGaps.length} competency (total=${totalGap})`,
     );
 
+    // ── Idempotency Window (Patch A): per-package, 10min ──
+    // Avoids double-inserts from worker false-failure retries (worker_wall < function_wall).
+    const bloomSig = bloomGaps.map((g) => `${g.key}:${g.gap}`).sort().join(",");
+    const diffSig = diffGaps.map((g) => `${g.key}:${g.gap}`).sort().join(",");
+    const compSig = compGaps.map((c) => c.competency_id).sort().join(",");
+    const gapSignature = `b[${bloomSig}]|d[${diffSig}]|c[${compSig}]`;
+    const idempotencyKey = packageId
+      ? `pool_fill:${packageId}:${gapSignature}`
+      : `pool_fill:cur:${curriculumId}:${gapSignature}`;
+
+    if (packageId) {
+      const sinceIso = new Date(Date.now() - IDEMPOTENCY_WINDOW_MIN * 60_000).toISOString();
+      const { data: recent } = await sb
+        .from("auto_heal_log")
+        .select("id, created_at, reason")
+        .eq("action_type", "pool_fill_bloom_gaps_capped_run")
+        .eq("target_id", packageId)
+        .gte("created_at", sinceIso)
+        .limit(1);
+
+      if (recent && recent.length > 0) {
+        console.log(`[bloom-gap-fill] Idempotency-skip (recent run within ${IDEMPOTENCY_WINDOW_MIN}min) for package ${packageId.slice(0, 8)}`);
+        await sb.from("auto_heal_log").insert({
+          action_type: "pool_fill_bloom_gaps_recent_fill_skipped",
+          target_type: "course_package",
+          target_id: packageId,
+          result_status: "skipped",
+          reason: `idempotency_window_${IDEMPOTENCY_WINDOW_MIN}min`,
+          metadata: { idempotency_key: idempotencyKey, gap_signature: gapSignature, curriculum_id: curriculumId },
+        });
+        return json({
+          ok: true,
+          message: "recent_fill_skipped",
+          idempotency_key: idempotencyKey,
+          window_minutes: IDEMPOTENCY_WINDOW_MIN,
+          generated: 0,
+        });
+      }
+    }
+
+
     // ── 2. Build generation plan ──
     // Priority: competency gaps first (most impactful), then bloom gaps
     interface GenTarget {
