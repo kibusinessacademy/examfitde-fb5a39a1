@@ -40,6 +40,7 @@ function Step({ label, value, prev }: { label: string; value: number; prev?: num
 }
 
 export default function AdminTrafficFunnelPage() {
+  const qc = useQueryClient();
   const funnelQ = useQuery({
     queryKey: ['admin-traffic-funnel-24h'],
     queryFn: async () => {
