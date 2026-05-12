@@ -256,14 +256,25 @@ export default function AdminPaidOrdersOpsPage() {
                       </td>
                       <td className="p-2 text-right">
                         {r.ops_status === 'paid_no_grant' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={repair.isPending}
-                            onClick={() => repair.mutate(r.order_id)}
-                          >
-                            <Wrench className="h-3 w-3 mr-1" /> Repair
-                          </Button>
+                          <div className="flex flex-col items-end gap-1">
+                            <Button
+                              size="sm"
+                              variant={lastError?.orderId === r.order_id ? 'destructive' : 'outline'}
+                              disabled={repair.isPending}
+                              onClick={() => repair.mutate(r.order_id)}
+                            >
+                              <Wrench className="h-3 w-3 mr-1" />
+                              {lastError?.orderId === r.order_id ? 'Retry' : 'Repair'}
+                            </Button>
+                            {lastError?.orderId === r.order_id && (
+                              <span
+                                className="text-[10px] text-status-danger max-w-[12rem] truncate"
+                                title={lastError.message}
+                              >
+                                {lastError.message}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
