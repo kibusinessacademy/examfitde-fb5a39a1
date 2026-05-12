@@ -69,12 +69,23 @@ export default function PipelineFailureDrilldownCard() {
     },
     onSuccess: (data: any) => {
       toast.success("Worker restart ausgelöst", {
-        description: `requeued: ${data?.requeued ?? 0} · run_id ${String(data?.run_id ?? "").slice(0, 8)}`,
+        description: `requeued: ${data?.requeued ?? 0} · Δ fails ${data?.delta?.delta ?? 0} · run_id ${String(data?.run_id ?? "").slice(0, 8)}`,
       });
       qc.invalidateQueries({ queryKey: ["admin-pipeline-failure-drilldown"] });
       qc.invalidateQueries({ queryKey: ["admin-launch-readiness-drilldown"] });
+      qc.invalidateQueries({ queryKey: ["admin-pipeline-worker-restart-audit"] });
     },
     onError: (e: any) => toast.error("Worker restart fehlgeschlagen", { description: e?.message }),
+  });
+
+  const audit = useQuery({
+    queryKey: ["admin-pipeline-worker-restart-audit"],
+    queryFn: async () => {
+      const { data, error } = await (supabase.rpc as any)("admin_get_pipeline_worker_restart_audit", { p_limit: 5 });
+      if (error) throw error;
+      return (data ?? []) as AuditRow[];
+    },
+    refetchInterval: 60_000,
   });
 
   const { data, isLoading, isFetching, refetch } = useQuery({
