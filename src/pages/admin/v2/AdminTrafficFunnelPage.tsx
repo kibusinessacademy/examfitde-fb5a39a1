@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Loader2, RefreshCw, AlertTriangle, ArrowRight, FlaskConical } from 'lucide-react';
+import { toast } from 'sonner';
 
 type Funnel = {
   page_views: number;
@@ -39,6 +40,7 @@ function Step({ label, value, prev }: { label: string; value: number; prev?: num
 }
 
 export default function AdminTrafficFunnelPage() {
+  const qc = useQueryClient();
   const funnelQ = useQuery({
     queryKey: ['admin-traffic-funnel-24h'],
     queryFn: async () => {
@@ -63,6 +65,27 @@ export default function AdminTrafficFunnelPage() {
   const isStall =
     !!f && f.cta_visible >= 50 && f.cta_clicked === 0 && f.quiz_started === 0 && f.checkout_started === 0;
 
+  const emitTest = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await (supabase.rpc as any)('admin_emit_test_traffic_events', {
+        p_page_path: '/admin/ops/funnel/test',
+        p_cta_location: 'admin_test',
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success('Test-Events emittiert', {
+        description: `cta_visible + cta_clicked + quiz_started · session ${(data as any)?.session_id?.slice(0, 24)}…`,
+      });
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ['admin-traffic-funnel-24h'] });
+        qc.invalidateQueries({ queryKey: ['admin-traffic-funnel-breakdown-24h'] });
+      }, 800);
+    },
+    onError: (e: any) => toast.error('Test-Run fehlgeschlagen', { description: e?.message }),
+  });
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <header className="flex items-start justify-between gap-4">
@@ -72,9 +95,20 @@ export default function AdminTrafficFunnelPage() {
             CTA sichtbar → Klick → Quiz → Checkout → Purchase. SSOT: <code>conversion_events</code>.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => { funnelQ.refetch(); breakdownQ.refetch(); }}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${funnelQ.isFetching ? 'animate-spin' : ''}`} /> Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={emitTest.isPending}
+            onClick={() => emitTest.mutate()}
+            title="Inseriert kontrollierte cta_visible/cta_clicked/quiz_started Events"
+          >
+            <FlaskConical className="h-4 w-4 mr-1" /> Test-Run
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => { funnelQ.refetch(); breakdownQ.refetch(); }}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${funnelQ.isFetching ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
+        </div>
       </header>
 
       {isStall && (
