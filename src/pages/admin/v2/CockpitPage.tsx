@@ -188,6 +188,9 @@ export default function CockpitPage() {
         {/* Launch Readiness Drilldown — pro-Achse Status + direkter Drilldown */}
         <LaunchReadinessDrilldownCard />
 
+        {/* Pipeline Red Drilldown — failed_jobs Top-Cluster mit Klassifikation */}
+        <PipelineFailureDrilldownCard />
+
         {/* Integrity Health — macht generischen INTEGRITY_FAILED Blocker transparent */}
         <IntegrityHealthBanner />
 
