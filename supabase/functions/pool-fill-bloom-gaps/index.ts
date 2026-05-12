@@ -384,10 +384,48 @@ Antworte NUR als JSON:
 
     let aiQuestions: Array<Record<string, unknown>> = [];
     let aiError: string | null = null;
+    let modelUsed: string | null = null;
+    const aiStart = Date.now();
+
+    // Patch A.3: Per-model wall-time cap (22s) + tolerant JSON repair.
+    // Worker-Wall = 45s. With 4 models in chain, a single hung model used to burn
+    // 30–60s on "Could not parse" loops. We hard-cap per attempt and budget total <40s.
+    const PER_MODEL_TIMEOUT_MS = 22_000;
+    const TOTAL_AI_BUDGET_MS = 38_000;
+
+    function repairJsonString(raw: string): Record<string, unknown> | null {
+      let s = raw;
+      s = s.replace(/^```(?:json)?\s*\n?/im, "").replace(/\n?```\s*$/im, "").trim();
+      if (!s.startsWith("{") && !s.startsWith("[")) {
+        const m = s.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+        if (m) s = m[1];
+      }
+      // Pass 1: direct parse
+      try { return JSON.parse(s); } catch { /* try repair */ }
+      // Pass 2: trim trailing junk after last balanced brace
+      const lastBrace = s.lastIndexOf("}");
+      if (lastBrace > 0) {
+        try { return JSON.parse(s.slice(0, lastBrace + 1)); } catch { /* try */ }
+        // Pass 3: close an unterminated questions[] array
+        try { return JSON.parse(s.slice(0, lastBrace + 1) + "]}"); } catch { /* try */ }
+      }
+      // Pass 4: extract last fully-closed top-level object containing "questions"
+      const m = s.match(/\{[^{}]*"questions"\s*:\s*\[[\s\S]*?\}\s*\]\s*\}/);
+      if (m) {
+        try { return JSON.parse(m[0]); } catch { /* give up */ }
+      }
+      return null;
+    }
 
     for (const model of modelChain) {
+      const elapsed = Date.now() - aiStart;
+      if (elapsed > TOTAL_AI_BUDGET_MS) {
+        console.warn(`[bloom-gap-fill] AI total budget exhausted (${elapsed}ms) — stopping fallback chain`);
+        aiError = `total_ai_budget_exhausted_${elapsed}ms`;
+        break;
+      }
       try {
-        const result = await callAIJSON({
+        const aiPromise = callAIJSON({
           model: model.model,
           provider: model.provider as "openai" | "anthropic" | "google",
           messages: [
@@ -397,35 +435,29 @@ Antworte NUR als JSON:
           temperature: 0.7,
           max_tokens: MAX_AI_TOKENS,
         });
+        const result = await Promise.race([
+          aiPromise,
+          new Promise<never>((_, rej) =>
+            setTimeout(() => rej(new Error(`per_model_timeout_${PER_MODEL_TIMEOUT_MS}ms`)), PER_MODEL_TIMEOUT_MS),
+          ),
+        ]);
 
-        let cleaned = result.content;
-        cleaned = cleaned.replace(/^```(?:json)?\s*\n?/im, "").replace(/\n?```\s*$/im, "").trim();
-        if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
-          const match = cleaned.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
-          if (match) cleaned = match[1];
-        }
-
-        let parsed: Record<string, unknown>;
-        try {
-          parsed = JSON.parse(cleaned);
-        } catch {
-          const lastComplete = cleaned.lastIndexOf("}");
-          if (lastComplete > 0) {
-            parsed = JSON.parse(cleaned.slice(0, lastComplete + 1) + "]}");
-          } else {
-            throw new Error("Could not parse AI response");
-          }
-        }
+        const parsed = repairJsonString((result as { content: string }).content);
+        if (!parsed) throw new Error("Could not parse AI response (all repair passes failed)");
 
         aiQuestions = Array.isArray(parsed)
-          ? parsed
+          ? parsed as Array<Record<string, unknown>>
           : (parsed.questions as Array<Record<string, unknown>>) || [];
-        if (aiQuestions.length > 0) break;
+        if (aiQuestions.length > 0) {
+          modelUsed = model.model;
+          break;
+        }
       } catch (e) {
         aiError = (e as Error).message;
         console.error(`[bloom-gap-fill] AI error with ${model.model}: ${aiError}`);
       }
     }
+    const aiWallMs = Date.now() - aiStart;
 
     if (aiQuestions.length === 0) {
       console.error("[bloom-gap-fill] All AI models failed:", aiError);
@@ -469,7 +501,7 @@ Antworte NUR als JSON:
 
     console.log(`[bloom-gap-fill] Inserted ${inserts.length} questions`);
 
-    // ── Audit successful capped run (Patch A) ──
+    // ── Audit successful capped run (Patch A.3: extended forensics) ──
     if (packageId) {
       await sb.from("auto_heal_log").insert({
         action_type: "pool_fill_bloom_gaps_capped_run",
@@ -479,10 +511,15 @@ Antworte NUR als JSON:
         result_detail: `inserted_${inserts.length}_cap_${MAX_QUESTIONS_PER_RUN}`,
         metadata: {
           idempotency_key: idempotencyKey,
+          idempotency_source: "exam_questions",
           gap_signature: gapSignature,
           curriculum_id: curriculumId,
+          recent_inserts_observed: recentN,
+          window_minutes: IDEMPOTENCY_WINDOW_MIN,
           inserted: inserts.length,
           plan_targets: plan.length,
+          model_used: modelUsed,
+          ai_wall_ms: aiWallMs,
         },
       });
     }
