@@ -184,6 +184,9 @@ export default function CockpitPage() {
           </div>
         </header>
 
+        {/* Launch Readiness Drilldown — pro-Achse Status + direkter Drilldown */}
+        <LaunchReadinessDrilldownCard />
+
         {/* Integrity Health — macht generischen INTEGRITY_FAILED Blocker transparent */}
         <IntegrityHealthBanner />
 
