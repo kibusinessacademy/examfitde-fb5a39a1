@@ -57,9 +57,8 @@ export function AutoPublishErrorOverviewCard() {
     queryKey: ["admin_get_auto_publish_error_overview", onlyProblems],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_get_auto_publish_error_overview", {
-        p_package_ids: null,
         p_only_problems: onlyProblems === "problems",
-      });
+      } as never);
       if (error) throw error;
       return (data ?? []) as Row[];
     },
