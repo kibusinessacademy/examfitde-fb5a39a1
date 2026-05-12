@@ -236,8 +236,13 @@ export function DrainOrchestratorCard() {
                   <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground">
                     <span>WIP: <span className="font-mono text-foreground">{active ?? "?"}/{cap}</span></span>
                     <span>Batch-Limit: <span className="font-mono text-foreground">{cfg.batch}</span></span>
+                    <span>Global-Cap: <span className="font-mono text-foreground">{totalEnq}/{globalCap}</span></span>
+                    <span>Health: <span className="font-mono text-foreground">{health?.healthy === false ? "degraded" : health?.healthy ? "ok" : "?"}</span></span>
                     <span className="col-span-2">Job-Type: <span className="font-mono text-foreground">{cfg.jobType}</span></span>
                     <span className="col-span-2">Eligible: <span className="text-foreground">{cfg.eligibility}</span></span>
+                    <span className="col-span-2">
+                      Raw skipped_reason: <span className="font-mono text-foreground">{rawReason ?? "—"}</span>
+                    </span>
                     {batch && (
                       <span className="col-span-2">
                         Letzter Batch:{" "}
@@ -245,6 +250,23 @@ export function DrainOrchestratorCard() {
                       </span>
                     )}
                   </div>
+                  {extraEntries.length > 0 && (
+                    <details className="text-[11px]">
+                      <summary className="cursor-pointer text-muted-foreground">
+                        Metadata ({extraEntries.length})
+                      </summary>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1 text-muted-foreground">
+                        {extraEntries.map(([k, v]) => (
+                          <span key={k} className="col-span-2 sm:col-span-1 break-all">
+                            <span className="font-mono">{k}:</span>{" "}
+                            <span className="font-mono text-foreground">
+                              {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
               );
             })}
