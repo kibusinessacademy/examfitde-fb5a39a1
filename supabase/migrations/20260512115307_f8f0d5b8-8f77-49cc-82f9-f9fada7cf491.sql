@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.admin_drain_queued_tail_auto(int,int,int,int,bool) TO anon;
