@@ -441,6 +441,25 @@ Antworte NUR als JSON:
 
     console.log(`[bloom-gap-fill] Inserted ${inserts.length} questions`);
 
+    // ── Audit successful capped run (Patch A) ──
+    if (packageId) {
+      await sb.from("auto_heal_log").insert({
+        action_type: "pool_fill_bloom_gaps_capped_run",
+        target_type: "course_package",
+        target_id: packageId,
+        result_status: "ok",
+        reason: `inserted_${inserts.length}_cap_${MAX_QUESTIONS_PER_RUN}`,
+        metadata: {
+          idempotency_key: idempotencyKey,
+          gap_signature: gapSignature,
+          curriculum_id: curriculumId,
+          inserted: inserts.length,
+          plan_targets: plan.length,
+        },
+      });
+    }
+
+
     // ── 7. Post-fill: kick validate_exam_pool ──
     const pkgFilter = packageId
       ? sb.from("course_packages").select("id").eq("id", packageId).eq("status", "building")
