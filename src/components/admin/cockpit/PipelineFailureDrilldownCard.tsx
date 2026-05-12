@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, AlertOctagon } from "lucide-react";
+import { Loader2, RefreshCw, AlertOctagon, Power } from "lucide-react";
+import { toast } from "sonner";
 
 type Row = {
   job_type: string;
@@ -35,6 +36,26 @@ const CLASS_VARIANT: Record<Row["classification"], "default" | "secondary" | "de
 
 export default function PipelineFailureDrilldownCard() {
   const [windowMin, setWindowMin] = useState(60);
+  const qc = useQueryClient();
+
+  const restart = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await (supabase.rpc as any)("admin_pipeline_worker_restart", {
+        p_window_minutes: windowMin,
+        p_max_requeue: 100,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      toast.success("Worker restart ausgelöst", {
+        description: `requeued: ${data?.requeued ?? 0} · run_id ${String(data?.run_id ?? "").slice(0, 8)}`,
+      });
+      qc.invalidateQueries({ queryKey: ["admin-pipeline-failure-drilldown"] });
+      qc.invalidateQueries({ queryKey: ["admin-launch-readiness-drilldown"] });
+    },
+    onError: (e: any) => toast.error("Worker restart fehlgeschlagen", { description: e?.message }),
+  });
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["admin-pipeline-failure-drilldown", windowMin],
@@ -82,6 +103,16 @@ export default function PipelineFailureDrilldownCard() {
           ))}
           <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+          </Button>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => restart.mutate()}
+            disabled={restart.isPending}
+            title="Reapt stale Processing-Jobs + requeut infra/rate_limit Failures im Fenster"
+          >
+            {restart.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Power className="h-4 w-4 mr-1" />}
+            Worker Restart
           </Button>
         </div>
       </CardHeader>
