@@ -29,6 +29,48 @@ const CLASS_ORDER = [
   "TRAP_GAP_REPAIR",
 ] as const;
 
+// Klassen-Konfiguration (gespiegelt aus den drain_*-RPCs).
+// Quelle: migration 20260512115118 + memory multi-class-drain-orchestrator-v1
+const CLASS_CONFIG: Record<
+  string,
+  { batch: number; wipCap: number; jobType: string; eligibility: string }
+> = {
+  bronze_review_required: {
+    batch: 5,
+    wipCap: 5,
+    jobType: "package_elite_harden",
+    eligibility: "bronze_locked, score 75–84, repair_attempts<1, !repair_active",
+  },
+  needs_integrity: {
+    batch: 10,
+    wipCap: 10,
+    jobType: "package_run_integrity_check",
+    eligibility: "status∈(building,queued), kein aktiver integrity-Job",
+  },
+  pool_gap: {
+    batch: 3,
+    wipCap: 3,
+    jobType: "package_repair_exam_pool_quality",
+    eligibility: "POOL_GAP_REPAIR, kein aktiver pool-repair-Job",
+  },
+  trap_gap: {
+    batch: 2,
+    wipCap: 2,
+    jobType: "package_exam_rebalance",
+    eligibility: "TRAP_GAP_REPAIR, kein aktiver rebalance-Job",
+  },
+};
+
+const STOP_REASON_LABEL: Record<string, string> = {
+  wip_cap: "WIP-Cap erreicht",
+  global_cap: "globaler Cap (20/Run) erreicht",
+  class_empty: "keine eligiblen Pakete",
+  health_gate_red: "Health-Gate rot (Hard-Stop)",
+  repair_already_active: "Repair bereits aktiv",
+  not_bronze: "kein Bronze-Status",
+  attempts_exhausted: "max. Repair-Versuche erreicht",
+};
+
 /**
  * Multi-Class Drain-Orchestrator Cockpit.
  * Reads recent auto_heal_log runs (action_type=drain_orchestrator_run + per-class batches)
