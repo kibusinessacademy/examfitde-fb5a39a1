@@ -95,6 +95,15 @@ export default function AdminTrafficFunnelPage() {
             CTA sichtbar → Klick → Quiz → Checkout → Purchase. SSOT: <code>conversion_events</code>.
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={emitTest.isPending}
+          onClick={() => emitTest.mutate()}
+          title="Inseriert kontrollierte cta_visible/cta_clicked/quiz_started Events"
+        >
+          <FlaskConical className="h-4 w-4 mr-1" /> Test-Run
+        </Button>
         <Button variant="outline" size="sm" onClick={() => { funnelQ.refetch(); breakdownQ.refetch(); }}>
           <RefreshCw className={`h-4 w-4 mr-1 ${funnelQ.isFetching ? 'animate-spin' : ''}`} /> Refresh
         </Button>
