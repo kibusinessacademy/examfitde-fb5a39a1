@@ -90,22 +90,49 @@ export default function AdminPaidOrdersOpsPage() {
     paid_not_fulfillable: rows.filter((r) => r.ops_status === 'paid_not_fulfillable').length,
   }), [rows]);
 
+  const [lastError, setLastError] = useState<{ orderId: string; message: string } | null>(null);
+
   const repair = useMutation({
     mutationFn: async (orderId: string | null) => {
+      if (orderId) {
+        const { data, error } = await (supabase.rpc as any)('admin_repair_order_with_audit', {
+          p_order_id: orderId,
+        });
+        if (error) throw error;
+        return data;
+      }
       const { data, error } = await (supabase.rpc as any)('admin_repair_paid_orders_without_grant', {
-        p_order_id: orderId,
+        p_caller_id: null,
         p_dry_run: false,
       });
       if (error) throw error;
       return data;
     },
-    onSuccess: (data, orderId) => {
-      toast.success(orderId ? 'Order repariert' : 'Bulk-Repair gestartet', {
-        description: typeof data === 'object' ? JSON.stringify(data) : String(data),
-      });
+    onSuccess: (data: any, orderId) => {
+      if (orderId) {
+        const before = Array.isArray(data?.grants_before) ? data.grants_before.length : 0;
+        const after = Array.isArray(data?.grants_after) ? data.grants_after.length : 0;
+        const ok = data?.status === 'success';
+        if (ok) {
+          setLastError(null);
+          toast.success(`Repariert: grants ${before} → ${after}`, {
+            description: `run_id ${String(data?.run_id).slice(0, 8)} · order ${String(orderId).slice(0, 8)}`,
+          });
+        } else {
+          setLastError({ orderId, message: data?.error ?? 'unknown' });
+          toast.error('Repair fehlgeschlagen', { description: data?.error ?? 'unknown' });
+        }
+      } else {
+        toast.success('Bulk-Repair abgeschlossen', {
+          description: `repariert: ${data?.repaired ?? 0} · failed: ${data?.failed ?? 0}`,
+        });
+      }
       qc.invalidateQueries({ queryKey: ['admin-paid-orders-ops'] });
     },
-    onError: (e: any) => toast.error('Repair fehlgeschlagen', { description: e?.message }),
+    onError: (e: any, orderId) => {
+      if (typeof orderId === 'string') setLastError({ orderId, message: e?.message ?? 'unknown' });
+      toast.error('Repair fehlgeschlagen', { description: e?.message });
+    },
   });
 
   return (
