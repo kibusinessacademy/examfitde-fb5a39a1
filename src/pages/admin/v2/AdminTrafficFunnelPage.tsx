@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Loader2, RefreshCw, AlertTriangle, ArrowRight, FlaskConical } from 'lucide-react';
+import { toast } from 'sonner';
 
 type Funnel = {
   page_views: number;
