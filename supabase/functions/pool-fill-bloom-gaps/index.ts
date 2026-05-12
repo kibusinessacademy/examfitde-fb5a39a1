@@ -34,9 +34,14 @@ function json(body: unknown, status = 200) {
 }
 
 // ── Config ──
-const MAX_QUESTIONS_PER_RUN = 40;       // Budget guard per invocation
+// Patch A (P0 loop-breaker): keep function-wall < 45s worker timeout.
+// Worker-Wall (45s) was being exceeded by AI calls on 36-question prompts,
+// triggering false-failure retries and double-inserts (no idempotency).
+const MAX_QUESTIONS_PER_RUN = 12;        // was 40 — caps AI prompt size
+const MAX_AI_TOKENS = 5000;              // was 12000 — keeps single AI call <25s
 const MIN_BATCH_SIZE = 5;                // Don't generate fewer than 5
-const MAX_COMPETENCY_GAPS = 10;          // Max competencies to fill per run
+const MAX_COMPETENCY_GAPS = 6;           // was 10 — aligned with smaller budget
+const IDEMPOTENCY_WINDOW_MIN = 10;       // skip re-runs per package within 10min
 
 // ── Bloom → Difficulty mapping (SSOT-aligned) ──
 const BLOOM_DIFFICULTY_MAP: Record<string, string> = {
