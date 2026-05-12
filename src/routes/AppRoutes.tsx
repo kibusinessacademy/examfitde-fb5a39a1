@@ -181,6 +181,8 @@ const AdminH5PUploadPage = lazyRetry(() => import('@/pages/admin/v2/AdminH5PUplo
 const AdminH5PSmokePage = lazyRetry(() => import('@/pages/admin/v2/AdminH5PSmokePage'));
 const AdminLearningEventsPage = lazyRetry(() => import('@/pages/admin/v2/AdminLearningEventsPage'));
 const AdminAccessMatrixPage = lazyRetry(() => import('@/pages/admin/v2/AdminAccessMatrixPage'));
+const AdminPaidOrdersOpsPage = lazyRetry(() => import('@/pages/admin/v2/AdminPaidOrdersOpsPage'));
+const AdminTrafficFunnelPage = lazyRetry(() => import('@/pages/admin/v2/AdminTrafficFunnelPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -480,6 +482,8 @@ const AppRoutes = () => {
           <Route path="ops/h5p-smoke" element={<AdminH5PSmokePage />} />
           <Route path="ops/events" element={<AdminLearningEventsPage />} />
           <Route path="ops/access" element={<AdminAccessMatrixPage />} />
+          <Route path="ops/orders" element={<AdminPaidOrdersOpsPage />} />
+          <Route path="ops/funnel" element={<AdminTrafficFunnelPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
