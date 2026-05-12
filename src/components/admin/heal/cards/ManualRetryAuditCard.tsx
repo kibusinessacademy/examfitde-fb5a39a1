@@ -58,8 +58,8 @@ export function ManualRetryAuditCard() {
       const since = new Date(Date.now() - sinceHours * 3600 * 1000).toISOString();
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(packageId);
       const { data, error } = await supabase.rpc("admin_get_manual_retry_audit", {
-        p_action_types: action ? [action] : null,
-        p_package_id: isUuid ? packageId : null,
+        p_action_types: action ? [action] : undefined,
+        p_package_id: isUuid ? packageId : undefined,
         p_since: since,
         p_until: new Date().toISOString(),
         p_limit: 200,
