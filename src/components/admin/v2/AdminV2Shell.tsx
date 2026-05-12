@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
   LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Heart, Gauge,
-  Shield, Upload, Activity, KeyRound
+  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,8 @@ const NAV_ITEMS = [
 
 /** Sekundäre Admin-Tools (kompakter als Hauptnavigation) */
 const SECONDARY_ITEMS = [
+  { to: '/admin/ops/orders', label: 'Paid Orders', icon: Receipt },
+  { to: '/admin/ops/funnel', label: 'Traffic Funnel', icon: TrendingUp },
   { to: '/admin/ops/roles', label: 'Rollen', icon: Shield },
   { to: '/admin/ops/access', label: 'Access-Matrix', icon: KeyRound },
   { to: '/admin/ops/events', label: 'Learning-Events', icon: Activity },
