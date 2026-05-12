@@ -70,6 +70,8 @@ import {
 import { RecoverActionsCard } from "@/components/admin/heal/cards/RecoverActionsCard";
 import { TargetedHealCard } from "@/components/admin/heal/cards/TargetedHealCard";
 import { StuckPatternsCard } from "@/components/admin/heal/cards/StuckPatternsCard";
+import { AutoPublishRetryCard } from "@/components/admin/heal/cards/AutoPublishRetryCard";
+import { ManualRetryAuditCard } from "@/components/admin/heal/cards/ManualRetryAuditCard";
 import { BronzeQuarantineCard } from "@/components/admin/heal/cards/BronzeQuarantineCard";
 import { PreHeartbeatKillRiskCard } from "@/components/admin/heal/cards/PreHeartbeatKillRiskCard";
 import { PreHeartbeatKillForensicsCard } from "@/components/admin/heal/cards/PreHeartbeatKillForensicsCard";
@@ -333,6 +335,8 @@ export default function HealCockpitPage() {
             <StatusReverterAlertsCard />
             <HealFunctionAuditCard />
             <StuckPatternsCard />
+            <AutoPublishRetryCard />
+            <ManualRetryAuditCard />
             <BronzeQuarantineCard />
             <HealStatusCard />
             <SoftDriftMcRepairCard />
