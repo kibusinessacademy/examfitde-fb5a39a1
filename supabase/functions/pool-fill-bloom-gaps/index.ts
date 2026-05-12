@@ -34,9 +34,14 @@ function json(body: unknown, status = 200) {
 }
 
 // ── Config ──
-const MAX_QUESTIONS_PER_RUN = 40;       // Budget guard per invocation
+// Patch A (P0 loop-breaker): keep function-wall < 45s worker timeout.
+// Worker-Wall (45s) was being exceeded by AI calls on 36-question prompts,
+// triggering false-failure retries and double-inserts (no idempotency).
+const MAX_QUESTIONS_PER_RUN = 12;        // was 40 — caps AI prompt size
+const MAX_AI_TOKENS = 5000;              // was 12000 — keeps single AI call <25s
 const MIN_BATCH_SIZE = 5;                // Don't generate fewer than 5
-const MAX_COMPETENCY_GAPS = 10;          // Max competencies to fill per run
+const MAX_COMPETENCY_GAPS = 6;           // was 10 — aligned with smaller budget
+const IDEMPOTENCY_WINDOW_MIN = 10;       // skip re-runs per package within 10min
 
 // ── Bloom → Difficulty mapping (SSOT-aligned) ──
 const BLOOM_DIFFICULTY_MAP: Record<string, string> = {
@@ -156,6 +161,47 @@ Deno.serve(async (req) => {
     console.log(
       `[bloom-gap-fill] Gaps found: ${bloomGaps.length} bloom, ${diffGaps.length} difficulty, ${compGaps.length} competency (total=${totalGap})`,
     );
+
+    // ── Idempotency Window (Patch A): per-package, 10min ──
+    // Avoids double-inserts from worker false-failure retries (worker_wall < function_wall).
+    const bloomSig = bloomGaps.map((g) => `${g.key}:${g.gap}`).sort().join(",");
+    const diffSig = diffGaps.map((g) => `${g.key}:${g.gap}`).sort().join(",");
+    const compSig = compGaps.map((c) => c.competency_id).sort().join(",");
+    const gapSignature = `b[${bloomSig}]|d[${diffSig}]|c[${compSig}]`;
+    const idempotencyKey = packageId
+      ? `pool_fill:${packageId}:${gapSignature}`
+      : `pool_fill:cur:${curriculumId}:${gapSignature}`;
+
+    if (packageId) {
+      const sinceIso = new Date(Date.now() - IDEMPOTENCY_WINDOW_MIN * 60_000).toISOString();
+      const { data: recent } = await sb
+        .from("auto_heal_log")
+        .select("id, created_at, reason")
+        .eq("action_type", "pool_fill_bloom_gaps_capped_run")
+        .eq("target_id", packageId)
+        .gte("created_at", sinceIso)
+        .limit(1);
+
+      if (recent && recent.length > 0) {
+        console.log(`[bloom-gap-fill] Idempotency-skip (recent run within ${IDEMPOTENCY_WINDOW_MIN}min) for package ${packageId.slice(0, 8)}`);
+        await sb.from("auto_heal_log").insert({
+          action_type: "pool_fill_bloom_gaps_recent_fill_skipped",
+          target_type: "course_package",
+          target_id: packageId,
+          result_status: "skipped",
+          reason: `idempotency_window_${IDEMPOTENCY_WINDOW_MIN}min`,
+          metadata: { idempotency_key: idempotencyKey, gap_signature: gapSignature, curriculum_id: curriculumId },
+        });
+        return json({
+          ok: true,
+          message: "recent_fill_skipped",
+          idempotency_key: idempotencyKey,
+          window_minutes: IDEMPOTENCY_WINDOW_MIN,
+          generated: 0,
+        });
+      }
+    }
+
 
     // ── 2. Build generation plan ──
     // Priority: competency gaps first (most impactful), then bloom gaps
@@ -321,7 +367,7 @@ Antworte NUR als JSON:
             { role: "user", content: `Generiere jetzt die ${questionsSpec.length} Prüfungsfragen.` },
           ],
           temperature: 0.7,
-          max_tokens: 12000,
+          max_tokens: MAX_AI_TOKENS,
         });
 
         let cleaned = result.content;
@@ -394,6 +440,25 @@ Antworte NUR als JSON:
     }
 
     console.log(`[bloom-gap-fill] Inserted ${inserts.length} questions`);
+
+    // ── Audit successful capped run (Patch A) ──
+    if (packageId) {
+      await sb.from("auto_heal_log").insert({
+        action_type: "pool_fill_bloom_gaps_capped_run",
+        target_type: "course_package",
+        target_id: packageId,
+        result_status: "ok",
+        reason: `inserted_${inserts.length}_cap_${MAX_QUESTIONS_PER_RUN}`,
+        metadata: {
+          idempotency_key: idempotencyKey,
+          gap_signature: gapSignature,
+          curriculum_id: curriculumId,
+          inserted: inserts.length,
+          plan_targets: plan.length,
+        },
+      });
+    }
+
 
     // ── 7. Post-fill: kick validate_exam_pool ──
     const pkgFilter = packageId
