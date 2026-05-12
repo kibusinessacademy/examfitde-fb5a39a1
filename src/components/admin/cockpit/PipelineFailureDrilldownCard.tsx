@@ -104,6 +104,16 @@ export default function PipelineFailureDrilldownCard() {
           <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
           </Button>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => restart.mutate()}
+            disabled={restart.isPending}
+            title="Reapt stale Processing-Jobs + requeut infra/rate_limit Failures im Fenster"
+          >
+            {restart.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Power className="h-4 w-4 mr-1" />}
+            Worker Restart
+          </Button>
         </div>
       </CardHeader>
       <CardContent>
