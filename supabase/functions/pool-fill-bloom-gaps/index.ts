@@ -172,34 +172,62 @@ Deno.serve(async (req) => {
       ? `pool_fill:${packageId}:${gapSignature}`
       : `pool_fill:cur:${curriculumId}:${gapSignature}`;
 
-    if (packageId) {
-      const sinceIso = new Date(Date.now() - IDEMPOTENCY_WINDOW_MIN * 60_000).toISOString();
-      const { data: recent } = await sb
-        .from("auto_heal_log")
-        .select("id, created_at, reason")
-        .eq("action_type", "pool_fill_bloom_gaps_capped_run")
-        .eq("target_id", packageId)
-        .gte("created_at", sinceIso)
-        .limit(1);
+    // Patch A.2: Idempotency-Source = exam_questions direkt (nicht auto_heal_log).
+    // Grund: Worker-Wall-Kill mid-run hinterlässt KEIN Audit, aber sehr wohl Inserts.
+    // → Wir messen die Wahrheit aus exam_questions: wie viele ai_generated rows
+    //   wurden für diese curriculum_id in den letzten N Minuten geschrieben.
+    const sinceIso = new Date(Date.now() - IDEMPOTENCY_WINDOW_MIN * 60_000).toISOString();
+    const { count: recentInserts } = await sb
+      .from("exam_questions")
+      .select("id", { count: "exact", head: true })
+      .eq("curriculum_id", curriculumId)
+      .eq("ai_generated", true)
+      .gte("created_at", sinceIso);
 
-      if (recent && recent.length > 0) {
-        console.log(`[bloom-gap-fill] Idempotency-skip (recent run within ${IDEMPOTENCY_WINDOW_MIN}min) for package ${packageId.slice(0, 8)}`);
-        await sb.from("auto_heal_log").insert({
-          action_type: "pool_fill_bloom_gaps_recent_fill_skipped",
-          target_type: "course_package",
-          target_id: packageId,
-          result_status: "skipped",
-          reason: `idempotency_window_${IDEMPOTENCY_WINDOW_MIN}min`,
-          metadata: { idempotency_key: idempotencyKey, gap_signature: gapSignature, curriculum_id: curriculumId },
-        });
-        return json({
-          ok: true,
-          message: "recent_fill_skipped",
+    const recentN = recentInserts ?? 0;
+    if (recentN >= MIN_BATCH_SIZE) {
+      console.log(`[bloom-gap-fill] Idempotency-skip: ${recentN} ai_generated inserts in last ${IDEMPOTENCY_WINDOW_MIN}min for curriculum ${curriculumId.slice(0, 8)} — recent_fill_skipped`);
+      await sb.from("auto_heal_log").insert({
+        action_type: "pool_fill_bloom_gaps_recent_fill_skipped",
+        target_type: "course_package",
+        target_id: packageId ?? null,
+        result_status: "skipped",
+        result_detail: `recent_inserts_${recentN}_within_${IDEMPOTENCY_WINDOW_MIN}min`,
+        metadata: {
           idempotency_key: idempotencyKey,
+          gap_signature: gapSignature,
+          curriculum_id: curriculumId,
+          source: "exam_questions",
+          recent_inserts: recentN,
           window_minutes: IDEMPOTENCY_WINDOW_MIN,
-          generated: 0,
-        });
-      }
+        },
+      });
+      return json({
+        ok: true,
+        message: "recent_fill_skipped",
+        idempotency_key: idempotencyKey,
+        recent_inserts: recentN,
+        window_minutes: IDEMPOTENCY_WINDOW_MIN,
+        generated: 0,
+      });
+    }
+
+    // Pre-Audit BEFORE AI call — so a mid-run worker kill still leaves a fingerprint.
+    if (packageId) {
+      await sb.from("auto_heal_log").insert({
+        action_type: "pool_fill_bloom_gaps_attempt_started",
+        target_type: "course_package",
+        target_id: packageId,
+        result_status: "in_progress",
+        result_detail: `attempt_planned_max_${MAX_QUESTIONS_PER_RUN}`,
+        metadata: {
+          idempotency_key: idempotencyKey,
+          gap_signature: gapSignature,
+          curriculum_id: curriculumId,
+          recent_inserts_observed: recentN,
+          window_minutes: IDEMPOTENCY_WINDOW_MIN,
+        },
+      });
     }
 
 
@@ -448,7 +476,7 @@ Antworte NUR als JSON:
         target_type: "course_package",
         target_id: packageId,
         result_status: "ok",
-        reason: `inserted_${inserts.length}_cap_${MAX_QUESTIONS_PER_RUN}`,
+        result_detail: `inserted_${inserts.length}_cap_${MAX_QUESTIONS_PER_RUN}`,
         metadata: {
           idempotency_key: idempotencyKey,
           gap_signature: gapSignature,
