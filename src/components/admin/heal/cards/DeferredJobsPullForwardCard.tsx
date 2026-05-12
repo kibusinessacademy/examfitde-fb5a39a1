@@ -1,6 +1,7 @@
 /**
  * DeferredJobsPullForwardCard — Admin action to pull deferred jobs forward.
  * Honors admin_terminal flag + bronze-lock; audited via auto_heal_log.
+ * Includes 10-min cooldown (server-enforced) and pre-pull preview list.
  */
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
-import { FastForward, AlertTriangle } from "lucide-react";
+import { FastForward, AlertTriangle, Eye } from "lucide-react";
 
 type Cluster = {
   job_type: string;
@@ -25,10 +26,25 @@ type Cluster = {
   high_attempt_count: number;
 };
 
+type PreviewRow = {
+  job_id: string;
+  job_type: string;
+  worker_pool: string;
+  package_id: string | null;
+  run_after: string;
+  in_seconds: number;
+  attempts: number;
+  is_admin_terminal: boolean;
+  is_bronze_locked: boolean;
+  would_pull: boolean;
+  skip_reason: string | null;
+};
+
 function fmtIn(sec: number) {
-  if (sec < 60) return `${sec}s`;
-  if (sec < 3600) return `${Math.round(sec / 60)}m`;
-  return `${(sec / 3600).toFixed(1)}h`;
+  const s = Math.max(0, Number(sec) || 0);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.round(s / 60)}m`;
+  return `${(s / 3600).toFixed(1)}h`;
 }
 
 export function DeferredJobsPullForwardCard() {
@@ -36,6 +52,7 @@ export function DeferredJobsPullForwardCard() {
   const [selected, setSelected] = useState<{ job_type: string | null; worker_pool: string | null } | null>(null);
   const [maxJobs, setMaxJobs] = useState(50);
   const [reason, setReason] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
 
   const clusters = useQuery({
     queryKey: ["deferred-jobs-clusters"],
@@ -45,6 +62,20 @@ export function DeferredJobsPullForwardCard() {
       return (data ?? []) as Cluster[];
     },
     refetchInterval: 30_000,
+  });
+
+  const preview = useQuery({
+    queryKey: ["deferred-jobs-preview", selected, maxJobs],
+    enabled: showPreview && !!selected,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_preview_deferred_jobs_pull" as any, {
+        p_job_type: selected?.job_type ?? null,
+        p_worker_pool: selected?.worker_pool ?? null,
+        p_max_jobs: maxJobs,
+      } as any);
+      if (error) throw error;
+      return (data ?? []) as PreviewRow[];
+    },
   });
 
   const mut = useMutation({
@@ -66,15 +97,26 @@ export function DeferredJobsPullForwardCard() {
       });
       if (!vars.dry_run) {
         qc.invalidateQueries({ queryKey: ["deferred-jobs-clusters"] });
+        qc.invalidateQueries({ queryKey: ["deferred-jobs-preview"] });
         qc.invalidateQueries({ queryKey: ["queue-throughput-v2"] });
       }
     },
     onError: (e: any) => {
-      toast({ title: "Fehler", description: e.message, variant: "destructive" });
+      const msg = String(e?.message || e);
+      const friendly = msg.includes("cooldown_active")
+        ? "Cooldown aktiv: Bitte 10 Minuten warten zwischen Pulls."
+        : msg;
+      toast({ title: "Fehler", description: friendly, variant: "destructive" });
     },
   });
 
   const total = (clusters.data ?? []).reduce((s, c) => s + Number(c.deferred_count), 0);
+  const selectedCluster = (clusters.data ?? []).find(
+    (c) => selected && c.job_type === selected.job_type && c.worker_pool === selected.worker_pool,
+  );
+  const previewRows = preview.data ?? [];
+  const previewSkip = previewRows.filter((r) => !r.would_pull).length;
+  const previewPull = previewRows.length - previewSkip;
 
   return (
     <Card className="p-4">
@@ -86,6 +128,7 @@ export function DeferredJobsPullForwardCard() {
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
             Setzt <code>run_after = now()</code> für absichtlich verzögerte Jobs. Skipt admin_terminal &amp; bronze-lock.
+            10-Min-Cooldown pro Admin.
           </p>
         </div>
         <Badge variant="outline" className="tabular-nums">{total} deferred</Badge>
@@ -103,7 +146,10 @@ export function DeferredJobsPullForwardCard() {
               <button
                 key={`${c.job_type}-${c.worker_pool}`}
                 type="button"
-                onClick={() => setSelected({ job_type: c.job_type, worker_pool: c.worker_pool })}
+                onClick={() => {
+                  setSelected({ job_type: c.job_type, worker_pool: c.worker_pool });
+                  setShowPreview(false);
+                }}
                 className={`w-full text-left rounded-md border p-2 text-xs transition-colors ${
                   isSel ? "border-primary bg-surface-sunken" : "border-border hover:bg-surface-sunken"
                 }`}
@@ -129,7 +175,10 @@ export function DeferredJobsPullForwardCard() {
           })}
           <button
             type="button"
-            onClick={() => setSelected({ job_type: null, worker_pool: null })}
+            onClick={() => {
+              setSelected({ job_type: null, worker_pool: null });
+              setShowPreview(false);
+            }}
             className={`w-full text-left rounded-md border p-2 text-xs transition-colors ${
               selected && selected.job_type === null && selected.worker_pool === null
                 ? "border-primary bg-surface-sunken"
@@ -138,6 +187,15 @@ export function DeferredJobsPullForwardCard() {
           >
             <span className="text-text-muted">Alle (kein Filter — limitiert auf max_jobs)</span>
           </button>
+        </div>
+      )}
+
+      {selectedCluster && selectedCluster.high_attempt_count > 0 && (
+        <div className="mb-3 rounded-md border border-warning-border bg-warning-bg-subtle p-2 text-xs text-warning flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>
+            Achtung: {selectedCluster.high_attempt_count} Job(s) mit ≥3 Attempts. Vorziehen kann Retry-Loops beschleunigen.
+          </span>
         </div>
       )}
 
@@ -164,7 +222,16 @@ export function DeferredJobsPullForwardCard() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 justify-end">
+      <div className="flex items-center gap-2 justify-end flex-wrap">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!selected}
+          onClick={() => setShowPreview((v) => !v)}
+        >
+          <Eye className="h-4 w-4 mr-1" />
+          {showPreview ? "Vorschau ausblenden" : "Vorschau"}
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -181,6 +248,54 @@ export function DeferredJobsPullForwardCard() {
           Vorziehen
         </Button>
       </div>
+
+      {showPreview && selected && (
+        <div className="mt-3 pt-2 border-t border-border">
+          <div className="flex items-center justify-between mb-2 text-xs">
+            <span className="font-semibold">Vorziehliste</span>
+            <span className="text-text-muted tabular-nums">
+              {previewRows.length} Jobs · pull: <b className="text-success">{previewPull}</b> · skip:{" "}
+              <b className="text-warning">{previewSkip}</b>
+            </span>
+          </div>
+          {preview.isLoading ? (
+            <Skeleton className="h-20 w-full" />
+          ) : previewRows.length === 0 ? (
+            <p className="text-xs text-text-muted py-2 text-center">Keine Jobs in diesem Filter.</p>
+          ) : (
+            <div className="max-h-64 overflow-auto rounded-md border border-border">
+              <table className="w-full text-[11px] tabular-nums">
+                <thead className="bg-surface-sunken sticky top-0">
+                  <tr className="text-left">
+                    <th className="px-2 py-1 font-medium">Job</th>
+                    <th className="px-2 py-1 font-medium">in</th>
+                    <th className="px-2 py-1 font-medium">Att.</th>
+                    <th className="px-2 py-1 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows.map((r) => (
+                    <tr key={r.job_id} className="border-t border-border">
+                      <td className="px-2 py-1 font-mono">{r.job_id.slice(0, 8)}…</td>
+                      <td className="px-2 py-1">{fmtIn(r.in_seconds)}</td>
+                      <td className={`px-2 py-1 ${r.attempts >= 3 ? "text-warning font-semibold" : ""}`}>
+                        {r.attempts}
+                      </td>
+                      <td className="px-2 py-1">
+                        {r.would_pull ? (
+                          <Badge variant="success" className="text-[10px]">pull</Badge>
+                        ) : (
+                          <Badge variant="warning" className="text-[10px]">skip: {r.skip_reason}</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {mut.data && (
         <div className="mt-3 pt-2 border-t border-border text-xs space-y-1">
