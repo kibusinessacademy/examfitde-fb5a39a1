@@ -4,8 +4,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, AlertOctagon, Power } from "lucide-react";
+import { Loader2, RefreshCw, AlertOctagon, Power, History } from "lucide-react";
 import { toast } from "sonner";
+
+type AuditRow = {
+  id: string;
+  run_id: string;
+  caller_id: string | null;
+  window_minutes: number;
+  requeued_count: number;
+  requeued_ids: string[];
+  error_classes_touched: { error_code: string; count: number }[];
+  reaper_summary: Record<string, unknown>;
+  before_snapshot: unknown[];
+  after_snapshot: unknown[];
+  delta_summary: {
+    before_failure_total?: number;
+    after_failure_total?: number;
+    delta?: number;
+    distinct_error_classes_touched?: number;
+  };
+  created_at: string;
+};
 
 type Row = {
   job_type: string;
@@ -49,12 +69,23 @@ export default function PipelineFailureDrilldownCard() {
     },
     onSuccess: (data: any) => {
       toast.success("Worker restart ausgelöst", {
-        description: `requeued: ${data?.requeued ?? 0} · run_id ${String(data?.run_id ?? "").slice(0, 8)}`,
+        description: `requeued: ${data?.requeued ?? 0} · Δ fails ${data?.delta?.delta ?? 0} · run_id ${String(data?.run_id ?? "").slice(0, 8)}`,
       });
       qc.invalidateQueries({ queryKey: ["admin-pipeline-failure-drilldown"] });
       qc.invalidateQueries({ queryKey: ["admin-launch-readiness-drilldown"] });
+      qc.invalidateQueries({ queryKey: ["admin-pipeline-worker-restart-audit"] });
     },
     onError: (e: any) => toast.error("Worker restart fehlgeschlagen", { description: e?.message }),
+  });
+
+  const audit = useQuery({
+    queryKey: ["admin-pipeline-worker-restart-audit"],
+    queryFn: async () => {
+      const { data, error } = await (supabase.rpc as any)("admin_get_pipeline_worker_restart_audit", { p_limit: 5 });
+      if (error) throw error;
+      return (data ?? []) as AuditRow[];
+    },
+    refetchInterval: 60_000,
   });
 
   const { data, isLoading, isFetching, refetch } = useQuery({
@@ -179,6 +210,69 @@ export default function PipelineFailureDrilldownCard() {
             </table>
           </div>
         )}
+
+        <div className="mt-4 pt-3 border-t border-border">
+          <div className="flex items-center gap-2 mb-2 text-xs text-text-muted">
+            <History className="h-3.5 w-3.5" />
+            <span className="font-semibold">Letzte Worker-Restarts</span>
+          </div>
+          {audit.isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin text-text-muted" />
+          ) : !audit.data?.length ? (
+            <p className="text-xs text-text-muted italic">Noch keine Restart-Runs.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px]">
+                <thead className="text-text-muted">
+                  <tr className="border-b border-border">
+                    <th className="text-left p-1.5">Zeit</th>
+                    <th className="text-left p-1.5">run_id</th>
+                    <th className="text-right p-1.5">Fenster</th>
+                    <th className="text-right p-1.5">requeued</th>
+                    <th className="text-right p-1.5">Vorher</th>
+                    <th className="text-right p-1.5">Nachher</th>
+                    <th className="text-right p-1.5">Δ</th>
+                    <th className="text-left p-1.5">Fehlerklassen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {audit.data.map((a) => {
+                    const before = a.delta_summary?.before_failure_total ?? 0;
+                    const after = a.delta_summary?.after_failure_total ?? 0;
+                    const delta = a.delta_summary?.delta ?? after - before;
+                    return (
+                      <tr key={a.id} className="border-b border-border/60 align-top">
+                        <td className="p-1.5 whitespace-nowrap text-text-muted">
+                          {new Date(a.created_at).toLocaleTimeString("de-DE")}
+                        </td>
+                        <td className="p-1.5 font-mono text-text-secondary">{a.run_id.slice(0, 8)}</td>
+                        <td className="p-1.5 text-right text-text-secondary">{a.window_minutes}m</td>
+                        <td className="p-1.5 text-right font-semibold text-text-primary">{a.requeued_count}</td>
+                        <td className="p-1.5 text-right text-text-secondary">{before}</td>
+                        <td className="p-1.5 text-right text-text-secondary">{after}</td>
+                        <td className={`p-1.5 text-right font-semibold ${delta < 0 ? "text-status-success" : delta > 0 ? "text-status-danger" : "text-text-muted"}`}>
+                          {delta > 0 ? "+" : ""}{delta}
+                        </td>
+                        <td className="p-1.5">
+                          <div className="flex flex-wrap gap-1">
+                            {(a.error_classes_touched || []).slice(0, 4).map((ec, i) => (
+                              <Badge key={i} variant="outline" className="text-[10px] px-1 py-0">
+                                {ec.error_code}: {ec.count}
+                              </Badge>
+                            ))}
+                            {!a.error_classes_touched?.length && (
+                              <span className="text-text-muted italic">—</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
