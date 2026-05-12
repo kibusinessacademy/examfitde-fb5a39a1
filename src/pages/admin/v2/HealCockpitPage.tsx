@@ -48,6 +48,7 @@ import { CancelReasonBreakdownCard } from "@/components/admin/heal/cards/CancelR
 import { CancelHotspotsCard } from "@/components/admin/heal/cards/CancelHotspotsCard";
 import { PendingAgeHistogramCard } from "@/components/admin/heal/cards/PendingAgeHistogramCard";
 import { WorkerThroughputForensicsCard } from "@/components/admin/heal/cards/WorkerThroughputForensicsCard";
+import { DrainOrchestratorCard } from "@/components/admin/heal/cards/DrainOrchestratorCard";
 import { RecoveryPulseHistoryCard } from "@/components/admin/heal/cards/RecoveryPulseHistoryCard";
 import { QualityGateDecisionsCard } from "@/components/admin/heal/cards/QualityGateDecisionsCard";
 import { OpsCancelSkipRiseCard } from "@/components/admin/heal/cards/OpsCancelSkipRiseCard";
@@ -386,6 +387,7 @@ export default function HealCockpitPage() {
               </Card>
 
               <TabsContent value="diagnostics" className="space-y-3">
+                <DrainOrchestratorCard />
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                   <WorkerThroughputForensicsCard />
                   <RecoveryPulseHistoryCard />
