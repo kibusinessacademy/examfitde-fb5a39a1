@@ -65,6 +65,27 @@ export default function AdminTrafficFunnelPage() {
   const isStall =
     !!f && f.cta_visible >= 50 && f.cta_clicked === 0 && f.quiz_started === 0 && f.checkout_started === 0;
 
+  const emitTest = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await (supabase.rpc as any)('admin_emit_test_traffic_events', {
+        p_page_path: '/admin/ops/funnel/test',
+        p_cta_location: 'admin_test',
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success('Test-Events emittiert', {
+        description: `cta_visible + cta_clicked + quiz_started · session ${(data as any)?.session_id?.slice(0, 24)}…`,
+      });
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ['admin-traffic-funnel-24h'] });
+        qc.invalidateQueries({ queryKey: ['admin-traffic-funnel-breakdown-24h'] });
+      }, 800);
+    },
+    onError: (e: any) => toast.error('Test-Run fehlgeschlagen', { description: e?.message }),
+  });
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <header className="flex items-start justify-between gap-4">
