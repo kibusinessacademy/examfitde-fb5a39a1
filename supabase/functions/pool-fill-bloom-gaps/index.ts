@@ -367,7 +367,7 @@ Antworte NUR als JSON:
             { role: "user", content: `Generiere jetzt die ${questionsSpec.length} Prüfungsfragen.` },
           ],
           temperature: 0.7,
-          max_tokens: 12000,
+          max_tokens: MAX_AI_TOKENS,
         });
 
         let cleaned = result.content;
