@@ -4,8 +4,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, AlertOctagon, Power } from "lucide-react";
+import { Loader2, RefreshCw, AlertOctagon, Power, History } from "lucide-react";
 import { toast } from "sonner";
+
+type AuditRow = {
+  id: string;
+  run_id: string;
+  caller_id: string | null;
+  window_minutes: number;
+  requeued_count: number;
+  requeued_ids: string[];
+  error_classes_touched: { error_code: string; count: number }[];
+  reaper_summary: Record<string, unknown>;
+  before_snapshot: unknown[];
+  after_snapshot: unknown[];
+  delta_summary: {
+    before_failure_total?: number;
+    after_failure_total?: number;
+    delta?: number;
+    distinct_error_classes_touched?: number;
+  };
+  created_at: string;
+};
 
 type Row = {
   job_type: string;
