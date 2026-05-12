@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { IntegrityHealthBanner } from "@/components/admin/cockpit/IntegrityHealthBanner";
 import { PublishBlockerClustersBanner } from "@/components/admin/cockpit/PublishBlockerClustersBanner";
 import LaunchReadinessDrilldownCard from "@/components/admin/cockpit/LaunchReadinessDrilldownCard";
+import PipelineFailureDrilldownCard from "@/components/admin/cockpit/PipelineFailureDrilldownCard";
 
 type CockpitStatus = "green" | "yellow" | "red" | "grey";
 type Domain = "seo" | "funnel" | "crm" | "revenue" | "learning" | "pipeline";
@@ -186,6 +187,9 @@ export default function CockpitPage() {
 
         {/* Launch Readiness Drilldown — pro-Achse Status + direkter Drilldown */}
         <LaunchReadinessDrilldownCard />
+
+        {/* Pipeline Red Drilldown — failed_jobs Top-Cluster mit Klassifikation */}
+        <PipelineFailureDrilldownCard />
 
         {/* Integrity Health — macht generischen INTEGRITY_FAILED Blocker transparent */}
         <IntegrityHealthBanner />
