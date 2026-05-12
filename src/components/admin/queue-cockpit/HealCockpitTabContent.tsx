@@ -40,6 +40,7 @@ export function HealCockpitTabContent() {
       </div>
       <MorningBriefing />
       <DagBlockedDashboardCard />
+      <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
       <LxiPublishBlockMonitorCard />
       <LxiQueuedNoLessonsReinitCard />
