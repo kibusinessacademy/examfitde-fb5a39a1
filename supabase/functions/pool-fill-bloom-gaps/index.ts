@@ -636,18 +636,19 @@ Antworte NUR als JSON:
       console.log(`[bloom-gap-fill] Kicked validate_exam_pool for package ${((pkg as { id: string }).id).slice(0, 8)}`);
     }
 
-    return json({
-      ok: true,
-      generated: inserts.length,
-      plan_summary: {
-        bloom_targets: bloomGaps.map((g) => ({ bloom: g.key, gap: g.gap })),
-        difficulty_targets: diffGaps.map((g) => ({ difficulty: g.key, gap: g.gap })),
-        competency_targets: compGaps.length,
+    return {
+      kind: "completed",
+      body: {
+        ok: true,
+        generated: inserts.length,
+        model_used: modelUsed,
+        ai_wall_ms: aiWallMs,
+        recent_inserts_observed: recentN,
+        plan_summary: {
+          bloom_targets: bloomGaps.map((g) => ({ bloom: g.key, gap: g.gap })),
+          difficulty_targets: diffGaps.map((g) => ({ difficulty: g.key, gap: g.gap })),
+          competency_targets: compGaps.length,
+        },
       },
-    });
-  } catch (e: unknown) {
-    const msg = (e as Error)?.message || String(e);
-    console.error("[bloom-gap-fill] Fatal error:", msg);
-    return json({ ok: false, error: msg }, 500);
-  }
-});
+    };
+}
