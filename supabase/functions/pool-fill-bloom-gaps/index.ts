@@ -38,10 +38,11 @@ function json(body: unknown, status = 200) {
 // Patch B (P0 structural): worker is acked at 202 within ms; AI runs in
 // EdgeRuntime.waitUntil and the edge function finalizes the job itself.
 // AI budget tightened from 38s → 28s so background never runs forever.
-const MAX_QUESTIONS_PER_RUN = 12;        // was 40 — caps AI prompt size
-const MAX_AI_TOKENS = 5000;              // was 12000 — keeps single AI call <25s
-const MIN_BATCH_SIZE = 5;                // Don't generate fewer than 5
-const MAX_COMPETENCY_GAPS = 6;           // was 10 — aligned with smaller budget
+// Patch C: shrink plan + tokens so fast models complete reliably <20s.
+const MAX_QUESTIONS_PER_RUN = 6;         // Patch C: 12 → 6 (smaller plan, faster wall)
+const MAX_AI_TOKENS = 3500;              // Patch C: 5000 → 3500 (cut wall further)
+const MIN_BATCH_SIZE = 3;                // Patch C: 5 → 3 (aligned with new run size)
+const MAX_COMPETENCY_GAPS = 3;           // Patch C: 6 → 3 (smaller plan = faster)
 const IDEMPOTENCY_WINDOW_MIN = 10;       // skip re-runs per package within 10min
 
 // ── Bloom → Difficulty mapping (SSOT-aligned) ──
