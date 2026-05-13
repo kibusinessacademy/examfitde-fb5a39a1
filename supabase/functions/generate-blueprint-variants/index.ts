@@ -243,9 +243,14 @@ Deno.serve(async (req) => {
 
       const { data: blueprints, error: bpListErr } = await sb
         .from("question_blueprints")
-        .select("id")
+        .select("id, learning_field_id")
         .eq("curriculum_id", pkg.curriculum_id)
         .eq("status", "approved");
+
+      const bpLfMap = new Map<string, string | null>();
+      for (const b of blueprints ?? []) {
+        bpLfMap.set((b as any).id, (b as any).learning_field_id ?? null);
+      }
 
       if (bpListErr || !blueprints || blueprints.length === 0) {
         return errorResponse(409, "PREREQ_NOT_DONE", {
