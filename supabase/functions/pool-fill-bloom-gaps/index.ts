@@ -284,14 +284,17 @@ async function runWork(
           window_minutes: IDEMPOTENCY_WINDOW_MIN,
         },
       });
-      return json({
-        ok: true,
-        message: "recent_fill_skipped",
-        idempotency_key: idempotencyKey,
-        recent_inserts: recentN,
-        window_minutes: IDEMPOTENCY_WINDOW_MIN,
-        generated: 0,
-      });
+      return {
+        kind: "completed",
+        body: {
+          ok: true,
+          message: "recent_fill_skipped",
+          idempotency_key: idempotencyKey,
+          recent_inserts: recentN,
+          window_minutes: IDEMPOTENCY_WINDOW_MIN,
+          generated: 0,
+        },
+      };
     }
 
     // Pre-Audit BEFORE AI call — so a mid-run worker kill still leaves a fingerprint.
