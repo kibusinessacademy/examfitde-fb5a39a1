@@ -230,27 +230,32 @@ Deno.serve(async (req) => {
   // ── GUARD 5: Capture pre-snapshot ──
   const preSnapshot = await captureGateSnapshot(sb, packageId);
 
-  // ── GUARD 6: Compute deficits ──
-  const { data: deficitsRaw, error: defErr } = await sb.rpc("fn_get_lf_coverage_deficit", {
-    p_package_id: packageId,
-    p_target_per_lf: targetPerLf,
-  });
-  if (defErr) {
-    console.error(`[lf-cov-repair] deficit computation failed: ${defErr.message}`);
-    return json({ error: `deficit failed: ${defErr.message}` }, 500);
+  // ── GUARD 6: SSOT gap classification per LF (Phase c router) ──
+  // Replaces blind fn_get_lf_coverage_deficit. Reads v_exam_pool_lf_repair_gap_classification
+  // and routes per LF by gap_class: BLUEPRINT_GAP / VARIANT_GAP / QUESTION_GAP_ONLY / OK.
+  const { data: gapsRaw, error: gapErr } = await sb
+    .from("v_exam_pool_lf_repair_gap_classification")
+    .select("learning_field_id, lf_code, approved_bp_count, usable_variant_count, approved_question_count, target_per_lf, question_deficit, gap_class")
+    .eq("package_id", packageId);
+  if (gapErr) {
+    console.error(`[lf-cov-repair] gap classification failed: ${gapErr.message}`);
+    return json({ error: `gap classification failed: ${gapErr.message}` }, 500);
   }
-  const deficits = (deficitsRaw ?? []) as Array<{
+  type GapRow = {
     learning_field_id: string;
     lf_code: string;
-    lf_title: string;
-    current_count: number;
-    target_count: number;
-    deficit: number;
-  }>;
-  if (deficits.length === 0) {
-    console.log(`[lf-cov-repair] no deficits at target_per_lf=${targetPerLf} — gate may have moved`);
-    await markDone(sb, packageId, { skipped: "no_deficits", target_per_lf: targetPerLf, gate });
-    return json({ status: "skipped", reason: "no_deficits", target_per_lf: targetPerLf });
+    approved_bp_count: number;
+    usable_variant_count: number;
+    approved_question_count: number;
+    target_per_lf: number;
+    question_deficit: number;
+    gap_class: "OK" | "BLUEPRINT_GAP" | "VARIANT_GAP" | "QUESTION_GAP_ONLY" | string;
+  };
+  const gaps = ((gapsRaw ?? []) as GapRow[]).filter((g) => g.gap_class !== "OK");
+  if (gaps.length === 0) {
+    console.log(`[lf-cov-repair] no gaps — all LFs OK`);
+    await markDone(sb, packageId, { skipped: "no_gaps", target_per_lf: targetPerLf, gate });
+    return json({ status: "skipped", reason: "no_gaps", target_per_lf: targetPerLf });
   }
 
   // Resolve curriculum_id for fan-out payload
@@ -261,72 +266,97 @@ Deno.serve(async (req) => {
     return json({ error: "could not resolve curriculum_id" }, 500);
   }
 
-  // ── DISPATCH: targeted fan-out per deficit LF ──
-  const dispatched: Array<{ lf_code: string; deficit: number; lf_target_total: number; job_id: string }> = [];
-  const skippedLfs: Array<{ lf_code: string; reason: string }> = [];
-  for (const d of deficits) {
-    // Per-LF dedup: skip if this exact LF already has an active repair fan-out
-    if (activeLfSet.has(d.learning_field_id)) {
-      console.log(`[lf-cov-repair] per-lf dedup: lf=${d.lf_code} already has active fan-out, skipping`);
-      skippedLfs.push({ lf_code: d.lf_code, reason: "active_fanout_for_lf" });
+  // ── ROUTER: per-LF dispatch by gap_class ──
+  const ROUTE: Record<string, { job_type: string; reason: string }> = {
+    BLUEPRINT_GAP: { job_type: "package_auto_seed_exam_blueprints", reason: "no_approved_blueprints" },
+    VARIANT_GAP:   { job_type: "package_generate_blueprint_variants", reason: "no_usable_variants" },
+    QUESTION_GAP_ONLY: { job_type: "package_generate_exam_pool", reason: "question_deficit" },
+  };
+
+  type Dispatched = { lf_code: string; gap_class: string; job_type: string; job_id: string; deficit: number };
+  const dispatched: Dispatched[] = [];
+  const skippedLfs: Array<{ lf_code: string; gap_class: string; reason: string }> = [];
+
+  for (const g of gaps) {
+    const route = ROUTE[g.gap_class];
+    if (!route) {
+      skippedLfs.push({ lf_code: g.lf_code, gap_class: g.gap_class, reason: "unknown_gap_class" });
+      continue;
+    }
+    // Per-LF dedup only meaningful for question-gen path (others are coarse-grained)
+    if (route.job_type === "package_generate_exam_pool" && activeLfSet.has(g.learning_field_id)) {
+      skippedLfs.push({ lf_code: g.lf_code, gap_class: g.gap_class, reason: "active_fanout_for_lf" });
       continue;
     }
     try {
+      const payload: Record<string, unknown> = {
+        curriculum_id: curriculumId,
+        _origin: REPAIR_ACTION,
+        _origin_job_id: jobId ?? null,
+        _gap_class: g.gap_class,
+        learning_field_filter: g.learning_field_id,
+        lf_code: g.lf_code,
+      };
+      if (route.job_type === "package_generate_exam_pool") {
+        payload._fan_out = true;
+        payload.lf_target_total = g.target_per_lf;
+        payload.target_per_lf = targetPerLf;
+        payload.deficit = g.question_deficit;
+      }
       const result = await enqueueJob(sb, {
-        job_type: "package_generate_exam_pool",
+        job_type: route.job_type,
         package_id: packageId,
         priority: 30,
-        // batch_cursor enters idempotency_key — gives each LF its own job row
-        batch_cursor: { lf_repair: d.learning_field_id, target_per_lf: targetPerLf },
-        payload: {
-          curriculum_id: curriculumId,
-          _fan_out: true,
-          learning_field_filter: d.learning_field_id,
-          lf_target_total: d.target_count,
-          _origin: REPAIR_ACTION,
-          _origin_job_id: jobId ?? null,
-          target_per_lf: targetPerLf,
-          deficit: d.deficit,
-        },
+        batch_cursor: { lf_repair_router: g.learning_field_id, gap_class: g.gap_class },
+        payload,
       });
       dispatched.push({
-        lf_code: d.lf_code,
-        deficit: d.deficit,
-        lf_target_total: d.target_count,
+        lf_code: g.lf_code,
+        gap_class: g.gap_class,
+        job_type: route.job_type,
         job_id: (result as { id: string }).id,
+        deficit: g.question_deficit,
       });
-      // Track newly enqueued LF so subsequent iterations can't double-enqueue
-      activeLfSet.add(d.learning_field_id);
+      if (route.job_type === "package_generate_exam_pool") {
+        activeLfSet.add(g.learning_field_id);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.warn(`[lf-cov-repair] enqueue failed for lf=${d.lf_code}: ${msg}`);
-      skippedLfs.push({ lf_code: d.lf_code, reason: `enqueue_failed: ${msg}` });
+      console.warn(`[lf-cov-repair] enqueue failed lf=${g.lf_code} class=${g.gap_class}: ${msg}`);
+      skippedLfs.push({ lf_code: g.lf_code, gap_class: g.gap_class, reason: `enqueue_failed: ${msg}` });
     }
   }
 
+  // Counts by class for audit/visibility
+  const byClass = dispatched.reduce<Record<string, number>>((acc, d) => {
+    acc[d.gap_class] = (acc[d.gap_class] ?? 0) + 1;
+    return acc;
+  }, {});
+
   if (dispatched.length === 0) {
     await markBlocked(sb, packageId, "no_jobs_dispatched", {
-      deficits_count: deficits.length, target_per_lf: targetPerLf, skipped_lfs: skippedLfs,
+      gaps_count: gaps.length, target_per_lf: targetPerLf, skipped_lfs: skippedLfs,
     });
     return json({ status: "blocked", reason: "no_jobs_dispatched", skipped_lfs: skippedLfs });
   }
 
-  // ── Heartbeat / progress meta ──
   const postSnapshot = await captureGateSnapshot(sb, packageId);
   const gateChange = await hasGateStateChanged(sb, preSnapshot, postSnapshot);
 
   await sb.from("auto_heal_log").insert({
     action_type: REPAIR_ACTION,
+    target_type: "package",
+    target_id: packageId,
     result_status: "success",
-    result_detail: `dispatched ${dispatched.length}/${deficits.length} LF fan-out jobs (skipped ${skippedLfs.length})`,
     metadata: {
       package_id: packageId,
       curriculum_id: curriculumId,
       triggered_by: triggeredBy,
       target_per_lf: targetPerLf,
-      deficits_count: deficits.length,
+      gaps_count: gaps.length,
       dispatched_count: dispatched.length,
       skipped_count: skippedLfs.length,
+      dispatched_by_class: byClass,
       dispatched,
       skipped_lfs: skippedLfs,
       pre_snapshot: preSnapshot,
@@ -334,26 +364,40 @@ Deno.serve(async (req) => {
       gate_change: gateChange,
       gate_status_before: gateStatus,
       reason_codes: reasonCodes,
+      router_version: "phase_c_v1",
     },
   });
 
-  await markDone(sb, packageId, {
-    dispatched_count: dispatched.length,
-    deficits_count: deficits.length,
-    skipped_count: skippedLfs.length,
-    target_per_lf: targetPerLf,
-    pending_followup: "fan_out_completion_triggers_validate_exam_pool",
-    pre_snapshot: preSnapshot,
-  });
+  // ── PARK parent — do NOT mark done while children are still working ──
+  // Re-validation is triggered by downstream completion (job-runner re-evaluates step DAG).
+  const stepExists = await ensureRepairStep(sb, packageId);
+  if (stepExists) {
+    await sb.from("package_steps").update({
+      status: "queued",
+      updated_at: new Date().toISOString(),
+      meta: {
+        ok: false,
+        phase: "parked_awaiting_children",
+        parked_at: new Date().toISOString(),
+        dispatched_count: dispatched.length,
+        dispatched_by_class: byClass,
+        child_job_ids: dispatched.map((d) => d.job_id),
+        target_per_lf: targetPerLf,
+        pre_snapshot: preSnapshot,
+        router_version: "phase_c_v1",
+      },
+    }).eq("package_id", packageId).eq("step_key", STEP_KEY);
+  }
 
   return json({
-    status: "dispatched",
-    deficits: deficits.length,
+    status: "parked_awaiting_children",
+    gaps: gaps.length,
     dispatched: dispatched.length,
+    dispatched_by_class: byClass,
     skipped: skippedLfs.length,
     target_per_lf: targetPerLf,
     jobs: dispatched,
     skipped_lfs: skippedLfs,
-    next: "fan-out completion will re-trigger validate_exam_pool via job-runner",
+    next: "child completions re-trigger validate_exam_pool via job-runner",
   });
 });
