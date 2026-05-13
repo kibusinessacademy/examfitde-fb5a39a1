@@ -32,6 +32,25 @@ const REPAIR_ACTION = "repair_lf_coverage";
 const DEFAULT_TARGET_PER_LF = 15;
 const RECENT_REPAIR_WINDOW_MIN = 30;
 
+function serializeErr(e: unknown): Record<string, unknown> {
+  if (!e) return { message: "unknown" };
+  if (typeof e === "string") return { message: e };
+  if (e instanceof Error) return { message: e.message, stack: e.stack };
+  try {
+    const anyE = e as Record<string, unknown>;
+    return {
+      message: (anyE?.message as string) ?? String(e),
+      code: anyE?.code,
+      details: anyE?.details,
+      hint: anyE?.hint,
+      status: anyE?.status,
+      raw: JSON.stringify(e),
+    };
+  } catch {
+    return { message: String(e) };
+  }
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -321,9 +340,9 @@ Deno.serve(async (req) => {
         activeLfSet.add(g.learning_field_id);
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn(`[lf-cov-repair] enqueue failed lf=${g.lf_code} class=${g.gap_class}: ${msg}`);
-      skippedLfs.push({ lf_code: g.lf_code, gap_class: g.gap_class, reason: `enqueue_failed: ${msg}` });
+      const err = serializeErr(e);
+      console.error("[lf-cov-repair] enqueue failed", { lf: g.lf_code, gap_class: g.gap_class, ...err });
+      skippedLfs.push({ lf_code: g.lf_code, gap_class: g.gap_class, reason: `enqueue_failed: ${err.message ?? "unknown"}` });
     }
   }
 
