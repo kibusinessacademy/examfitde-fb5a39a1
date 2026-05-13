@@ -82,9 +82,10 @@ Deno.serve(async (req) => {
     }
 
     // Get all approved question_blueprints for this curriculum
+    // (incl. learning_field_id so we can stamp it on enqueue payload → LF-aware FANOUT_CAP branch)
     const { data: blueprints, error: bpErr } = await sb
       .from("question_blueprints")
-      .select("id, curriculum_id, name")
+      .select("id, curriculum_id, name, learning_field_id")
       .eq("curriculum_id", pkg.curriculum_id)
       .eq("status", "approved");
 
@@ -207,33 +208,84 @@ Deno.serve(async (req) => {
       if (bpId) alreadyEnqueued.add(bpId);
     }
 
+    // ── B) Cap-aware Anti-Flood ──
+    // Treat ≥3 FANOUT_CAP suppressions in last 30 min (per blueprint_id) as
+    // "already attempted" so we stop hammering the trigger. The fanout_cap trigger
+    // does RETURN NULL (no row inserted, no job-attempts counter increments), so
+    // the legacy attemptCounts check would never see them.
+    const since30m = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data: recentSuppressions } = await sb
+      .from("auto_heal_log")
+      .select("metadata, target_id, created_at")
+      .eq("action_type", "job_queue_insert_suppressed_fanout_cap")
+      .eq("target_id", packageId)
+      .gte("created_at", since30m);
+
+    const capHotBp = new Map<string, number>();
+    for (const row of recentSuppressions ?? []) {
+      const meta: any = (row as any).metadata ?? {};
+      const bpId =
+        meta.blueprint_id ??
+        (typeof meta.cap_key === "string" ? meta.cap_key.split("|")[2] : null);
+      if (!bpId) continue;
+      capHotBp.set(bpId, (capHotBp.get(bpId) || 0) + 1);
+    }
+
+    // Lookup map: bp.id → bp (for learning_field_id + name)
+    const bpById = new Map<string, { id: string; learning_field_id: string | null; name: string | null }>();
+    for (const bp of allBlueprints) bpById.set(bp.id, bp as any);
+
     // Enqueue generate jobs for gaps (max 30 per planner run)
     const MAX_ENQUEUE = 30;
     let enqueued = 0;
     let skippedMaxAttempts = 0;
+    let skippedCapHotBp = 0;
+    const capHotBpAuditPayload: Array<{ blueprint_id: string; suppressions_30m: number; learning_field_id: string | null }> = [];
 
     for (const gap of gaps) {
       if (enqueued >= MAX_ENQUEUE) break;
       if (alreadyEnqueued.has(gap.blueprint_id)) continue;
 
-      // ANTI-FLOOD: skip blueprints that already had enough attempts
+      // ANTI-FLOOD legacy: skip blueprints that already had enough completed/failed attempts
       const pastAttempts = attemptCounts.get(gap.blueprint_id) || 0;
       if (pastAttempts >= MAX_ATTEMPTS_PER_BLUEPRINT) {
         skippedMaxAttempts++;
         continue;
       }
 
+      // ANTI-FLOOD cap-aware: skip blueprints that the FANOUT_CAP trigger has
+      // dropped ≥3× in the last 30 min — they keep getting cap-blocked, no point hammering.
+      const capHits = capHotBp.get(gap.blueprint_id) || 0;
+      if (capHits >= 3) {
+        skippedCapHotBp++;
+        capHotBpAuditPayload.push({
+          blueprint_id: gap.blueprint_id,
+          suppressions_30m: capHits,
+          learning_field_id: bpById.get(gap.blueprint_id)?.learning_field_id ?? null,
+        });
+        continue;
+      }
+
       const remaining = gap.target_count - gap.materialized_count;
       if (remaining <= 0) continue;
+
+      const bp = bpById.get(gap.blueprint_id);
+      const lfId = bp?.learning_field_id ?? null;
 
       const { error: insertErr } = await sb.from("job_queue").insert({
         job_type: "package_generate_blueprint_variants",
         package_id: packageId,
         worker_pool: "prebuild",
         payload: {
+          // ── A) Forensik-Identifier ──
+          _origin: "ensure_variant_inventory",
+          enqueue_source: "gap_inventory_planner",
+          // canonical context
           package_id: packageId,
           blueprint_id: gap.blueprint_id,
           count: Math.min(remaining, 20),
+          // LF-aware: lets the LF-scoped FANOUT_CAP branch take effect
+          learning_field_filter: lfId,
         },
         max_attempts: 3,
         status: "pending",
@@ -244,6 +296,27 @@ Deno.serve(async (req) => {
         console.error(`[ensure-variant-inventory] Insert error:`, insertErr.message);
       } else {
         enqueued++;
+      }
+    }
+
+    // Audit: cap-hot BPs we deliberately skipped (so ops can see Anti-Flood working)
+    if (skippedCapHotBp > 0) {
+      try {
+        await sb.from("auto_heal_log").insert({
+          action_type: "ensure_variant_inventory_cap_hot_bp_skipped",
+          target_type: "package",
+          target_id: packageId,
+          result_status: "skipped",
+          metadata: {
+            reason: "FANOUT_CAP_HOT_BLUEPRINT",
+            window_minutes: 30,
+            threshold: 3,
+            skipped_count: skippedCapHotBp,
+            blueprints: capHotBpAuditPayload.slice(0, 50),
+          },
+        });
+      } catch (auditErr) {
+        console.warn("[ensure-variant-inventory] cap-hot audit insert failed:", (auditErr as any)?.message);
       }
     }
 
@@ -270,7 +343,7 @@ Deno.serve(async (req) => {
       p_package_id: packageId,
     });
 
-    console.log(`[ensure-variant-inventory] Done: ${allBlueprints.length} blueprints, ${seeded} seeded, ${gaps.length} gaps, ${enqueued} enqueued, ${skippedMaxAttempts} skipped (max attempts), ${autoPromoted} auto-promoted`);
+    console.log(`[ensure-variant-inventory] Done: ${allBlueprints.length} blueprints, ${seeded} seeded, ${gaps.length} gaps, ${enqueued} enqueued, ${skippedMaxAttempts} skipped (max attempts), ${skippedCapHotBp} skipped (cap-hot BP), ${autoPromoted} auto-promoted`);
 
     return new Response(JSON.stringify({
       ok: true,
@@ -279,6 +352,7 @@ Deno.serve(async (req) => {
       gaps: gaps.length,
       enqueued,
       skipped_max_attempts: skippedMaxAttempts,
+      skipped_cap_hot_bp: skippedCapHotBp,
       auto_promoted: autoPromoted,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
