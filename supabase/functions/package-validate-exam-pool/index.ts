@@ -77,6 +77,39 @@ async function insertExamPoolSnapshot(
   return data?.id as string ?? null;
 }
 
+/**
+ * Bucket E SSOT: record snapshot via fn_record_exam_pool_validation_snapshot for every gate-verdict exit path
+ * (PASS, WAITING_FOR_MATERIALIZATION, REPAIRABLE, HARD_FAIL, NO_QUESTIONS, T1_FAIL, ERROR, 409).
+ * Best-effort — never throws.
+ */
+async function recordGateSnapshot(
+  sb: ReturnType<typeof createClient>,
+  args: {
+    packageId: string;
+    curriculumId: string | null;
+    jobId: string | null;
+    gateClass: string;
+    reasonCode: string | null;
+    metrics: Record<string, unknown> | null;
+  },
+): Promise<void> {
+  try {
+    const { error } = await sb.rpc("fn_record_exam_pool_validation_snapshot", {
+      p_package_id: args.packageId,
+      p_curriculum_id: args.curriculumId,
+      p_job_id: args.jobId,
+      p_gate_class: args.gateClass,
+      p_reason_code: args.reasonCode,
+      p_metrics: args.metrics ?? {},
+    });
+    if (error) {
+      console.warn(`[validate-exam] recordGateSnapshot rpc failed: ${error.message} (gate=${args.gateClass})`);
+    }
+  } catch (e) {
+    console.warn(`[validate-exam] recordGateSnapshot threw: ${(e as Error).message?.slice(0, 120)}`);
+  }
+}
+
 async function classifyValidateGuard(
   sb: ReturnType<typeof createClient>,
   packageId: string,
