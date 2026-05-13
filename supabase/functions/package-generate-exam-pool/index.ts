@@ -1642,6 +1642,9 @@ async function submitExamPoolBatch(
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+  // ── Heartbeat right before batch-submit so watchdog can't reap us mid-submit (2026-05-13)
+  await markFirstHeartbeat(sb, ctx.jobId ?? null);
+
   const submitResult = await submitBatchViaFunction(supabaseUrl, serviceRoleKey, {
     jobType: "exam_pool_generate",
     model,
