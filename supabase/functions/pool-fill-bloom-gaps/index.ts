@@ -237,7 +237,7 @@ async function runWork(
 
     if (totalGap === 0) {
       console.log("[bloom-gap-fill] No gaps found — all targets met");
-      return json({ ok: true, message: "all_targets_met", generated: 0 });
+      return { kind: "completed", body: { ok: true, message: "all_targets_met", generated: 0 } };
     }
 
     console.log(
