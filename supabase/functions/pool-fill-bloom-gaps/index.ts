@@ -583,7 +583,7 @@ Antworte NUR als JSON:
     const { error: insErr } = await sb.from("exam_questions").insert(inserts);
     if (insErr) {
       console.error("[bloom-gap-fill] DB insert error:", insErr.message);
-      return json({ ok: false, error: insErr.message }, 500);
+      return { kind: "failed", body: { ok: false, error: insErr.message }, error: insErr.message };
     }
 
     console.log(`[bloom-gap-fill] Inserted ${inserts.length} questions`);
