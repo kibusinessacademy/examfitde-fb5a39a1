@@ -616,8 +616,17 @@ Antworte NUR als JSON:
           window_minutes: IDEMPOTENCY_WINDOW_MIN,
           inserted: inserts.length,
           plan_targets: plan.length,
+          // Patch C forensics
+          questions_planned: questionsSpec.length,
+          questions_inserted: inserts.length,
           model_used: modelUsed,
+          model_chain_order: modelChain.map((m) => m.model),
+          policy_chain_order: policyChain.map((m: { model: string }) => m.model),
           ai_wall_ms: aiWallMs,
+          budget_ms: TOTAL_AI_BUDGET_MS,
+          per_model_timeout_ms: PER_MODEL_TIMEOUT_MS,
+          max_ai_tokens: MAX_AI_TOKENS,
+          patch: "C",
         },
       });
     }
