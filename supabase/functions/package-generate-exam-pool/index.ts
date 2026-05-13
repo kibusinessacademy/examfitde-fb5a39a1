@@ -1642,6 +1642,9 @@ async function submitExamPoolBatch(
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+  // ── Heartbeat right before batch-submit so watchdog can't reap us mid-submit (2026-05-13)
+  await markFirstHeartbeat(sb, ctx.jobId ?? null);
+
   const submitResult = await submitBatchViaFunction(supabaseUrl, serviceRoleKey, {
     jobType: "exam_pool_generate",
     model,
@@ -2291,6 +2294,14 @@ Deno.serve(async (req) => {
       .eq("curriculum_id", curriculumId).eq("status", "approved").order("created_at", { ascending: true });
 
     if (blueprintIds?.length) bpQuery = bpQuery.in("id", blueprintIds);
+
+    // ── LF-SCOPE FIX (2026-05-13): fan-out jobs MUST only load blueprints of their target LF.
+    // Without this, repair_lf_coverage submits ALL curriculum blueprints (e.g. 92) to OpenAI
+    // batch instead of the targeted ~8 → batch is huge → edge-function CPU-killed before
+    // returning batch_pending → watchdog STALE_LOCK loop → repair has no effect.
+    if (isFanOut && p.learning_field_filter) {
+      bpQuery = bpQuery.eq("learning_field_id", p.learning_field_filter);
+    }
 
     const { data: bps, error: bpErr } = await bpQuery;
     if (bpErr) throw bpErr;
