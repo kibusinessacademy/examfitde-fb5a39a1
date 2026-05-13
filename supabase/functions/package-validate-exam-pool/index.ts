@@ -761,11 +761,20 @@ Deno.serve(async (req) => {
 
   // If no questions found at all
   if (t1Stats.total === 0) {
+    await recordGateSnapshot(sb, {
+      packageId, curriculumId, jobId: p.job_id ?? null,
+      gateClass: "NO_QUESTIONS", reasonCode: "NO_QUESTIONS_TO_VALIDATE", metrics: null,
+    });
     return json({ ok: false, error: "NO_QUESTIONS_TO_VALIDATE" }, 409);
   }
 
   // Fast-fail: if < 70% pass T1 → systemic issue, no need for T2
   if (t1PassRate < 70) {
+    await recordGateSnapshot(sb, {
+      packageId, curriculumId, jobId: p.job_id ?? null,
+      gateClass: "T1_FAIL", reasonCode: "TIER1_PASS_RATE_BELOW_70",
+      metrics: { tier1_pass_rate: t1PassRate, tier1_failed: t1Stats.failed, tier1_total: t1Stats.total },
+    });
     return json({
       ok: false,
       batch_complete: true,
@@ -774,6 +783,7 @@ Deno.serve(async (req) => {
       message: `❌ Exam QC Tier 1 fehlgeschlagen: ${t1Stats.failed}/${t1Stats.total} Fragen haben strukturelle Mängel.`,
     });
   }
+
 
   // ═══ PHASE: TIER 2 — LLM sample ═══
   // Only run if we have enough time left
