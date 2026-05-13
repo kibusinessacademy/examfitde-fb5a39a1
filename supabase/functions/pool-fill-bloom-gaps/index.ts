@@ -419,11 +419,12 @@ async function runWork(
     // Patch C: fast-first model chain. Override policy chain so the cheapest/fastest
     // model attempts first; gpt-5-mini is last-resort fallback only.
     // Note: 'exam_questions' intent allows nano (no-nano guard applies to 'learning_content').
+    // Patch C: bare IDs (callAIJSON gets provider separately, no provider/ prefix).
     const FAST_FIRST_CHAIN = [
-      { provider: "google", model: "google/gemini-2.5-flash-lite" },
-      { provider: "openai", model: "openai/gpt-5-nano" },
-      { provider: "google", model: "google/gemini-2.5-flash" },
-      { provider: "openai", model: "openai/gpt-5-mini" },
+      { provider: "openai", model: "gpt-5-nano" },        // fastest proven
+      { provider: "openai", model: "gpt-5.4-nano" },      // alt fast
+      { provider: "openai", model: "gpt-5-mini" },        // balanced fallback
+      { provider: "openai", model: "gpt-5.4-mini" },      // last-resort fallback
     ];
     const policyChain = await getModelChainAsync("exam_questions");
     const modelChain = FAST_FIRST_CHAIN; // Patch C: explicit fast-first override
