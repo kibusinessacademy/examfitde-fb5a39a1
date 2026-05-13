@@ -514,6 +514,19 @@ Antworte NUR als JSON:
       return null;
     }
 
+    // Patch D: terminale 4xx-Codes brechen die ganze Chain ab (kein silent loop).
+    const TERMINAL_4XX_PATTERNS: Array<{ re: RegExp; code: string }> = [
+      { re: /max_tokens.*not supported|max_completion_tokens/i, code: "AI_PROVIDER_UNSUPPORTED_PARAM" },
+      { re: /\b401\b|unauthor|invalid api key|authentication/i, code: "AI_PROVIDER_AUTH_ERROR" },
+      { re: /\b400\b|bad request|invalid_request_error/i, code: "AI_PROVIDER_BAD_REQUEST" },
+      { re: /\b403\b|forbidden/i, code: "AI_PROVIDER_AUTH_ERROR" },
+    ];
+    function classifyTerminal4xx(msg: string): string | null {
+      for (const p of TERMINAL_4XX_PATTERNS) if (p.re.test(msg)) return p.code;
+      return null;
+    }
+
+    let terminalErrorCode: string | null = null;
     for (const model of modelChain) {
       const elapsed = Date.now() - aiStart;
       if (elapsed > TOTAL_AI_BUDGET_MS) {
@@ -551,6 +564,12 @@ Antworte NUR als JSON:
         }
       } catch (e) {
         aiError = (e as Error).message;
+        const term = classifyTerminal4xx(aiError);
+        if (term) {
+          terminalErrorCode = term;
+          console.error(`[bloom-gap-fill] TERMINAL ${term} on ${model.model}: ${aiError} — aborting chain`);
+          break;
+        }
         console.error(`[bloom-gap-fill] AI error with ${model.model}: ${aiError}`);
       }
     }
