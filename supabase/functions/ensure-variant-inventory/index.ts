@@ -343,7 +343,7 @@ Deno.serve(async (req) => {
       p_package_id: packageId,
     });
 
-    console.log(`[ensure-variant-inventory] Done: ${allBlueprints.length} blueprints, ${seeded} seeded, ${gaps.length} gaps, ${enqueued} enqueued, ${skippedMaxAttempts} skipped (max attempts), ${autoPromoted} auto-promoted`);
+    console.log(`[ensure-variant-inventory] Done: ${allBlueprints.length} blueprints, ${seeded} seeded, ${gaps.length} gaps, ${enqueued} enqueued, ${skippedMaxAttempts} skipped (max attempts), ${skippedCapHotBp} skipped (cap-hot BP), ${autoPromoted} auto-promoted`);
 
     return new Response(JSON.stringify({
       ok: true,
