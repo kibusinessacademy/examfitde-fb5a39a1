@@ -285,7 +285,8 @@ async function runWork(
 
     const recentN = recentInserts ?? 0;
     if (recentN >= MIN_BATCH_SIZE) {
-      console.log(`[bloom-gap-fill] Idempotency-skip: ${recentN} ai_generated inserts in last ${IDEMPOTENCY_WINDOW_MIN}min for curriculum ${curriculumId.slice(0, 8)} — recent_fill_skipped`);
+      const cooldownUntilIso = new Date(Date.now() + IDEMPOTENCY_WINDOW_MIN * 60_000).toISOString();
+      console.log(`[bloom-gap-fill] Idempotency-skip: ${recentN} ai_generated inserts in last ${IDEMPOTENCY_WINDOW_MIN}min for curriculum ${curriculumId.slice(0, 8)} — recent_fill_skipped (cooldown_until=${cooldownUntilIso})`);
       await sb.from("auto_heal_log").insert({
         action_type: "pool_fill_bloom_gaps_recent_fill_skipped",
         target_type: "course_package",
@@ -299,6 +300,9 @@ async function runWork(
           source: "exam_questions",
           recent_inserts: recentN,
           window_minutes: IDEMPOTENCY_WINDOW_MIN,
+          cooldown_reason: "recent_ai_inserts_within_window",
+          cooldown_source: "pool_fill_bloom_gaps:exam_questions_lookback",
+          cooldown_until: cooldownUntilIso,
         },
       });
       return {
@@ -309,6 +313,7 @@ async function runWork(
           idempotency_key: idempotencyKey,
           recent_inserts: recentN,
           window_minutes: IDEMPOTENCY_WINDOW_MIN,
+          cooldown_until: cooldownUntilIso,
           generated: 0,
         },
       };
