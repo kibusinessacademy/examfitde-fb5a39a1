@@ -213,7 +213,9 @@ Deno.serve(async (req) => {
     // MODE 1: Package-level fan-out (no blueprint_id → enqueue per-blueprint jobs)
     // ═══════════════════════════════════════════════════════════
     if (!p.blueprint_id && p.package_id) {
-      console.log(`${fnTag} Package-level dispatch for ${p.package_id}`);
+      console.log(`${fnTag} FANOUT_START package=${p.package_id}`);
+      const jobId = (body?.job_id ?? body?.payload?.job_id ?? null) as string | null;
+      await touchHeartbeat(sb, jobId, "fanout_start");
 
       const { data: pkg } = await sb
         .from("course_packages")
@@ -225,7 +227,6 @@ Deno.serve(async (req) => {
         return errorResponse(404, "PACKAGE_NOT_FOUND", { package_id: p.package_id });
       }
 
-      // Resolve subject name + isStudium
       const { data: cur } = await sb
         .from("curricula")
         .select("track, program_type")
@@ -240,7 +241,6 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const subjectName = course?.title ?? "Prüfungsvorbereitung";
 
-      // Find all approved blueprints
       const { data: blueprints, error: bpListErr } = await sb
         .from("question_blueprints")
         .select("id")
@@ -255,36 +255,61 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Pre-flight validation
+      await touchHeartbeat(sb, jobId, "after_bp_list");
+
+      // ── Preflight: BATCH ONLY, 5s timeout, NO N×fallback loop ──
       let eligibleIds: string[] = [];
       let blockedIds: string[] = [];
-      const preflightDetails: Record<string, unknown> = {};
+      let preflightSkipped = false;
+      let preflightSkipReason: string | null = null;
 
-      // Try batch RPC first, fallback to per-blueprint
-      const { data: preflightResults, error: preflightErr } = await sb.rpc(
-        "fn_validate_blueprint_preflight_batch",
-        { p_blueprint_ids: blueprints.map(b => b.id) }
-      ).maybeSingle();
-
-      if (preflightErr || !preflightResults) {
-        console.log(`${fnTag} Using per-blueprint preflight validation`);
-        for (const bp of blueprints) {
-          const { data: result } = await sb.rpc("fn_validate_blueprint_preflight", { p_blueprint_id: bp.id });
-          if (result && (result as any).eligible) {
-            eligibleIds.push(bp.id);
-          } else {
-            blockedIds.push(bp.id);
-            preflightDetails[bp.id] = result;
-          }
+      try {
+        console.log(`${fnTag} preflight_batch_start n=${blueprints.length}`);
+        const pf = await withTimeout(
+          sb.rpc("fn_validate_blueprint_preflight_batch", {
+            p_blueprint_ids: blueprints.map((b: any) => b.id),
+          }).maybeSingle(),
+          FANOUT_PREFLIGHT_TIMEOUT_MS,
+          "PREFLIGHT_BATCH",
+        );
+        console.log(`${fnTag} preflight_batch_end err=${pf?.error?.message ?? "none"}`);
+        if (pf?.error || !pf?.data) {
+          preflightSkipped = true;
+          preflightSkipReason = pf?.error?.message ?? "batch_returned_null";
+          eligibleIds = blueprints.map((b: any) => b.id);
+        } else {
+          eligibleIds = (pf.data as any).eligible_ids || blueprints.map((b: any) => b.id);
+          blockedIds = (pf.data as any).blocked_ids || [];
         }
-      } else {
-        eligibleIds = (preflightResults as any).eligible_ids || blueprints.map((b: any) => b.id);
-        blockedIds = (preflightResults as any).blocked_ids || [];
+      } catch (e) {
+        const msg = (e as Error).message;
+        console.warn(`${fnTag} preflight_batch_failed: ${msg} — assuming all eligible (no N× fallback)`);
+        preflightSkipped = true;
+        preflightSkipReason = msg;
+        eligibleIds = blueprints.map((b: any) => b.id);
+
+        // Hard-fail terminal code path: only if it's a real timeout AND we have huge backlog
+        if (msg.startsWith("TIMEOUT_PREFLIGHT_BATCH")) {
+          // Continue with all-eligible — soft-degrade — but record terminal_code in audit
+          try {
+            await sb.from("auto_heal_log").insert({
+              action_type: "fanout_preflight_timeout",
+              target_type: "package",
+              target_id: p.package_id,
+              result_status: "soft_degraded",
+              metadata: {
+                terminal_code: "FANOUT_PREFLIGHT_TIMEOUT",
+                package_id: p.package_id,
+                blueprint_count: blueprints.length,
+                timeout_ms: FANOUT_PREFLIGHT_TIMEOUT_MS,
+                action: "assumed_all_eligible_no_fallback_loop",
+              },
+            });
+          } catch (_auditErr) { /* never block */ }
+        }
       }
 
-      if (blockedIds.length > 0) {
-        console.warn(`${fnTag} ⚠️ PRE-FLIGHT BLOCKED ${blockedIds.length}/${blueprints.length} blueprints`);
-      }
+      await touchHeartbeat(sb, jobId, "after_preflight");
 
       if (eligibleIds.length === 0) {
         return errorResponse(409, "PREREQ_NOT_DONE", {
@@ -293,13 +318,10 @@ Deno.serve(async (req) => {
           retry: true,
           total_blueprints: blueprints.length,
           blocked: blockedIds.length,
-          preflight_details: preflightDetails,
         });
       }
 
-      const countPerBlueprint = Math.max(5, Math.floor(p.count / eligibleIds.length));
-
-      // Duplicate guard: skip blueprints that already have pending/processing jobs
+      // Duplicate guard
       const { data: existingJobs } = await sb
         .from("job_queue")
         .select("payload")
@@ -309,12 +331,10 @@ Deno.serve(async (req) => {
 
       const alreadyEnqueued = new Set<string>();
       for (const j of existingJobs ?? []) {
-        // SSOT: read blueprint_id (snake_case), with legacy fallback
         const bpId = (j.payload as any)?.blueprint_id ?? (j.payload as any)?.blueprintId;
         if (bpId) alreadyEnqueued.add(bpId);
       }
-
-      const newEligible = eligibleIds.filter(id => !alreadyEnqueued.has(id));
+      const newEligible = eligibleIds.filter((id) => !alreadyEnqueued.has(id));
 
       if (newEligible.length === 0) {
         return new Response(JSON.stringify({
@@ -322,20 +342,40 @@ Deno.serve(async (req) => {
           message: "All eligible blueprints already have pending jobs",
           package_id: p.package_id,
           already_enqueued: alreadyEnqueued.size,
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Enqueue individual per-blueprint jobs — ONLY snake_case keys
-      const jobRows = newEligible.map((bpId) => ({
+      // ── Hard cap + defer overflow ──
+      const runIds = newEligible.slice(0, FANOUT_MAX_BLUEPRINTS_PER_RUN);
+      const deferredIds = newEligible.slice(FANOUT_MAX_BLUEPRINTS_PER_RUN);
+      if (deferredIds.length > 0) {
+        try {
+          await sb.from("auto_heal_log").insert({
+            action_type: "fanout_cap_deferred",
+            target_type: "package",
+            target_id: p.package_id,
+            result_status: "deferred",
+            metadata: {
+              terminal_code: "FANOUT_CAP_DEFERRED",
+              package_id: p.package_id,
+              cap: FANOUT_MAX_BLUEPRINTS_PER_RUN,
+              deferred_count: deferredIds.length,
+              run_count: runIds.length,
+              note: "remaining blueprints will be enqueued by next fan-out invocation (idempotent — duplicate guard skips already-enqueued)",
+            },
+          });
+        } catch (_e) { /* never block */ }
+      }
+
+      const countPerBlueprint = Math.max(5, Math.floor(p.count / runIds.length));
+      const jobRows = runIds.map((bpId) => ({
         job_type: "package_generate_blueprint_variants",
         package_id: p.package_id,
         payload: {
           package_id: p.package_id,
           curriculum_id: pkg.curriculum_id,
           course_id: pkg.course_id,
-          blueprint_id: bpId,          // SSOT: snake_case only
+          blueprint_id: bpId,
           count: countPerBlueprint,
           subject_name: subjectName,
           is_studium: isStudium,
@@ -345,23 +385,73 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }));
 
+      // ── Bulk-insert in chunks of 50 with per-chunk heartbeat ──
       let enqueueCount = 0;
       let enqueueSkipped = 0;
-      for (const row of jobRows) {
-        const { error: enqueueErr } = await sb.from("job_queue").insert(row);
-        if (enqueueErr) {
-          if (enqueueErr.message?.includes("duplicate key")) {
-            enqueueSkipped++;
+      console.log(`${fnTag} insert_chunks_start total=${jobRows.length} chunk_size=${FANOUT_INSERT_CHUNK_SIZE}`);
+      for (let i = 0; i < jobRows.length; i += FANOUT_INSERT_CHUNK_SIZE) {
+        const chunk = jobRows.slice(i, i + FANOUT_INSERT_CHUNK_SIZE);
+        const { data: ins, error: insErr } = await sb
+          .from("job_queue")
+          .insert(chunk)
+          .select("id");
+        if (insErr) {
+          // Could be partial-chunk dup-key; fall back to per-row for THIS chunk only
+          if (insErr.message?.includes("duplicate key")) {
+            for (const row of chunk) {
+              const { error: rowErr } = await sb.from("job_queue").insert(row);
+              if (rowErr) {
+                if (rowErr.message?.includes("duplicate key")) enqueueSkipped++;
+                else {
+                  try {
+                    await sb.from("auto_heal_log").insert({
+                      action_type: "fanout_bulk_insert_failed",
+                      target_type: "package",
+                      target_id: p.package_id,
+                      result_status: "failed",
+                      metadata: {
+                        terminal_code: "FANOUT_BULK_INSERT_FAILED",
+                        package_id: p.package_id,
+                        detail: rowErr.message,
+                        chunk_offset: i,
+                      },
+                    });
+                  } catch (_e) { /* never block */ }
+                  return errorResponse(500, "FANOUT_BULK_INSERT_FAILED", {
+                    detail: rowErr.message,
+                    chunk_offset: i,
+                  });
+                }
+              } else enqueueCount++;
+            }
           } else {
-            console.error(`${fnTag} Enqueue error:`, enqueueErr.message);
-            return errorResponse(500, "ENQUEUE_FAILED", { detail: enqueueErr.message });
+            try {
+              await sb.from("auto_heal_log").insert({
+                action_type: "fanout_bulk_insert_failed",
+                target_type: "package",
+                target_id: p.package_id,
+                result_status: "failed",
+                metadata: {
+                  terminal_code: "FANOUT_BULK_INSERT_FAILED",
+                  package_id: p.package_id,
+                  detail: insErr.message,
+                  chunk_offset: i,
+                  chunk_size: chunk.length,
+                },
+              });
+            } catch (_e) { /* never block */ }
+            return errorResponse(500, "FANOUT_BULK_INSERT_FAILED", {
+              detail: insErr.message,
+              chunk_offset: i,
+            });
           }
         } else {
-          enqueueCount++;
+          enqueueCount += ins?.length ?? chunk.length;
         }
+        await touchHeartbeat(sb, jobId, `chunk_${i}`);
       }
 
-      console.log(`${fnTag} Enqueued ${enqueueCount}/${newEligible.length} for ${p.package_id} (${enqueueSkipped} dup, ${blockedIds.length} blocked)`);
+      console.log(`${fnTag} ✅ FANOUT_END pkg=${p.package_id} enqueued=${enqueueCount}/${runIds.length} dup=${enqueueSkipped} blocked=${blockedIds.length} deferred=${deferredIds.length} preflight_skipped=${preflightSkipped}`);
 
       return new Response(JSON.stringify({
         ok: true,
@@ -371,7 +461,10 @@ Deno.serve(async (req) => {
         blueprints_enqueued: enqueueCount,
         duplicates_skipped: enqueueSkipped,
         blueprints_blocked: blockedIds.length,
+        blueprints_deferred: deferredIds.length,
         count_per_blueprint: countPerBlueprint,
+        preflight_skipped: preflightSkipped,
+        preflight_skip_reason: preflightSkipReason,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
