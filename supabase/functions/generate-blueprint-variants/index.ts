@@ -243,9 +243,14 @@ Deno.serve(async (req) => {
 
       const { data: blueprints, error: bpListErr } = await sb
         .from("question_blueprints")
-        .select("id")
+        .select("id, learning_field_id")
         .eq("curriculum_id", pkg.curriculum_id)
         .eq("status", "approved");
+
+      const bpLfMap = new Map<string, string | null>();
+      for (const b of blueprints ?? []) {
+        bpLfMap.set((b as any).id, (b as any).learning_field_id ?? null);
+      }
 
       if (bpListErr || !blueprints || blueprints.length === 0) {
         return errorResponse(409, "PREREQ_NOT_DONE", {
@@ -367,8 +372,65 @@ Deno.serve(async (req) => {
         } catch (_e) { /* never block */ }
       }
 
-      const countPerBlueprint = Math.max(5, Math.floor(p.count / runIds.length));
-      const jobRows = runIds.map((bpId) => ({
+      // ── Cap-aware skip: drop blueprints with ≥3 FANOUT_CAP suppressions in last 30 min ──
+      const capHotBp = new Map<string, number>();
+      try {
+        const { data: capRows } = await sb
+          .from("auto_heal_log")
+          .select("metadata")
+          .eq("action_type", "job_queue_insert_suppressed_fanout_cap")
+          .gte("created_at", new Date(Date.now() - 30 * 60_000).toISOString())
+          .limit(2000);
+        for (const r of capRows ?? []) {
+          const m = (r as any).metadata ?? {};
+          if (m.job_type !== "package_generate_blueprint_variants") continue;
+          const bpId = m.blueprint_id;
+          if (!bpId) continue;
+          capHotBp.set(bpId, (capHotBp.get(bpId) ?? 0) + 1);
+        }
+      } catch (_e) { /* never block */ }
+
+      const skippedHotBp: Array<{ blueprint_id: string; suppressions_30m: number; learning_field_id: string | null }> = [];
+      const filteredRunIds = runIds.filter((bpId) => {
+        const hits = capHotBp.get(bpId) ?? 0;
+        if (hits >= 3) {
+          skippedHotBp.push({
+            blueprint_id: bpId,
+            suppressions_30m: hits,
+            learning_field_id: bpLfMap.get(bpId) ?? null,
+          });
+          return false;
+        }
+        return true;
+      });
+
+      if (skippedHotBp.length > 0) {
+        try {
+          await sb.from("auto_heal_log").insert({
+            action_type: "generate_blueprint_variants_cap_hot_bp_skipped",
+            target_type: "package",
+            target_id: p.package_id,
+            result_status: "skipped",
+            metadata: {
+              package_id: p.package_id,
+              skipped_count: skippedHotBp.length,
+              skipped: skippedHotBp.slice(0, 50),
+            },
+          });
+        } catch (_e) { /* never block */ }
+      }
+
+      if (filteredRunIds.length === 0) {
+        return new Response(JSON.stringify({
+          ok: true,
+          message: "All eligible blueprints suppressed by FANOUT_CAP cooldown",
+          package_id: p.package_id,
+          skipped_hot_bp: skippedHotBp.length,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const countPerBlueprint = Math.max(5, Math.floor(p.count / filteredRunIds.length));
+      const jobRows = filteredRunIds.map((bpId) => ({
         job_type: "package_generate_blueprint_variants",
         package_id: p.package_id,
         payload: {
@@ -379,6 +441,9 @@ Deno.serve(async (req) => {
           count: countPerBlueprint,
           subject_name: subjectName,
           is_studium: isStudium,
+          learning_field_filter: bpLfMap.get(bpId) ?? null,
+          _origin: "fanout_blueprint_variants",
+          enqueue_source: "generate_blueprint_variants_fanout",
         },
         status: "pending",
         created_at: new Date().toISOString(),
