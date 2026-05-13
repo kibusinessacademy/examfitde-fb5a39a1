@@ -193,7 +193,7 @@ async function runWork(
     const globalBudget = Math.max(0, MAX_QUESTIONS_PER_PACKAGE - currentCount);
     if (globalBudget <= 0) {
       console.log(`[bloom-gap-fill] SSOT HARD CAP reached: ${currentCount} >= ${MAX_QUESTIONS_PER_PACKAGE} — skipping`);
-      return json({ ok: true, message: "pool_cap_reached", pool_size: currentCount, cap: MAX_QUESTIONS_PER_PACKAGE });
+      return { kind: "completed", body: { ok: true, message: "pool_cap_reached", pool_size: currentCount, cap: MAX_QUESTIONS_PER_PACKAGE } };
     }
 
     // ── 1. Fetch gap report (returns single JSONB object, NOT a table) ──
@@ -204,12 +204,12 @@ async function runWork(
 
     if (gapErr) {
       console.error("[bloom-gap-fill] RPC error:", gapErr.message);
-      return json({ ok: false, error: gapErr.message }, 500);
+      return { kind: "failed", body: { ok: false, error: gapErr.message }, error: gapErr.message };
     }
 
     if (!report || typeof report !== "object") {
       console.log("[bloom-gap-fill] No report data returned");
-      return json({ ok: true, message: "no_report", generated: 0 });
+      return { kind: "completed", body: { ok: true, message: "no_report", generated: 0 } };
     }
 
     // Parse JSONB object format: bloom_gaps: {"remember": 5, ...}, difficulty_gaps: {...}, competency_gaps: [...]
