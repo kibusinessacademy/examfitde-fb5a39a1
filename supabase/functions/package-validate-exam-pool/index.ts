@@ -607,25 +607,47 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── REPAIRABLE: proceed with validation, but if no pending questions → dispatch repair ──
-    if (gateStatus === "REPAIRABLE" && (metrics.pending_count ?? 0) === 0) {
+    // ── REPAIRABLE / NEEDS_REPAIR: targeted repair required, never fall through to T1 ──
+    // Bucket E.2 — fn_classify_exam_pool_gate emits NEEDS_REPAIR (LF/COMP gap) and
+    // legacy callers may emit REPAIRABLE. Both are early-exit, no T1 fallback.
+    if (gateStatus === "REPAIRABLE" || gateStatus === "NEEDS_REPAIR") {
       try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
 
       const repairDiagnosis: string[] = [];
       for (const rc of reasonCodes) {
-        if (rc.startsWith("REPAIR_")) repairDiagnosis.push(rc);
+        if (rc.startsWith("REPAIR_") || rc.endsWith("_GAP")) repairDiagnosis.push(rc);
       }
 
       return json({
         ok: false,
         batch_complete: true,
         validation_passed: false,
-        gate_status: "REPAIRABLE",
+        gate_status: gateStatus,
         gate_blocked: true,
         gate_diagnosis: repairDiagnosis,
         reason_codes: reasonCodes,
+        recommended_action: recommendedAction,
         gate_classification: gateClassification,
-        message: `🔧 REPAIRABLE: ${repairDiagnosis.join(", ")}. Targeted Repair erforderlich.`,
+        transient: true,
+        backoff_seconds: 300,
+        message: `🔧 ${gateStatus}: ${repairDiagnosis.join(", ") || reasonCodes.join(", ")}. Action=${recommendedAction}. Targeted Repair erforderlich.`,
+      });
+    }
+
+    // ── NEEDS_GENERATION / WAITING_GENERATION / WAITING_QC: requeue, no T1 ──
+    if (gateStatus === "NEEDS_GENERATION" || gateStatus === "WAITING_GENERATION" || gateStatus === "WAITING_QC") {
+      try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
+      return json({
+        ok: null,
+        batch_complete: true,
+        validation_passed: false,
+        gate_status: gateStatus,
+        reason_codes: reasonCodes,
+        recommended_action: recommendedAction,
+        transient: true,
+        backoff_seconds: 120,
+        gate_classification: gateClassification,
+        message: `⏳ ${gateStatus}: ${reasonCodes.join(", ")}. Action=${recommendedAction}.`,
       });
     }
 
