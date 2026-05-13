@@ -480,7 +480,7 @@ Deno.serve(async (req) => {
   return json({
     status: "parked_awaiting_children",
     parent_job_id: jobId ?? null,
-    parent_status: "queued",
+    parent_status: "pending",
     gaps: gaps.length,
     dispatched: dispatched.length,
     dispatched_children: dispatched.length,
