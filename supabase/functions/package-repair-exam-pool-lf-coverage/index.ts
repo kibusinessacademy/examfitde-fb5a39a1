@@ -152,6 +152,172 @@ Deno.serve(async (req) => {
       .eq("id", jobId);
   }
 
+  // ── RECONCILER: parent re-entered after parking ──
+  // If meta.phase === 'parked_awaiting_children', do NOT re-dispatch — reconcile children.
+  if (jobId) {
+    const { data: parentRow } = await sb.from("job_queue")
+      .select("id, status, meta, retry_count")
+      .eq("id", jobId)
+      .maybeSingle();
+    const parentMeta = (parentRow?.meta ?? {}) as Record<string, unknown>;
+    const phase = parentMeta.phase as string | undefined;
+    const childIds = Array.isArray(parentMeta.child_job_ids)
+      ? (parentMeta.child_job_ids as string[]).filter((x) => typeof x === "string")
+      : [];
+
+    if (phase === "parked_awaiting_children" && childIds.length > 0) {
+      console.log(`[lf-cov-repair] RECONCILER: parent ${jobId.slice(0,8)} → ${childIds.length} children`);
+
+      const { data: childrenRaw, error: childErr } = await sb.from("job_queue")
+        .select("id, status, last_error_code, last_error")
+        .in("id", childIds);
+      if (childErr) {
+        console.error(`[lf-cov-repair] child fetch failed: ${childErr.message}`);
+        return json({ error: `child fetch failed: ${childErr.message}` }, 500);
+      }
+      const children = (childrenRaw ?? []) as Array<{ id: string; status: string; last_error_code: string | null; last_error: string | null }>;
+      const byStatus: Record<string, number> = {};
+      for (const c of children) byStatus[c.status] = (byStatus[c.status] ?? 0) + 1;
+      const pendingLike = children.filter((c) => ["pending", "processing", "queued", "running"].includes(c.status));
+      const failedLike = children.filter((c) => ["failed", "cancelled"].includes(c.status));
+      const completed = children.filter((c) => c.status === "completed");
+
+      // Branch 1: still working → re-park
+      if (pendingLike.length > 0) {
+        const reparkAfter = new Date(Date.now() + 90_000).toISOString();
+        await sb.from("job_queue").update({
+          status: "pending",
+          started_at: null,
+          last_heartbeat_at: null,
+          run_after: reparkAfter,
+          last_error_code: "PARKED_AWAITING_CHILDREN",
+          last_error: `awaiting ${pendingLike.length}/${children.length} children`,
+          meta: { ...parentMeta, phase: "parked_awaiting_children", reconciler_last_check_at: new Date().toISOString(), child_status_breakdown: byStatus },
+        }).eq("id", jobId).in("status", ["processing", "pending"]);
+        await sb.from("auto_heal_log").insert({
+          action_type: "lf_repair_parent_waiting_children",
+          target_type: "job",
+          target_id: jobId,
+          result_status: "info",
+          metadata: { package_id: packageId, child_status_breakdown: byStatus, total: children.length, pending_like: pendingLike.length },
+        });
+        return json({
+          status: "parked_awaiting_children",
+          parent_job_id: jobId,
+          parent_status: "pending",
+          waiting_for: pendingLike.length,
+          child_status_breakdown: byStatus,
+          run_after: reparkAfter,
+        }, 202);
+      }
+
+      // Branch 2: at least one child failed/cancelled → parent failed
+      if (failedLike.length > 0) {
+        await sb.from("job_queue").update({
+          status: "failed",
+          last_error_code: "CHILD_JOB_FAILED",
+          last_error: `${failedLike.length} child(ren) failed/cancelled (completed=${completed.length})`,
+          meta: { ...parentMeta, phase: "child_job_failed", failed_at: new Date().toISOString(), child_status_breakdown: byStatus, failed_child_ids: failedLike.map((c) => c.id) },
+        }).eq("id", jobId);
+        await markBlocked(sb, packageId, "child_job_failed", { child_status_breakdown: byStatus, failed_children: failedLike.length });
+        await sb.from("auto_heal_log").insert({
+          action_type: "lf_repair_parent_failed_child",
+          target_type: "job",
+          target_id: jobId,
+          result_status: "failed",
+          metadata: { package_id: packageId, child_status_breakdown: byStatus, failed_child_ids: failedLike.map((c) => c.id) },
+        });
+        return json({
+          status: "failed",
+          last_error_code: "CHILD_JOB_FAILED",
+          parent_job_id: jobId,
+          child_status_breakdown: byStatus,
+        }, 422);
+      }
+
+      // Branch 3: all children completed → coverage recheck
+      const { data: gateRecheckRaw, error: gateRecheckErr } = await sb.rpc("fn_classify_exam_pool_gate", {
+        p_package_id: packageId,
+      });
+      if (gateRecheckErr) {
+        console.error(`[lf-cov-repair] reconciler gate recheck failed: ${gateRecheckErr.message}`);
+        return json({ error: `gate recheck failed: ${gateRecheckErr.message}` }, 500);
+      }
+      const gateRecheck = (gateRecheckRaw ?? {}) as Record<string, unknown>;
+      const recheckStatus = String(gateRecheck.gate_status ?? "");
+      const recheckReasons = Array.isArray(gateRecheck.reason_codes) ? gateRecheck.reason_codes as string[] : [];
+      const stillCoverageGap = recheckReasons.some((c) =>
+        c === "REPAIR_LF_COVERAGE" || c === "REPAIR_LF_COVERAGE_SKEWED" || c === "REPAIR_LF_COVERAGE_MISSING"
+      );
+
+      // 3a: coverage healed → parent completed + enqueue validate_exam_pool
+      if (recheckStatus === "PASS" || !stillCoverageGap) {
+        await markDone(sb, packageId, {
+          repair_complete: true,
+          children_completed: completed.length,
+          gate_after: gateRecheck,
+          reconciler: true,
+        });
+        await sb.from("job_queue").update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          last_error_code: null,
+          last_error: null,
+          meta: { ...parentMeta, phase: "completed_after_children", completed_at: new Date().toISOString(), child_status_breakdown: byStatus, gate_after: gateRecheck },
+        }).eq("id", jobId);
+        try {
+          await enqueueJob(sb, {
+            job_type: "package_validate_exam_pool",
+            package_id: packageId,
+            priority: 25,
+            payload: { _origin: "lf_repair_post_children_recheck", _origin_job_id: jobId },
+          });
+        } catch (e) {
+          console.warn(`[lf-cov-repair] validate_exam_pool re-enqueue failed: ${(e as Error).message}`);
+        }
+        await sb.from("auto_heal_log").insert({
+          action_type: "lf_repair_parent_completed_after_children",
+          target_type: "job",
+          target_id: jobId,
+          result_status: "success",
+          metadata: { package_id: packageId, children_completed: completed.length, gate_status_after: recheckStatus, reason_codes_after: recheckReasons },
+        });
+        return json({
+          status: "completed",
+          parent_job_id: jobId,
+          children_completed: completed.length,
+          gate_status_after: recheckStatus,
+        }, 200);
+      }
+
+      // 3b: still coverage gap → no-effect, hard surface, NO immediate re-loop
+      await sb.from("job_queue").update({
+        status: "failed",
+        last_error_code: "NO_EFFECT_LF_REPAIR",
+        last_error: `LF coverage gap persists after ${completed.length} child completions: ${recheckReasons.join(",")}`,
+        meta: { ...parentMeta, phase: "no_effect_after_children", failed_at: new Date().toISOString(), child_status_breakdown: byStatus, gate_after: gateRecheck },
+      }).eq("id", jobId);
+      await markBlocked(sb, packageId, "no_effect_after_children", {
+        children_completed: completed.length, gate_status_after: recheckStatus, reason_codes_after: recheckReasons,
+      });
+      await sb.from("auto_heal_log").insert({
+        action_type: "lf_repair_parent_no_effect_after_children",
+        target_type: "job",
+        target_id: jobId,
+        result_status: "blocked_no_effect",
+        metadata: { package_id: packageId, children_completed: completed.length, gate_status_after: recheckStatus, reason_codes_after: recheckReasons, gate_after: gateRecheck },
+      });
+      return json({
+        status: "failed",
+        last_error_code: "NO_EFFECT_LF_REPAIR",
+        parent_job_id: jobId,
+        children_completed: completed.length,
+        gate_status_after: recheckStatus,
+        reason_codes_after: recheckReasons,
+      }, 422);
+    }
+  }
+
   // ── GUARD 1: Eligibility (fail-closed for automation) ──
   const eligibility = await isRepairActionEligible(
     sb, packageId, REPAIR_ACTION, triggeredBy,
