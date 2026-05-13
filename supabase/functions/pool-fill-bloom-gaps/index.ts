@@ -416,7 +416,17 @@ async function runWork(
     }
 
     // ── 5. Generate questions via AI ──
-    const modelChain = await getModelChainAsync("exam_questions");
+    // Patch C: fast-first model chain. Override policy chain so the cheapest/fastest
+    // model attempts first; gpt-5-mini is last-resort fallback only.
+    // Note: 'exam_questions' intent allows nano (no-nano guard applies to 'learning_content').
+    const FAST_FIRST_CHAIN = [
+      { provider: "google", model: "google/gemini-2.5-flash-lite" },
+      { provider: "openai", model: "openai/gpt-5-nano" },
+      { provider: "google", model: "google/gemini-2.5-flash" },
+      { provider: "openai", model: "openai/gpt-5-mini" },
+    ];
+    const policyChain = await getModelChainAsync("exam_questions");
+    const modelChain = FAST_FIRST_CHAIN; // Patch C: explicit fast-first override
     const allQuestions: Array<Record<string, unknown>> = [];
 
     // Group plan into a single prompt for efficiency
