@@ -464,7 +464,7 @@ Deno.serve(async (req) => {
         gate_status_before: gateStatus,
         router_version: "phase_c_v1",
       },
-    }).eq("id", jobId);
+    }).eq("id", jobId).in("status", ["processing", "queued"]);
     if (parkErr) {
       console.error(`[lf-cov-repair] parent park failed: ${parkErr.message}`);
       await sb.from("auto_heal_log").insert({
