@@ -2431,10 +2431,11 @@ Deno.serve(async (req) => {
         ]);
         const parkedSignal =
           res.status === 202 ||
-          ["parked_awaiting_children", "accepted", "queued"].includes(
+          ["parked_awaiting_children", "accepted", "queued", "pending"].includes(
             String(parsed?.status ?? parsed?.body?.status ?? "")
           ) ||
           parsed?.parent_status === "queued" ||
+          parsed?.parent_status === "pending" ||
           parsed?.parent_status === "parked_awaiting_children";
         if (PARKED_PARENT_ALLOWLIST.has(job.job_type) && parkedSignal) {
           console.log(
