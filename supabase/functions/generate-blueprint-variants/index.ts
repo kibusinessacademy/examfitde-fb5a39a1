@@ -1,4 +1,28 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { markFirstHeartbeat } from "../_shared/first-heartbeat.ts";
+
+// Patch F' — fan-out hardening
+const FANOUT_PREFLIGHT_TIMEOUT_MS = 5_000;
+const FANOUT_MAX_BLUEPRINTS_PER_RUN = 100;
+const FANOUT_INSERT_CHUNK_SIZE = 50;
+
+async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return await Promise.race([
+    p,
+    new Promise<T>((_, rej) =>
+      setTimeout(() => rej(new Error(`TIMEOUT_${label}_${ms}ms`)), ms),
+    ),
+  ]);
+}
+
+async function touchHeartbeat(sb: any, jobId: string | null | undefined, label: string) {
+  if (!jobId) return;
+  try {
+    await markFirstHeartbeat(sb, jobId);
+  } catch (e) {
+    console.warn(`[fanout-heartbeat] ${label} failed: ${(e as Error).message}`);
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
