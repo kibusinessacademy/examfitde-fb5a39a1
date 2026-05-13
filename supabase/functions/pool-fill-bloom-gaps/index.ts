@@ -415,17 +415,17 @@ async function runWork(
       }
     }
 
-    // ── 5. Generate questions via AI ──
-    // Patch D: Gemini-only chain. Direct Gateway-Test bewies: Gemini-Flash-Lite 5s,
-    // Flash 8s — beide deutlich unter PER_MODEL_TIMEOUT. GPT-5-Modelle akzeptieren
-    // 'max_tokens' nicht mehr (HTTP 400 "Use 'max_completion_tokens' instead") und
-    // verursachten silent fail-loops in Patch C. GPT-5 ist hier komplett raus.
+    // ── 5. Generate questions via Lovable AI Gateway ──
+    // Patch D.2: Direct Lovable AI Gateway (https://ai.gateway.lovable.dev) statt
+    // callAIJSON. Grund: callAIJSON erwartet GOOGLE_AI_API_KEY direkt — der Secret
+    // ist nicht gesetzt. Lovable AI Gateway nutzt LOVABLE_API_KEY für alle Provider.
+    // Direct Gateway-Test bewies: gemini-2.5-flash-lite ~5s, gemini-2.5-flash ~8s.
     const GEMINI_ONLY_CHAIN = [
-      { provider: "google", model: "gemini-2.5-flash-lite" }, // primary, ~5s
-      { provider: "google", model: "gemini-2.5-flash" },      // fallback, ~8s
+      "google/gemini-2.5-flash-lite", // primary, ~5s
+      "google/gemini-2.5-flash",      // fallback, ~8s
     ];
     const policyChain = await getModelChainAsync("exam_questions");
-    const modelChain = GEMINI_ONLY_CHAIN; // Patch D: Gemini-only override
+    const modelChain = GEMINI_ONLY_CHAIN; // Patch D: Gemini-only via Lovable Gateway
     const allQuestions: Array<Record<string, unknown>> = [];
 
     // Group plan into a single prompt for efficiency
