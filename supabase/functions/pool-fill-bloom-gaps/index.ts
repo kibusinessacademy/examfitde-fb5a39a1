@@ -96,10 +96,26 @@ async function finalizeJob(
   if (!jobId) return;
   const now = new Date().toISOString();
   if (outcome.kind === "failed") {
+    // Patch E: prefer terminal_code (AI_PROVIDER_*) over generic POOL_FILL_BACKGROUND_FAILED
+    const terminalCode = (outcome.body?.terminal_code as string | undefined) || null;
+    const failureClass = (outcome.body?.failure_class as string | undefined) || null;
+    const payloadSignature = (outcome.body?.payload_signature as string | undefined) || null;
+    const lastErrorCode = terminalCode || "POOL_FILL_BACKGROUND_FAILED";
+    // merge into existing meta without losing producer fields
+    const { data: existing } = await sb.from("job_queue").select("meta").eq("id", jobId).maybeSingle();
+    const mergedMeta = {
+      ...(existing?.meta as Record<string, unknown> ?? {}),
+      terminal_code: terminalCode,
+      failure_class: failureClass,
+      payload_signature: payloadSignature,
+      patch: "E",
+      finalized_at: now,
+    };
     await sb.from("job_queue").update({
       status: "failed",
       last_error: (outcome.error || "POOL_FILL_BACKGROUND_FAILED").slice(0, 2000),
-      last_error_code: "POOL_FILL_BACKGROUND_FAILED",
+      last_error_code: lastErrorCode,
+      meta: mergedMeta,
       completed_at: now,
       updated_at: now,
       locked_at: null,
