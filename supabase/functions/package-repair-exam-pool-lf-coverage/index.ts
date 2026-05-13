@@ -239,6 +239,9 @@ Deno.serve(async (req) => {
       }
 
       // Branch 3: all children completed → coverage recheck
+      // STRICT RULE: only gate_status === 'PASS' completes the parent.
+      // Reason-code matching is NOT used as primary success/no-effect decision —
+      // any non-PASS gate after dispatched children counts as NO_EFFECT_LF_REPAIR.
       const { data: gateRecheckRaw, error: gateRecheckErr } = await sb.rpc("fn_classify_exam_pool_gate", {
         p_package_id: packageId,
       });
@@ -249,12 +252,14 @@ Deno.serve(async (req) => {
       const gateRecheck = (gateRecheckRaw ?? {}) as Record<string, unknown>;
       const recheckStatus = String(gateRecheck.gate_status ?? "");
       const recheckReasons = Array.isArray(gateRecheck.reason_codes) ? gateRecheck.reason_codes as string[] : [];
-      const stillCoverageGap = recheckReasons.some((c) =>
-        c === "REPAIR_LF_COVERAGE" || c === "REPAIR_LF_COVERAGE_SKEWED" || c === "REPAIR_LF_COVERAGE_MISSING"
-      );
+      const dispatchedChildren = typeof parentMeta.dispatched_children === "number"
+        ? parentMeta.dispatched_children as number
+        : childIds.length;
+      const previousPhase = typeof parentMeta.phase === "string" ? parentMeta.phase as string : null;
+      const gatePassed = recheckStatus === "PASS";
 
-      // 3a: coverage healed → parent completed + enqueue validate_exam_pool
-      if (recheckStatus === "PASS" || !stillCoverageGap) {
+      // 3a: gate PASS → parent completed + enqueue validate_exam_pool
+      if (gatePassed) {
         await markDone(sb, packageId, {
           repair_complete: true,
           children_completed: completed.length,
