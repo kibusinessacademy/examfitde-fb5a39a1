@@ -576,8 +576,9 @@ Antworte NUR als JSON:
     const aiWallMs = Date.now() - aiStart;
 
     if (aiQuestions.length === 0) {
-      console.error("[bloom-gap-fill] All AI models failed:", aiError);
-      return { kind: "failed", body: { ok: false, error: aiError || "ai_failed" }, error: aiError || "ai_failed" };
+      const finalErr = terminalErrorCode || aiError || "ai_failed";
+      console.error("[bloom-gap-fill] All AI models failed:", finalErr);
+      return { kind: "failed", body: { ok: false, error: finalErr, terminal_code: terminalErrorCode }, error: finalErr };
     }
 
     // ── 6. Build DB inserts ──
