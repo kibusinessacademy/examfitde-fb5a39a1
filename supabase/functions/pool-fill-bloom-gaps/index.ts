@@ -379,7 +379,7 @@ async function runWork(
     const totalPlanned = plan.reduce((s, p) => s + p.count, 0);
     if (totalPlanned < MIN_BATCH_SIZE) {
       console.log(`[bloom-gap-fill] Plan too small (${totalPlanned}) — skipping`);
-      return json({ ok: true, message: "gap_too_small", planned: totalPlanned });
+      return { kind: "completed", body: { ok: true, message: "gap_too_small", planned: totalPlanned } };
     }
 
     console.log(`[bloom-gap-fill] Plan: ${plan.length} targets, ${totalPlanned} questions`);
