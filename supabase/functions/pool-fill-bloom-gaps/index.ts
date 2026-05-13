@@ -680,7 +680,7 @@ Antworte NUR als JSON:
           questions_planned: questionsSpec.length,
           questions_inserted: inserts.length,
           model_used: modelUsed,
-          model_chain_order: modelChain.map((m) => m.model),
+          model_chain_order: modelChain,
           policy_chain_order: policyChain.map((m: { model: string }) => m.model),
           ai_wall_ms: aiWallMs,
           budget_ms: TOTAL_AI_BUDGET_MS,
