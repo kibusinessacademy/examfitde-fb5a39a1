@@ -35,8 +35,9 @@ function json(body: unknown, status = 200) {
 
 // ── Config ──
 // Patch A (P0 loop-breaker): keep function-wall < 45s worker timeout.
-// Worker-Wall (45s) was being exceeded by AI calls on 36-question prompts,
-// triggering false-failure retries and double-inserts (no idempotency).
+// Patch B (P0 structural): worker is acked at 202 within ms; AI runs in
+// EdgeRuntime.waitUntil and the edge function finalizes the job itself.
+// AI budget tightened from 38s → 28s so background never runs forever.
 const MAX_QUESTIONS_PER_RUN = 12;        // was 40 — caps AI prompt size
 const MAX_AI_TOKENS = 5000;              // was 12000 — keeps single AI call <25s
 const MIN_BATCH_SIZE = 5;                // Don't generate fewer than 5
