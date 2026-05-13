@@ -645,7 +645,7 @@ Antworte NUR als JSON:
           budget_ms: TOTAL_AI_BUDGET_MS,
           per_model_timeout_ms: PER_MODEL_TIMEOUT_MS,
           max_ai_tokens: MAX_AI_TOKENS,
-          patch: "C",
+          patch: "D",
         },
       });
     }
