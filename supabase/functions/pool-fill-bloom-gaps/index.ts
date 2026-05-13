@@ -96,10 +96,26 @@ async function finalizeJob(
   if (!jobId) return;
   const now = new Date().toISOString();
   if (outcome.kind === "failed") {
+    // Patch E: prefer terminal_code (AI_PROVIDER_*) over generic POOL_FILL_BACKGROUND_FAILED
+    const terminalCode = (outcome.body?.terminal_code as string | undefined) || null;
+    const failureClass = (outcome.body?.failure_class as string | undefined) || null;
+    const payloadSignature = (outcome.body?.payload_signature as string | undefined) || null;
+    const lastErrorCode = terminalCode || "POOL_FILL_BACKGROUND_FAILED";
+    // merge into existing meta without losing producer fields
+    const { data: existing } = await sb.from("job_queue").select("meta").eq("id", jobId).maybeSingle();
+    const mergedMeta = {
+      ...(existing?.meta as Record<string, unknown> ?? {}),
+      terminal_code: terminalCode,
+      failure_class: failureClass,
+      payload_signature: payloadSignature,
+      patch: "E",
+      finalized_at: now,
+    };
     await sb.from("job_queue").update({
       status: "failed",
       last_error: (outcome.error || "POOL_FILL_BACKGROUND_FAILED").slice(0, 2000),
-      last_error_code: "POOL_FILL_BACKGROUND_FAILED",
+      last_error_code: lastErrorCode,
+      meta: mergedMeta,
       completed_at: now,
       updated_at: now,
       locked_at: null,
@@ -269,7 +285,8 @@ async function runWork(
 
     const recentN = recentInserts ?? 0;
     if (recentN >= MIN_BATCH_SIZE) {
-      console.log(`[bloom-gap-fill] Idempotency-skip: ${recentN} ai_generated inserts in last ${IDEMPOTENCY_WINDOW_MIN}min for curriculum ${curriculumId.slice(0, 8)} — recent_fill_skipped`);
+      const cooldownUntilIso = new Date(Date.now() + IDEMPOTENCY_WINDOW_MIN * 60_000).toISOString();
+      console.log(`[bloom-gap-fill] Idempotency-skip: ${recentN} ai_generated inserts in last ${IDEMPOTENCY_WINDOW_MIN}min for curriculum ${curriculumId.slice(0, 8)} — recent_fill_skipped (cooldown_until=${cooldownUntilIso})`);
       await sb.from("auto_heal_log").insert({
         action_type: "pool_fill_bloom_gaps_recent_fill_skipped",
         target_type: "course_package",
@@ -283,6 +300,9 @@ async function runWork(
           source: "exam_questions",
           recent_inserts: recentN,
           window_minutes: IDEMPOTENCY_WINDOW_MIN,
+          cooldown_reason: "recent_ai_inserts_within_window",
+          cooldown_source: "pool_fill_bloom_gaps:exam_questions_lookback",
+          cooldown_until: cooldownUntilIso,
         },
       });
       return {
@@ -293,6 +313,7 @@ async function runWork(
           idempotency_key: idempotencyKey,
           recent_inserts: recentN,
           window_minutes: IDEMPOTENCY_WINDOW_MIN,
+          cooldown_until: cooldownUntilIso,
           generated: 0,
         },
       };
@@ -618,8 +639,31 @@ Antworte NUR als JSON:
 
     if (aiQuestions.length === 0) {
       const finalErr = terminalErrorCode || aiError || "ai_failed";
-      console.error("[bloom-gap-fill] All AI models failed:", finalErr);
-      return { kind: "failed", body: { ok: false, error: finalErr, terminal_code: terminalErrorCode }, error: finalErr };
+      // Patch E: payload signature = sha-like compact hash of model chain + spec sizes for fast forensic grep
+      const sigBase = `${modelChain.join('|')}::tokens=${MAX_AI_TOKENS}::q=${questionsSpec.length}::wall=${aiWallMs}`;
+      let payloadSignature = sigBase;
+      try {
+        const buf = new TextEncoder().encode(sigBase);
+        const hash = await crypto.subtle.digest("SHA-1", buf);
+        payloadSignature = Array.from(new Uint8Array(hash)).slice(0, 8).map(b => b.toString(16).padStart(2,'0')).join('');
+      } catch { /* keep raw */ }
+      const failureClass = terminalErrorCode
+        ? "TERMINAL_4XX"
+        : (aiError?.startsWith("total_ai_budget_exhausted") ? "TIMEOUT_BUDGET" : (aiError?.startsWith("per_model_timeout") ? "TIMEOUT_PER_MODEL" : "PARSE_OR_OTHER"));
+      console.error("[bloom-gap-fill] All AI models failed:", finalErr, "class=", failureClass, "sig=", payloadSignature);
+      return {
+        kind: "failed",
+        body: {
+          ok: false,
+          error: finalErr,
+          terminal_code: terminalErrorCode,
+          failure_class: failureClass,
+          payload_signature: payloadSignature,
+          ai_wall_ms: aiWallMs,
+          model_chain_order: modelChain,
+        },
+        error: finalErr,
+      };
     }
 
     // ── 6. Build DB inserts ──
