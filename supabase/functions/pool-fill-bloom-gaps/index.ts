@@ -416,18 +416,16 @@ async function runWork(
     }
 
     // ── 5. Generate questions via AI ──
-    // Patch C: fast-first model chain. Override policy chain so the cheapest/fastest
-    // model attempts first; gpt-5-mini is last-resort fallback only.
-    // Note: 'exam_questions' intent allows nano (no-nano guard applies to 'learning_content').
-    // Patch C: bare IDs (callAIJSON gets provider separately, no provider/ prefix).
-    const FAST_FIRST_CHAIN = [
-      { provider: "openai", model: "gpt-5-nano" },        // fastest proven
-      { provider: "openai", model: "gpt-5.4-nano" },      // alt fast
-      { provider: "openai", model: "gpt-5-mini" },        // balanced fallback
-      { provider: "openai", model: "gpt-5.4-mini" },      // last-resort fallback
+    // Patch D: Gemini-only chain. Direct Gateway-Test bewies: Gemini-Flash-Lite 5s,
+    // Flash 8s — beide deutlich unter PER_MODEL_TIMEOUT. GPT-5-Modelle akzeptieren
+    // 'max_tokens' nicht mehr (HTTP 400 "Use 'max_completion_tokens' instead") und
+    // verursachten silent fail-loops in Patch C. GPT-5 ist hier komplett raus.
+    const GEMINI_ONLY_CHAIN = [
+      { provider: "google", model: "gemini-2.5-flash-lite" }, // primary, ~5s
+      { provider: "google", model: "gemini-2.5-flash" },      // fallback, ~8s
     ];
     const policyChain = await getModelChainAsync("exam_questions");
-    const modelChain = FAST_FIRST_CHAIN; // Patch C: explicit fast-first override
+    const modelChain = GEMINI_ONLY_CHAIN; // Patch D: Gemini-only override
     const allQuestions: Array<Record<string, unknown>> = [];
 
     // Group plan into a single prompt for efficiency
