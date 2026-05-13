@@ -448,7 +448,7 @@ Deno.serve(async (req) => {
   // Status=queued + run_after = now + 90s → reaped/re-claimed for coverage recheck.
   if (jobId) {
     const { error: parkErr } = await sb.from("job_queue").update({
-      status: "queued",
+      status: "pending",
       started_at: null,
       last_heartbeat_at: null,
       run_after: new Date(Date.now() + 90_000).toISOString(),
