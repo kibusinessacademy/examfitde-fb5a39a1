@@ -78,6 +78,46 @@ interface CompGapEntry {
   gap: number;
 }
 
+interface RunOutcome {
+  kind: "completed" | "skipped" | "failed";
+  body: Record<string, unknown>;
+  error?: string;
+}
+
+// deno-lint-ignore no-explicit-any
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
+
+async function finalizeJob(
+  sb: ReturnType<typeof createClient>,
+  jobId: string | null,
+  outcome: RunOutcome,
+) {
+  if (!jobId) return;
+  const now = new Date().toISOString();
+  if (outcome.kind === "failed") {
+    await sb.from("job_queue").update({
+      status: "failed",
+      last_error: (outcome.error || "POOL_FILL_BACKGROUND_FAILED").slice(0, 2000),
+      last_error_code: "POOL_FILL_BACKGROUND_FAILED",
+      completed_at: now,
+      updated_at: now,
+      locked_at: null,
+      locked_by: null,
+    }).eq("id", jobId);
+  } else {
+    // completed for both real success AND idempotent skip (recent_fill_skipped, no gap, etc.)
+    await sb.from("job_queue").update({
+      status: "completed",
+      result: outcome.body,
+      completed_at: now,
+      updated_at: now,
+      locked_at: null,
+      locked_by: null,
+      last_error: null,
+    }).eq("id", jobId);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
@@ -97,10 +137,51 @@ Deno.serve(async (req) => {
 
   const curriculumId = payload.curriculum_id as string;
   const packageId = payload.package_id as string | undefined;
+  const jobId = (payload.job_id as string | undefined) ?? null;
 
   if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
 
+  // ── Patch B: 202 early-ack + background finalize ──
+  // Worker (content-runner) sees background_mode=true and parks the job as
+  // 'processing' without setting completed/failed. We finalize ourselves.
+  if (jobId && typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+    EdgeRuntime.waitUntil((async () => {
+      try {
+        const outcome = await runWork(sb, curriculumId, packageId, jobId);
+        await finalizeJob(sb, jobId, outcome);
+      } catch (e) {
+        const msg = (e as Error)?.message || String(e);
+        console.error("[bloom-gap-fill][bg] fatal:", msg);
+        await finalizeJob(sb, jobId, { kind: "failed", body: { ok: false, error: msg }, error: msg });
+      }
+    })());
+    return json({
+      accepted: true,
+      job_id: jobId,
+      background_mode: true,
+      background_complete: false,
+      mode: "background",
+    }, 202);
+  }
+
+  // Fallback: synchronous mode (no jobId or no EdgeRuntime — e.g. local tests)
   try {
+    const outcome = await runWork(sb, curriculumId, packageId, jobId);
+    if (outcome.kind === "failed") return json(outcome.body, 500);
+    return json(outcome.body, 200);
+  } catch (e) {
+    const msg = (e as Error)?.message || String(e);
+    console.error("[bloom-gap-fill] Fatal error:", msg);
+    return json({ ok: false, error: msg }, 500);
+  }
+});
+
+async function runWork(
+  sb: ReturnType<typeof createClient>,
+  curriculumId: string,
+  packageId: string | undefined,
+  _jobId: string | null,
+): Promise<RunOutcome> {
     // ── SSOT Budget Guard: check pool size before generating ──
     const { count: currentPoolSize } = await sb
       .from("exam_questions")
