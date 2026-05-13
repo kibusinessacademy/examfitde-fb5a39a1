@@ -456,6 +456,33 @@ async function processOneJob(job: any, sb: any, supabaseUrl: string, serviceKey:
         return { id: job.id, ok: true, skipped: true };
       }
 
+      // ── BACKGROUND MODE GUARD (Patch B) ──
+      // Edge function accepted the job and runs in the background via
+      // EdgeRuntime.waitUntil. The function will finalize the job itself
+      // (status=completed/failed) when the background work finishes.
+      // Runner releases the dispatch lock immediately and leaves status as
+      // 'processing' so the reaper does not interfere within its grace window.
+      const isBackgroundAccepted = result && typeof result === "object"
+        && (result as any).background_mode === true
+        && (result as any).background_complete !== true;
+
+      if (isBackgroundAccepted) {
+        const now = new Date().toISOString();
+        await sb.from("job_queue").update({
+          updated_at: now,
+          locked_at: null,
+          locked_by: null,
+          meta: {
+            ...(job.meta || {}),
+            background_mode: true,
+            background_started_at: now,
+            background_owner: edgeFn,
+          },
+        }).eq("id", job.id);
+        console.log(`[content-runner] 🛰️ ${job.job_type} (${shortId}) → background (edge will finalize)`);
+        return { id: job.id, ok: true, background: true };
+      }
+
       // ── BATCH MODE GUARD ──
       // If the job returned batch_mode=true with batch_complete=false,
       // it was enqueued for async batch processing. Don't mark as completed

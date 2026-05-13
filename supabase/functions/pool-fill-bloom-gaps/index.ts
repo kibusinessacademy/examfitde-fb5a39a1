@@ -35,8 +35,9 @@ function json(body: unknown, status = 200) {
 
 // ── Config ──
 // Patch A (P0 loop-breaker): keep function-wall < 45s worker timeout.
-// Worker-Wall (45s) was being exceeded by AI calls on 36-question prompts,
-// triggering false-failure retries and double-inserts (no idempotency).
+// Patch B (P0 structural): worker is acked at 202 within ms; AI runs in
+// EdgeRuntime.waitUntil and the edge function finalizes the job itself.
+// AI budget tightened from 38s → 28s so background never runs forever.
 const MAX_QUESTIONS_PER_RUN = 12;        // was 40 — caps AI prompt size
 const MAX_AI_TOKENS = 5000;              // was 12000 — keeps single AI call <25s
 const MIN_BATCH_SIZE = 5;                // Don't generate fewer than 5
@@ -77,6 +78,46 @@ interface CompGapEntry {
   gap: number;
 }
 
+interface RunOutcome {
+  kind: "completed" | "skipped" | "failed";
+  body: Record<string, unknown>;
+  error?: string;
+}
+
+// deno-lint-ignore no-explicit-any
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
+
+async function finalizeJob(
+  sb: ReturnType<typeof createClient>,
+  jobId: string | null,
+  outcome: RunOutcome,
+) {
+  if (!jobId) return;
+  const now = new Date().toISOString();
+  if (outcome.kind === "failed") {
+    await sb.from("job_queue").update({
+      status: "failed",
+      last_error: (outcome.error || "POOL_FILL_BACKGROUND_FAILED").slice(0, 2000),
+      last_error_code: "POOL_FILL_BACKGROUND_FAILED",
+      completed_at: now,
+      updated_at: now,
+      locked_at: null,
+      locked_by: null,
+    }).eq("id", jobId);
+  } else {
+    // completed for both real success AND idempotent skip (recent_fill_skipped, no gap, etc.)
+    await sb.from("job_queue").update({
+      status: "completed",
+      result: outcome.body,
+      completed_at: now,
+      updated_at: now,
+      locked_at: null,
+      locked_by: null,
+      last_error: null,
+    }).eq("id", jobId);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
@@ -96,10 +137,51 @@ Deno.serve(async (req) => {
 
   const curriculumId = payload.curriculum_id as string;
   const packageId = payload.package_id as string | undefined;
+  const jobId = (payload.job_id as string | undefined) ?? null;
 
   if (!curriculumId) return json({ error: "curriculum_id required" }, 400);
 
+  // ── Patch B: 202 early-ack + background finalize ──
+  // Worker (content-runner) sees background_mode=true and parks the job as
+  // 'processing' without setting completed/failed. We finalize ourselves.
+  if (jobId && typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+    EdgeRuntime.waitUntil((async () => {
+      try {
+        const outcome = await runWork(sb, curriculumId, packageId, jobId);
+        await finalizeJob(sb, jobId, outcome);
+      } catch (e) {
+        const msg = (e as Error)?.message || String(e);
+        console.error("[bloom-gap-fill][bg] fatal:", msg);
+        await finalizeJob(sb, jobId, { kind: "failed", body: { ok: false, error: msg }, error: msg });
+      }
+    })());
+    return json({
+      accepted: true,
+      job_id: jobId,
+      background_mode: true,
+      background_complete: false,
+      mode: "background",
+    }, 202);
+  }
+
+  // Fallback: synchronous mode (no jobId or no EdgeRuntime — e.g. local tests)
   try {
+    const outcome = await runWork(sb, curriculumId, packageId, jobId);
+    if (outcome.kind === "failed") return json(outcome.body, 500);
+    return json(outcome.body, 200);
+  } catch (e) {
+    const msg = (e as Error)?.message || String(e);
+    console.error("[bloom-gap-fill] Fatal error:", msg);
+    return json({ ok: false, error: msg }, 500);
+  }
+});
+
+async function runWork(
+  sb: ReturnType<typeof createClient>,
+  curriculumId: string,
+  packageId: string | undefined,
+  _jobId: string | null,
+): Promise<RunOutcome> {
     // ── SSOT Budget Guard: check pool size before generating ──
     const { count: currentPoolSize } = await sb
       .from("exam_questions")
@@ -111,7 +193,7 @@ Deno.serve(async (req) => {
     const globalBudget = Math.max(0, MAX_QUESTIONS_PER_PACKAGE - currentCount);
     if (globalBudget <= 0) {
       console.log(`[bloom-gap-fill] SSOT HARD CAP reached: ${currentCount} >= ${MAX_QUESTIONS_PER_PACKAGE} — skipping`);
-      return json({ ok: true, message: "pool_cap_reached", pool_size: currentCount, cap: MAX_QUESTIONS_PER_PACKAGE });
+      return { kind: "completed", body: { ok: true, message: "pool_cap_reached", pool_size: currentCount, cap: MAX_QUESTIONS_PER_PACKAGE } };
     }
 
     // ── 1. Fetch gap report (returns single JSONB object, NOT a table) ──
@@ -122,12 +204,12 @@ Deno.serve(async (req) => {
 
     if (gapErr) {
       console.error("[bloom-gap-fill] RPC error:", gapErr.message);
-      return json({ ok: false, error: gapErr.message }, 500);
+      return { kind: "failed", body: { ok: false, error: gapErr.message }, error: gapErr.message };
     }
 
     if (!report || typeof report !== "object") {
       console.log("[bloom-gap-fill] No report data returned");
-      return json({ ok: true, message: "no_report", generated: 0 });
+      return { kind: "completed", body: { ok: true, message: "no_report", generated: 0 } };
     }
 
     // Parse JSONB object format: bloom_gaps: {"remember": 5, ...}, difficulty_gaps: {...}, competency_gaps: [...]
@@ -155,7 +237,7 @@ Deno.serve(async (req) => {
 
     if (totalGap === 0) {
       console.log("[bloom-gap-fill] No gaps found — all targets met");
-      return json({ ok: true, message: "all_targets_met", generated: 0 });
+      return { kind: "completed", body: { ok: true, message: "all_targets_met", generated: 0 } };
     }
 
     console.log(
@@ -202,14 +284,17 @@ Deno.serve(async (req) => {
           window_minutes: IDEMPOTENCY_WINDOW_MIN,
         },
       });
-      return json({
-        ok: true,
-        message: "recent_fill_skipped",
-        idempotency_key: idempotencyKey,
-        recent_inserts: recentN,
-        window_minutes: IDEMPOTENCY_WINDOW_MIN,
-        generated: 0,
-      });
+      return {
+        kind: "completed",
+        body: {
+          ok: true,
+          message: "recent_fill_skipped",
+          idempotency_key: idempotencyKey,
+          recent_inserts: recentN,
+          window_minutes: IDEMPOTENCY_WINDOW_MIN,
+          generated: 0,
+        },
+      };
     }
 
     // Pre-Audit BEFORE AI call — so a mid-run worker kill still leaves a fingerprint.
@@ -294,7 +379,7 @@ Deno.serve(async (req) => {
     const totalPlanned = plan.reduce((s, p) => s + p.count, 0);
     if (totalPlanned < MIN_BATCH_SIZE) {
       console.log(`[bloom-gap-fill] Plan too small (${totalPlanned}) — skipping`);
-      return json({ ok: true, message: "gap_too_small", planned: totalPlanned });
+      return { kind: "completed", body: { ok: true, message: "gap_too_small", planned: totalPlanned } };
     }
 
     console.log(`[bloom-gap-fill] Plan: ${plan.length} targets, ${totalPlanned} questions`);
@@ -390,8 +475,10 @@ Antworte NUR als JSON:
     // Patch A.3: Per-model wall-time cap (22s) + tolerant JSON repair.
     // Worker-Wall = 45s. With 4 models in chain, a single hung model used to burn
     // 30–60s on "Could not parse" loops. We hard-cap per attempt and budget total <40s.
-    const PER_MODEL_TIMEOUT_MS = 22_000;
-    const TOTAL_AI_BUDGET_MS = 38_000;
+    // Patch B: tighter budget — background mode means worker no longer races us,
+    // but we still cap so the function returns quickly enough to finalize.
+    const PER_MODEL_TIMEOUT_MS = 18_000;
+    const TOTAL_AI_BUDGET_MS = 28_000;
 
     function repairJsonString(raw: string): Record<string, unknown> | null {
       let s = raw;
@@ -461,7 +548,7 @@ Antworte NUR als JSON:
 
     if (aiQuestions.length === 0) {
       console.error("[bloom-gap-fill] All AI models failed:", aiError);
-      return json({ ok: false, error: aiError || "ai_failed" }, 500);
+      return { kind: "failed", body: { ok: false, error: aiError || "ai_failed" }, error: aiError || "ai_failed" };
     }
 
     // ── 6. Build DB inserts ──
@@ -496,7 +583,7 @@ Antworte NUR als JSON:
     const { error: insErr } = await sb.from("exam_questions").insert(inserts);
     if (insErr) {
       console.error("[bloom-gap-fill] DB insert error:", insErr.message);
-      return json({ ok: false, error: insErr.message }, 500);
+      return { kind: "failed", body: { ok: false, error: insErr.message }, error: insErr.message };
     }
 
     console.log(`[bloom-gap-fill] Inserted ${inserts.length} questions`);
@@ -549,18 +636,19 @@ Antworte NUR als JSON:
       console.log(`[bloom-gap-fill] Kicked validate_exam_pool for package ${((pkg as { id: string }).id).slice(0, 8)}`);
     }
 
-    return json({
-      ok: true,
-      generated: inserts.length,
-      plan_summary: {
-        bloom_targets: bloomGaps.map((g) => ({ bloom: g.key, gap: g.gap })),
-        difficulty_targets: diffGaps.map((g) => ({ difficulty: g.key, gap: g.gap })),
-        competency_targets: compGaps.length,
+    return {
+      kind: "completed",
+      body: {
+        ok: true,
+        generated: inserts.length,
+        model_used: modelUsed,
+        ai_wall_ms: aiWallMs,
+        recent_inserts_observed: recentN,
+        plan_summary: {
+          bloom_targets: bloomGaps.map((g) => ({ bloom: g.key, gap: g.gap })),
+          difficulty_targets: diffGaps.map((g) => ({ difficulty: g.key, gap: g.gap })),
+          competency_targets: compGaps.length,
+        },
       },
-    });
-  } catch (e: unknown) {
-    const msg = (e as Error)?.message || String(e);
-    console.error("[bloom-gap-fill] Fatal error:", msg);
-    return json({ ok: false, error: msg }, 500);
-  }
-});
+    };
+}
