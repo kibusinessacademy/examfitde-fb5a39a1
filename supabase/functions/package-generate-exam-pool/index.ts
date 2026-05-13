@@ -2292,6 +2292,14 @@ Deno.serve(async (req) => {
 
     if (blueprintIds?.length) bpQuery = bpQuery.in("id", blueprintIds);
 
+    // ── LF-SCOPE FIX (2026-05-13): fan-out jobs MUST only load blueprints of their target LF.
+    // Without this, repair_lf_coverage submits ALL curriculum blueprints (e.g. 92) to OpenAI
+    // batch instead of the targeted ~8 → batch is huge → edge-function CPU-killed before
+    // returning batch_pending → watchdog STALE_LOCK loop → repair has no effect.
+    if (isFanOut && p.learning_field_filter) {
+      bpQuery = bpQuery.eq("learning_field_id", p.learning_field_filter);
+    }
+
     const { data: bps, error: bpErr } = await bpQuery;
     if (bpErr) throw bpErr;
     if (!bps?.length) {
