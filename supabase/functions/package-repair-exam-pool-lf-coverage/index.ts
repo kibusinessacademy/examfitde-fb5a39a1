@@ -448,7 +448,7 @@ Deno.serve(async (req) => {
   // Status=queued + run_after = now + 90s → reaped/re-claimed for coverage recheck.
   if (jobId) {
     const { error: parkErr } = await sb.from("job_queue").update({
-      status: "queued",
+      status: "pending",
       started_at: null,
       last_heartbeat_at: null,
       run_after: new Date(Date.now() + 90_000).toISOString(),
@@ -464,7 +464,7 @@ Deno.serve(async (req) => {
         gate_status_before: gateStatus,
         router_version: "phase_c_v1",
       },
-    }).eq("id", jobId);
+    }).eq("id", jobId).in("status", ["processing", "pending"]);
     if (parkErr) {
       console.error(`[lf-cov-repair] parent park failed: ${parkErr.message}`);
       await sb.from("auto_heal_log").insert({
@@ -480,7 +480,7 @@ Deno.serve(async (req) => {
   return json({
     status: "parked_awaiting_children",
     parent_job_id: jobId ?? null,
-    parent_status: "queued",
+    parent_status: "pending",
     gaps: gaps.length,
     dispatched: dispatched.length,
     dispatched_children: dispatched.length,
