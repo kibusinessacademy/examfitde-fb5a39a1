@@ -548,7 +548,7 @@ Antworte NUR als JSON:
 
     if (aiQuestions.length === 0) {
       console.error("[bloom-gap-fill] All AI models failed:", aiError);
-      return json({ ok: false, error: aiError || "ai_failed" }, 500);
+      return { kind: "failed", body: { ok: false, error: aiError || "ai_failed" }, error: aiError || "ai_failed" };
     }
 
     // ── 6. Build DB inserts ──
