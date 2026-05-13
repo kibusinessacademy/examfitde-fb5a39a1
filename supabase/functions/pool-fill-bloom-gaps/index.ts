@@ -475,8 +475,10 @@ Antworte NUR als JSON:
     // Patch A.3: Per-model wall-time cap (22s) + tolerant JSON repair.
     // Worker-Wall = 45s. With 4 models in chain, a single hung model used to burn
     // 30–60s on "Could not parse" loops. We hard-cap per attempt and budget total <40s.
-    const PER_MODEL_TIMEOUT_MS = 22_000;
-    const TOTAL_AI_BUDGET_MS = 38_000;
+    // Patch B: tighter budget — background mode means worker no longer races us,
+    // but we still cap so the function returns quickly enough to finalize.
+    const PER_MODEL_TIMEOUT_MS = 18_000;
+    const TOTAL_AI_BUDGET_MS = 28_000;
 
     function repairJsonString(raw: string): Record<string, unknown> | null {
       let s = raw;
