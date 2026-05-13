@@ -82,9 +82,10 @@ Deno.serve(async (req) => {
     }
 
     // Get all approved question_blueprints for this curriculum
+    // (incl. learning_field_id so we can stamp it on enqueue payload → LF-aware FANOUT_CAP branch)
     const { data: blueprints, error: bpErr } = await sb
       .from("question_blueprints")
-      .select("id, curriculum_id, name")
+      .select("id, curriculum_id, name, learning_field_id")
       .eq("curriculum_id", pkg.curriculum_id)
       .eq("status", "approved");
 
