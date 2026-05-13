@@ -309,30 +309,47 @@ Deno.serve(async (req) => {
         }, 200);
       }
 
-      // 3b: still coverage gap → no-effect, hard surface, NO immediate re-loop
+      // 3b: gate not PASS after dispatched children → NO_EFFECT_LF_REPAIR (hard surface, no re-loop)
+      // Decision is gate-status-driven, NOT reason-code-driven, to prevent NEEDS_REPAIR
+      // from masquerading as success when reason-code shapes change.
       await sb.from("job_queue").update({
         status: "failed",
         last_error_code: "NO_EFFECT_LF_REPAIR",
-        last_error: `LF coverage gap persists after ${completed.length} child completions: ${recheckReasons.join(",")}`,
+        last_error: `Gate not PASS after ${completed.length}/${dispatchedChildren} child completions (status=${recheckStatus}, reasons=${recheckReasons.join(",")})`,
         meta: { ...parentMeta, phase: "no_effect_after_children", failed_at: new Date().toISOString(), child_status_breakdown: byStatus, gate_after: gateRecheck },
       }).eq("id", jobId);
       await markBlocked(sb, packageId, "no_effect_after_children", {
-        children_completed: completed.length, gate_status_after: recheckStatus, reason_codes_after: recheckReasons,
+        dispatched_children: dispatchedChildren,
+        children_completed: completed.length,
+        gate_status_after: recheckStatus,
+        gate_reasons_after: recheckReasons,
       });
       await sb.from("auto_heal_log").insert({
         action_type: "lf_repair_parent_no_effect_after_children",
         target_type: "job",
         target_id: jobId,
         result_status: "blocked_no_effect",
-        metadata: { package_id: packageId, children_completed: completed.length, gate_status_after: recheckStatus, reason_codes_after: recheckReasons, gate_after: gateRecheck },
+        metadata: {
+          parent_job_id: jobId,
+          package_id: packageId,
+          dispatched_children: dispatchedChildren,
+          children_completed: completed.length,
+          gate_status_after: recheckStatus,
+          gate_reasons_after: recheckReasons,
+          previous_phase: previousPhase,
+          decision: "no_effect_after_children",
+          gate_after: gateRecheck,
+        },
       });
       return json({
         status: "failed",
         last_error_code: "NO_EFFECT_LF_REPAIR",
         parent_job_id: jobId,
+        dispatched_children: dispatchedChildren,
         children_completed: completed.length,
         gate_status_after: recheckStatus,
-        reason_codes_after: recheckReasons,
+        gate_reasons_after: recheckReasons,
+        decision: "no_effect_after_children",
       }, 422);
     }
   }
