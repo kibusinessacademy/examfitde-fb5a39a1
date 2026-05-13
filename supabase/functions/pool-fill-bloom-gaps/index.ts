@@ -526,6 +526,12 @@ Antworte NUR als JSON:
       return null;
     }
 
+    const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    const LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_KEY) {
+      return { kind: "failed", body: { ok: false, error: "LOVABLE_API_KEY not configured", terminal_code: "AI_PROVIDER_AUTH_ERROR" }, error: "LOVABLE_API_KEY not configured" };
+    }
+
     let terminalErrorCode: string | null = null;
     for (const model of modelChain) {
       const elapsed = Date.now() - aiStart;
@@ -534,43 +540,78 @@ Antworte NUR als JSON:
         aiError = `total_ai_budget_exhausted_${elapsed}ms`;
         break;
       }
+      const callStart = Date.now();
       try {
-        const aiPromise = callAIJSON({
-          model: model.model,
-          provider: model.provider as "openai" | "anthropic" | "google",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `Generiere jetzt die ${questionsSpec.length} Prüfungsfragen.` },
-          ],
-          temperature: 0.7,
-          max_tokens: MAX_AI_TOKENS,
-        });
-        const result = await Promise.race([
-          aiPromise,
-          new Promise<never>((_, rej) =>
-            setTimeout(() => rej(new Error(`per_model_timeout_${PER_MODEL_TIMEOUT_MS}ms`)), PER_MODEL_TIMEOUT_MS),
-          ),
-        ]);
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), PER_MODEL_TIMEOUT_MS);
+        let resp: Response;
+        try {
+          resp = await fetch(GATEWAY_URL, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${LOVABLE_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `Generiere jetzt die ${questionsSpec.length} Prüfungsfragen.` },
+              ],
+              temperature: 0.7,
+              max_tokens: MAX_AI_TOKENS,
+            }),
+            signal: ctrl.signal,
+          });
+        } finally { clearTimeout(to); }
 
-        const parsed = repairJsonString((result as { content: string }).content);
-        if (!parsed) throw new Error("Could not parse AI response (all repair passes failed)");
+        if (resp.status === 429) {
+          terminalErrorCode = "AI_PROVIDER_RATE_LIMIT";
+          aiError = `gateway_429_rate_limit`;
+          console.error(`[bloom-gap-fill] TERMINAL ${terminalErrorCode} on ${model} — aborting chain`);
+          break;
+        }
+        if (resp.status === 402) {
+          terminalErrorCode = "AI_PROVIDER_PAYMENT_REQUIRED";
+          aiError = `gateway_402_payment_required`;
+          console.error(`[bloom-gap-fill] TERMINAL ${terminalErrorCode} on ${model} — aborting chain`);
+          break;
+        }
+        if (resp.status >= 400 && resp.status < 500) {
+          const txt = (await resp.text()).slice(0, 500);
+          terminalErrorCode = "AI_PROVIDER_BAD_REQUEST";
+          aiError = `gateway_${resp.status}: ${txt}`;
+          console.error(`[bloom-gap-fill] TERMINAL ${terminalErrorCode} ${resp.status} on ${model} — aborting chain: ${txt}`);
+          break;
+        }
+        if (!resp.ok) {
+          aiError = `gateway_${resp.status}`;
+          console.error(`[bloom-gap-fill] AI error ${resp.status} on ${model} — trying next`);
+          continue;
+        }
+
+        const json = await resp.json();
+        const content: string = json?.choices?.[0]?.message?.content ?? "";
+        const parsed = repairJsonString(content);
+        if (!parsed) {
+          aiError = `parse_failed_${model}_${Date.now() - callStart}ms`;
+          console.error(`[bloom-gap-fill] Parse failed on ${model} (${Date.now() - callStart}ms) — trying next`);
+          continue;
+        }
 
         aiQuestions = Array.isArray(parsed)
           ? parsed as Array<Record<string, unknown>>
           : (parsed.questions as Array<Record<string, unknown>>) || [];
         if (aiQuestions.length > 0) {
-          modelUsed = model.model;
+          modelUsed = model;
           break;
         }
       } catch (e) {
-        aiError = (e as Error).message;
-        const term = classifyTerminal4xx(aiError);
-        if (term) {
-          terminalErrorCode = term;
-          console.error(`[bloom-gap-fill] TERMINAL ${term} on ${model.model}: ${aiError} — aborting chain`);
-          break;
-        }
-        console.error(`[bloom-gap-fill] AI error with ${model.model}: ${aiError}`);
+        const msg = (e as Error)?.name === "AbortError"
+          ? `per_model_timeout_${PER_MODEL_TIMEOUT_MS}ms`
+          : ((e as Error).message || String(e));
+        aiError = msg;
+        console.error(`[bloom-gap-fill] AI exception on ${model}: ${msg} (${Date.now() - callStart}ms)`);
       }
     }
     const aiWallMs = Date.now() - aiStart;
