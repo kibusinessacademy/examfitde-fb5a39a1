@@ -353,10 +353,43 @@ Deno.serve(async (req) => {
   }, {});
 
   if (dispatched.length === 0) {
+    // Bug C: parent must NOT complete when no children were dispatched.
+    // Self-update parent job to failed with explicit last_error_code, return 422.
     await markBlocked(sb, packageId, "no_jobs_dispatched", {
       gaps_count: gaps.length, target_per_lf: targetPerLf, skipped_lfs: skippedLfs,
     });
-    return json({ status: "blocked", reason: "no_jobs_dispatched", skipped_lfs: skippedLfs });
+    if (jobId) {
+      await sb.from("job_queue").update({
+        status: "failed",
+        last_error_code: "NO_CHILDREN_DISPATCHED",
+        last_error: `no_jobs_dispatched: ${skippedLfs.length} LFs skipped (gaps=${gaps.length})`,
+        meta: {
+          phase: "no_children_dispatched",
+          gaps_count: gaps.length,
+          skipped_lfs: skippedLfs,
+          failed_at: new Date().toISOString(),
+        },
+      }).eq("id", jobId);
+    }
+    await sb.from("auto_heal_log").insert({
+      action_type: REPAIR_ACTION,
+      target_type: "package",
+      target_id: packageId,
+      result_status: "blocked_no_effect",
+      metadata: {
+        package_id: packageId,
+        triggered_by: triggeredBy,
+        guard: "no_children_dispatched",
+        gaps_count: gaps.length,
+        skipped_lfs: skippedLfs,
+      },
+    });
+    return json({
+      status: "failed",
+      reason: "no_jobs_dispatched",
+      last_error_code: "NO_CHILDREN_DISPATCHED",
+      skipped_lfs: skippedLfs,
+    }, 422);
   }
 
   const postSnapshot = await captureGateSnapshot(sb, packageId);
@@ -389,6 +422,7 @@ Deno.serve(async (req) => {
 
   // ── PARK parent — do NOT mark done while children are still working ──
   // Re-validation is triggered by downstream completion (job-runner re-evaluates step DAG).
+  const childJobIds = dispatched.map((d) => d.job_id);
   const stepExists = await ensureRepairStep(sb, packageId);
   if (stepExists) {
     await sb.from("package_steps").update({
@@ -399,8 +433,9 @@ Deno.serve(async (req) => {
         phase: "parked_awaiting_children",
         parked_at: new Date().toISOString(),
         dispatched_count: dispatched.length,
+        dispatched_children: dispatched.length,
         dispatched_by_class: byClass,
-        child_job_ids: dispatched.map((d) => d.job_id),
+        child_job_ids: childJobIds,
         target_per_lf: targetPerLf,
         pre_snapshot: preSnapshot,
         router_version: "phase_c_v1",
@@ -408,15 +443,53 @@ Deno.serve(async (req) => {
     }).eq("package_id", packageId).eq("step_key", STEP_KEY);
   }
 
+  // Bug C: park the PARENT job_queue row itself so the job-runner does not
+  // flip it to completed while the dispatched LF children are still working.
+  // Status=queued + run_after = now + 90s → reaped/re-claimed for coverage recheck.
+  if (jobId) {
+    const { error: parkErr } = await sb.from("job_queue").update({
+      status: "queued",
+      started_at: null,
+      last_heartbeat_at: null,
+      run_after: new Date(Date.now() + 90_000).toISOString(),
+      last_error_code: "PARKED_AWAITING_CHILDREN",
+      last_error: `parked: ${dispatched.length} children dispatched (${Object.entries(byClass).map(([k,v]) => `${k}=${v}`).join(",")})`,
+      meta: {
+        phase: "parked_awaiting_children",
+        parked_at: new Date().toISOString(),
+        dispatched_children: dispatched.length,
+        dispatched_by_class: byClass,
+        child_job_ids: childJobIds,
+        target_per_lf: targetPerLf,
+        gate_status_before: gateStatus,
+        router_version: "phase_c_v1",
+      },
+    }).eq("id", jobId);
+    if (parkErr) {
+      console.error(`[lf-cov-repair] parent park failed: ${parkErr.message}`);
+      await sb.from("auto_heal_log").insert({
+        action_type: "lf_cov_repair_parent_park_failed",
+        target_type: "job",
+        target_id: jobId,
+        result_status: "warn",
+        metadata: { package_id: packageId, error: parkErr.message, dispatched: dispatched.length },
+      });
+    }
+  }
+
   return json({
     status: "parked_awaiting_children",
+    parent_job_id: jobId ?? null,
+    parent_status: "queued",
     gaps: gaps.length,
     dispatched: dispatched.length,
+    dispatched_children: dispatched.length,
     dispatched_by_class: byClass,
+    child_job_ids: childJobIds,
     skipped: skippedLfs.length,
     target_per_lf: targetPerLf,
     jobs: dispatched,
     skipped_lfs: skippedLfs,
-    next: "child completions re-trigger validate_exam_pool via job-runner",
-  });
+    next: "child completions re-trigger validate_exam_pool via job-runner; parent re-claims after 90s for coverage recheck",
+  }, 202);
 });
