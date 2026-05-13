@@ -77,6 +77,39 @@ async function insertExamPoolSnapshot(
   return data?.id as string ?? null;
 }
 
+/**
+ * Bucket E SSOT: record snapshot via fn_record_exam_pool_validation_snapshot for every gate-verdict exit path
+ * (PASS, WAITING_FOR_MATERIALIZATION, REPAIRABLE, HARD_FAIL, NO_QUESTIONS, T1_FAIL, ERROR, 409).
+ * Best-effort — never throws.
+ */
+async function recordGateSnapshot(
+  sb: ReturnType<typeof createClient>,
+  args: {
+    packageId: string;
+    curriculumId: string | null;
+    jobId: string | null;
+    gateClass: string;
+    reasonCode: string | null;
+    metrics: Record<string, unknown> | null;
+  },
+): Promise<void> {
+  try {
+    const { error } = await sb.rpc("fn_record_exam_pool_validation_snapshot", {
+      p_package_id: args.packageId,
+      p_curriculum_id: args.curriculumId,
+      p_job_id: args.jobId,
+      p_gate_class: args.gateClass,
+      p_reason_code: args.reasonCode,
+      p_metrics: args.metrics ?? {},
+    });
+    if (error) {
+      console.warn(`[validate-exam] recordGateSnapshot rpc failed: ${error.message} (gate=${args.gateClass})`);
+    }
+  } catch (e) {
+    console.warn(`[validate-exam] recordGateSnapshot threw: ${(e as Error).message?.slice(0, 120)}`);
+  }
+}
+
 async function classifyValidateGuard(
   sb: ReturnType<typeof createClient>,
   packageId: string,
@@ -498,9 +531,18 @@ Deno.serve(async (req) => {
 
     console.log(`[validate-exam] GATE: ${gateStatus} | reasons=${reasonCodes.join(",")} | action=${recommendedAction} | pkg=${packageId.slice(0,8)}`);
 
+    // Bucket E SSOT: snapshot every gate verdict
+    await recordGateSnapshot(sb, {
+      packageId,
+      curriculumId,
+      jobId: p.job_id ?? null,
+      gateClass: gateStatus,
+      reasonCode: reasonCodes[0] ?? null,
+      metrics,
+    });
+
     // ── PASS: Pool is healthy — mark step done if no pending questions to validate ──
     if (gateStatus === "PASS" && (metrics.pending_count ?? 0) === 0) {
-      // Write snapshot
       try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
 
       await finalizeStepDone(sb, packageId, "validate_exam_pool", {
@@ -569,7 +611,6 @@ Deno.serve(async (req) => {
     if (gateStatus === "REPAIRABLE" && (metrics.pending_count ?? 0) === 0) {
       try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
 
-      // Build targeted repair diagnosis
       const repairDiagnosis: string[] = [];
       for (const rc of reasonCodes) {
         if (rc.startsWith("REPAIR_")) repairDiagnosis.push(rc);
@@ -588,7 +629,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If PASS but has pending questions, or REPAIRABLE with pending → fall through to normal validation
     console.log(`[validate-exam] Gate ${gateStatus} with ${metrics.pending_count ?? 0} pending — proceeding to T1/T2 validation`);
   }
 
@@ -601,6 +641,10 @@ Deno.serve(async (req) => {
 
     if ((totalQuestionCount ?? 0) === 0) {
       console.log(`[validate-exam] NO_QUESTIONS_EXIST for curriculum ${curriculumId.slice(0,8)} — backoff 120s`);
+      await recordGateSnapshot(sb, {
+        packageId, curriculumId, jobId: p.job_id ?? null,
+        gateClass: "NO_QUESTIONS", reasonCode: "NO_QUESTIONS_EXIST_YET", metrics: null,
+      });
       return json({ ok: false, transient: true, backoff_seconds: 120, error: "NO_QUESTIONS_EXIST_YET" });
     }
   }
@@ -717,11 +761,20 @@ Deno.serve(async (req) => {
 
   // If no questions found at all
   if (t1Stats.total === 0) {
+    await recordGateSnapshot(sb, {
+      packageId, curriculumId, jobId: p.job_id ?? null,
+      gateClass: "NO_QUESTIONS", reasonCode: "NO_QUESTIONS_TO_VALIDATE", metrics: null,
+    });
     return json({ ok: false, error: "NO_QUESTIONS_TO_VALIDATE" }, 409);
   }
 
   // Fast-fail: if < 70% pass T1 → systemic issue, no need for T2
   if (t1PassRate < 70) {
+    await recordGateSnapshot(sb, {
+      packageId, curriculumId, jobId: p.job_id ?? null,
+      gateClass: "T1_FAIL", reasonCode: "TIER1_PASS_RATE_BELOW_70",
+      metrics: { tier1_pass_rate: t1PassRate, tier1_failed: t1Stats.failed, tier1_total: t1Stats.total },
+    });
     return json({
       ok: false,
       batch_complete: true,
@@ -730,6 +783,7 @@ Deno.serve(async (req) => {
       message: `❌ Exam QC Tier 1 fehlgeschlagen: ${t1Stats.failed}/${t1Stats.total} Fragen haben strukturelle Mängel.`,
     });
   }
+
 
   // ═══ PHASE: TIER 2 — LLM sample ═══
   // Only run if we have enough time left
