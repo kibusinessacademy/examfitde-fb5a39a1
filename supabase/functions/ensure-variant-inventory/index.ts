@@ -352,6 +352,7 @@ Deno.serve(async (req) => {
       gaps: gaps.length,
       enqueued,
       skipped_max_attempts: skippedMaxAttempts,
+      skipped_cap_hot_bp: skippedCapHotBp,
       auto_promoted: autoPromoted,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
