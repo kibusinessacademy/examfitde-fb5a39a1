@@ -415,19 +415,17 @@ async function runWork(
       }
     }
 
-    // ── 5. Generate questions via AI ──
-    // Patch C: fast-first model chain. Override policy chain so the cheapest/fastest
-    // model attempts first; gpt-5-mini is last-resort fallback only.
-    // Note: 'exam_questions' intent allows nano (no-nano guard applies to 'learning_content').
-    // Patch C: bare IDs (callAIJSON gets provider separately, no provider/ prefix).
-    const FAST_FIRST_CHAIN = [
-      { provider: "openai", model: "gpt-5-nano" },        // fastest proven
-      { provider: "openai", model: "gpt-5.4-nano" },      // alt fast
-      { provider: "openai", model: "gpt-5-mini" },        // balanced fallback
-      { provider: "openai", model: "gpt-5.4-mini" },      // last-resort fallback
+    // ── 5. Generate questions via Lovable AI Gateway ──
+    // Patch D.2: Direct Lovable AI Gateway (https://ai.gateway.lovable.dev) statt
+    // callAIJSON. Grund: callAIJSON erwartet GOOGLE_AI_API_KEY direkt — der Secret
+    // ist nicht gesetzt. Lovable AI Gateway nutzt LOVABLE_API_KEY für alle Provider.
+    // Direct Gateway-Test bewies: gemini-2.5-flash-lite ~5s, gemini-2.5-flash ~8s.
+    const GEMINI_ONLY_CHAIN = [
+      "google/gemini-2.5-flash-lite", // primary, ~5s
+      "google/gemini-2.5-flash",      // fallback, ~8s
     ];
     const policyChain = await getModelChainAsync("exam_questions");
-    const modelChain = FAST_FIRST_CHAIN; // Patch C: explicit fast-first override
+    const modelChain = GEMINI_ONLY_CHAIN; // Patch D: Gemini-only via Lovable Gateway
     const allQuestions: Array<Record<string, unknown>> = [];
 
     // Group plan into a single prompt for efficiency
@@ -516,6 +514,25 @@ Antworte NUR als JSON:
       return null;
     }
 
+    // Patch D: terminale 4xx-Codes brechen die ganze Chain ab (kein silent loop).
+    const TERMINAL_4XX_PATTERNS: Array<{ re: RegExp; code: string }> = [
+      { re: /max_tokens.*not supported|max_completion_tokens/i, code: "AI_PROVIDER_UNSUPPORTED_PARAM" },
+      { re: /\b401\b|unauthor|invalid api key|authentication/i, code: "AI_PROVIDER_AUTH_ERROR" },
+      { re: /\b400\b|bad request|invalid_request_error/i, code: "AI_PROVIDER_BAD_REQUEST" },
+      { re: /\b403\b|forbidden/i, code: "AI_PROVIDER_AUTH_ERROR" },
+    ];
+    function classifyTerminal4xx(msg: string): string | null {
+      for (const p of TERMINAL_4XX_PATTERNS) if (p.re.test(msg)) return p.code;
+      return null;
+    }
+
+    const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    const LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_KEY) {
+      return { kind: "failed", body: { ok: false, error: "LOVABLE_API_KEY not configured", terminal_code: "AI_PROVIDER_AUTH_ERROR" }, error: "LOVABLE_API_KEY not configured" };
+    }
+
+    let terminalErrorCode: string | null = null;
     for (const model of modelChain) {
       const elapsed = Date.now() - aiStart;
       if (elapsed > TOTAL_AI_BUDGET_MS) {
@@ -523,44 +540,86 @@ Antworte NUR als JSON:
         aiError = `total_ai_budget_exhausted_${elapsed}ms`;
         break;
       }
+      const callStart = Date.now();
       try {
-        const aiPromise = callAIJSON({
-          model: model.model,
-          provider: model.provider as "openai" | "anthropic" | "google",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `Generiere jetzt die ${questionsSpec.length} Prüfungsfragen.` },
-          ],
-          temperature: 0.7,
-          max_tokens: MAX_AI_TOKENS,
-        });
-        const result = await Promise.race([
-          aiPromise,
-          new Promise<never>((_, rej) =>
-            setTimeout(() => rej(new Error(`per_model_timeout_${PER_MODEL_TIMEOUT_MS}ms`)), PER_MODEL_TIMEOUT_MS),
-          ),
-        ]);
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), PER_MODEL_TIMEOUT_MS);
+        let resp: Response;
+        try {
+          resp = await fetch(GATEWAY_URL, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${LOVABLE_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `Generiere jetzt die ${questionsSpec.length} Prüfungsfragen.` },
+              ],
+              temperature: 0.7,
+              max_tokens: MAX_AI_TOKENS,
+            }),
+            signal: ctrl.signal,
+          });
+        } finally { clearTimeout(to); }
 
-        const parsed = repairJsonString((result as { content: string }).content);
-        if (!parsed) throw new Error("Could not parse AI response (all repair passes failed)");
+        if (resp.status === 429) {
+          terminalErrorCode = "AI_PROVIDER_RATE_LIMIT";
+          aiError = `gateway_429_rate_limit`;
+          console.error(`[bloom-gap-fill] TERMINAL ${terminalErrorCode} on ${model} — aborting chain`);
+          break;
+        }
+        if (resp.status === 402) {
+          terminalErrorCode = "AI_PROVIDER_PAYMENT_REQUIRED";
+          aiError = `gateway_402_payment_required`;
+          console.error(`[bloom-gap-fill] TERMINAL ${terminalErrorCode} on ${model} — aborting chain`);
+          break;
+        }
+        if (resp.status >= 400 && resp.status < 500) {
+          const txt = (await resp.text()).slice(0, 500);
+          terminalErrorCode = "AI_PROVIDER_BAD_REQUEST";
+          aiError = `gateway_${resp.status}: ${txt}`;
+          console.error(`[bloom-gap-fill] TERMINAL ${terminalErrorCode} ${resp.status} on ${model} — aborting chain: ${txt}`);
+          break;
+        }
+        if (!resp.ok) {
+          aiError = `gateway_${resp.status}`;
+          console.error(`[bloom-gap-fill] AI error ${resp.status} on ${model} — trying next`);
+          continue;
+        }
+
+        const json = await resp.json();
+        const content: string = json?.choices?.[0]?.message?.content ?? "";
+        const parsed = repairJsonString(content);
+        if (!parsed) {
+          aiError = `parse_failed_${model}_${Date.now() - callStart}ms`;
+          console.error(`[bloom-gap-fill] Parse failed on ${model} (${Date.now() - callStart}ms) — trying next`);
+          continue;
+        }
 
         aiQuestions = Array.isArray(parsed)
           ? parsed as Array<Record<string, unknown>>
           : (parsed.questions as Array<Record<string, unknown>>) || [];
         if (aiQuestions.length > 0) {
-          modelUsed = model.model;
+          modelUsed = model;
           break;
         }
       } catch (e) {
-        aiError = (e as Error).message;
-        console.error(`[bloom-gap-fill] AI error with ${model.model}: ${aiError}`);
+        const msg = (e as Error)?.name === "AbortError"
+          ? `per_model_timeout_${PER_MODEL_TIMEOUT_MS}ms`
+          : ((e as Error).message || String(e));
+        aiError = msg;
+        console.error(`[bloom-gap-fill] AI exception on ${model}: ${msg} (${Date.now() - callStart}ms)`);
       }
     }
     const aiWallMs = Date.now() - aiStart;
 
     if (aiQuestions.length === 0) {
-      console.error("[bloom-gap-fill] All AI models failed:", aiError);
-      return { kind: "failed", body: { ok: false, error: aiError || "ai_failed" }, error: aiError || "ai_failed" };
+      const finalErr = terminalErrorCode || aiError || "ai_failed";
+      console.error("[bloom-gap-fill] All AI models failed:", finalErr);
+      return { kind: "failed", body: { ok: false, error: finalErr, terminal_code: terminalErrorCode }, error: finalErr };
     }
 
     // ── 6. Build DB inserts ──
@@ -621,13 +680,13 @@ Antworte NUR als JSON:
           questions_planned: questionsSpec.length,
           questions_inserted: inserts.length,
           model_used: modelUsed,
-          model_chain_order: modelChain.map((m) => m.model),
+          model_chain_order: modelChain,
           policy_chain_order: policyChain.map((m: { model: string }) => m.model),
           ai_wall_ms: aiWallMs,
           budget_ms: TOTAL_AI_BUDGET_MS,
           per_model_timeout_ms: PER_MODEL_TIMEOUT_MS,
           max_ai_tokens: MAX_AI_TOKENS,
-          patch: "C",
+          patch: "D",
         },
       });
     }
