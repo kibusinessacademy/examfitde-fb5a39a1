@@ -288,13 +288,24 @@ Deno.serve(async (req) => {
           target_type: "job",
           target_id: jobId,
           result_status: "success",
-          metadata: { package_id: packageId, children_completed: completed.length, gate_status_after: recheckStatus, reason_codes_after: recheckReasons },
+          metadata: {
+            parent_job_id: jobId,
+            package_id: packageId,
+            dispatched_children: dispatchedChildren,
+            children_completed: completed.length,
+            gate_status_after: recheckStatus,
+            gate_reasons_after: recheckReasons,
+            previous_phase: previousPhase,
+            decision: "completed_after_children",
+          },
         });
         return json({
           status: "completed",
           parent_job_id: jobId,
+          dispatched_children: dispatchedChildren,
           children_completed: completed.length,
           gate_status_after: recheckStatus,
+          decision: "completed_after_children",
         }, 200);
       }
 
