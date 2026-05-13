@@ -2420,6 +2420,51 @@ Deno.serve(async (req) => {
       }
       // ── 5. Completed ───────────────────────────────────────────────
       else {
+        // ── PARKED-AWAITING-CHILDREN ROUTING (Bug C runner-side):
+        // Allowlisted edge functions self-update job_queue to status='queued' with
+        // meta.phase='parked_awaiting_children' before returning. Without this branch,
+        // the runner's terminal UPDATE would overwrite that to 'completed' (CAS may not
+        // catch it if the edge's self-update lost the .eq("status","processing") race).
+        // Allowlist intentionally narrow — do NOT generalize to all 202 responses.
+        const PARKED_PARENT_ALLOWLIST = new Set([
+          "package_repair_exam_pool_lf_coverage",
+        ]);
+        const parkedSignal =
+          res.status === 202 ||
+          ["parked_awaiting_children", "accepted", "queued"].includes(
+            String(parsed?.status ?? parsed?.body?.status ?? "")
+          ) ||
+          parsed?.parent_status === "queued" ||
+          parsed?.parent_status === "parked_awaiting_children";
+        if (PARKED_PARENT_ALLOWLIST.has(job.job_type) && parkedSignal) {
+          console.log(
+            `[job-runner] PARKED_AWAITING_CHILDREN job=${job.id} type=${job.job_type} ` +
+            `http=${res.status} parent_status=${parsed?.parent_status ?? parsed?.status ?? "?"} ` +
+            `children=${parsed?.dispatched_children ?? parsed?.child_job_ids?.length ?? "?"} ` +
+            `→ respecting edge self-update, no terminal write`
+          );
+          try {
+            await sb.from("auto_heal_log").insert({
+              action_type: "runner_parked_awaiting_children_respected",
+              target_type: "job",
+              target_id: job.id,
+              trigger_source: "job-runner",
+              result_status: "skipped",
+              result_detail: `HTTP ${res.status} parent_status=${parsed?.parent_status ?? parsed?.status ?? "n/a"}`,
+              metadata: {
+                job_id: job.id,
+                job_type: job.job_type,
+                package_id: job.payload?.package_id ?? null,
+                http_status: res.status,
+                parent_status: parsed?.parent_status ?? parsed?.status ?? null,
+                dispatched_children: parsed?.dispatched_children ?? null,
+                child_job_ids: parsed?.child_job_ids ?? null,
+              },
+            });
+          } catch (_e) { /* best-effort */ }
+          continue;
+        }
+
         // ── INTEGRITY GATE ROUTING (v2): integrity-check returns ok:true even when gate fails.
         // Without this branch, the runner would mark job 'completed', firing trg_job_complete_reconcile_step,
         // which writes package_steps.status='done' → governance trigger raises EXCEPTION
