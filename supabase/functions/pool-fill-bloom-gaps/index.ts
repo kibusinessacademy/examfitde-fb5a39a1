@@ -634,8 +634,31 @@ Antworte NUR als JSON:
 
     if (aiQuestions.length === 0) {
       const finalErr = terminalErrorCode || aiError || "ai_failed";
-      console.error("[bloom-gap-fill] All AI models failed:", finalErr);
-      return { kind: "failed", body: { ok: false, error: finalErr, terminal_code: terminalErrorCode }, error: finalErr };
+      // Patch E: payload signature = sha-like compact hash of model chain + spec sizes for fast forensic grep
+      const sigBase = `${modelChain.join('|')}::tokens=${MAX_AI_TOKENS}::q=${questionsSpec.length}::wall=${aiWallMs}`;
+      let payloadSignature = sigBase;
+      try {
+        const buf = new TextEncoder().encode(sigBase);
+        const hash = await crypto.subtle.digest("SHA-1", buf);
+        payloadSignature = Array.from(new Uint8Array(hash)).slice(0, 8).map(b => b.toString(16).padStart(2,'0')).join('');
+      } catch { /* keep raw */ }
+      const failureClass = terminalErrorCode
+        ? "TERMINAL_4XX"
+        : (aiError?.startsWith("total_ai_budget_exhausted") ? "TIMEOUT_BUDGET" : (aiError?.startsWith("per_model_timeout") ? "TIMEOUT_PER_MODEL" : "PARSE_OR_OTHER"));
+      console.error("[bloom-gap-fill] All AI models failed:", finalErr, "class=", failureClass, "sig=", payloadSignature);
+      return {
+        kind: "failed",
+        body: {
+          ok: false,
+          error: finalErr,
+          terminal_code: terminalErrorCode,
+          failure_class: failureClass,
+          payload_signature: payloadSignature,
+          ai_wall_ms: aiWallMs,
+          model_chain_order: modelChain,
+        },
+        error: finalErr,
+      };
     }
 
     // ── 6. Build DB inserts ──
