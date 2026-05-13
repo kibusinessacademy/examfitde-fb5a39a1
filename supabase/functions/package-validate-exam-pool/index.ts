@@ -531,9 +531,18 @@ Deno.serve(async (req) => {
 
     console.log(`[validate-exam] GATE: ${gateStatus} | reasons=${reasonCodes.join(",")} | action=${recommendedAction} | pkg=${packageId.slice(0,8)}`);
 
+    // Bucket E SSOT: snapshot every gate verdict
+    await recordGateSnapshot(sb, {
+      packageId,
+      curriculumId,
+      jobId: p.job_id ?? null,
+      gateClass: gateStatus,
+      reasonCode: reasonCodes[0] ?? null,
+      metrics,
+    });
+
     // ── PASS: Pool is healthy — mark step done if no pending questions to validate ──
     if (gateStatus === "PASS" && (metrics.pending_count ?? 0) === 0) {
-      // Write snapshot
       try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
 
       await finalizeStepDone(sb, packageId, "validate_exam_pool", {
@@ -602,7 +611,6 @@ Deno.serve(async (req) => {
     if (gateStatus === "REPAIRABLE" && (metrics.pending_count ?? 0) === 0) {
       try { await runSnapshotWritePath(sb, packageId, curriculumId, p.job_id ?? null); } catch (_) {}
 
-      // Build targeted repair diagnosis
       const repairDiagnosis: string[] = [];
       for (const rc of reasonCodes) {
         if (rc.startsWith("REPAIR_")) repairDiagnosis.push(rc);
@@ -621,7 +629,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If PASS but has pending questions, or REPAIRABLE with pending → fall through to normal validation
     console.log(`[validate-exam] Gate ${gateStatus} with ${metrics.pending_count ?? 0} pending — proceeding to T1/T2 validation`);
   }
 
@@ -634,6 +641,10 @@ Deno.serve(async (req) => {
 
     if ((totalQuestionCount ?? 0) === 0) {
       console.log(`[validate-exam] NO_QUESTIONS_EXIST for curriculum ${curriculumId.slice(0,8)} — backoff 120s`);
+      await recordGateSnapshot(sb, {
+        packageId, curriculumId, jobId: p.job_id ?? null,
+        gateClass: "NO_QUESTIONS", reasonCode: "NO_QUESTIONS_EXIST_YET", metrics: null,
+      });
       return json({ ok: false, transient: true, backoff_seconds: 120, error: "NO_QUESTIONS_EXIST_YET" });
     }
   }
