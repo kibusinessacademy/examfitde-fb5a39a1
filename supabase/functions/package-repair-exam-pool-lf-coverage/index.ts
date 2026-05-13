@@ -155,10 +155,13 @@ Deno.serve(async (req) => {
   // ── RECONCILER: parent re-entered after parking ──
   // If meta.phase === 'parked_awaiting_children', do NOT re-dispatch — reconcile children.
   if (jobId) {
-    const { data: parentRow } = await sb.from("job_queue")
-      .select("id, status, meta, retry_count")
+    const { data: parentRow, error: parentErr } = await sb.from("job_queue")
+      .select("id, status, meta, attempts")
       .eq("id", jobId)
       .maybeSingle();
+    if (parentErr) {
+      console.error(`[lf-cov-repair] parent fetch failed: ${parentErr.message}`);
+    }
     const parentMeta = (parentRow?.meta ?? {}) as Record<string, unknown>;
     const phase = parentMeta.phase as string | undefined;
     const childIds = Array.isArray(parentMeta.child_job_ids)
