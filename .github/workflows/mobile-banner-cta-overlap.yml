@@ -14,8 +14,6 @@ on:
       - 'playwright.config.ts'
       - '.github/workflows/mobile-banner-cta-overlap.yml'
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   overlap:
