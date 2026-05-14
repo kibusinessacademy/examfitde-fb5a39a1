@@ -119,7 +119,7 @@ async function verifyRoute(path) {
 async function verify404() {
   console.log(`\n▶ TRUE-404 CHECK`);
   const rand = `/this-route-does-not-exist-${Math.random().toString(36).slice(2)}`;
-  const { status, text, headers } = await fetchText(HOST + rand);
+  const { status, text, headers } = await fetchText(HOST + rand, { redirect: 'manual' });
   check('5.1 Status === 404', status === 404, `got ${status}`);
   check('5.2 noindex on 404', /noindex/i.test(text + (headers['x-robots-tag'] || '')));
 }
