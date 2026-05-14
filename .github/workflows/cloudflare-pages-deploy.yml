@@ -1,0 +1,81 @@
+name: Cloudflare Pages Deploy + SPA Smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cf-pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      deployments: write
+    outputs:
+      preview_url: ${{ steps.deploy.outputs.deployment-url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      - name: Verify SPA fallback file exists
+        run: |
+          test -f dist/404.html || (echo "::error::dist/404.html missing" && exit 1)
+          test -f dist/index.html || (echo "::error::dist/index.html missing" && exit 1)
+          # Sanity: 404.html must contain the SPA shell marker
+          grep -q '<div id="root">' dist/404.html || (echo "::error::dist/404.html is not the SPA shell" && exit 1)
+          echo "✅ dist/404.html is SPA shell"
+
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=examfit --branch=main --commit-dirty=true
+
+  smoke:
+    name: SPA Fallback Smoke
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wait for CF Pages propagation
+        run: sleep 30
+
+      - name: Smoke against examfit.pages.dev
+        env:
+          HOST: https://examfit.pages.dev
+        run: node scripts/seo/spa-fallback-smoke.mjs
+
+      - name: Smoke against examfit.de (if live)
+        continue-on-error: true
+        env:
+          HOST: https://examfit.de
+        run: node scripts/seo/spa-fallback-smoke.mjs
