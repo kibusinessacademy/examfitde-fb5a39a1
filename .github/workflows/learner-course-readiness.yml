@@ -28,8 +28,8 @@ jobs:
         with: { bun-version: latest }
       - name: Run readiness DB-guard
         env:
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: |
           # Tolerated empty count starts at the historical baseline (34) and
           # ratchets down as content lands. Reduce manually after cleanup.
