@@ -8,6 +8,7 @@ import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cor
 
 interface Payload {
   job_id?: string;
+  package_id?: string;
   curriculum_id?: string;
   competency_id?: string;
   intent_template?: string;
@@ -26,6 +27,26 @@ const FORBIDDEN_GLOBAL = [
 const MIN_WORDS = 480;
 const MAX_WORDS = 1200;
 const REQUIRED_SECTIONS = ["intro", "pain_points", "expert_tip"];
+const AI_RETRY_BACKOFF_MS = [5_000, 10_000, 20_000];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isInsertConflict(err: any): boolean {
+  return err?.code === "23505" || String(err?.message ?? "").toLowerCase().includes("duplicate key");
+}
+
+function upsertLogContext(row: Record<string, unknown>) {
+  return {
+    package_id: row.package_id ?? null,
+    curriculum_id: row.curriculum_id ?? null,
+    competency_id: row.competency_id ?? null,
+    intent_template: row.intent_template ?? null,
+    slug: row.slug ?? null,
+    status: row.status ?? null,
+  };
+}
 
 function wordCount(s: string): number {
   return (s.trim().match(/\S+/g) ?? []).length;
