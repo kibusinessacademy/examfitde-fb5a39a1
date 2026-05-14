@@ -52,9 +52,9 @@ const fmt = (ok) => (ok ? '✅' : '❌');
 const results = [];
 
 async function fetchText(url, init = {}) {
-  const r = await fetch(url, { redirect: 'manual', ...init });
+  const r = await fetch(url, { redirect: 'follow', ...init });
   const text = await r.text().catch(() => '');
-  return { status: r.status, headers: Object.fromEntries(r.headers), text };
+  return { status: r.status, headers: Object.fromEntries(r.headers), text, finalUrl: r.url };
 }
 
 function check(name, ok, detail = '') {
