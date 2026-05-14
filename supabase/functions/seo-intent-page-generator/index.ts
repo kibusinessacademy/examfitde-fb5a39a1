@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
   const model = "google/gemini-3-flash-preview";
   let ai;
   try {
-    ai = await callLovableAi(template.prompt_system as string, userPrompt, model);
+    ai = await callLovableAi(promptSystem, userPrompt, model);
   } catch (e: any) {
     if (job) await supabase.from("job_queue").update({ status: "failed", last_error: `ai_failed:${e?.message ?? e}` }).eq("id", job.id);
     return json(502, { error: "ai_failed", detail: String(e?.message ?? e) }, origin);
