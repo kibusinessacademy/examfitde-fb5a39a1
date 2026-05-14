@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.fn_seo_thin_content_guard(uuid, uuid, text) TO authenticated;
