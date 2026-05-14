@@ -53,7 +53,7 @@ jobs:
 
       - name: Skip notice
         if: steps.secrets.outputs.skip == 'true'
-        run: echo "RLS Regression skipped: missing required Supabase secrets."
+        run: 'echo \"RLS Regression skipped: missing required Supabase secrets.\"'
 
       - name: Run RLS regression
         if: steps.secrets.outputs.skip != 'true'
