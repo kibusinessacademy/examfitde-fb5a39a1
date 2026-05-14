@@ -23,6 +23,29 @@ jobs:
       preview_url: ${{ steps.deploy.outputs.deployment-url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Commit drift diagnostics
+        run: |
+          echo "::group::SHA drift diagnostics"
+          echo "GITHUB_REF        = $GITHUB_REF"
+          echo "GITHUB_SHA        = $GITHUB_SHA"
+          echo "Checkout HEAD     = $(git rev-parse HEAD)"
+          echo "Checkout HEAD msg = $(git log -1 --oneline HEAD)"
+          git fetch origin main --quiet || true
+          ORIGIN_MAIN=$(git rev-parse origin/main 2>/dev/null || echo 'unknown')
+          echo "origin/main HEAD  = $ORIGIN_MAIN"
+          if [ "$GITHUB_SHA" = "$ORIGIN_MAIN" ]; then
+            echo "✅ Checkout-SHA == origin/main HEAD"
+          else
+            echo "⚠️  Checkout-SHA != origin/main HEAD (drift!)"
+          fi
+          LOCK_SHA=$(sha256sum package-lock.json | awk '{print $1}')
+          echo "package-lock.json sha256 = $LOCK_SHA"
+          echo "package-lock.json last touched commit:"
+          git log -1 --oneline -- package-lock.json || true
+          echo "::endgroup::"
 
       - uses: actions/setup-node@v4
         with:
