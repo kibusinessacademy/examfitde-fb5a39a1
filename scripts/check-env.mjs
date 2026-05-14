@@ -3,7 +3,7 @@
  * Env-Check für Build/Start.
  *
  * - Vite/Frontend (immer Pflicht): VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, VITE_SUPABASE_PROJECT_ID
- * - Cloudflare Pages Deploy (nur Pflicht in CI / wenn DEPLOY_TARGET=cloudflare):
+ * - Cloudflare Pages Deploy (nur Pflicht wenn DEPLOY_TARGET=cloudflare):
  *     CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
  *
  * Lädt .env (lokal) als Fallback. In GitHub Actions kommen die Werte aus repo secrets → process.env.
@@ -59,7 +59,9 @@ const DEPLOY_REQUIRED = [
 
 const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
 const deployTarget = (process.env.DEPLOY_TARGET || '').toLowerCase();
-const cloudflareRequired = isCI || deployTarget === 'cloudflare';
+const deployMode = deployTarget === 'cloudflare';
+const frontendRequired = !isCI || deployMode;
+const cloudflareRequired = deployMode;
 
 function check(group, vars, mode /* 'error' | 'warn' */) {
   const missing = vars.filter(({ name }) => !process.env[name] || !process.env[name].trim());
@@ -83,13 +85,13 @@ function check(group, vars, mode /* 'error' | 'warn' */) {
 
 console.log(`\n${BOLD}env-check${RESET} ${DIM}(${isCI ? 'CI' : 'local'}${deployTarget ? `, DEPLOY_TARGET=${deployTarget}` : ''})${RESET}\n`);
 
-console.log(`${BOLD}Frontend (Pflicht):${RESET}`);
-const frontendOk = check('Frontend (VITE_*)', FRONTEND_REQUIRED, 'error');
+console.log(`${BOLD}Frontend ${frontendRequired ? '(Pflicht)' : '(optional in generischer CI)'}:${RESET}`);
+const frontendOk = check('Frontend (VITE_*)', FRONTEND_REQUIRED, frontendRequired ? 'error' : 'warn');
 
-console.log(`\n${BOLD}Cloudflare Pages Deploy ${cloudflareRequired ? '(Pflicht)' : '(optional, nur in CI Pflicht)'}:${RESET}`);
+console.log(`\n${BOLD}Cloudflare Pages Deploy ${cloudflareRequired ? '(Pflicht)' : '(optional, nur bei DEPLOY_TARGET=cloudflare Pflicht)'}:${RESET}`);
 const cfOk = check('Cloudflare', DEPLOY_REQUIRED, cloudflareRequired ? 'error' : 'warn');
 
-const hardFail = !frontendOk || (cloudflareRequired && !cfOk);
+const hardFail = (frontendRequired && !frontendOk) || (cloudflareRequired && !cfOk);
 
 if (hardFail) {
   console.log(
