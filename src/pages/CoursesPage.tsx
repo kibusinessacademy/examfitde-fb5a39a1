@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Loader2, Clock, BookOpen, ArrowRight, CheckCircle, Search, X } from 'lucide-react';
+import { SEOHead } from '@/components/seo/SEOHead';
 
 interface Course {
   id: string;
@@ -141,6 +142,11 @@ export default function CoursesPage() {
 
   return (
     <div className="py-6 sm:py-8 md:py-12 px-3 sm:px-4">
+      <SEOHead
+        title="Lernkurse & Prüfungstraining"
+        description="Alle Lernkurse für IHK-Abschlussprüfung, Fachwirt, Meister, AEVO und Zertifikate – mit echten Prüfungsfragen, KI-Tutor und adaptivem Lernplan."
+        canonical="https://examfit.de/courses"
+      />
       <div className="container mx-auto max-w-6xl">
         {/* Header */}
         <div className="text-center mb-8 md:mb-12">

@@ -13,6 +13,7 @@ import { ContinueLearningCard } from "@/components/course/ContinueLearningCard";
 import { Paywall } from "@/components/shop/Paywall";
 import { Loader2, Clock, BookOpen, ArrowLeft, PlayCircle, Zap, HelpCircle, ChevronDown } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { SEOHead } from "@/components/seo/SEOHead";
 
 interface Course {
   id: string;
@@ -266,6 +267,13 @@ export default function CourseDetailPage() {
 
   return (
     <div className="py-8 px-4">
+      <SEOHead
+        title={course.title}
+        description={(course.description || `${course.title} – Lernkurs mit echten Prüfungsfragen, KI-Tutor und adaptivem Lernplan auf ExamFit.`).slice(0, 160)}
+        canonical={`https://examfit.de/course/${slug}`}
+        type="course"
+        image={course.thumbnail_url || undefined}
+      />
       <div className="container mx-auto max-w-5xl">
         {/* Back Button */}
         <Link
