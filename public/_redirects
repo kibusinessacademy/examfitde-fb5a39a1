@@ -1,0 +1,4 @@
+# Cloudflare Pages SPA fallback
+# Per-route prerendered HTML (dist/<path>/index.html) is served verbatim if it exists.
+# All other paths fall through to the SPA shell.
+/*    /index.html   200
