@@ -240,14 +240,14 @@ Deno.serve(async (req) => {
   const lfTitle = (skeleton as any).learning_field?.title ?? "";
 
   const promptUserTpl = (template.prompt_user as string | null) ??
-    `Generiere drei Sektionen für "{competency_title}" im "{curriculum_title}". intro (200-260 Wörter), pain_points (220-300 Wörter), expert_tip (130-180 Wörter).`;
+    `Generiere drei Sektionen für "{competency_title}" im "{curriculum_title}". intro (220-280 Wörter), pain_points (240-320 Wörter), expert_tip (160-200 Wörter). Gesamtlänge der drei Sektionen zusammen MUSS mindestens 520 Wörter betragen — kürzere Antworten werden vom QC-Gate hart abgelehnt.`;
   const promptSystem = (template.prompt_system as string | null) ??
     `Du bist erfahrener IHK-Prüfer und Lerncoach. Schreibe ehrlich, prüfungsnah, ohne Floskeln. Nutze nur Fakten aus dem mitgelieferten Kontext.`;
   const curriculumToken = curriculumTitle.split(/[\s\-(]+/)[0] ?? curriculumTitle;
   const userPrompt = promptUserTpl
     .replaceAll("{competency_title}", competencyTitle)
     .replaceAll("{curriculum_title}", curriculumTitle) +
-    `\n\nKontext (Strict-RAG):\n- Curriculum: ${curriculumTitle}\n- Pflichtbegriff im Body: ${curriculumToken}\n- Lernfeld: ${lfTitle}\n- Kompetenz: ${competencyTitle}\n- Beschreibung: ${competencyDesc}\n\nNutze den Pflichtbegriff "${curriculumToken}" natürlich in mindestens zwei Sektionen. Antworte als reines JSON: {"intro": "...", "pain_points": "...", "expert_tip": "..."} — keine Markdown-Codefences.`;
+    `\n\nKontext (Strict-RAG):\n- Curriculum: ${curriculumTitle}\n- Pflichtbegriff im Body: ${curriculumToken}\n- Lernfeld: ${lfTitle}\n- Kompetenz: ${competencyTitle}\n- Beschreibung: ${competencyDesc}\n\nNutze den Pflichtbegriff "${curriculumToken}" natürlich in mindestens zwei Sektionen. Achte aktiv darauf, dass die drei Sektionen zusammen mindestens 520 Wörter ergeben (Hard-QC-Gate bei <480). Antworte als reines JSON: {"intro": "...", "pain_points": "...", "expert_tip": "..."} — keine Markdown-Codefences.`;
 
   // 3) AI
   const model = "google/gemini-3-flash-preview";
