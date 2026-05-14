@@ -1,0 +1,15 @@
+name: Preflight GitHub Token
+description: Verifiziert dass der GitHub-Token Repo + Actions:Read kann, BEVOR ein Audit-Job startet. Setzt GITHUB_REPO via Auto-Discovery wenn leer.
+inputs:
+  repo:
+    description: "owner/repo (optional, sonst Auto-Discovery)"
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Preflight GitHub Token
+      shell: bash
+      env:
+        GITHUB_REPO: ${{ inputs.repo }}
+      run: node ${{ github.action_path }}/../../../scripts/ci/preflight-github-token.mjs
