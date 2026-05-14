@@ -9,4 +9,4 @@ runs:
   steps:
     - name: Validate required secrets
       shell: bash
-      run: node ${{ github.action_path }}/../../../scripts/ci/check-required-secrets.mjs ${{ inputs.required }}
+      run: node "$GITHUB_WORKSPACE/scripts/ci/check-required-secrets.mjs" ${{ inputs.required }}
