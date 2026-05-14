@@ -1,5 +1,5 @@
 name: Cloudflare Pages Deploy + SPA Smoke
-# resync-trigger: 2026-05-14T16:25Z
+# resync-trigger: 2026-05-14T18:20Z
 
 on:
   push:
@@ -37,6 +37,12 @@ jobs:
             echo "::error::Expected Node.js 24, got $(node -v)"
             exit 1
           fi
+
+      - name: Verify dependency manifest before install
+        run: |
+          node -e "const p=require('./package.json'); console.log('package.json vite=', p.devDependencies.vite); console.log('package.json vite-plugin-pwa=', p.dependencies['vite-plugin-pwa']);"
+          node -e "const l=require('./package-lock.json'); const root=l.packages['']; console.log('lockfile root vite=', root.devDependencies.vite); console.log('lockfile root vite-plugin-pwa=', root.dependencies['vite-plugin-pwa']); console.log('resolved vite=', l.packages['node_modules/vite'].version); console.log('resolved vite-plugin-pwa=', l.packages['node_modules/vite-plugin-pwa'].version);"
+
       - name: Install
         run: npm ci --legacy-peer-deps
 
