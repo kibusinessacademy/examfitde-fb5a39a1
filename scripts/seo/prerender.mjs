@@ -201,6 +201,8 @@ function injectHead(html, route) {
     `<meta property="og:url" content="${canonical}" />`,
     `<meta property="og:type" content="website" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:title" content="${escapeHtml(route.title)}" />`,
+    `<meta name="twitter:description" content="${escapeHtml(route.description)}" />`,
     jsonLd,
   ].join("\n    ");
 
@@ -215,7 +217,9 @@ function injectHead(html, route) {
     .replace(/<meta\s+property=["']og:description["'][^>]*>\s*/gi, "")
     .replace(/<meta\s+property=["']og:url["'][^>]*>\s*/gi, "")
     .replace(/<meta\s+property=["']og:type["'][^>]*>\s*/gi, "")
-    .replace(/<meta\s+name=["']twitter:card["'][^>]*>\s*/gi, "");
+    .replace(/<meta\s+name=["']twitter:card["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+name=["']twitter:title["'][^>]*>\s*/gi, "")
+    .replace(/<meta\s+name=["']twitter:description["'][^>]*>\s*/gi, "");
   return stripped.replace(/<\/head>/i, `    ${headInjection}\n  </head>`);
 }
 
