@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
   const lfTitle = (skeleton as any).learning_field?.title ?? "";
 
   const promptUserTpl = (template.prompt_user as string | null) ??
-    `Generiere drei Sektionen für "{competency_title}" im "{curriculum_title}". intro (200-260 Wörter), pain_points (220-300 Wörter), expert_tip (130-180 Wörter).`;
+    `Generiere drei Sektionen für "{competency_title}" im "{curriculum_title}". intro (220-280 Wörter), pain_points (240-320 Wörter), expert_tip (160-200 Wörter). Gesamtlänge der drei Sektionen zusammen MUSS mindestens 520 Wörter betragen — kürzere Antworten werden vom QC-Gate hart abgelehnt.`;
   const promptSystem = (template.prompt_system as string | null) ??
     `Du bist erfahrener IHK-Prüfer und Lerncoach. Schreibe ehrlich, prüfungsnah, ohne Floskeln. Nutze nur Fakten aus dem mitgelieferten Kontext.`;
   const curriculumToken = curriculumTitle.split(/[\s\-(]+/)[0] ?? curriculumTitle;
