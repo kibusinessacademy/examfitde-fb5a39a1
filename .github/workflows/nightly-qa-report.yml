@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
 
       - name: Run Nightly QA Report
         run: node scripts/nightly-qa-report.mjs --ci --json > test-results/nightly-qa-report.json 2>&1 || true
@@ -72,7 +72,7 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - run: npx playwright install --with-deps chromium
 
       - name: Run Admin Preview E2E

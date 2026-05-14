@@ -65,7 +65,7 @@ jobs:
         with:
           node-version: "24"
 
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
 
       - run: npx playwright install --with-deps chromium
 

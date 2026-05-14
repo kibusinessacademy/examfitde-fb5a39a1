@@ -32,7 +32,7 @@ jobs:
           node-version: "24"
           cache: "npm"
 
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
 
       - name: Export package (via edge function)
         if: ${{ !inputs.export_url }}
