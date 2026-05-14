@@ -8,6 +8,7 @@ import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cor
 
 interface Payload {
   job_id?: string;
+  package_id?: string;
   curriculum_id?: string;
   competency_id?: string;
   intent_template?: string;
@@ -26,6 +27,26 @@ const FORBIDDEN_GLOBAL = [
 const MIN_WORDS = 480;
 const MAX_WORDS = 1200;
 const REQUIRED_SECTIONS = ["intro", "pain_points", "expert_tip"];
+const AI_RETRY_BACKOFF_MS = [5_000, 10_000, 20_000];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isInsertConflict(err: any): boolean {
+  return err?.code === "23505" || String(err?.message ?? "").toLowerCase().includes("duplicate key");
+}
+
+function upsertLogContext(row: Record<string, unknown>) {
+  return {
+    package_id: row.package_id ?? null,
+    curriculum_id: row.curriculum_id ?? null,
+    competency_id: row.competency_id ?? null,
+    intent_template: row.intent_template ?? null,
+    slug: row.slug ?? null,
+    status: row.status ?? null,
+  };
+}
 
 function wordCount(s: string): number {
   return (s.trim().match(/\S+/g) ?? []).length;
@@ -150,6 +171,7 @@ Deno.serve(async (req) => {
     if (error || !data) return json(404, { error: "job_not_found" }, origin);
     job = data;
     const p = (data.payload ?? {}) as Payload;
+    payload.package_id ??= p.package_id;
     payload.curriculum_id ??= p.curriculum_id;
     payload.competency_id ??= p.competency_id;
     payload.intent_template ??= p.intent_template;
@@ -166,6 +188,23 @@ Deno.serve(async (req) => {
     return json(400, { error: "missing_fields", got: payload }, origin);
   }
   const persona = persona_type ?? "azubi";
+
+  let packageId = payload.package_id ?? null;
+  if (!packageId) {
+    const { data: pkg, error: pkgErr } = await supabase
+      .from("course_packages")
+      .select("id")
+      .eq("curriculum_id", curriculum_id)
+      .eq("status", "published")
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    if (pkgErr || !pkg?.id) {
+      if (job) await supabase.from("job_queue").update({ status: "failed", last_error: `package_missing:${pkgErr?.message ?? "no_published_package"}` }).eq("id", job.id);
+      return json(409, { error: "package_missing", detail: pkgErr?.message ?? "no_published_package_for_curriculum" }, origin);
+    }
+    packageId = pkg.id;
+  }
 
   // 1) Skeleton
   const { data: skeleton, error: skelErr } = await supabase.rpc(
@@ -204,19 +243,37 @@ Deno.serve(async (req) => {
     `Generiere drei Sektionen für "{competency_title}" im "{curriculum_title}". intro (200-260 Wörter), pain_points (220-300 Wörter), expert_tip (130-180 Wörter).`;
   const promptSystem = (template.prompt_system as string | null) ??
     `Du bist erfahrener IHK-Prüfer und Lerncoach. Schreibe ehrlich, prüfungsnah, ohne Floskeln. Nutze nur Fakten aus dem mitgelieferten Kontext.`;
+  const curriculumToken = curriculumTitle.split(/[\s\-(]+/)[0] ?? curriculumTitle;
   const userPrompt = promptUserTpl
     .replaceAll("{competency_title}", competencyTitle)
     .replaceAll("{curriculum_title}", curriculumTitle) +
-    `\n\nKontext (Strict-RAG):\n- Curriculum: ${curriculumTitle}\n- Lernfeld: ${lfTitle}\n- Kompetenz: ${competencyTitle}\n- Beschreibung: ${competencyDesc}\n\nAntworte als reines JSON: {"intro": "...", "pain_points": "...", "expert_tip": "..."} — keine Markdown-Codefences.`;
+    `\n\nKontext (Strict-RAG):\n- Curriculum: ${curriculumTitle}\n- Pflichtbegriff im Body: ${curriculumToken}\n- Lernfeld: ${lfTitle}\n- Kompetenz: ${competencyTitle}\n- Beschreibung: ${competencyDesc}\n\nNutze den Pflichtbegriff "${curriculumToken}" natürlich in mindestens zwei Sektionen. Antworte als reines JSON: {"intro": "...", "pain_points": "...", "expert_tip": "..."} — keine Markdown-Codefences.`;
 
   // 3) AI
   const model = "google/gemini-3-flash-preview";
   let ai;
-  try {
-    ai = await callLovableAi(promptSystem, userPrompt, model);
-  } catch (e: any) {
-    if (job) await supabase.from("job_queue").update({ status: "failed", last_error: `ai_failed:${e?.message ?? e}` }).eq("id", job.id);
-    return json(502, { error: "ai_failed", detail: String(e?.message ?? e) }, origin);
+  let aiLastError: any = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      ai = await callLovableAi(promptSystem, userPrompt, model);
+      aiLastError = null;
+      break;
+    } catch (e: any) {
+      aiLastError = e;
+      console.error("seo_intent_ai_attempt_failed", {
+        attempt: attempt + 1,
+        package_id: packageId,
+        curriculum_id,
+        competency_id,
+        intent_template,
+        error: String(e?.message ?? e),
+      });
+      if (attempt < 2) await sleep(AI_RETRY_BACKOFF_MS[attempt]);
+    }
+  }
+  if (!ai) {
+    if (job) await supabase.from("job_queue").update({ status: "failed", last_error: `ai_failed:${aiLastError?.message ?? aiLastError}` }).eq("id", job.id);
+    return json(502, { error: "ai_failed", detail: String(aiLastError?.message ?? aiLastError) }, origin);
   }
 
   // 4) QC
@@ -242,6 +299,7 @@ Deno.serve(async (req) => {
   // 5) UPSERT
   const sk = skeleton as any;
   const upsertRow = {
+    package_id: packageId,
     curriculum_id,
     competency_id,
     intent_template,
@@ -268,27 +326,44 @@ Deno.serve(async (req) => {
     generation_cost_eur: ai.cost_eur,
   };
 
-  // Manual upsert: partial unique index can't be used by PostgREST onConflict
-  const { data: existing } = await supabase
-    .from("seo_content_pages")
-    .select("id")
-    .eq("curriculum_id", curriculum_id)
-    .eq("competency_id", competency_id)
-    .eq("intent_template", intent_template)
-    .eq("persona_type", persona)
-    .maybeSingle();
+  // Manual robust upsert: partial unique index can't be targeted via PostgREST onConflict.
+  async function updateExisting() {
+    const existingRes = await supabase
+      .from("seo_content_pages")
+      .select("id")
+      .eq("competency_id", competency_id)
+      .eq("intent_template", intent_template)
+      .eq("persona_type", persona)
+      .maybeSingle();
+    if (existingRes.error || !existingRes.data?.id) return { data: null, error: existingRes.error };
+    return await supabase
+      .from("seo_content_pages")
+      .update(upsertRow as any)
+      .eq("id", existingRes.data.id)
+      .select("id, slug, quality_score")
+      .maybeSingle();
+  }
 
-  let upserted: any = null;
-  let upErr: any = null;
-  if (existing?.id) {
-    const r = await supabase.from("seo_content_pages").update(upsertRow as any).eq("id", existing.id).select("id, slug, quality_score").maybeSingle();
-    upserted = r.data; upErr = r.error;
-  } else {
-    const r = await supabase.from("seo_content_pages").insert(upsertRow as any).select("id, slug, quality_score").maybeSingle();
-    upserted = r.data; upErr = r.error;
+  let updateRes = await updateExisting();
+  let upserted: any = updateRes.data;
+  let upErr: any = updateRes.error;
+  if (!upErr && !upserted) {
+    const insertRes = await supabase
+      .from("seo_content_pages")
+      .insert(upsertRow as any)
+      .select("id, slug, quality_score")
+      .maybeSingle();
+    upserted = insertRes.data;
+    upErr = insertRes.error;
+    if (upErr && isInsertConflict(upErr)) {
+      updateRes = await updateExisting();
+      upserted = updateRes.data;
+      upErr = updateRes.error;
+    }
   }
 
   if (upErr) {
+    console.error("seo_content_pages_upsert_failed", upErr, upsertLogContext(upsertRow));
     if (job) await supabase.from("job_queue").update({ status: "failed", last_error: `upsert_failed:${upErr.message}` }).eq("id", job.id);
     return json(500, { error: "upsert_failed", detail: upErr.message }, origin);
   }
