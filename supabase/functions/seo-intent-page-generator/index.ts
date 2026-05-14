@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
   const userPrompt = promptUserTpl
     .replaceAll("{competency_title}", competencyTitle)
     .replaceAll("{curriculum_title}", curriculumTitle) +
-    `\n\nKontext (Strict-RAG):\n- Curriculum: ${curriculumTitle}\n- Pflichtbegriff im Body: ${curriculumToken}\n- Lernfeld: ${lfTitle}\n- Kompetenz: ${competencyTitle}\n- Beschreibung: ${competencyDesc}\n\nNutze den Pflichtbegriff "${curriculumToken}" natürlich in mindestens zwei Sektionen. Antworte als reines JSON: {"intro": "...", "pain_points": "...", "expert_tip": "..."} — keine Markdown-Codefences.`;
+    `\n\nKontext (Strict-RAG):\n- Curriculum: ${curriculumTitle}\n- Pflichtbegriff im Body: ${curriculumToken}\n- Lernfeld: ${lfTitle}\n- Kompetenz: ${competencyTitle}\n- Beschreibung: ${competencyDesc}\n\nNutze den Pflichtbegriff "${curriculumToken}" natürlich in mindestens zwei Sektionen. Achte aktiv darauf, dass die drei Sektionen zusammen mindestens 520 Wörter ergeben (Hard-QC-Gate bei <480). Antworte als reines JSON: {"intro": "...", "pain_points": "...", "expert_tip": "..."} — keine Markdown-Codefences.`;
 
   // 3) AI
   const model = "google/gemini-3-flash-preview";
