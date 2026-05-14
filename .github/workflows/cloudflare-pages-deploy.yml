@@ -3,13 +3,12 @@ name: Cloudflare Pages Deploy + SPA Smoke
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
 concurrency:
   group: cf-pages-deploy
   cancel-in-progress: false
-
 
 jobs:
   deploy:
@@ -51,6 +50,16 @@ jobs:
         with:
           node-version: "24"
           cache: npm
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+        SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        with:
+          required: 'SUPABASE_URL VITE_SUPABASE_PROJECT_ID VITE_SUPABASE_PUBLISHABLE_KEY
+            VITE_SUPABASE_URL'
 
       - name: Verify Node.js 24
         run: |
@@ -102,7 +111,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=examfit --branch=main --commit-dirty=true
+          command: pages deploy dist --project-name=examfit --branch=main
+            --commit-dirty=true
 
   smoke:
     name: SPA Fallback Smoke

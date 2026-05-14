@@ -10,7 +10,6 @@ on:
 
 permissions: read-all
 
-
 jobs:
   guard:
     name: Refuse DROP COLUMN if column still referenced
@@ -22,6 +21,13 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with: { node-version: "24" }
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        with:
+          required: 'SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL'
 
       - name: Verify Node.js 24
         run: |

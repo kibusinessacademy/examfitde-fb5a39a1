@@ -20,32 +20,34 @@ on:
         required: false
         default: "preview"
         type: choice
-        options: [production, preview, local]
+        options: [ production, preview, local ]
       base_url:
         description: "Override base URL (wins over `target`)"
         required: false
         default: ""
   repository_dispatch:
-    types: [soft_launch_gate]
+    types: [ soft_launch_gate ]
   # Auto-trigger after a successful deployment so each Publish runs the gate.
   deployment_status:
 
 permissions: read-all
 
 concurrency:
-  group: soft-launch-gate-${{ github.event.client_payload.base_url || inputs.base_url || inputs.target || 'preview' }}
+  group: soft-launch-gate-${{ github.event.client_payload.base_url ||
+    inputs.base_url || inputs.target || 'preview' }}
   cancel-in-progress: false
-
 
 jobs:
   gate:
     # Only run on successful deployments (skip pending/in_progress/failure noise).
-    if: github.event_name != 'deployment_status' || github.event.deployment_status.state == 'success'
+    if: github.event_name != 'deployment_status' ||
+      github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       E2E_TARGET: ${{ inputs.target || 'preview' }}
-      BASE_URL: ${{ github.event.client_payload.base_url || inputs.base_url || github.event.deployment_status.target_url || '' }}
+      BASE_URL: ${{ github.event.client_payload.base_url || inputs.base_url ||
+        github.event.deployment_status.target_url || '' }}
       VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -62,6 +64,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SRK_E2E }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        with:
+          required: 'SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
+            VITE_SUPABASE_URL'
 
       - name: Verify Node.js 24
         run: |

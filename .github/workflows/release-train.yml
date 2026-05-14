@@ -2,11 +2,10 @@ name: Release Train
 
 on:
   push:
-    tags: ["v*.*.*"]
+    tags: [ "v*.*.*" ]
   workflow_dispatch: {}
 
 permissions: read-all
-
 
 jobs:
   # 1) TypeScript + Build
@@ -62,6 +61,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+        SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        with:
+          required: 'SUPABASE_ANON_KEY SUPABASE_URL'
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
@@ -86,6 +92,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+        SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        with:
+          required: 'SUPABASE_ANON_KEY SUPABASE_URL'
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
@@ -110,6 +123,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+        SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        with:
+          required: 'SUPABASE_ANON_KEY SUPABASE_URL'
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
@@ -128,7 +148,7 @@ jobs:
   release-gate:
     timeout-minutes: 15
     name: Release Gate ✓
-    needs: [build, ssot-guard, council-integrity, rls-security, smoke]
+    needs: [ build, ssot-guard, council-integrity, rls-security, smoke ]
     runs-on: ubuntu-latest
     steps:
       - name: All gates passed

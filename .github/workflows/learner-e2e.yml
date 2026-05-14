@@ -2,7 +2,7 @@ name: Learner E2E
 
 on:
   repository_dispatch:
-    types: [learner_e2e]
+    types: [ learner_e2e ]
   workflow_dispatch:
     inputs:
       base_url:
@@ -19,13 +19,12 @@ on:
 
 permissions: read-all
 
-
 jobs:
   # ── Post-Publish Smoke (fast, every deploy) ──────────
   smoke:
     if: >
-      github.event_name == 'repository_dispatch' ||
-      (github.event_name == 'workflow_dispatch' && (inputs.suite == 'smoke' || inputs.suite == 'all'))
+      github.event_name == 'repository_dispatch' || (github.event_name ==
+      'workflow_dispatch' && (inputs.suite == 'smoke' || inputs.suite == 'all'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -37,6 +36,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        with:
+          required: 'SUPABASE_ANON_KEY SUPABASE_URL'
 
       - name: Verify Node.js 24
         run: |
@@ -54,10 +60,13 @@ jobs:
 
       - name: Run Smoke E2E tests
         env:
-          BASE_URL: ${{ github.event.client_payload.base_url || inputs.base_url || 'https://examfitde.lovable.app' }}
+          BASE_URL: ${{ github.event.client_payload.base_url || inputs.base_url ||
+            'https://examfitde.lovable.app' }}
           CURRICULUM_ID: ${{ github.event.client_payload.curriculum_id || '' }}
-          E2E_EMAIL: ${{ github.event.client_payload.test_user_email || secrets.E2E_TEST_USER_EMAIL }}
-          E2E_PASSWORD: ${{ github.event.client_payload.test_user_password || secrets.E2E_TEST_USER_PASSWORD }}
+          E2E_EMAIL: ${{ github.event.client_payload.test_user_email ||
+            secrets.E2E_TEST_USER_EMAIL }}
+          E2E_PASSWORD: ${{ github.event.client_payload.test_user_password ||
+            secrets.E2E_TEST_USER_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: npx playwright test --project=smoke
@@ -81,8 +90,8 @@ jobs:
   # ── Full Journey (weekly, deep audit) ──────────
   full-journey:
     if: >
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && (inputs.suite == 'all'))
+      github.event_name == 'schedule' || (github.event_name ==
+      'workflow_dispatch' && (inputs.suite == 'all'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -94,6 +103,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        with:
+          required: 'SUPABASE_ANON_KEY SUPABASE_URL'
 
       - name: Verify Node.js 24
         run: |
@@ -137,8 +153,9 @@ jobs:
   # ── Nightly Full Rotation (long, scheduled) ──────────
   nightly:
     if: >
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && (inputs.suite == 'nightly' || inputs.suite == 'all'))
+      github.event_name == 'schedule' || (github.event_name ==
+      'workflow_dispatch' && (inputs.suite == 'nightly' || inputs.suite ==
+      'all'))
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -150,6 +167,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        with:
+          required: 'SUPABASE_ANON_KEY SUPABASE_URL'
 
       - name: Verify Node.js 24
         run: |

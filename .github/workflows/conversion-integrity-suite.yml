@@ -2,7 +2,7 @@ name: Conversion Integrity Suite (Path E)
 
 on:
   schedule:
-    - cron: "17 */6 * * *"  # alle 6h
+    - cron: "17 */6 * * *" # alle 6h
   workflow_dispatch:
   pull_request:
     paths:
@@ -20,7 +20,6 @@ permissions:
   pull-requests: write
   issues: write
 
-
 jobs:
   conversion-integrity:
     runs-on: ubuntu-latest
@@ -30,12 +29,21 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       PROD_URL: https://examfitde.lovable.app
       BASE_URL: https://examfitde.lovable.app
-      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+        github.run_id }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        with:
+          required: 'SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL'
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
