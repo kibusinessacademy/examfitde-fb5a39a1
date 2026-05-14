@@ -127,6 +127,7 @@ export default defineConfig(({ mode }) => ({
       }
     }),
     seoPrerenderPlugin(),
+    spaFallback404Plugin(),
   ].filter(Boolean),
   resolve: {
     alias: {
