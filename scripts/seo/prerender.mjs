@@ -354,6 +354,21 @@ function validate(routes) {
       continue;
     }
 
+    // Intent landing pages — DB-driven from seo_content_pages.
+    // Soft thresholds: title up to 250 (DB allows long competency names);
+    // description 70-165; jsonLd required (Article + optional Breadcrumb/FAQ).
+    if (r.kind === "intent") {
+      if (!r.slug) errors.push(`${r.path}: intent missing slug`);
+      if (!r.title || r.title.length < 20)
+        errors.push(`${r.path}: intent title ${r.title?.length} <20`);
+      if (!r.description || r.description.length < 70 || r.description.length > 165)
+        errors.push(`${r.path}: intent description ${r.description?.length} out of 70-165`);
+      if (!r.h1) errors.push(`${r.path}: intent missing h1`);
+      if (!r.jsonLd || r.jsonLd.length === 0)
+        errors.push(`${r.path}: intent missing jsonLd`);
+      continue;
+    }
+
     // SSOT route validation (unchanged)
     if (!r.h1) errors.push(`${r.path}: missing h1`);
     if (!r.title || r.title.length < 30 || r.title.length > 60)
