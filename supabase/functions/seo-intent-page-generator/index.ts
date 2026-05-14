@@ -171,6 +171,7 @@ Deno.serve(async (req) => {
     if (error || !data) return json(404, { error: "job_not_found" }, origin);
     job = data;
     const p = (data.payload ?? {}) as Payload;
+    payload.package_id ??= p.package_id;
     payload.curriculum_id ??= p.curriculum_id;
     payload.competency_id ??= p.competency_id;
     payload.intent_template ??= p.intent_template;
@@ -187,6 +188,23 @@ Deno.serve(async (req) => {
     return json(400, { error: "missing_fields", got: payload }, origin);
   }
   const persona = persona_type ?? "azubi";
+
+  let packageId = payload.package_id ?? null;
+  if (!packageId) {
+    const { data: pkg, error: pkgErr } = await supabase
+      .from("course_packages")
+      .select("id")
+      .eq("curriculum_id", curriculum_id)
+      .eq("status", "published")
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    if (pkgErr || !pkg?.id) {
+      if (job) await supabase.from("job_queue").update({ status: "failed", last_error: `package_missing:${pkgErr?.message ?? "no_published_package"}` }).eq("id", job.id);
+      return json(409, { error: "package_missing", detail: pkgErr?.message ?? "no_published_package_for_curriculum" }, origin);
+    }
+    packageId = pkg.id;
+  }
 
   // 1) Skeleton
   const { data: skeleton, error: skelErr } = await supabase.rpc(
@@ -233,11 +251,28 @@ Deno.serve(async (req) => {
   // 3) AI
   const model = "google/gemini-3-flash-preview";
   let ai;
-  try {
-    ai = await callLovableAi(promptSystem, userPrompt, model);
-  } catch (e: any) {
-    if (job) await supabase.from("job_queue").update({ status: "failed", last_error: `ai_failed:${e?.message ?? e}` }).eq("id", job.id);
-    return json(502, { error: "ai_failed", detail: String(e?.message ?? e) }, origin);
+  let aiLastError: any = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      ai = await callLovableAi(promptSystem, userPrompt, model);
+      aiLastError = null;
+      break;
+    } catch (e: any) {
+      aiLastError = e;
+      console.error("seo_intent_ai_attempt_failed", {
+        attempt: attempt + 1,
+        package_id: packageId,
+        curriculum_id,
+        competency_id,
+        intent_template,
+        error: String(e?.message ?? e),
+      });
+      if (attempt < 2) await sleep(AI_RETRY_BACKOFF_MS[attempt]);
+    }
+  }
+  if (!ai) {
+    if (job) await supabase.from("job_queue").update({ status: "failed", last_error: `ai_failed:${aiLastError?.message ?? aiLastError}` }).eq("id", job.id);
+    return json(502, { error: "ai_failed", detail: String(aiLastError?.message ?? aiLastError) }, origin);
   }
 
   // 4) QC
@@ -263,6 +298,7 @@ Deno.serve(async (req) => {
   // 5) UPSERT
   const sk = skeleton as any;
   const upsertRow = {
+    package_id: packageId,
     curriculum_id,
     competency_id,
     intent_template,
