@@ -1,0 +1,12 @@
+name: 'Validate DB Secrets'
+description: 'Failt fast wenn Pflicht-Secrets für DB-/Supabase-Workflows fehlen, leer sind oder als Literal "null" durchsickern.'
+inputs:
+  required:
+    description: 'Whitespace-separierte Liste der Pflicht-Env-Variablen (z.B. "SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY")'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate required secrets
+      shell: bash
+      run: node ${{ github.action_path }}/../../../scripts/ci/check-required-secrets.mjs ${{ inputs.required }}
