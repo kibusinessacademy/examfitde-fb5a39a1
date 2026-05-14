@@ -38,10 +38,10 @@ jobs:
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets
         env:
-        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         with:
-          required: 'SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL'
+          required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
       - name: Run B2C Smokes (Pfad 1 paywall_variant + Pfad 2 product-checkout)

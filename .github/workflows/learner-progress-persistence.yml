@@ -43,10 +43,10 @@ jobs:
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets
         env:
-        VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         with:
-          required: 'VITE_SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL'
+          required: VITE_SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL
       - name: Step 1 — Course readiness DB-gate
         run: node scripts/guards/learner-course-readiness.mjs --max-empty=30
       - name: Step 2 — Validate QA pins point at live data

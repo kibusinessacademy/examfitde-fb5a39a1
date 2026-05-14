@@ -53,13 +53,13 @@ jobs:
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets
         env:
-        SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-        VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
-        VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
         with:
-          required: 'SUPABASE_URL VITE_SUPABASE_PROJECT_ID VITE_SUPABASE_PUBLISHABLE_KEY
-            VITE_SUPABASE_URL'
+          required: SUPABASE_URL VITE_SUPABASE_PROJECT_ID VITE_SUPABASE_PUBLISHABLE_KEY
+            VITE_SUPABASE_URL
 
       - name: Verify Node.js 24
         run: |

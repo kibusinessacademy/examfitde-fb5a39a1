@@ -26,9 +26,9 @@ jobs:
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets
         env:
-        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         with:
-          required: 'SUPABASE_SERVICE_ROLE_KEY'
+          required: SUPABASE_SERVICE_ROLE_KEY
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"

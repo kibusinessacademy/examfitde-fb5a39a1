@@ -81,10 +81,10 @@ jobs:
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets
         env:
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         with:
-          required: 'SUPABASE_ANON_KEY SUPABASE_URL'
+          required: SUPABASE_ANON_KEY SUPABASE_URL
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"

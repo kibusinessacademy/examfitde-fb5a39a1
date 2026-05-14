@@ -30,10 +30,10 @@ jobs:
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets
         env:
-        VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         with:
-          required: 'VITE_SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL'
+          required: VITE_SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
