@@ -99,6 +99,62 @@ function renderAboveTheFold(route) {
 </div>`.trim();
   }
 
+  if (route.kind === "intent") {
+    const breadcrumbHtml = (route.breadcrumbs || []).length
+      ? `<nav aria-label="Breadcrumb"><ol>${(route.breadcrumbs || [])
+          .map((b) =>
+            b.href
+              ? `<li><a href="${escapeHtml(b.href)}">${escapeHtml(b.label)}</a></li>`
+              : `<li>${escapeHtml(b.label)}</li>`
+          )
+          .join("")}</ol></nav>`
+      : "";
+    const links = route.internalLinks || {};
+    const linkBlocks = ["hub", "quiz", "tutor", "trainer"]
+      .filter((k) => links[k] && links[k].href)
+      .map(
+        (k) =>
+          `<li><a href="${escapeHtml(links[k].href)}">${escapeHtml(links[k].label || k)}</a></li>`
+      )
+      .join("");
+    const siblings = Array.isArray(links.siblings) ? links.siblings : [];
+    const siblingsHtml = siblings.length
+      ? `<nav aria-label="Verwandte Themen"><h2>Verwandte Themen</h2><ul>${siblings
+          .map(
+            (s) =>
+              `<li><a href="${escapeHtml(s.href)}">${escapeHtml(s.label)}</a></li>`
+          )
+          .join("")}</ul></nav>`
+      : "";
+    const ctaHtml = route.cta && route.cta.primary && route.cta.primary.href
+      ? `<p><a href="${escapeHtml(route.cta.primary.href)}">${escapeHtml(route.cta.primary.label || "Jetzt starten")}</a>${
+          route.cta.secondary && route.cta.secondary.href
+            ? ` &nbsp; <a href="${escapeHtml(route.cta.secondary.href)}">${escapeHtml(route.cta.secondary.label || "Mehr erfahren")}</a>`
+            : ""
+        }</p>`
+      : "";
+    const faq = (route.faq || [])
+      .map(
+        (f) =>
+          `<details><summary>${escapeHtml(f.q)}</summary><p>${escapeHtml(f.a)}</p></details>`
+      )
+      .join("");
+    return `
+<div id="prerender-content">
+  ${breadcrumbHtml}
+  <article>
+    <header><h1>${escapeHtml(route.h1)}</h1></header>
+    ${route.intro ? `<section aria-label="Einführung"><p>${escapeHtml(route.intro)}</p></section>` : ""}
+    ${route.painPoints ? `<section aria-label="Typische Stolperfallen"><h2>Typische Stolperfallen</h2><p>${escapeHtml(route.painPoints)}</p></section>` : ""}
+    ${route.expertTip ? `<section aria-label="Experten-Tipp"><h2>Experten-Tipp</h2><p>${escapeHtml(route.expertTip)}</p></section>` : ""}
+    ${faq ? `<section aria-label="Häufige Fragen"><h2>Häufige Fragen</h2>${faq}</section>` : ""}
+    ${linkBlocks ? `<nav aria-label="Weiterführend"><h2>Weiterführend</h2><ul>${linkBlocks}</ul></nav>` : ""}
+    ${siblingsHtml}
+    ${ctaHtml}
+  </article>
+</div>`.trim();
+  }
+
   // Default: SSOT routes with keyFacts + faq
   const facts = (route.keyFacts || [])
     .map(
@@ -298,6 +354,21 @@ function validate(routes) {
       continue;
     }
 
+    // Intent landing pages — DB-driven from seo_content_pages.
+    // Soft thresholds: title up to 250 (DB allows long competency names);
+    // description 70-165; jsonLd required (Article + optional Breadcrumb/FAQ).
+    if (r.kind === "intent") {
+      if (!r.slug) errors.push(`${r.path}: intent missing slug`);
+      if (!r.title || r.title.length < 20)
+        errors.push(`${r.path}: intent title ${r.title?.length} <20`);
+      if (!r.description || r.description.length < 70 || r.description.length > 165)
+        errors.push(`${r.path}: intent description ${r.description?.length} out of 70-165`);
+      if (!r.h1) errors.push(`${r.path}: intent missing h1`);
+      if (!r.jsonLd || r.jsonLd.length === 0)
+        errors.push(`${r.path}: intent missing jsonLd`);
+      continue;
+    }
+
     // SSOT route validation (unchanged)
     if (!r.h1) errors.push(`${r.path}: missing h1`);
     if (!r.title || r.title.length < 30 || r.title.length > 60)
@@ -357,8 +428,12 @@ function postValidateHtml(routes) {
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim();
-    if (visible.length < 1200)
-      errors.push(`${r.path}: rendered visible text ${visible.length} <1200`);
+    // Intent pages have shorter rendered above-the-fold; the rich SSOT body
+    // (intro+pain_points+expert_tip+faq+links) typically yields 800-1500 chars.
+    // Soft floor for intents = 600; SSOT routes keep 1200 hard floor.
+    const minVisible = r.kind === "intent" ? 600 : 1200;
+    if (visible.length < minVisible)
+      errors.push(`${r.path}: rendered visible text ${visible.length} <${minVisible}`);
   }
   if (errors.length > 0) {
     console.error("[seo-prerender] Post-HTML validation errors:");
@@ -375,43 +450,49 @@ export async function runSeoPrerender() {
   const baseHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
   const ssotRoutes = await loadRoutes();
 
-  // Step 1b: load DB-driven routes (blog + product) FOR SITEMAP ONLY.
-  // Lovable Hosting serves the SPA fallback (root index.html) for every path
-  // and ignores dist/<route>/index.html, so per-route HTML for these routes
-  // would never be served. The sitemap.xml IS served as a static file though,
-  // so listing all blog/product URLs lets Googlebot discover + JS-render them.
-  // See mem://architektur/seo/hosting-spa-fallback-blocks-prerender-v1.
+  // Step 1b: load DB-driven routes (blog + product + intent).
+  // — blog + product remain SITEMAP-ONLY (Lovable Hosting hard SPA-fallback).
+  // — intent pages (seo_content_pages) are PRERENDERED to dist/kurse/.../index.html
+  //   so Vercel / Cloudflare Pages can serve per-route HTML. On Lovable Hosting
+  //   the per-route HTML is silently ignored — same outcome as today, no regression.
+  //   See mem://architektur/seo/hosting-spa-fallback-blocks-prerender-v1
+  //       mem://architektur/seo/sitemap-only-mode-for-db-routes-v1.
   let dynamicRoutes = [];
+  let intentRoutes = [];
   try {
     const mod = await import(
       pathToFileURL(path.resolve(process.cwd(), "scripts/seo/load-dynamic-routes.mjs")).href
     );
-    const { blog, products } = await mod.loadDynamicRoutes();
+    const { blog, products, intents } = await mod.loadDynamicRoutes();
     dynamicRoutes = [...blog, ...products];
+    intentRoutes = intents || [];
   } catch (e) {
     console.warn("[seo-prerender] dynamic route loader failed:", e.message);
   }
 
   const live = ssotRoutes.filter((r) => r.status !== "stub");
 
-  // Step 2: validate SSOT routes only (dynamic ones are sitemap-only)
-  validate(ssotRoutes);
+  // Step 2: validate SSOT routes + intent routes (intent routes will be written).
+  validate([...ssotRoutes, ...intentRoutes]);
 
-  // Steps 3-4: build + inject per-route HTML — SSOT routes only
+  // Steps 3-4: build + inject per-route HTML — SSOT + intent routes
   for (const route of live) {
     writeRouteHtml(route, baseHtml);
   }
+  for (const route of intentRoutes) {
+    writeRouteHtml(route, baseHtml);
+  }
 
-  // Steps 5-6: sitemap covers SSOT + dynamic blog/product so crawlers discover them
-  buildSitemaps([...ssotRoutes, ...dynamicRoutes]);
+  // Steps 5-6: sitemap covers SSOT + dynamic blog/product + intent routes
+  buildSitemaps([...ssotRoutes, ...dynamicRoutes, ...intentRoutes]);
 
-  // Step 7: validate generated HTML on disk (SSOT only — dynamic not written)
-  postValidateHtml(live);
+  // Step 7: validate generated HTML on disk (SSOT + intent routes are on disk)
+  postValidateHtml([...live, ...intentRoutes]);
 
   const blogCount = dynamicRoutes.filter((r) => r.kind === "blog").length;
   const productCount = dynamicRoutes.filter((r) => r.kind === "product").length;
   console.log(
-    `[seo-prerender] Wrote ${live.length} SSOT route HTMLs; sitemap includes ${blogCount} blog + ${productCount} product URLs (sitemap-only, hosting blocks per-route HTML)`
+    `[seo-prerender] Wrote ${live.length} SSOT + ${intentRoutes.length} intent route HTMLs; sitemap also includes ${blogCount} blog + ${productCount} product URLs`
   );
 }
 
