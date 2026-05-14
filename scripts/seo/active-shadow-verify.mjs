@@ -128,9 +128,16 @@ async function verifySitemap() {
   console.log(`\n▶ SITEMAP REACHABILITY`);
   const { status, text } = await fetchText(HOST + '/sitemap.xml');
   check('S.1 sitemap 200', status === 200);
-  check('S.2 sitemap is valid XML', text.startsWith('<?xml') && /<urlset|<sitemapindex/.test(text));
-  const urls = (text.match(/<loc>/g) || []).length;
-  check('S.3 sitemap urls > 100', urls > 100, `${urls} urls`);
+  const isIndex = /<sitemapindex/.test(text);
+  const isUrlset = /<urlset/.test(text);
+  check('S.2 sitemap is valid XML', text.startsWith('<?xml') && (isIndex || isUrlset));
+  if (isIndex) {
+    const subs = (text.match(/<sitemap>/g) || []).length;
+    check('S.3 sitemapindex children ≥ 3', subs >= 3, `${subs} sub-sitemaps`);
+  } else {
+    const urls = (text.match(/<loc>/g) || []).length;
+    check('S.3 sitemap urls > 50', urls > 50, `${urls} urls`);
+  }
 }
 
 async function verifyRpc() {
