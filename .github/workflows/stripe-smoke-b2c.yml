@@ -27,6 +27,9 @@ on:
         required: true
         default: 'NO'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   smoke:
     if: ${{ inputs.i_understand_live_mode == 'LIVE_MODE_OK' }}

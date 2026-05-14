@@ -8,6 +8,9 @@ on:
     paths:
       - 'supabase/migrations/**.sql'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   guard:
     runs-on: ubuntu-latest

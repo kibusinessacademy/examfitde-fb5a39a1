@@ -20,6 +20,9 @@ on:
     - cron: "23 * * * *"
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   pricing-integrity:
     runs-on: ubuntu-latest

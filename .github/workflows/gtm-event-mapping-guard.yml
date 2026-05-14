@@ -21,6 +21,9 @@ on:
       - "scripts/guards/gtm-event-mapping-guard.mjs"
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   gtm-mapping:
     runs-on: ubuntu-latest
