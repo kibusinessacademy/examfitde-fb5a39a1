@@ -297,6 +297,9 @@ const AppRoutes = () => {
           <Route path="/pruefungstraining-fachwirt/:slug" element={<PersonaLandingPage personaType="fachwirt" />} />
           <Route path="/pruefungstraining-studium/:slug" element={<PersonaLandingPage personaType="studium" />} />
 
+          {/* SEO Intent-Pages: /kurse/<curriculum>/<intent>/<competency> — must be BEFORE /:slug catch-all */}
+          <Route path="/kurse/:curriculumSlug/:intentSlug/:competencySlug" element={<IntentLandingPage />} />
+
           <Route path="/:slug" element={<ProgrammaticSEODispatcher />} />
 
           <Route path="/pruefungsfragen" element={<PruefungsfragenPage />} />
