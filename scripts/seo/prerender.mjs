@@ -99,6 +99,62 @@ function renderAboveTheFold(route) {
 </div>`.trim();
   }
 
+  if (route.kind === "intent") {
+    const breadcrumbHtml = (route.breadcrumbs || []).length
+      ? `<nav aria-label="Breadcrumb"><ol>${(route.breadcrumbs || [])
+          .map((b) =>
+            b.href
+              ? `<li><a href="${escapeHtml(b.href)}">${escapeHtml(b.label)}</a></li>`
+              : `<li>${escapeHtml(b.label)}</li>`
+          )
+          .join("")}</ol></nav>`
+      : "";
+    const links = route.internalLinks || {};
+    const linkBlocks = ["hub", "quiz", "tutor", "trainer"]
+      .filter((k) => links[k] && links[k].href)
+      .map(
+        (k) =>
+          `<li><a href="${escapeHtml(links[k].href)}">${escapeHtml(links[k].label || k)}</a></li>`
+      )
+      .join("");
+    const siblings = Array.isArray(links.siblings) ? links.siblings : [];
+    const siblingsHtml = siblings.length
+      ? `<nav aria-label="Verwandte Themen"><h2>Verwandte Themen</h2><ul>${siblings
+          .map(
+            (s) =>
+              `<li><a href="${escapeHtml(s.href)}">${escapeHtml(s.label)}</a></li>`
+          )
+          .join("")}</ul></nav>`
+      : "";
+    const ctaHtml = route.cta && route.cta.primary && route.cta.primary.href
+      ? `<p><a href="${escapeHtml(route.cta.primary.href)}">${escapeHtml(route.cta.primary.label || "Jetzt starten")}</a>${
+          route.cta.secondary && route.cta.secondary.href
+            ? ` &nbsp; <a href="${escapeHtml(route.cta.secondary.href)}">${escapeHtml(route.cta.secondary.label || "Mehr erfahren")}</a>`
+            : ""
+        }</p>`
+      : "";
+    const faq = (route.faq || [])
+      .map(
+        (f) =>
+          `<details><summary>${escapeHtml(f.q)}</summary><p>${escapeHtml(f.a)}</p></details>`
+      )
+      .join("");
+    return `
+<div id="prerender-content">
+  ${breadcrumbHtml}
+  <article>
+    <header><h1>${escapeHtml(route.h1)}</h1></header>
+    ${route.intro ? `<section aria-label="Einführung"><p>${escapeHtml(route.intro)}</p></section>` : ""}
+    ${route.painPoints ? `<section aria-label="Typische Stolperfallen"><h2>Typische Stolperfallen</h2><p>${escapeHtml(route.painPoints)}</p></section>` : ""}
+    ${route.expertTip ? `<section aria-label="Experten-Tipp"><h2>Experten-Tipp</h2><p>${escapeHtml(route.expertTip)}</p></section>` : ""}
+    ${faq ? `<section aria-label="Häufige Fragen"><h2>Häufige Fragen</h2>${faq}</section>` : ""}
+    ${linkBlocks ? `<nav aria-label="Weiterführend"><h2>Weiterführend</h2><ul>${linkBlocks}</ul></nav>` : ""}
+    ${siblingsHtml}
+    ${ctaHtml}
+  </article>
+</div>`.trim();
+  }
+
   // Default: SSOT routes with keyFacts + faq
   const facts = (route.keyFacts || [])
     .map(
