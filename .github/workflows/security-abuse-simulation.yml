@@ -55,7 +55,7 @@ jobs:
 
       - name: Skip notice
         if: steps.secrets.outputs.skip == 'true'
-        run: echo "Abuse Simulation skipped: missing required Supabase secrets."
+        run: 'echo \"Abuse Simulation skipped: missing required Supabase secrets.\"'
 
       - name: Run abuse simulation
         if: steps.secrets.outputs.skip != 'true'

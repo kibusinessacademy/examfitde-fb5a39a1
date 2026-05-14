@@ -52,7 +52,7 @@ jobs:
 
       - name: Skip notice
         if: steps.secrets.outputs.skip == 'true'
-        run: echo "Security Smoke skipped: missing required Supabase secrets."
+        run: 'echo \"Security Smoke skipped: missing required Supabase secrets.\"'
 
       - name: Run smoke
         if: steps.secrets.outputs.skip != 'true'

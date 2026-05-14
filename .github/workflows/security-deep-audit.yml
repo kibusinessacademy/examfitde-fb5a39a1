@@ -50,7 +50,7 @@ jobs:
 
       - name: Skip notice
         if: steps.secrets.outputs.skip == 'true'
-        run: echo "Deep Audit skipped: missing required Supabase secrets."
+        run: 'echo \"Deep Audit skipped: missing required Supabase secrets.\"'
 
       - name: Run deep audit
         if: steps.secrets.outputs.skip != 'true'

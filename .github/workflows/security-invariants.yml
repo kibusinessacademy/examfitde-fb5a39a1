@@ -51,7 +51,7 @@ jobs:
 
       - name: Skip notice
         if: steps.secrets.outputs.skip == 'true'
-        run: echo "Security Invariants skipped: missing required Supabase secrets."
+        run: 'echo \"Security Invariants skipped: missing required Supabase secrets.\"'
 
       - name: Run security invariants
         if: steps.secrets.outputs.skip != 'true'
