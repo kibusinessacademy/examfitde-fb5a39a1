@@ -33,7 +33,7 @@ jobs:
           node-version: "24"
           cache: "npm"
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
       - name: TypeScript check
         run: npx tsc --noEmit
       - name: Production build
@@ -55,7 +55,7 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - name: Run tests
         run: npx vitest run --reporter=verbose
       - name: Generate test summary
@@ -152,7 +152,7 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - name: npm audit (critical + high)
         run: npm audit --audit-level=high || true
       - name: Report summary

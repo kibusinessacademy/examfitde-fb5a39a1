@@ -39,7 +39,7 @@ jobs:
         with:
           node-version: "24"
       - name: Install deps
-        run: npm ci --no-audit --no-fund
+        run: npm ci --legacy-peer-deps
 
       # ── Guard 1: Persona Enum Contract ───────────────────────────────────
       - name: Persona Enum Contract (DB ↔ FE drift gate)
