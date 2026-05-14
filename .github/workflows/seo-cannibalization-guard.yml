@@ -19,6 +19,9 @@ permissions:
   contents: read
   pull-requests: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   scan:
     name: Keyword ownership scan (warn-only)

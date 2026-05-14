@@ -18,6 +18,9 @@ on:
   schedule:
     - cron: '17 */6 * * *'  # alle 6h
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   smoke:
     runs-on: ubuntu-latest

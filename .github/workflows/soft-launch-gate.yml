@@ -36,6 +36,9 @@ concurrency:
   group: soft-launch-gate-${{ github.event.client_payload.base_url || inputs.base_url || inputs.target || 'preview' }}
   cancel-in-progress: false
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   gate:
     # Only run on successful deployments (skip pending/in_progress/failure noise).

@@ -11,6 +11,9 @@ on:
       - '.github/workflows/seo-cluster-guard.yml'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   seo-static-audit:
     name: Link, Canonical & Sitemap Parity

@@ -12,6 +12,9 @@ on:
     - cron: '30 6 * * *'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   identity-guard:
     runs-on: ubuntu-latest

@@ -11,6 +11,9 @@ on:
       - "scripts/lxi-heal-smoke.mjs"
       - ".github/workflows/lxi-heal-smoke.yml"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
