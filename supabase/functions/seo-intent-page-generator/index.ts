@@ -23,7 +23,7 @@ const FORBIDDEN_GLOBAL = [
   "dieser artikel zeigt dir alles",
 ];
 
-const MIN_WORDS = 520;
+const MIN_WORDS = 480;
 const MAX_WORDS = 1200;
 const REQUIRED_SECTIONS = ["intro", "pain_points", "expert_tip"];
 
