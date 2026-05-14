@@ -1,92 +1,74 @@
-## Bestand (Audit-Ergebnis)
+# Slice 2 + Slice 3 Plan: SEO Intent Pipeline + Hybrid Keyword-Map
 
-ExamFit hat bereits substantielle Programmatic-SEO-Infrastruktur:
+Slug-Normalizer-Bug ist gefixt (Slice-1.5, smoke 5/5 grün, audit `seo_intent_slug_normalizer_fixed` geschrieben). Ab hier in **drei Loops** mit Freigabe nach jedem.
 
-- **Daten**: 485 Curricula, 18.871 Kompetenzen — die SSOT-Quelle für Hybrid-Generierung ist vollständig vorhanden.
-- **Tabellen**: `seo_content_pages` (580 Pages, **nur** `page_type='persona_landing'` für 3 Personas), `seo_templates` (key/doc_type/outline/prompt/qc_rules), `seo_generation_jobs` (queue/model/cost/logs), `seo_content_briefs`, `seo_keywords` + `seo_keyword_clusters`, `seo_internal_link_suggestions`, `seo_refresh_queue`.
-- **Routing**: `ProgrammaticSEODispatcher.tsx` + `PersonaLandingPage.tsx` + `DynamicProductLandingPage.tsx`.
-- **Pipeline**: `seo_generation_jobs` orchestriert bereits Generate/Refresh/Rewrite/Internal-Linking/QC/Publish.
-- **Guards**: `fn_seo_pages_no_dead_end` Trigger, `v_seo_canonical_drift`, `v_seo_dead_end_drift`, `v_seo_refresh_candidates`.
+---
 
-## Lücke
+## Loop A — Pipeline (Edge Function + QC + Persistenz)
 
-Die Engine kann heute nur **persona_landing pro Paket × Persona**. Es fehlt komplett:
+**Edge Function `seo-intent-page-generator`**
+- Input: `{job_id}` aus `job_queue`, lädt payload `{curriculum_id, competency_id, intent_key, persona_type}`.
+- Ruft `fn_seo_build_ssot_skeleton(...)` für H1/Meta/Breadcrumbs/FAQ-Seed/Internal Links/CTA.
+- Lädt `seo_templates` per `intent_key`, nutzt `prompt_system` + `qc_rules_json`.
+- Lovable AI Gateway (`google/gemini-3-flash-preview`) generiert nur 3 Sektionen: `intro`, `pain_points`, `expert_tip`. Strict-RAG Kontext = Curriculum + Competency + Skeleton, kein Free-Floating.
+- Persistiert in `seo_content_pages` (UPSERT auf unique `(curriculum_id, competency_id, intent_template, persona_type)`).
+- Setzt `quality_score`, `generation_source='hybrid_ssot_ai'`, `generation_model`, `generation_cost_eur`, `last_generated_at`.
+- Job → `completed`/`failed`, Audit `seo_intent_page_generated` oder `seo_intent_page_qc_failed`.
 
-1. **Intent-Taxonomie** (Money / Angst / Erfahrung / Vergleich / Lernzeit / Longtail) in `seo_templates` und `seo_content_pages`.
-2. **Kompetenz-Granularität**: `seo_content_pages` kennt `package_id`/`curriculum_id`, aber **keine** `competency_id`. Dadurch sind Mini-Landingpages „pro Kompetenz × Intent" nicht modellierbar — und genau das ist der Hebel (18.871 Kompetenzen × 6 Intents = theoretisch 113k Pages, real cap-gesteuert).
-3. **Hybrid-Generator**: Es gibt keine Edge-Function, die SSOT-Skelett (H1/H2/FAQ/Breadcrumb/Schema aus Curriculum+Competency+Statistiken) deterministisch baut und nur einzelne Sektionen per Lovable AI mit Strict-RAG füllt.
-4. **Dispatcher-Erweiterung**: `ProgrammaticSEODispatcher` routet aktuell nur Persona-Landings.
-5. **Sitemap- und Hub-Spoke-Verlinkung** für die neuen Intent-Pages.
+**Hard QC-Gate (server-side)**
+Fail wenn: H1/Breadcrumbs/FAQ/CTA/InternalLinks/sections leer, Slug invalid, Floskel-Liste matcht (`In der heutigen Zeit`, `maßgeschneidert`, `Tauche ein`, `egal ob Anfänger oder Profi`, `Dieser Artikel zeigt dir alles`), Wortzahl<400, keine Curriculum-Token im Body.
 
-## Slice 1 (dieser Loop) — Foundation, kein Bulk
+**RPC `get_published_intent_page(curriculum_slug, competency_slug, intent_slug)`** — public, SECURITY DEFINER, liefert nur `quality_score>=80 AND status='published'`. Kein Client-Table-Read.
 
-Ziel: Pipeline für **1 Intent (Pruefungsfragen) × 1 Top-Curriculum (z.B. AEVO)** Ende-zu-Ende grün, alle Guardrails an. Erst danach Multi-Intent + Bulk.
+---
 
-### 1. Schema-Migration (eine Concern-Einheit)
+## Loop B — Frontend Route + Sitemap + Smoke
 
-- `ALTER TABLE seo_content_pages ADD COLUMN competency_id uuid REFERENCES competencies(id), ADD COLUMN intent_template text, ADD COLUMN sections_json jsonb DEFAULT '{}', ADD COLUMN quality_score numeric, ADD COLUMN last_generated_at timestamptz, ADD COLUMN generation_source text DEFAULT 'hybrid_ssot_ai';`
-- Neuen Unique-Index: `(curriculum_id, competency_id, intent_template, persona_type)` partial WHERE competency_id IS NOT NULL — verhindert Duplicates ohne den bestehenden persona_landing-Index zu brechen.
-- Neue Page-Types in `seo_templates` über CHECK-Erweiterung von `doc_type` um `intent_page` (oder neue Spalte `intent_key`).
-- 6 Templates seeden: `intent_pruefungsfragen`, `intent_typische_fehler`, `intent_durchfallquote`, `intent_wie_schwer`, `intent_erfahrung`, `intent_lernplan` — jeweils mit `outline_json` (deterministische Sektionen) + `prompt_system` (Style-Guide: keine Floskeln, keine KI-Phrasen, IHK-Prüfer-Tonalität) + `qc_rules_json` (min_words, must_contain_entities, max_filler_words).
+- `IntentLandingPage.tsx` an `/kurse/:curriculumSlug/:competencySlug/:intentSlug`.
+- `react-helmet-async`: Title, Meta, Canonical, Article+FAQPage+BreadcrumbList JSON-LD.
+- Render: H1, Breadcrumbs, Sections, FAQ-Accordion, `<SEOInternalLinks>`, CTA → Prüfungstrainer.
+- `ProgrammaticSEODispatcher`: Erkennt `/kurse/...` 3-Segment-Pattern, fallback 404 ohne Kollision.
+- Sitemap: `scripts/seo/run-prerender.mjs` + `load-dynamic-routes.mjs` lesen `seo_content_pages` (intent_page, published, score≥80) via REST, `lastmod=last_generated_at`. Audit `seo_intent_sitemap_updated`.
+- **Smoke** (3 AEVO Pages: Prüfungsfragen, typische Fehler, mündliche Prüfung): enqueue → completed → URL klickbar → alle Pflicht-Elemente sichtbar → in Sitemap. Audit `seo_intent_smoke_completed`.
 
-### 2. SSOT-Skelett-Funktion (DB)
+---
 
-`fn_seo_build_ssot_skeleton(curriculum_id uuid, competency_id uuid, intent text) RETURNS jsonb`
+## Loop C — Hybrid Keyword-Map (SSOT + Semrush)
 
-Liefert deterministisch:
-- `h1`, `meta_description`, `breadcrumbs` (Curriculum-Hierarchie)
-- `faq_seed` (aus Competency-Tags + typische Suchanfragen-Vorlagen pro Intent)
-- `internal_links` (Top-5 Sibling-Competencies + Hub-Page + Quiz-Trainer-Einstieg + AI-Tutor-Einstieg) aus dem Competency-Graph
-- `stats` (z.B. Pool-Size, Score-Verteilung — falls vorhanden)
-- `cta_block` (Trainer/Quiz/Produkt — geroutet pro Intent)
+**Schritt C1 — SSOT-Skelett (deterministisch, kein API-Cost)**
+- Migration: `seo_intent_templates` erweitern um 5 weitere Intents:
+  - `pruefungsfragen`, `typische_fehler`, `muendliche_pruefung`, `durchfallquote`, `lernplan`, `vergleich` (variant per Kurs)
+- View `v_seo_keyword_seed` = Top-N Curricula × Intents × Top-Competencies → ~500 Keyword-Heads (deterministisch aus DB).
 
-Kein AI-Call. Pure SQL. Wiederverwendbar von beiden — Edge-Function und ProgrammaticSEODispatcher.
+**Schritt C2 — Semrush-Anreicherung (Top-15 Kurse first)**
+- Liste der 15 wichtigsten Curricula manuell pinnen (AEVO, Handelsfachwirt, Bilanzbuchhalter, Betriebswirt, FIAE, FISI, Wirtschaftsfachwirt, Industriefachwirt, Scrum, Personalfachkaufmann, …).
+- Pro Kurs × Intent → `semrush--keyword_research` (Volume/KDI/Long-Tail-Varianten + Question-Keywords).
+- Persistiere in `seo_keywords` + `seo_keyword_clusters` (bestehende Tabellen!) mit `cluster_type='intent_pillar'`, `pillar_url`, `spoke_urls`.
+- Output: Markdown-Report `/mnt/documents/keyword-cluster-map-v1.md` mit Hub-Spoke-Diagramm pro Kurs (welche Pillar-Page, welche Spokes, internal-link-targets).
 
-### 3. Edge Function `seo-intent-page-generator`
+**Schritt C3 — Bulk-Enqueue mit Cap**
+- `admin_enqueue_seo_intent_generation_bulk(limit=10, min_score_floor=true)` — nur high-confidence Cluster, 10/h Cap, 30d Refresh-Cooldown. Kein Cron in diesem Loop.
 
-- Input: `{ curriculum_id, competency_id, intent_template, persona_type }`
-- Schritt 1: ruft `fn_seo_build_ssot_skeleton` → Skelett
-- Schritt 2: Lovable AI Gateway (`google/gemini-3-flash-preview`) füllt **nur** drei Sektionen: `intro_paragraph`, `pain_point_paragraph`, `expert_tip` — mit Strict-RAG-Prompt: Eingabe = Curriculum-Titel + Competency-Beschreibung + Intent-Style-Guide. Verbotene Floskeln-Liste im System-Prompt.
-- Schritt 3: Quality-Gate (Wortzahl, Verbotene-Phrasen-Regex, Entity-Check)
-- Schritt 4: `INSERT ... ON CONFLICT (curriculum_id, competency_id, intent_template, persona_type) DO UPDATE` mit `status='draft'`, `quality_score`, `sections_json`
-- Schritt 5: Audit in `auto_heal_log` (`action_type='seo_intent_page_generated'`)
-- Cost-Cap: max 1 Generation pro Aufruf. Job-Queue-Integration via `seo_generation_jobs` (job_type='generate', template_key='intent_<x>', target_ref={curriculum_id, competency_id, intent, persona}).
-- `verify_jwt = false` ist ok — nur via Service-Role-RPC `admin_enqueue_seo_intent_generation` aufrufbar (has_role-Gate).
+---
 
-### 4. Routing + Page-Komponente
+## Risiken
+- **Hosting**: Lovable SPA-Fallback blockt Per-Route-Prerender → Intent Pages erscheinen nur in Sitemap, nicht als statisches HTML (siehe SEO-Hosting-Constraint Memory). LLM-Crawler + Googlebot funktionieren via Helmet, Social-Crawler nicht. Migration zu Vercel offen.
+- **Semrush Credits**: ~15 Kurse × 6 Intents = 90 `keyword_research`-Calls. Vorher Budget bestätigen.
+- **AI-Floskel-Detection**: deterministisches Regex; falsch-positive auf legitime Phrasen möglich → Liste in DB, schnell anpassbar.
 
-- Route hinzufügen: `/lernen/:curriculumSlug/:intentKey/:competencySlug` → erweitert `ProgrammaticSEODispatcher` um Intent-Branch
-- Eine neue Page `IntentLandingPage.tsx` rendert `sections_json` + interne Links + CTA + JSON-LD (Article + FAQPage + BreadcrumbList)
-- `react-helmet-async` für per-Route Title/Description/Canonical
-- Status-Filter: zeigt nur `published` Pages, sonst 404
+---
 
-### 5. Smoke-Test (synthetisch)
+## Reihenfolge & Akzeptanz
+1. **Loop A grün** (Edge Function liefert valid `sections_json` für 1 AEVO-Test-Page, QC-Gate sperrt absichtliche Floskel-Variante) → Freigabe.
+2. **Loop B grün** (3 AEVO-Pages live klickbar + Sitemap + Helmet-JSON-LD validiert) → Freigabe.
+3. **Loop C** in zwei Mini-Loops: erst C1+C2 (Keyword-Map als Report, kein Code-Push), dann C3 nach Review.
 
-- 1 Curriculum (AEVO), Top-3-Kompetenzen, 1 Intent (`intent_pruefungsfragen`) → 3 Pages generieren → manuell auf Quality prüfen → veröffentlichen → Sitemap-Eintrag verifizieren → interne Links klick-testbar.
+---
 
-### Bewusst NICHT in Slice 1
+## Nicht-Ziele dieses Plans
+- Cron für Auto-Generation (kommt erst nach 24h Production-Beobachtung)
+- Vercel-Migration (separater Track)
+- Bulk-Generation >10 Pages/Loop
+- Topical Authority Map als Visualisierung (separater Track)
 
-- Keine Cron-Bulk-Generation (kommt in Slice 2 nach manueller QC der ersten 3 Pages)
-- Keine restlichen 5 Intents (kommen pro Slice einzeln dran, jeweils mit eigenem Style-Guide-Tuning)
-- Keine Topical-Authority-Map / Gap-Analyse (kommt in Slice 3, sobald >50 Intent-Pages live sind)
-- Keine Hub-Pages „Wirtschaftsfachwirt Prüfungsfragen" (kommt in Slice 4 — die brauchen die Spokes als Voraussetzung)
-
-## Risiken & Mitigationen
-
-- **Scale**: 113k mögliche Pages → harter WIP-Cap pro Cron-Lauf (10/h initial), Quality-Gate-Schwelle ≥80, Refresh-Cooldown 30 Tage. Dead-End-Trigger ist bereits aktiv.
-- **Duplicate Content**: SSOT-Skelett zwingt Strukturunterschiede pro Intent; Style-Guide-Prompt verbietet Floskeln; 3 unterschiedliche AI-Sektionen pro Intent.
-- **Hosting-Constraint**: Lovable Hosting kann keine per-Route-Prerender — Pages sind initial nur in Sitemap + via JS gerendert. Voll wirksam erst nach Vercel-Migration (Runbook existiert bereits).
-- **Migration-Discipline**: Eine Migration = ein Concern (Schema), separate Migration für Templates-Seed, separate für RPC, separate für Cron (später).
-
-## Liefer-Reihenfolge dieses Loops
-
-1. Migration: Schema-Erweiterung `seo_content_pages` + Unique-Index
-2. Migration: 1 Template seeden (`intent_pruefungsfragen`)
-3. Migration: `fn_seo_build_ssot_skeleton` + RPC-Wrapper `admin_enqueue_seo_intent_generation`
-4. Edge Function `seo-intent-page-generator` + Deploy
-5. `IntentLandingPage.tsx` + Route in `ProgrammaticSEODispatcher`
-6. Sitemap-Generator-Erweiterung um die neuen Routes
-7. Manueller Smoke: 3 Pages generieren, QC prüfen
-8. Memory-Update + kurzer Status
-
-Zeitschätzung: 1 voller Loop. Slice 2 (5 weitere Intents + Cron) im nächsten Loop, wenn die ersten 3 Pages QC bestanden haben.
+Bitte freigeben für **Loop A**, oder gegensteuern.
