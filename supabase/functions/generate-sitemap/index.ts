@@ -319,6 +319,19 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         if (p.noindex || !p.slug || p.page_type === "landing") continue;
         urls.push({ loc: `${SITE_URL}/${p.slug}`, lastmod: (p.updated_at || "").split("T")[0] || today, changefreq: "monthly", priority: 0.5 });
       }
+      // ── SEO Intent-Pages (curriculum × intent × competency) ──
+      // slug shape: "<curriculum-slug>/intent_<key>/<competency-slug>" → URL: /kurse/<that>
+      const { data: intents } = await sb.from("seo_content_pages")
+        .select("slug, last_generated_at, updated_at, quality_score")
+        .eq("page_type", "intent_page")
+        .eq("status", "published")
+        .gte("quality_score", 80)
+        .limit(2000);
+      for (const r of intents || []) {
+        if (!r.slug || r.slug.split("/").length !== 3) continue;
+        const lm = (r.last_generated_at || r.updated_at || "").split("T")[0] || today;
+        urls.push({ loc: `${SITE_URL}/kurse/${r.slug}`, lastmod: lm, changefreq: "weekly", priority: 0.7 });
+      }
       return xmlResponse(toSitemapXML(urls), headers);
     }
 

@@ -88,6 +88,7 @@ const DynamicProductLandingPage = lazyRetry(() => import('@/pages/landing/Dynami
 const PersonaLandingPage = lazyRetry(() => import('@/pages/landing/PersonaLandingPage'));
 const PersonaLandingHubPage = lazyRetry(() => import('@/pages/landing/PersonaLandingHubPage'));
 import ProgrammaticSEODispatcher from '@/pages/seo/ProgrammaticSEODispatcher';
+const IntentLandingPage = lazyRetry(() => import('@/pages/seo/IntentLandingPage'));
 const EnterpriseDemoPage = lazyRetry(() => import('@/pages/seo/EnterpriseDemoPage'));
 const PruefungsreifeCheck = lazyRetry(() => import('@/components/pruefungsreife/PruefungsreifeCheckPage'));
 const LeadQuizPage = lazyRetry(() => import('@/pages/quiz/LeadQuizPage'));
@@ -295,6 +296,9 @@ const AppRoutes = () => {
           <Route path="/pruefungstraining-sachkunde/:slug" element={<PersonaLandingPage personaType="sachkunde" />} />
           <Route path="/pruefungstraining-fachwirt/:slug" element={<PersonaLandingPage personaType="fachwirt" />} />
           <Route path="/pruefungstraining-studium/:slug" element={<PersonaLandingPage personaType="studium" />} />
+
+          {/* SEO Intent-Pages: /kurse/<curriculum>/<intent>/<competency> — must be BEFORE /:slug catch-all */}
+          <Route path="/kurse/:curriculumSlug/:intentSlug/:competencySlug" element={<IntentLandingPage />} />
 
           <Route path="/:slug" element={<ProgrammaticSEODispatcher />} />
 
