@@ -243,10 +243,11 @@ Deno.serve(async (req) => {
     `Generiere drei Sektionen für "{competency_title}" im "{curriculum_title}". intro (200-260 Wörter), pain_points (220-300 Wörter), expert_tip (130-180 Wörter).`;
   const promptSystem = (template.prompt_system as string | null) ??
     `Du bist erfahrener IHK-Prüfer und Lerncoach. Schreibe ehrlich, prüfungsnah, ohne Floskeln. Nutze nur Fakten aus dem mitgelieferten Kontext.`;
+  const curriculumToken = curriculumTitle.split(/[\s\-(]+/)[0] ?? curriculumTitle;
   const userPrompt = promptUserTpl
     .replaceAll("{competency_title}", competencyTitle)
     .replaceAll("{curriculum_title}", curriculumTitle) +
-    `\n\nKontext (Strict-RAG):\n- Curriculum: ${curriculumTitle}\n- Lernfeld: ${lfTitle}\n- Kompetenz: ${competencyTitle}\n- Beschreibung: ${competencyDesc}\n\nAntworte als reines JSON: {"intro": "...", "pain_points": "...", "expert_tip": "..."} — keine Markdown-Codefences.`;
+    `\n\nKontext (Strict-RAG):\n- Curriculum: ${curriculumTitle}\n- Pflichtbegriff im Body: ${curriculumToken}\n- Lernfeld: ${lfTitle}\n- Kompetenz: ${competencyTitle}\n- Beschreibung: ${competencyDesc}\n\nNutze den Pflichtbegriff "${curriculumToken}" natürlich in mindestens zwei Sektionen. Antworte als reines JSON: {"intro": "...", "pain_points": "...", "expert_tip": "..."} — keine Markdown-Codefences.`;
 
   // 3) AI
   const model = "google/gemini-3-flash-preview";
