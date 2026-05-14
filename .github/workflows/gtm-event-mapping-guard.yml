@@ -21,8 +21,6 @@ on:
       - "scripts/guards/gtm-event-mapping-guard.mjs"
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   gtm-mapping:
@@ -33,5 +31,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Verify Node.js 24
+        run: |
+          echo "Node version: $(node -v)"
+          NODE_MAJOR=$(node -v | sed 's/v\([0-9]*\).*/\1/')
+          if [ "$NODE_MAJOR" != "24" ]; then
+            echo "::error::Expected Node.js 24, got $(node -v)"
+            exit 1
+          fi
       - name: Run GTM Event Mapping Guard
         run: node scripts/guards/gtm-event-mapping-guard.mjs

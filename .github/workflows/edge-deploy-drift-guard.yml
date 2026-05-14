@@ -11,8 +11,6 @@ on:
 
 permissions: read-all
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   edge-deploy-drift:
@@ -28,6 +26,14 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Verify Node.js 24
+        run: |
+          echo "Node version: $(node -v)"
+          NODE_MAJOR=$(node -v | sed 's/v\([0-9]*\).*/\1/')
+          if [ "$NODE_MAJOR" != "24" ]; then
+            echo "::error::Expected Node.js 24, got $(node -v)"
+            exit 1
+          fi
       - name: Run edge deploy drift guard
         run: node scripts/guards/edge-deploy-drift-guard.mjs
 

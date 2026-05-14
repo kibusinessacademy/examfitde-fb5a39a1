@@ -9,8 +9,6 @@ on:
       - "scripts/dead-column-candidates.json"
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   dead-column-audit:
@@ -20,7 +18,15 @@ jobs:
       - name: Use Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "24"
+      - name: Verify Node.js 24
+        run: |
+          echo "Node version: $(node -v)"
+          NODE_MAJOR=$(node -v | sed 's/v\([0-9]*\).*/\1/')
+          if [ "$NODE_MAJOR" != "24" ]; then
+            echo "::error::Expected Node.js 24, got $(node -v)"
+            exit 1
+          fi
       - name: Install ripgrep
         run: sudo apt-get update -qq && sudo apt-get install -y ripgrep
       - name: Run dead-column audit dry
