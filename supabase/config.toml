@@ -482,3 +482,6 @@ verify_jwt = false
 
 [functions.e2e-test-helper]
 verify_jwt = false
+
+[functions.process-email-queue]
+verify_jwt = true
