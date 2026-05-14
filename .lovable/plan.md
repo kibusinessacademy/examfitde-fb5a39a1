@@ -1,128 +1,92 @@
-# Multi-Class Drain Orchestrator v1
+## Bestand (Audit-Ergebnis)
 
-Ziel: Nach Batch 4 (BRONZE_REVIEW_CLEAN drained) die 4 echten Restklassen klassenspezifisch + autonom abarbeiten — ohne manuelle SQL-Abfragen.
+ExamFit hat bereits substantielle Programmatic-SEO-Infrastruktur:
 
-## Architektur
+- **Daten**: 485 Curricula, 18.871 Kompetenzen — die SSOT-Quelle für Hybrid-Generierung ist vollständig vorhanden.
+- **Tabellen**: `seo_content_pages` (580 Pages, **nur** `page_type='persona_landing'` für 3 Personas), `seo_templates` (key/doc_type/outline/prompt/qc_rules), `seo_generation_jobs` (queue/model/cost/logs), `seo_content_briefs`, `seo_keywords` + `seo_keyword_clusters`, `seo_internal_link_suggestions`, `seo_refresh_queue`.
+- **Routing**: `ProgrammaticSEODispatcher.tsx` + `PersonaLandingPage.tsx` + `DynamicProductLandingPage.tsx`.
+- **Pipeline**: `seo_generation_jobs` orchestriert bereits Generate/Refresh/Rewrite/Internal-Linking/QC/Publish.
+- **Guards**: `fn_seo_pages_no_dead_end` Trigger, `v_seo_canonical_drift`, `v_seo_dead_end_drift`, `v_seo_refresh_candidates`.
 
-```text
-                    cron drain-orchestrator-10min
-                              │
-                              ▼
-              admin_drain_class_orchestrator(p_dry)
-                              │
-        ┌──────────┬──────────┼──────────┬──────────┐
-        ▼          ▼          ▼          ▼          ▼
-   BRONZE_REVIEW  NEEDS_     POOL_GAP   TRAP_GAP   STOP-Gate
-   _REQUIRED      INTEGRITY  _REPAIR    _REPAIR    (Health)
-        │          │          │          │
-   bronze_repair  integrity  pool_repair trap_repair
-   _dispatch      _enqueue   _enqueue    _enqueue
-```
+## Lücke
 
-Eine RPC pro Klasse mit eigenem Eligibility-Filter, eigenem Job-Type, eigenem Cooldown, eigenem WIP-Cap. Ein Orchestrator ruft sie nacheinander mit globalen Stop-Kriterien.
+Die Engine kann heute nur **persona_landing pro Paket × Persona**. Es fehlt komplett:
 
-## Klassen-Plan
+1. **Intent-Taxonomie** (Money / Angst / Erfahrung / Vergleich / Lernzeit / Longtail) in `seo_templates` und `seo_content_pages`.
+2. **Kompetenz-Granularität**: `seo_content_pages` kennt `package_id`/`curriculum_id`, aber **keine** `competency_id`. Dadurch sind Mini-Landingpages „pro Kompetenz × Intent" nicht modellierbar — und genau das ist der Hebel (18.871 Kompetenzen × 6 Intents = theoretisch 113k Pages, real cap-gesteuert).
+3. **Hybrid-Generator**: Es gibt keine Edge-Function, die SSOT-Skelett (H1/H2/FAQ/Breadcrumb/Schema aus Curriculum+Competency+Statistiken) deterministisch baut und nur einzelne Sektionen per Lovable AI mit Strict-RAG füllt.
+4. **Dispatcher-Erweiterung**: `ProgrammaticSEODispatcher` routet aktuell nur Persona-Landings.
+5. **Sitemap- und Hub-Spoke-Verlinkung** für die neuen Intent-Pages.
 
-### 1. BRONZE_REVIEW_REQUIRED (46 Pakete)
-- **Eligibility**: bronze_locked + (hard_fails ≠ [] ODER score < 75) + ≥48h ohne Repair-Attempt
-- **Action**: `admin_bronze_targeted_repair_dispatch(package_id)` (existiert, max 1 Versuch)
-- **WIP-Cap**: 5 parallel (teure Repairs)
-- **Batch-Size**: 5 / Lauf
-- **Stop**: Klasse leer · WIP-Cap erreicht · failure_class_growth in anderer Klasse
+## Slice 1 (dieser Loop) — Foundation, kein Bulk
 
-### 2. NEEDS_INTEGRITY_FIRST (99 Pakete)
-- **Eligibility**: kein Report ODER score < 75, status ∈ (building, queued), approved ≥ track-min, kein aktiver `package_run_integrity_check`
-- **Action**: enqueue `package_run_integrity_check` mit `enqueue_source='drain_needs_integrity_v1'`
-- **WIP-Cap**: 10 parallel
-- **Batch-Size**: 10 / Lauf
-- **Stop**: Klasse leer · WIP-Cap erreicht · 3 consecutive empty_batch
+Ziel: Pipeline für **1 Intent (Pruefungsfragen) × 1 Top-Curriculum (z.B. AEVO)** Ende-zu-Ende grün, alle Guardrails an. Erst danach Multi-Intent + Bulk.
 
-### 3. POOL_GAP_REPAIR (5 Pakete)
-- **Eligibility**: hard_fails enthält `TOO_FEW_APPROVED` ODER pool < 50, kein aktiver `package_repair_exam_pool_*`
-- **Action**: enqueue `package_repair_exam_pool_quality` (defect-aware aus existierendem `_admin_recheck_enqueue`-Pattern)
-- **WIP-Cap**: 3 parallel
-- **Batch-Size**: 3 / Lauf
-- **Stop**: Klasse leer · WIP-Cap erreicht
+### 1. Schema-Migration (eine Concern-Einheit)
 
-### 4. TRAP_GAP_REPAIR (2 Pakete)
-- **Eligibility**: hard_fails enthält `TRAP_COVERAGE_BLOCK` / `HARDISH_TOO_LOW` / `ELITE_CONTEXT` / `CONFLICT_TYPE_LOW`, kein aktiver Repair-Job
-- **Action**: enqueue `package_exam_rebalance` (existiert als Edge)
-- **WIP-Cap**: 2 parallel
-- **Batch-Size**: 2 / Lauf
-- **Stop**: Klasse leer · WIP-Cap erreicht
+- `ALTER TABLE seo_content_pages ADD COLUMN competency_id uuid REFERENCES competencies(id), ADD COLUMN intent_template text, ADD COLUMN sections_json jsonb DEFAULT '{}', ADD COLUMN quality_score numeric, ADD COLUMN last_generated_at timestamptz, ADD COLUMN generation_source text DEFAULT 'hybrid_ssot_ai';`
+- Neuen Unique-Index: `(curriculum_id, competency_id, intent_template, persona_type)` partial WHERE competency_id IS NOT NULL — verhindert Duplicates ohne den bestehenden persona_landing-Index zu brechen.
+- Neue Page-Types in `seo_templates` über CHECK-Erweiterung von `doc_type` um `intent_page` (oder neue Spalte `intent_key`).
+- 6 Templates seeden: `intent_pruefungsfragen`, `intent_typische_fehler`, `intent_durchfallquote`, `intent_wie_schwer`, `intent_erfahrung`, `intent_lernplan` — jeweils mit `outline_json` (deterministische Sektionen) + `prompt_system` (Style-Guide: keine Floskeln, keine KI-Phrasen, IHK-Prüfer-Tonalität) + `qc_rules_json` (min_words, must_contain_entities, max_filler_words).
 
-## Globale Stop-Kriterien (Orchestrator)
+### 2. SSOT-Skelett-Funktion (DB)
 
-1. `fn_worker_health_gate` rot → komplett aussetzen (audit `health_skip`)
-2. `failure_rate_15m > 20%` → aussetzen
-3. Pro Klasse: 3 aufeinanderfolgende `empty_batch` → Klasse für 30min cooldown
-4. Globale Drain-Caps pro Lauf (prevent burst): max 20 enqueues total
+`fn_seo_build_ssot_skeleton(curriculum_id uuid, competency_id uuid, intent text) RETURNS jsonb`
 
-## Stufen
+Liefert deterministisch:
+- `h1`, `meta_description`, `breadcrumbs` (Curriculum-Hierarchie)
+- `faq_seed` (aus Competency-Tags + typische Suchanfragen-Vorlagen pro Intent)
+- `internal_links` (Top-5 Sibling-Competencies + Hub-Page + Quiz-Trainer-Einstieg + AI-Tutor-Einstieg) aus dem Competency-Graph
+- `stats` (z.B. Pool-Size, Score-Verteilung — falls vorhanden)
+- `cta_block` (Trainer/Quiz/Produkt — geroutet pro Intent)
 
-1. **RPC `admin_drain_bronze_review_required(p_dry, p_limit)`**
-   - View `v_bronze_review_required_eligible` (joined mit repair_attempts + cooldown)
-   - Loop → `admin_bronze_targeted_repair_dispatch`
-   - Audit `auto_heal_log` action_type=`drain_bronze_review_batch`
+Kein AI-Call. Pure SQL. Wiederverwendbar von beiden — Edge-Function und ProgrammaticSEODispatcher.
 
-2. **RPC `admin_drain_needs_integrity(p_dry, p_limit)`**
-   - View `v_needs_integrity_eligible` (Track-min lookup, no-active-job, cooldown)
-   - Direct enqueue `package_run_integrity_check` via `_admin_recheck_enqueue`-Helper
-   - Audit `drain_needs_integrity_batch`
+### 3. Edge Function `seo-intent-page-generator`
 
-3. **RPC `admin_drain_pool_gap(p_dry, p_limit)`**
-   - View `v_pool_gap_eligible` (hard_fail-Filter + pool-size)
-   - Defect-aware enqueue (LF-Lücke vs Volumen vs Coverage)
-   - Audit `drain_pool_gap_batch`
+- Input: `{ curriculum_id, competency_id, intent_template, persona_type }`
+- Schritt 1: ruft `fn_seo_build_ssot_skeleton` → Skelett
+- Schritt 2: Lovable AI Gateway (`google/gemini-3-flash-preview`) füllt **nur** drei Sektionen: `intro_paragraph`, `pain_point_paragraph`, `expert_tip` — mit Strict-RAG-Prompt: Eingabe = Curriculum-Titel + Competency-Beschreibung + Intent-Style-Guide. Verbotene Floskeln-Liste im System-Prompt.
+- Schritt 3: Quality-Gate (Wortzahl, Verbotene-Phrasen-Regex, Entity-Check)
+- Schritt 4: `INSERT ... ON CONFLICT (curriculum_id, competency_id, intent_template, persona_type) DO UPDATE` mit `status='draft'`, `quality_score`, `sections_json`
+- Schritt 5: Audit in `auto_heal_log` (`action_type='seo_intent_page_generated'`)
+- Cost-Cap: max 1 Generation pro Aufruf. Job-Queue-Integration via `seo_generation_jobs` (job_type='generate', template_key='intent_<x>', target_ref={curriculum_id, competency_id, intent, persona}).
+- `verify_jwt = false` ist ok — nur via Service-Role-RPC `admin_enqueue_seo_intent_generation` aufrufbar (has_role-Gate).
 
-4. **RPC `admin_drain_trap_gap(p_dry, p_limit)`**
-   - View `v_trap_gap_eligible` (trap-spezifische hard_fails)
-   - Enqueue `package_exam_rebalance`
-   - Audit `drain_trap_gap_batch`
+### 4. Routing + Page-Komponente
 
-5. **Orchestrator `admin_drain_class_orchestrator(p_dry)`**
-   - Health-Gate vorab
-   - Ruft alle 4 Klassen-RPCs in Reihenfolge BRONZE → NEEDS_INTEGRITY → POOL_GAP → TRAP_GAP
-   - Aggregiert pro Klasse: enqueued, skipped_reason
-   - Schreibt finalen Snapshot in `auto_heal_log` action_type=`drain_orchestrator_run`
-   - Returns: `{class, enqueued, eligible_total, stopped_reason, gate_snapshot}`
+- Route hinzufügen: `/lernen/:curriculumSlug/:intentKey/:competencySlug` → erweitert `ProgrammaticSEODispatcher` um Intent-Branch
+- Eine neue Page `IntentLandingPage.tsx` rendert `sections_json` + interne Links + CTA + JSON-LD (Article + FAQPage + BreadcrumbList)
+- `react-helmet-async` für per-Route Title/Description/Canonical
+- Status-Filter: zeigt nur `published` Pages, sonst 404
 
-6. **Cron `drain-orchestrator-10min`** (`*/10 * * * *`)
-   - Triggert Orchestrator non-dry
-   - Idempotenz via Cooldown pro Klasse + Job-Type-Lookup
+### 5. Smoke-Test (synthetisch)
 
-7. **UI-Card `DrainOrchestratorCard`** (HealCockpit Sektion 3d)
-   - Live-Counts pro Klasse + letzte 5 Orchestrator-Läufe
-   - Manual-Trigger-Button (admin only) + Per-Class-Trigger
-   - Skip-Reasons als Tooltip
+- 1 Curriculum (AEVO), Top-3-Kompetenzen, 1 Intent (`intent_pruefungsfragen`) → 3 Pages generieren → manuell auf Quality prüfen → veröffentlichen → Sitemap-Eintrag verifizieren → interne Links klick-testbar.
 
-8. **Smoke-Test**: `admin_smoke_drain_orchestrator()` läuft alle 4 Klassen-RPCs dry + Orchestrator dry, prüft 0 Errors + plausible Counts.
+### Bewusst NICHT in Slice 1
 
-## Migrations (eine pro Concern)
+- Keine Cron-Bulk-Generation (kommt in Slice 2 nach manueller QC der ersten 3 Pages)
+- Keine restlichen 5 Intents (kommen pro Slice einzeln dran, jeweils mit eigenem Style-Guide-Tuning)
+- Keine Topical-Authority-Map / Gap-Analyse (kommt in Slice 3, sobald >50 Intent-Pages live sind)
+- Keine Hub-Pages „Wirtschaftsfachwirt Prüfungsfragen" (kommt in Slice 4 — die brauchen die Spokes als Voraussetzung)
 
-| # | Migration | Inhalt |
-|---|---|---|
-| 1 | `_v_bronze_review_required_eligible` | View + Grants |
-| 2 | `_v_needs_integrity_eligible` | View + Grants |
-| 3 | `_v_pool_gap_eligible` | View + Grants |
-| 4 | `_v_trap_gap_eligible` | View + Grants |
-| 5 | `_admin_drain_4x_class_rpcs` | 4 Klassen-RPCs (SECURITY DEFINER, has_role-Gate) |
-| 6 | `_admin_drain_class_orchestrator` | Orchestrator-RPC |
-| 7 | `_drain_orchestrator_cron_10min` | pg_cron via `supabase--insert` (kein Migration, da Anon-Key) |
-| 8 | `_drain_orchestrator_smoke` | Smoke-RPC |
+## Risiken & Mitigationen
 
-## Stop-Wächter
+- **Scale**: 113k mögliche Pages → harter WIP-Cap pro Cron-Lauf (10/h initial), Quality-Gate-Schwelle ≥80, Refresh-Cooldown 30 Tage. Dead-End-Trigger ist bereits aktiv.
+- **Duplicate Content**: SSOT-Skelett zwingt Strukturunterschiede pro Intent; Style-Guide-Prompt verbietet Floskeln; 3 unterschiedliche AI-Sektionen pro Intent.
+- **Hosting-Constraint**: Lovable Hosting kann keine per-Route-Prerender — Pages sind initial nur in Sitemap + via JS gerendert. Voll wirksam erst nach Vercel-Migration (Runbook existiert bereits).
+- **Migration-Discipline**: Eine Migration = ein Concern (Schema), separate Migration für Templates-Seed, separate für RPC, separate für Cron (später).
 
-- **Hard-Stop**: failure_rate_15m > 20% · worker_health rot · ANY hard_fail-Klasse wächst > baseline
-- **Soft-Pause**: pro Klasse 3× empty_batch → 30min Cooldown auf Klassen-Ebene
-- **Audit-Pflicht**: jeder Lauf (auch noop/skipped) in `auto_heal_log` mit `metadata.gate_snapshot`
+## Liefer-Reihenfolge dieses Loops
 
-## Smoke + Rollback
+1. Migration: Schema-Erweiterung `seo_content_pages` + Unique-Index
+2. Migration: 1 Template seeden (`intent_pruefungsfragen`)
+3. Migration: `fn_seo_build_ssot_skeleton` + RPC-Wrapper `admin_enqueue_seo_intent_generation`
+4. Edge Function `seo-intent-page-generator` + Deploy
+5. `IntentLandingPage.tsx` + Route in `ProgrammaticSEODispatcher`
+6. Sitemap-Generator-Erweiterung um die neuen Routes
+7. Manueller Smoke: 3 Pages generieren, QC prüfen
+8. Memory-Update + kurzer Status
 
-- Vor Cron-Aktivierung: `admin_smoke_drain_orchestrator()` 3× grün
-- Rollback: Cron disable + Orchestrator-RPC liefert noop wenn `feature_flags.drain_orchestrator.enabled=false` (default true)
-
-## Out-of-Scope
-- Keine Änderung am bestehenden `admin_reconcile_queued_tail_without_job` (BRONZE_REVIEW_CLEAN-Pfad bleibt)
-- Keine UI-Refactors außerhalb der neuen Card
-- Keine Änderung an Council/Auto-Publish-Logik
+Zeitschätzung: 1 voller Loop. Slice 2 (5 weitere Intents + Cron) im nächsten Loop, wenn die ersten 3 Pages QC bestanden haben.
