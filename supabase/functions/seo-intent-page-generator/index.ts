@@ -268,13 +268,25 @@ Deno.serve(async (req) => {
     generation_cost_eur: ai.cost_eur,
   };
 
-  const { data: upserted, error: upErr } = await supabase
+  // Manual upsert: partial unique index can't be used by PostgREST onConflict
+  const { data: existing } = await supabase
     .from("seo_content_pages")
-    .upsert(upsertRow as any, {
-      onConflict: "curriculum_id,competency_id,intent_template,persona_type",
-    })
-    .select("id, slug, quality_score")
+    .select("id")
+    .eq("curriculum_id", curriculum_id)
+    .eq("competency_id", competency_id)
+    .eq("intent_template", intent_template)
+    .eq("persona_type", persona)
     .maybeSingle();
+
+  let upserted: any = null;
+  let upErr: any = null;
+  if (existing?.id) {
+    const r = await supabase.from("seo_content_pages").update(upsertRow as any).eq("id", existing.id).select("id, slug, quality_score").maybeSingle();
+    upserted = r.data; upErr = r.error;
+  } else {
+    const r = await supabase.from("seo_content_pages").insert(upsertRow as any).select("id, slug, quality_score").maybeSingle();
+    upserted = r.data; upErr = r.error;
+  }
 
   if (upErr) {
     if (job) await supabase.from("job_queue").update({ status: "failed", last_error: `upsert_failed:${upErr.message}` }).eq("id", job.id);
