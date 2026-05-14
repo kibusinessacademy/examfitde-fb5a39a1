@@ -12,7 +12,6 @@ on:
 
 permissions: read-all
 
-
 jobs:
   # ── Unit/Logic Test Suites ──────────────
   qa-logic-suites:
@@ -37,7 +36,8 @@ jobs:
       - run: npm ci --legacy-peer-deps
 
       - name: Run Nightly QA Report
-        run: node scripts/nightly-qa-report.mjs --ci --json > test-results/nightly-qa-report.json 2>&1 || true
+        run: node scripts/nightly-qa-report.mjs --ci --json >
+          test-results/nightly-qa-report.json 2>&1 || true
 
       - name: Generate summary
         if: always()
@@ -78,6 +78,13 @@ jobs:
         with:
           node-version: "24"
           cache: npm
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        with:
+          required: SUPABASE_ANON_KEY SUPABASE_URL
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
@@ -96,7 +103,8 @@ jobs:
           E2E_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: npx playwright test tests/e2e/sanity.admin-preview.spec.ts --project=sanity || true
+        run: npx playwright test tests/e2e/sanity.admin-preview.spec.ts --project=sanity
+          || true
 
       - name: Run Learner Golden Path E2E
         env:
@@ -106,7 +114,8 @@ jobs:
           E2E_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: npx playwright test tests/e2e/sanity.learner-golden-path.spec.ts --project=sanity || true
+        run: npx playwright test tests/e2e/sanity.learner-golden-path.spec.ts
+          --project=sanity || true
 
       - name: Generate E2E summary
         if: always()

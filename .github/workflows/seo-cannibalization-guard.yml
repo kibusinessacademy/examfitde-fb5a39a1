@@ -12,13 +12,12 @@ on:
       mode:
         description: 'warn (default) or strict'
         type: choice
-        options: [warn, strict]
+        options: [ warn, strict ]
         default: warn
 
 permissions:
   contents: read
   pull-requests: write
-
 
 jobs:
   scan:
@@ -29,6 +28,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        with:
+          required: VITE_SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"

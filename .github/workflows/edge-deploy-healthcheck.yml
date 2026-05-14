@@ -3,25 +3,32 @@ name: Edge Deploy Health Gate
 on:
   # Trigger after edge-ci passes on main
   workflow_run:
-    workflows: ["Edge CI (Syntax + Security Guards)"]
-    types: [completed]
-    branches: [main]
+    workflows: [ "Edge CI (Syntax + Security Guards)" ]
+    types: [ completed ]
+    branches: [ main ]
   workflow_dispatch: {}
 
 permissions: read-all
-
 
 jobs:
   post-deploy-health:
     timeout-minutes: 15
     name: Post-Deploy Boot Sanity
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name
+      == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        with:
+          required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
 
       - name: Verify Node.js 24
         run: |
@@ -46,5 +53,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKFLOW_NAME: "Edge Deploy Health Gate"
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
         run: node scripts/ci/issue-on-fail.mjs

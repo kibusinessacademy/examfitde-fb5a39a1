@@ -3,7 +3,7 @@ name: auto_heal_log Canonical Schema Guard
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [ main ]
   schedule:
     - cron: "0 */6 * * *"
 
@@ -11,7 +11,6 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
-
 
 jobs:
   guard:
@@ -22,6 +21,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        with:
+          required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
 
       - name: Verify Node.js 24
         run: |

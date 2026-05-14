@@ -9,13 +9,12 @@ on:
       - 'tests/e2e/sanity.seo-heal-cockpit.spec.ts'
       - '.github/workflows/seo-health-threshold-guard.yml'
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   schedule:
     - cron: "31 */6 * * *"
   workflow_dispatch:
 
 permissions: read-all
-
 
 jobs:
   guard:
@@ -27,6 +26,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        with:
+          required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
@@ -51,6 +57,13 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        with:
+          required: VITE_SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
@@ -74,7 +87,8 @@ jobs:
     name: SEO Heal Cockpit Smoke (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name ==
+      'schedule' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -97,4 +111,5 @@ jobs:
           E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-        run: npx playwright test tests/e2e/sanity.seo-heal-cockpit.spec.ts --reporter=line
+        run: npx playwright test tests/e2e/sanity.seo-heal-cockpit.spec.ts
+          --reporter=line

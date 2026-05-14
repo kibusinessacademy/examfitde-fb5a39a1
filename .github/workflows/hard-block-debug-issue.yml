@@ -19,12 +19,18 @@ permissions:
   issues: write
   contents: read
 
-
 jobs:
   create-issue:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        with:
+          required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
 
       - name: Query current 24h hard-block count
         id: q
@@ -66,5 +72,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BLOCK_COUNT_24H: ${{ steps.decide.outputs.count }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
         run: node scripts/ci/create-hard-block-debug-issue.mjs

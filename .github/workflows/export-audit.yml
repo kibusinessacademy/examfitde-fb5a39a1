@@ -16,7 +16,6 @@ on:
 
 permissions: read-all
 
-
 jobs:
   audit:
     timeout-minutes: 15
@@ -29,6 +28,13 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        with:
+          required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
 
       - name: Verify Node.js 24
         run: |

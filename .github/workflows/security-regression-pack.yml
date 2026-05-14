@@ -12,7 +12,6 @@ on:
 
 permissions: read-all
 
-
 jobs:
   migration-rls-gate:
     timeout-minutes: 15
@@ -61,6 +60,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY ||
+            secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        with:
+          required: SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
+            VITE_SUPABASE_PUBLISHABLE_KEY
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
@@ -106,6 +116,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY ||
+            secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        with:
+          required: SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
+            VITE_SUPABASE_PUBLISHABLE_KEY
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
@@ -149,6 +170,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Validate required secrets
+        uses: ./.github/actions/validate-db-secrets
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY ||
+            secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        with:
+          required: SUPABASE_ANON_KEY SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY
       - name: Verify Node.js 24
         run: |
           echo "Node version: $(node -v)"
@@ -182,7 +212,7 @@ jobs:
   alert-on-failure:
     timeout-minutes: 15
     name: Alert on Failure
-    needs: [migration-rls-gate, view-exposure, exam-integrity, rls-smoke]
+    needs: [ migration-rls-gate, view-exposure, exam-integrity, rls-smoke ]
     if: failure()
     runs-on: ubuntu-latest
     steps:
@@ -202,7 +232,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKFLOW_NAME: "Security Regression Pack"
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
         run: |
           if [ -f scripts/ci/issue-on-fail.mjs ]; then
             node scripts/ci/issue-on-fail.mjs
