@@ -325,27 +325,44 @@ Deno.serve(async (req) => {
     generation_cost_eur: ai.cost_eur,
   };
 
-  // Manual upsert: partial unique index can't be used by PostgREST onConflict
-  const { data: existing } = await supabase
-    .from("seo_content_pages")
-    .select("id")
-    .eq("curriculum_id", curriculum_id)
-    .eq("competency_id", competency_id)
-    .eq("intent_template", intent_template)
-    .eq("persona_type", persona)
-    .maybeSingle();
+  // Manual robust upsert: partial unique index can't be targeted via PostgREST onConflict.
+  async function updateExisting() {
+    const existingRes = await supabase
+      .from("seo_content_pages")
+      .select("id")
+      .eq("competency_id", competency_id)
+      .eq("intent_template", intent_template)
+      .eq("persona_type", persona)
+      .maybeSingle();
+    if (existingRes.error || !existingRes.data?.id) return { data: null, error: existingRes.error };
+    return await supabase
+      .from("seo_content_pages")
+      .update(upsertRow as any)
+      .eq("id", existingRes.data.id)
+      .select("id, slug, quality_score")
+      .maybeSingle();
+  }
 
-  let upserted: any = null;
-  let upErr: any = null;
-  if (existing?.id) {
-    const r = await supabase.from("seo_content_pages").update(upsertRow as any).eq("id", existing.id).select("id, slug, quality_score").maybeSingle();
-    upserted = r.data; upErr = r.error;
-  } else {
-    const r = await supabase.from("seo_content_pages").insert(upsertRow as any).select("id, slug, quality_score").maybeSingle();
-    upserted = r.data; upErr = r.error;
+  let updateRes = await updateExisting();
+  let upserted: any = updateRes.data;
+  let upErr: any = updateRes.error;
+  if (!upErr && !upserted) {
+    const insertRes = await supabase
+      .from("seo_content_pages")
+      .insert(upsertRow as any)
+      .select("id, slug, quality_score")
+      .maybeSingle();
+    upserted = insertRes.data;
+    upErr = insertRes.error;
+    if (upErr && isInsertConflict(upErr)) {
+      updateRes = await updateExisting();
+      upserted = updateRes.data;
+      upErr = updateRes.error;
+    }
   }
 
   if (upErr) {
+    console.error("seo_content_pages_upsert_failed", upErr, upsertLogContext(upsertRow));
     if (job) await supabase.from("job_queue").update({ status: "failed", last_error: `upsert_failed:${upErr.message}` }).eq("id", job.id);
     return json(500, { error: "upsert_failed", detail: upErr.message }, origin);
   }
