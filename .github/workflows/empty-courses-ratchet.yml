@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: "24" }
       - name: Generate empty-courses report
         run: node scripts/guards/empty-courses-report.mjs
       - uses: actions/upload-artifact@v4

@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: "24" }
       - name: Run skeleton backfill
         run: node scripts/guards/empty-courses-backfill-run.mjs
       - uses: actions/upload-artifact@v4
