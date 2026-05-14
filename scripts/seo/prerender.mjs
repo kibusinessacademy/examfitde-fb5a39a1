@@ -446,43 +446,49 @@ export async function runSeoPrerender() {
   const baseHtml = fs.readFileSync(path.join(DIST, "index.html"), "utf8");
   const ssotRoutes = await loadRoutes();
 
-  // Step 1b: load DB-driven routes (blog + product) FOR SITEMAP ONLY.
-  // Lovable Hosting serves the SPA fallback (root index.html) for every path
-  // and ignores dist/<route>/index.html, so per-route HTML for these routes
-  // would never be served. The sitemap.xml IS served as a static file though,
-  // so listing all blog/product URLs lets Googlebot discover + JS-render them.
-  // See mem://architektur/seo/hosting-spa-fallback-blocks-prerender-v1.
+  // Step 1b: load DB-driven routes (blog + product + intent).
+  // — blog + product remain SITEMAP-ONLY (Lovable Hosting hard SPA-fallback).
+  // — intent pages (seo_content_pages) are PRERENDERED to dist/kurse/.../index.html
+  //   so Vercel / Cloudflare Pages can serve per-route HTML. On Lovable Hosting
+  //   the per-route HTML is silently ignored — same outcome as today, no regression.
+  //   See mem://architektur/seo/hosting-spa-fallback-blocks-prerender-v1
+  //       mem://architektur/seo/sitemap-only-mode-for-db-routes-v1.
   let dynamicRoutes = [];
+  let intentRoutes = [];
   try {
     const mod = await import(
       pathToFileURL(path.resolve(process.cwd(), "scripts/seo/load-dynamic-routes.mjs")).href
     );
-    const { blog, products } = await mod.loadDynamicRoutes();
+    const { blog, products, intents } = await mod.loadDynamicRoutes();
     dynamicRoutes = [...blog, ...products];
+    intentRoutes = intents || [];
   } catch (e) {
     console.warn("[seo-prerender] dynamic route loader failed:", e.message);
   }
 
   const live = ssotRoutes.filter((r) => r.status !== "stub");
 
-  // Step 2: validate SSOT routes only (dynamic ones are sitemap-only)
-  validate(ssotRoutes);
+  // Step 2: validate SSOT routes + intent routes (intent routes will be written).
+  validate([...ssotRoutes, ...intentRoutes]);
 
-  // Steps 3-4: build + inject per-route HTML — SSOT routes only
+  // Steps 3-4: build + inject per-route HTML — SSOT + intent routes
   for (const route of live) {
     writeRouteHtml(route, baseHtml);
   }
+  for (const route of intentRoutes) {
+    writeRouteHtml(route, baseHtml);
+  }
 
-  // Steps 5-6: sitemap covers SSOT + dynamic blog/product so crawlers discover them
-  buildSitemaps([...ssotRoutes, ...dynamicRoutes]);
+  // Steps 5-6: sitemap covers SSOT + dynamic blog/product + intent routes
+  buildSitemaps([...ssotRoutes, ...dynamicRoutes, ...intentRoutes]);
 
-  // Step 7: validate generated HTML on disk (SSOT only — dynamic not written)
-  postValidateHtml(live);
+  // Step 7: validate generated HTML on disk (SSOT + intent routes are on disk)
+  postValidateHtml([...live, ...intentRoutes]);
 
   const blogCount = dynamicRoutes.filter((r) => r.kind === "blog").length;
   const productCount = dynamicRoutes.filter((r) => r.kind === "product").length;
   console.log(
-    `[seo-prerender] Wrote ${live.length} SSOT route HTMLs; sitemap includes ${blogCount} blog + ${productCount} product URLs (sitemap-only, hosting blocks per-route HTML)`
+    `[seo-prerender] Wrote ${live.length} SSOT + ${intentRoutes.length} intent route HTMLs; sitemap also includes ${blogCount} blog + ${productCount} product URLs`
   );
 }
 
