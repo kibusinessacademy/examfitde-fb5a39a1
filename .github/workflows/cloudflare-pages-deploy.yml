@@ -1,4 +1,5 @@
 name: Cloudflare Pages Deploy + SPA Smoke
+# resync-trigger: 2026-05-14T16:25Z
 
 on:
   push:
