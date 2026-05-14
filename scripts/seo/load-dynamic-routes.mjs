@@ -421,13 +421,134 @@ export async function loadProductRoutes() {
   return routes;
 }
 
+/**
+ * Load published intent landing pages (seo_content_pages where intent_template
+ * IS NOT NULL AND status = 'published').
+ *
+ * URL pattern: /kurse/{slug}  where slug = "<curriculum>/intent_<x>/<competency>"
+ * matches React route /kurse/:curriculumSlug/:intentSlug/:competencySlug.
+ *
+ * These routes are PRERENDERED (per-route HTML written to dist/kurse/.../index.html)
+ * — but Lovable Hosting will still ignore that HTML due to its hard SPA fallback.
+ * On Vercel / Cloudflare Pages the per-route HTML is served and indexed.
+ */
+export async function loadIntentRoutes() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.warn("[seo-dynamic] SUPABASE_URL / KEY missing — skipping intent routes");
+    return [];
+  }
+  let rows = [];
+  try {
+    rows = await fetchAll(
+      "seo_content_pages",
+      "id,slug,title,meta_description,sections_json,faq_json,intent_template,persona_type,quality_score,last_generated_at,updated_at",
+      "status=eq.published&intent_template=not.is.null"
+    );
+  } catch (e) {
+    console.warn("[seo-dynamic] intent fetch failed:", e.message);
+    return [];
+  }
+
+  const routes = [];
+  for (const r of rows) {
+    if (!r.slug || !r.title) continue;
+    const path = `/kurse/${r.slug}`;
+    const canonical = `${SITE}${path}`;
+    const sections = r.sections_json || {};
+    const h1 = sections.h1 || r.title;
+    const intro = sections.intro || "";
+    const painPoints = sections.pain_points || "";
+    const expertTip = sections.expert_tip || "";
+    const breadcrumbs = Array.isArray(sections.breadcrumbs) ? sections.breadcrumbs : [];
+    const internalLinks = sections.internal_links || {};
+    const cta = sections.cta || {};
+    const faqs = Array.isArray(r.faq_json) ? r.faq_json : [];
+
+    const description = clamp(
+      r.meta_description || intro || h1,
+      70,
+      160
+    );
+
+    const breadcrumbJsonLd = breadcrumbs.length
+      ? {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: breadcrumbs.map((b, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            name: b.label,
+            item: b.href ? `${SITE}${b.href}` : canonical,
+          })),
+        }
+      : null;
+
+    const articleJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: h1,
+      description,
+      url: canonical,
+      datePublished: (r.last_generated_at || r.updated_at || new Date().toISOString()).slice(0, 10),
+      dateModified: (r.updated_at || r.last_generated_at || new Date().toISOString()).slice(0, 10),
+      author: { "@type": "Organization", name: "ExamFit" },
+      publisher: { "@type": "Organization", name: "ExamFit" },
+      mainEntityOfPage: canonical,
+    };
+
+    const faqJsonLd = faqs.length
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqs.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: f.a || f.a_seed || "",
+            },
+          })),
+        }
+      : null;
+
+    const jsonLd = [articleJsonLd, breadcrumbJsonLd, faqJsonLd].filter(Boolean);
+
+    routes.push({
+      kind: "intent",
+      path,
+      slug: r.slug,
+      title: clamp(r.title, 1, 60),
+      description,
+      h1,
+      intro,
+      painPoints,
+      expertTip,
+      breadcrumbs,
+      internalLinks,
+      cta,
+      faq: faqs.map((f) => ({ q: f.q, a: f.a || f.a_seed || "" })),
+      jsonLd,
+      lastmod: (r.updated_at || r.last_generated_at || new Date().toISOString()).slice(0, 10),
+      sitemapGroup: "content",
+      changefreq: "weekly",
+      priority: 0.7,
+      qualityScore: Number(r.quality_score) || null,
+      persona: r.persona_type || "azubi",
+      intentTemplate: r.intent_template,
+    });
+  }
+  console.log(`[seo-dynamic] loaded ${routes.length} intent routes`);
+  return routes;
+}
+
 export async function loadDynamicRoutes() {
-  const [blog, products] = await Promise.all([
+  const [blog, products, intents] = await Promise.all([
     loadBlogRoutes(),
     loadProductRoutes(),
+    loadIntentRoutes(),
   ]);
   console.log(
-    `[seo-dynamic] loaded ${blog.length} blog routes, ${products.length} product routes`
+    `[seo-dynamic] loaded ${blog.length} blog routes, ${products.length} product routes, ${intents.length} intent routes`
   );
-  return { blog, products };
+  return { blog, products, intents };
 }
