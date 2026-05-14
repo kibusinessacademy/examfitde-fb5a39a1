@@ -267,6 +267,13 @@ export default function CourseDetailPage() {
 
   return (
     <div className="py-8 px-4">
+      <SEOHead
+        title={course.title}
+        description={(course.description || `${course.title} – Lernkurs mit echten Prüfungsfragen, KI-Tutor und adaptivem Lernplan auf ExamFit.`).slice(0, 160)}
+        canonical={`https://examfit.de/course/${slug}`}
+        type="course"
+        image={course.thumbnail_url || undefined}
+      />
       <div className="container mx-auto max-w-5xl">
         {/* Back Button */}
         <Link
