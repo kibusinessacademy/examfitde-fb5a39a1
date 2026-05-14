@@ -2,7 +2,7 @@
 /**
  * Env-Check für Build/Start.
  *
- * - Vite/Frontend (immer Pflicht): VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, VITE_SUPABASE_PROJECT_ID
+ * - Vite/Frontend (lokal/Deploy Pflicht, generische CI nur Warnung): VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, VITE_SUPABASE_PROJECT_ID
  * - Cloudflare Pages Deploy (nur Pflicht wenn DEPLOY_TARGET=cloudflare):
  *     CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
  *
