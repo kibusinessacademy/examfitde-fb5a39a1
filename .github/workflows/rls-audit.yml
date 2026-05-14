@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
       # Phase 1: warn-only — no DB credentials needed; reuses last snapshot
       # committed under docs/security/rls-snapshot.json. Phase 2 (RATCHET)
       # will add a read-only psql connection step.
