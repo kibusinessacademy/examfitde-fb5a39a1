@@ -44,7 +44,7 @@ export function PublishTailBlockersCard() {
       const { data, error } = await supabase.rpc("admin_run_publish_tail_reconciler", {
         p_dry_run: dry,
         p_limit: 20,
-        p_package_ids: null,
+        p_package_ids: undefined,
       });
       if (error) throw error;
       return data as { ok: boolean; healed: number; unresolved: number; skipped: number };
