@@ -20,6 +20,7 @@ import { ForensicAuditRunnerCard } from "@/components/admin/heal/cards/ForensicA
 import { PricingHealAuditCard } from "@/components/admin/heal/cards/PricingHealAuditCard";
 import { DagBlockedDashboardCard } from "@/components/admin/heal/cards/DagBlockedDashboardCard";
 import { DeferredJobsPullForwardCard } from "@/components/admin/heal/cards/DeferredJobsPullForwardCard";
+import { FailedJobHotloopsCard } from "@/components/admin/heal/cards/FailedJobHotloopsCard";
 
 export function HealCockpitTabContent() {
   return (
@@ -39,6 +40,7 @@ export function HealCockpitTabContent() {
         </Button>
       </div>
       <MorningBriefing />
+      <FailedJobHotloopsCard />
       <DagBlockedDashboardCard />
       <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
