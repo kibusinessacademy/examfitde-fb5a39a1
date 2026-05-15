@@ -415,6 +415,21 @@ function validate(routes) {
       continue;
     }
 
+    // Pillar landing pages — curriculum hubs.
+    if (r.kind === "pillar") {
+      if (!r.slug) errors.push(`${r.path}: pillar missing slug`);
+      if (!r.title || r.title.length < 20 || r.title.length > 75)
+        errors.push(`${r.path}: pillar title ${r.title?.length} out of 20-75`);
+      if (!r.description || r.description.length < 70 || r.description.length > 165)
+        errors.push(`${r.path}: pillar description ${r.description?.length} out of 70-165`);
+      if (!r.h1) errors.push(`${r.path}: pillar missing h1`);
+      if ((r.internalLinks || []).length < 6)
+        errors.push(`${r.path}: pillar internal_links ${(r.internalLinks || []).length} <6`);
+      if (!r.jsonLd || r.jsonLd.length === 0)
+        errors.push(`${r.path}: pillar missing jsonLd`);
+      continue;
+    }
+
     // SSOT route validation (unchanged)
     if (!r.h1) errors.push(`${r.path}: missing h1`);
     if (!r.title || r.title.length < 30 || r.title.length > 60)
