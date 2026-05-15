@@ -323,6 +323,7 @@ export default function HealCockpitPage() {
             />
           </AccordionTrigger>
           <AccordionContent className="pb-4 space-y-3">
+            <PublishTailBlockersCard />
             <DidaktikAuditCard />
             <BuildIntegrityE2ECard />
             <SeoPublishDriftCard />
