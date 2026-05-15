@@ -218,11 +218,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Per-variant classification (only status='review' is mutated) ──
+    // ── Per-variant classification phase 1: reject ─────────────
+    // Only status='review' is mutated. Approve happens in phase 2 after gates.
+    const APPROVE_MIN_QUALITY = 80;
     const rejectIds: string[] = [];
+    const rejectIdSet = new Set<string>();
+    const candidateApproveByBp = new Map<string, string[]>(); // bp → variant ids passing variant-level approve checks
     let reviewedCount = 0;
     let rejectedCount = 0;
-    let keptReview = 0;
 
     for (const v of allVariants) {
       if (v.status !== "review") continue;
@@ -230,9 +233,23 @@ Deno.serve(async (req) => {
       const dec = shouldReject(v, minAvgQuality);
       if (dec.reject) {
         rejectIds.push(v.id);
+        rejectIdSet.add(v.id);
         rejectedCount++;
-      } else {
-        keptReview++;
+        continue;
+      }
+
+      // Variant-level approve eligibility (gate-summary clean is checked later per blueprint)
+      const flags: string[] = Array.isArray(v.quality_flags) ? v.quality_flags : [];
+      const noHardFlags = !flags.some((f) => HARD_FLAGS.has(f));
+      const qOk = v.quality_score != null && Number(v.quality_score) >= APPROVE_MIN_QUALITY;
+      const textOk = typeof v.question_text === "string" && v.question_text.length >= 20;
+      const optsOk = Array.isArray(v.options) && v.options.length >= 2 &&
+        v.options.findIndex((o: any) => o && o.is_correct === true) >= 0;
+
+      if (noHardFlags && qOk && textOk && optsOk) {
+        const arr = candidateApproveByBp.get(v.blueprint_id) || [];
+        arr.push(v.id);
+        candidateApproveByBp.set(v.blueprint_id, arr);
       }
     }
 
@@ -247,7 +264,6 @@ Deno.serve(async (req) => {
           .in("id", slice);
         if (uErr) {
           console.error("variant reject update error:", uErr.message, "chunk", i);
-          // Stop early; don't lie about counts
           rejectedCount = i + slice.length === rejectIds.length ? rejectedCount : i;
           break;
         }
@@ -257,8 +273,7 @@ Deno.serve(async (req) => {
     // ── Per-blueprint gate evaluation (after rejection so gates see live state) ──
     const variantsByBlueprint = new Map<string, any[]>();
     for (const v of allVariants) {
-      // Re-classify status in-memory for the gate snapshot
-      const live = rejectIds.includes(v.id) ? { ...v, status: "rejected" } : v;
+      const live = rejectIdSet.has(v.id) ? { ...v, status: "rejected" } : v;
       const arr = variantsByBlueprint.get(live.blueprint_id) || [];
       arr.push(live);
       variantsByBlueprint.set(live.blueprint_id, arr);
