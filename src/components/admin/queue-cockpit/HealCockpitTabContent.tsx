@@ -51,6 +51,7 @@ export function HealCockpitTabContent() {
       <LxiQueuedNoLessonsReinitCard />
       <PricingHealAuditCard />
       <ProducerNoiseTrendCard />
+      <ManualReviewFrontierCard />
       <BronzeReviewCard />
       <CouplingHealV4Card />
       <HealClusterExplanationPanel />
