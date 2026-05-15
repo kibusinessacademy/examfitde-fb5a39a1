@@ -520,40 +520,45 @@ export async function runSeoPrerender() {
   //       mem://architektur/seo/sitemap-only-mode-for-db-routes-v1.
   let dynamicRoutes = [];
   let intentRoutes = [];
+  let pillarRoutes = [];
   try {
     const mod = await import(
       pathToFileURL(path.resolve(process.cwd(), "scripts/seo/load-dynamic-routes.mjs")).href
     );
-    const { blog, products, intents } = await mod.loadDynamicRoutes();
+    const { blog, products, intents, pillars } = await mod.loadDynamicRoutes();
     dynamicRoutes = [...blog, ...products];
     intentRoutes = intents || [];
+    pillarRoutes = pillars || [];
   } catch (e) {
     console.warn("[seo-prerender] dynamic route loader failed:", e.message);
   }
 
   const live = ssotRoutes.filter((r) => r.status !== "stub");
 
-  // Step 2: validate SSOT routes + intent routes (intent routes will be written).
-  validate([...ssotRoutes, ...intentRoutes]);
+  // Step 2: validate SSOT + intent + pillar routes (all will be written).
+  validate([...ssotRoutes, ...intentRoutes, ...pillarRoutes]);
 
-  // Steps 3-4: build + inject per-route HTML — SSOT + intent routes
+  // Steps 3-4: build + inject per-route HTML — SSOT + intent + pillar routes
   for (const route of live) {
     writeRouteHtml(route, baseHtml);
   }
   for (const route of intentRoutes) {
     writeRouteHtml(route, baseHtml);
   }
+  for (const route of pillarRoutes) {
+    writeRouteHtml(route, baseHtml);
+  }
 
-  // Steps 5-6: sitemap covers SSOT + dynamic blog/product + intent routes
-  buildSitemaps([...ssotRoutes, ...dynamicRoutes, ...intentRoutes]);
+  // Steps 5-6: sitemap covers SSOT + dynamic blog/product + intent + pillar routes
+  buildSitemaps([...ssotRoutes, ...dynamicRoutes, ...intentRoutes, ...pillarRoutes]);
 
-  // Step 7: validate generated HTML on disk (SSOT + intent routes are on disk)
-  postValidateHtml([...live, ...intentRoutes]);
+  // Step 7: validate generated HTML on disk
+  postValidateHtml([...live, ...intentRoutes, ...pillarRoutes]);
 
   const blogCount = dynamicRoutes.filter((r) => r.kind === "blog").length;
   const productCount = dynamicRoutes.filter((r) => r.kind === "product").length;
   console.log(
-    `[seo-prerender] Wrote ${live.length} SSOT + ${intentRoutes.length} intent route HTMLs; sitemap also includes ${blogCount} blog + ${productCount} product URLs`
+    `[seo-prerender] Wrote ${live.length} SSOT + ${intentRoutes.length} intent + ${pillarRoutes.length} pillar route HTMLs; sitemap also includes ${blogCount} blog + ${productCount} product URLs`
   );
 }
 
