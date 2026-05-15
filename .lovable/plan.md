@@ -1,74 +1,84 @@
-# Slice 2 + Slice 3 Plan: SEO Intent Pipeline + Hybrid Keyword-Map
+## Sprint: SEO Wave 4 + Pillar/Hub Foundation v1
 
-Slug-Normalizer-Bug ist gefixt (Slice-1.5, smoke 5/5 grün, audit `seo_intent_slug_normalizer_fixed` geschrieben). Ab hier in **drei Loops** mit Freigabe nach jedem.
-
----
-
-## Loop A — Pipeline (Edge Function + QC + Persistenz)
-
-**Edge Function `seo-intent-page-generator`**
-- Input: `{job_id}` aus `job_queue`, lädt payload `{curriculum_id, competency_id, intent_key, persona_type}`.
-- Ruft `fn_seo_build_ssot_skeleton(...)` für H1/Meta/Breadcrumbs/FAQ-Seed/Internal Links/CTA.
-- Lädt `seo_templates` per `intent_key`, nutzt `prompt_system` + `qc_rules_json`.
-- Lovable AI Gateway (`google/gemini-3-flash-preview`) generiert nur 3 Sektionen: `intro`, `pain_points`, `expert_tip`. Strict-RAG Kontext = Curriculum + Competency + Skeleton, kein Free-Floating.
-- Persistiert in `seo_content_pages` (UPSERT auf unique `(curriculum_id, competency_id, intent_template, persona_type)`).
-- Setzt `quality_score`, `generation_source='hybrid_ssot_ai'`, `generation_model`, `generation_cost_eur`, `last_generated_at`.
-- Job → `completed`/`failed`, Audit `seo_intent_page_generated` oder `seo_intent_page_qc_failed`.
-
-**Hard QC-Gate (server-side)**
-Fail wenn: H1/Breadcrumbs/FAQ/CTA/InternalLinks/sections leer, Slug invalid, Floskel-Liste matcht (`In der heutigen Zeit`, `maßgeschneidert`, `Tauche ein`, `egal ob Anfänger oder Profi`, `Dieser Artikel zeigt dir alles`), Wortzahl<400, keine Curriculum-Token im Body.
-
-**RPC `get_published_intent_page(curriculum_slug, competency_slug, intent_slug)`** — public, SECURITY DEFINER, liefert nur `quality_score>=80 AND status='published'`. Kein Client-Table-Read.
+Zwei parallele Tracks, ein Sprint, kein Infrastrukturumbau.
 
 ---
 
-## Loop B — Frontend Route + Sitemap + Smoke
+### Track A — SEO Wave 4 (Intent-Spokes skalieren)
 
-- `IntentLandingPage.tsx` an `/kurse/:curriculumSlug/:competencySlug/:intentSlug`.
-- `react-helmet-async`: Title, Meta, Canonical, Article+FAQPage+BreadcrumbList JSON-LD.
-- Render: H1, Breadcrumbs, Sections, FAQ-Accordion, `<SEOInternalLinks>`, CTA → Prüfungstrainer.
-- `ProgrammaticSEODispatcher`: Erkennt `/kurse/...` 3-Segment-Pattern, fallback 404 ohne Kollision.
-- Sitemap: `scripts/seo/run-prerender.mjs` + `load-dynamic-routes.mjs` lesen `seo_content_pages` (intent_page, published, score≥80) via REST, `lastmod=last_generated_at`. Audit `seo_intent_sitemap_updated`.
-- **Smoke** (3 AEVO Pages: Prüfungsfragen, typische Fehler, mündliche Prüfung): enqueue → completed → URL klickbar → alle Pflicht-Elemente sichtbar → in Sitemap. Audit `seo_intent_smoke_completed`.
+**Scope**
+- 6–10 nächste published Curricula × 4 Intents (`pruefungsfragen`, `typische_fehler`, `durchfallquote`, `lernplan`)
+- Auswahl via `seo_content_priority_queue` (Semrush-Volumen ≥ Schwelle, FAQ ≥ 3, thin-content-guard grün)
+- Enqueue ausschließlich via `admin_seo_wave_enqueue_one` (SSOT, Idempotency-Key, Single-Row-Insert pro Call) — keine Multi-Row-INSERTs in `job_queue` für `seo_intent_page_generate`
+- Pflicht-Audit `auto_heal_log.action_type = seo_wave_enqueue_attempt` pro Call
 
----
-
-## Loop C — Hybrid Keyword-Map (SSOT + Semrush)
-
-**Schritt C1 — SSOT-Skelett (deterministisch, kein API-Cost)**
-- Migration: `seo_intent_templates` erweitern um 5 weitere Intents:
-  - `pruefungsfragen`, `typische_fehler`, `muendliche_pruefung`, `durchfallquote`, `lernplan`, `vergleich` (variant per Kurs)
-- View `v_seo_keyword_seed` = Top-N Curricula × Intents × Top-Competencies → ~500 Keyword-Heads (deterministisch aus DB).
-
-**Schritt C2 — Semrush-Anreicherung (Top-15 Kurse first)**
-- Liste der 15 wichtigsten Curricula manuell pinnen (AEVO, Handelsfachwirt, Bilanzbuchhalter, Betriebswirt, FIAE, FISI, Wirtschaftsfachwirt, Industriefachwirt, Scrum, Personalfachkaufmann, …).
-- Pro Kurs × Intent → `semrush--keyword_research` (Volume/KDI/Long-Tail-Varianten + Question-Keywords).
-- Persistiere in `seo_keywords` + `seo_keyword_clusters` (bestehende Tabellen!) mit `cluster_type='intent_pillar'`, `pillar_url`, `spoke_urls`.
-- Output: Markdown-Report `/mnt/documents/keyword-cluster-map-v1.md` mit Hub-Spoke-Diagramm pro Kurs (welche Pillar-Page, welche Spokes, internal-link-targets).
-
-**Schritt C3 — Bulk-Enqueue mit Cap**
-- `admin_enqueue_seo_intent_generation_bulk(limit=10, min_score_floor=true)` — nur high-confidence Cluster, 10/h Cap, 30d Refresh-Cooldown. Kein Cron in diesem Loop.
+**Akzeptanz**
+- 24–40 neue Intent-Pages, QC ≥ 90, in Sitemap, klickbar, Helmet-JSON-LD valid
+- 0 Silent-Drops im neuen Healer-Audit
+- Smoke `scripts/repro/audit-enqueue-silent-drop-repro.mjs` grün
 
 ---
 
-## Risiken
-- **Hosting**: Lovable SPA-Fallback blockt Per-Route-Prerender → Intent Pages erscheinen nur in Sitemap, nicht als statisches HTML (siehe SEO-Hosting-Constraint Memory). LLM-Crawler + Googlebot funktionieren via Helmet, Social-Crawler nicht. Migration zu Vercel offen.
-- **Semrush Credits**: ~15 Kurse × 6 Intents = 90 `keyword_research`-Calls. Vorher Budget bestätigen.
-- **AI-Floskel-Detection**: deterministisches Regex; falsch-positive auf legitime Phrasen möglich → Liste in DB, schnell anpassbar.
+### Track B — Pillar/Hub Foundation v1 (neu)
+
+**Schema (eine Migration)**
+- `seo_content_pages.page_type` Enum erweitern um `pillar_page`
+- View `v_seo_pillar_candidates`: published Curricula mit ≥ 3 Intent-Spokes + Semrush head_general Volumen ≥ 2.000
+- RPC `admin_register_pillar_page(curriculum_id)` — SECURITY DEFINER, has_role admin, Audit `pillar_page_registered`
+- RPC `get_published_pillar_page(curriculum_slug)` — public, nur `quality_score ≥ 80 AND status = published`
+
+**Edge Function `seo-pillar-page-generator`**
+- Input: `{curriculum_id}` aus `job_queue` Job-Type `seo_pillar_page_generate` (registriert in `ops_job_type_registry`)
+- Lädt: Curriculum-Overview, Prüfungsstruktur, Lernfelder, alle approved Competencies, alle veröffentlichten Intent-Spokes (Hub→Spoke Links)
+- Lovable AI Gateway (`google/gemini-3-flash-preview`), Strict-RAG, generiert 4 Sektionen: `intro`, `pruefungsablauf`, `lernfeld_overview`, `typische_fehler_summary`
+- Hard QC-Gate: H1, Breadcrumbs, ≥ 6 interne Links zu Intent-Spokes, FAQ ≥ 5, CTA „Prüfung starten“, Floskel-Filter, Wortzahl ≥ 800
+
+**Frontend Route `/kurse/:curriculumSlug`**
+- Komponente `PillarLandingPage.tsx`
+- Helmet: Title, Meta, Canonical, BreadcrumbList + CollectionPage + FAQPage JSON-LD
+- Render: Hero, Curriculum-Overview, Prüfungsstruktur, Lernfeld-Grid, Spoke-Liste via `<SEOInternalLinks linkTypes={['cluster_to_cluster']} />`, CTA → Prüfungstrainer
+- `ProgrammaticSEODispatcher`: 1-Segment `/kurse/:slug` → Pillar; 3-Segment bleibt Intent (bestehende Route)
+
+**Internal-Link-SSOT v2 (Mini-Patch, nicht voller v2-Umbau)**
+- Nach Pillar-Publish: `seo-internal-linker` Run zwingen, der pro Curriculum genau 1 `cluster_to_pillar` Edge je Spoke schreibt (`source_url = Spoke`, `target_url = /kurse/<slug>`)
+- Idempotenz via bestehenden Unique Key `(source_url, target_url, link_type)`, status `active`
+- Audit `seo_internal_linker_run` mit `pillar_links_upserted`
+
+**Sitemap**
+- `load-dynamic-routes.mjs` erweitert: Pillar-Pages aus `seo_content_pages WHERE page_type='pillar_page' AND status='published' AND quality_score >= 80`
+- `lastmod = last_generated_at`, Audit `seo_pillar_sitemap_updated`
+
+**Smoke (in diesem Sprint)**
+- 3 Pillar-Pages: Fachinformatiker Systemintegration, Industriekaufmann, AEVO
+- enqueue → completed → URL klickbar → JSON-LD valid → in Sitemap → ≥ 6 Spoke-Links sichtbar
+- Audit `seo_pillar_smoke_completed`
 
 ---
 
-## Reihenfolge & Akzeptanz
-1. **Loop A grün** (Edge Function liefert valid `sections_json` für 1 AEVO-Test-Page, QC-Gate sperrt absichtliche Floskel-Variante) → Freigabe.
-2. **Loop B grün** (3 AEVO-Pages live klickbar + Sitemap + Helmet-JSON-LD validiert) → Freigabe.
-3. **Loop C** in zwei Mini-Loops: erst C1+C2 (Keyword-Map als Report, kein Code-Push), dann C3 nach Review.
+### Reihenfolge
+
+1. **Track B Schema + Edge Function** (Migration → Funktion → 1 Pillar AEVO als Canary)
+2. **Track B Frontend + Sitemap** (Route + Smoke 3 Pillars)
+3. **Internal-Linker Pillar-Mode** (Spokes → Pillar Edges)
+4. **Track A Wave 4 Enqueue** (24–40 Spokes, parallel zur Pillar-Welle)
 
 ---
 
-## Nicht-Ziele dieses Plans
-- Cron für Auto-Generation (kommt erst nach 24h Production-Beobachtung)
-- Vercel-Migration (separater Track)
-- Bulk-Generation >10 Pages/Loop
-- Topical Authority Map als Visualisierung (separater Track)
+### Bewusst NICHT in diesem Sprint
 
-Bitte freigeben für **Loop A**, oder gegensteuern.
+- LLM-Visibility-Reprobe (P2, kommt nach 7-Tage-Index-Beobachtung)
+- FAQ-Coverage-Backfill (P2)
+- IndexNow/Recrawl-Acceleration (P3, erst > 150 Pages)
+- Voller Internal-Link-Graph v2 Umbau (Mini-Patch reicht für Hub→Spoke)
+- Cron für Pillar-Auto-Generation (erst nach 24 h Beobachtung)
+- Vercel/Hosting-Wechsel
+
+---
+
+### Risiken
+
+- **Pillar-QC-Drift**: head_general Terms verleiten zu generischen Texten → Floskel-Filter strenger als bei Intent-Pages (Wortzahl ≥ 800, Pflicht-Token aus Curriculum-Titel + Lernfeldnamen)
+- **Spoke→Pillar Link-Loop**: bidirektionale Pflicht-Edges nicht in v1 — nur Spoke→Pillar. Pillar→Spoke wird durch `<SEOInternalLinks>` Render-Hook abgedeckt, nicht via SSOT-Persistenz
+- **Job-Type-Registrierung**: `seo_pillar_page_generate` MUSS via `ops_job_type_registry` (Canonical Identity Contract), sonst Bronze-Lock-Guard blockt
+
+Bitte freigeben, dann starte ich mit **Track B Schema + Edge Function (Canary AEVO)**.
