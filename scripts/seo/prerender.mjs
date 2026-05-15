@@ -155,7 +155,49 @@ function renderAboveTheFold(route) {
 </div>`.trim();
   }
 
-  // Default: SSOT routes with keyFacts + faq
+  if (route.kind === "pillar") {
+    const breadcrumbHtml = (route.breadcrumbs || []).length
+      ? `<nav aria-label="Breadcrumb"><ol>${(route.breadcrumbs || [])
+          .map((b) =>
+            b.href
+              ? `<li><a href="${escapeHtml(b.href)}">${escapeHtml(b.label)}</a></li>`
+              : `<li>${escapeHtml(b.label)}</li>`
+          )
+          .join("")}</ol></nav>`
+      : "";
+    const sections = route.sections || {};
+    const spokesHtml = (route.internalLinks || []).length
+      ? `<nav aria-label="Themen-Übersicht"><h2>Alle Themen im Überblick</h2><ul>${(route.internalLinks || [])
+          .map(
+            (l) =>
+              `<li><a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a></li>`
+          )
+          .join("")}</ul></nav>`
+      : "";
+    const ctaHtml = route.cta && route.cta.href
+      ? `<p><a href="${escapeHtml(route.cta.href)}">${escapeHtml(route.cta.label || "Prüfung starten")}</a></p>`
+      : "";
+    const faq = (route.faq || [])
+      .map(
+        (f) =>
+          `<details><summary>${escapeHtml(f.q)}</summary><p>${escapeHtml(f.a)}</p></details>`
+      )
+      .join("");
+    return `
+<div id="prerender-content">
+  ${breadcrumbHtml}
+  <article>
+    <header><h1>${escapeHtml(route.h1)}</h1></header>
+    ${route.intro ? `<section aria-label="Einführung"><p>${escapeHtml(route.intro)}</p></section>` : ""}
+    ${sections.curriculum_overview ? `<section aria-label="Curriculum-Überblick"><h2>Curriculum-Überblick</h2><p>${escapeHtml(sections.curriculum_overview)}</p></section>` : ""}
+    ${sections.learning_journey ? `<section aria-label="Lernpfad"><h2>Lernpfad</h2><p>${escapeHtml(sections.learning_journey)}</p></section>` : ""}
+    ${sections.exam_strategy ? `<section aria-label="Prüfungsstrategie"><h2>Prüfungsstrategie</h2><p>${escapeHtml(sections.exam_strategy)}</p></section>` : ""}
+    ${spokesHtml}
+    ${faq ? `<section aria-label="Häufige Fragen"><h2>Häufige Fragen</h2>${faq}</section>` : ""}
+    ${ctaHtml}
+  </article>
+</div>`.trim();
+  }
   const facts = (route.keyFacts || [])
     .map(
       (k) =>
@@ -373,6 +415,21 @@ function validate(routes) {
       continue;
     }
 
+    // Pillar landing pages — curriculum hubs.
+    if (r.kind === "pillar") {
+      if (!r.slug) errors.push(`${r.path}: pillar missing slug`);
+      if (!r.title || r.title.length < 20 || r.title.length > 75)
+        errors.push(`${r.path}: pillar title ${r.title?.length} out of 20-75`);
+      if (!r.description || r.description.length < 70 || r.description.length > 165)
+        errors.push(`${r.path}: pillar description ${r.description?.length} out of 70-165`);
+      if (!r.h1) errors.push(`${r.path}: pillar missing h1`);
+      if ((r.internalLinks || []).length < 6)
+        errors.push(`${r.path}: pillar internal_links ${(r.internalLinks || []).length} <6`);
+      if (!r.jsonLd || r.jsonLd.length === 0)
+        errors.push(`${r.path}: pillar missing jsonLd`);
+      continue;
+    }
+
     // SSOT route validation (unchanged)
     if (!r.h1) errors.push(`${r.path}: missing h1`);
     if (!r.title || r.title.length < 30 || r.title.length > 60)
@@ -435,7 +492,7 @@ function postValidateHtml(routes) {
     // Intent pages have shorter rendered above-the-fold; the rich SSOT body
     // (intro+pain_points+expert_tip+faq+links) typically yields 800-1500 chars.
     // Soft floor for intents = 600; SSOT routes keep 1200 hard floor.
-    const minVisible = r.kind === "intent" ? 600 : 1200;
+    const minVisible = r.kind === "intent" ? 600 : r.kind === "pillar" ? 1500 : 1200;
     if (visible.length < minVisible)
       errors.push(`${r.path}: rendered visible text ${visible.length} <${minVisible}`);
   }
@@ -463,40 +520,45 @@ export async function runSeoPrerender() {
   //       mem://architektur/seo/sitemap-only-mode-for-db-routes-v1.
   let dynamicRoutes = [];
   let intentRoutes = [];
+  let pillarRoutes = [];
   try {
     const mod = await import(
       pathToFileURL(path.resolve(process.cwd(), "scripts/seo/load-dynamic-routes.mjs")).href
     );
-    const { blog, products, intents } = await mod.loadDynamicRoutes();
+    const { blog, products, intents, pillars } = await mod.loadDynamicRoutes();
     dynamicRoutes = [...blog, ...products];
     intentRoutes = intents || [];
+    pillarRoutes = pillars || [];
   } catch (e) {
     console.warn("[seo-prerender] dynamic route loader failed:", e.message);
   }
 
   const live = ssotRoutes.filter((r) => r.status !== "stub");
 
-  // Step 2: validate SSOT routes + intent routes (intent routes will be written).
-  validate([...ssotRoutes, ...intentRoutes]);
+  // Step 2: validate SSOT + intent + pillar routes (all will be written).
+  validate([...ssotRoutes, ...intentRoutes, ...pillarRoutes]);
 
-  // Steps 3-4: build + inject per-route HTML — SSOT + intent routes
+  // Steps 3-4: build + inject per-route HTML — SSOT + intent + pillar routes
   for (const route of live) {
     writeRouteHtml(route, baseHtml);
   }
   for (const route of intentRoutes) {
     writeRouteHtml(route, baseHtml);
   }
+  for (const route of pillarRoutes) {
+    writeRouteHtml(route, baseHtml);
+  }
 
-  // Steps 5-6: sitemap covers SSOT + dynamic blog/product + intent routes
-  buildSitemaps([...ssotRoutes, ...dynamicRoutes, ...intentRoutes]);
+  // Steps 5-6: sitemap covers SSOT + dynamic blog/product + intent + pillar routes
+  buildSitemaps([...ssotRoutes, ...dynamicRoutes, ...intentRoutes, ...pillarRoutes]);
 
-  // Step 7: validate generated HTML on disk (SSOT + intent routes are on disk)
-  postValidateHtml([...live, ...intentRoutes]);
+  // Step 7: validate generated HTML on disk
+  postValidateHtml([...live, ...intentRoutes, ...pillarRoutes]);
 
   const blogCount = dynamicRoutes.filter((r) => r.kind === "blog").length;
   const productCount = dynamicRoutes.filter((r) => r.kind === "product").length;
   console.log(
-    `[seo-prerender] Wrote ${live.length} SSOT + ${intentRoutes.length} intent route HTMLs; sitemap also includes ${blogCount} blog + ${productCount} product URLs`
+    `[seo-prerender] Wrote ${live.length} SSOT + ${intentRoutes.length} intent + ${pillarRoutes.length} pillar route HTMLs; sitemap also includes ${blogCount} blog + ${productCount} product URLs`
   );
 }
 

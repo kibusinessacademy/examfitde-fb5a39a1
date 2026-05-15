@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
 
   // Internal links: spokes + curriculum overview link itself counts only as self → exclude.
   const internalLinks = spokeList.slice(0, 24).map((s: any) => ({
-    href: `/${s.slug}`,
+    href: `/kurse/${s.slug}`,
     label: s.title,
     intent: s.intent_template,
   }));

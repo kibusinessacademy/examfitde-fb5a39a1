@@ -541,14 +541,119 @@ export async function loadIntentRoutes() {
   return routes;
 }
 
+/**
+ * Load published Pillar pages (seo_content_pages.page_type='pillar_page').
+ * URL pattern: /kurse/<curriculum-slug>  matches React route /kurse/:curriculumSlug.
+ */
+export async function loadPillarRoutes() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return [];
+  let rows = [];
+  try {
+    rows = await fetchAll(
+      "seo_content_pages",
+      "id,slug,title,meta_description,sections_json,faq_json,quality_score,last_generated_at,updated_at",
+      "status=eq.published&page_type=eq.pillar_page&quality_score=gte.80"
+    );
+  } catch (e) {
+    console.warn("[seo-dynamic] pillar fetch failed:", e.message);
+    return [];
+  }
+
+  const routes = [];
+  for (const r of rows) {
+    if (!r.slug || r.slug.includes("/") || !r.title) continue;
+    const path = `/kurse/${r.slug}`;
+    const canonical = `${SITE}${path}`;
+    const sections = r.sections_json || {};
+    const h1 = sections.h1 || r.title;
+    const intro = sections.intro || "";
+    const breadcrumbs = Array.isArray(sections.breadcrumbs) ? sections.breadcrumbs : [];
+    const internalLinks = Array.isArray(sections.internal_links) ? sections.internal_links : [];
+    const cta = sections.cta || null;
+    const faqs = Array.isArray(r.faq_json) ? r.faq_json : [];
+    const description = clamp(r.meta_description || intro || h1, 70, 160);
+
+    const breadcrumbJsonLd = breadcrumbs.length
+      ? {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: breadcrumbs.map((b, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            name: b.label,
+            item: b.href ? `${SITE}${b.href}` : canonical,
+          })),
+        }
+      : null;
+
+    const collectionJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      name: h1,
+      headline: h1,
+      description,
+      url: canonical,
+      datePublished: (r.last_generated_at || r.updated_at || new Date().toISOString()).slice(0, 10),
+      dateModified: (r.updated_at || r.last_generated_at || new Date().toISOString()).slice(0, 10),
+      inLanguage: "de-DE",
+      isPartOf: { "@type": "WebSite", name: "ExamFit", url: SITE },
+      hasPart: internalLinks.slice(0, 24).map((l) => ({
+        "@type": "WebPage",
+        name: l.label,
+        url: l.href?.startsWith("http") ? l.href : `${SITE}${l.href}`,
+      })),
+    };
+
+    const faqJsonLd = faqs.length
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqs.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a || f.a_seed || "" },
+          })),
+        }
+      : null;
+
+    routes.push({
+      kind: "pillar",
+      path,
+      slug: r.slug,
+      title: clamp(r.title, 1, 70),
+      description,
+      h1,
+      intro,
+      breadcrumbs,
+      internalLinks,
+      cta,
+      sections: {
+        curriculum_overview: sections.curriculum_overview || "",
+        learning_journey: sections.learning_journey || "",
+        exam_strategy: sections.exam_strategy || "",
+      },
+      faq: faqs.map((f) => ({ q: f.q, a: f.a || f.a_seed || "" })),
+      jsonLd: [collectionJsonLd, breadcrumbJsonLd, faqJsonLd].filter(Boolean),
+      lastmod: (r.last_generated_at || r.updated_at || new Date().toISOString()).slice(0, 10),
+      sitemapGroup: "content",
+      changefreq: "weekly",
+      priority: 0.8,
+      qualityScore: Number(r.quality_score) || null,
+    });
+  }
+  console.log(`[seo-dynamic] loaded ${routes.length} pillar routes`);
+  return routes;
+}
+
 export async function loadDynamicRoutes() {
-  const [blog, products, intents] = await Promise.all([
+  const [blog, products, intents, pillars] = await Promise.all([
     loadBlogRoutes(),
     loadProductRoutes(),
     loadIntentRoutes(),
+    loadPillarRoutes(),
   ]);
   console.log(
-    `[seo-dynamic] loaded ${blog.length} blog routes, ${products.length} product routes, ${intents.length} intent routes`
+    `[seo-dynamic] loaded ${blog.length} blog routes, ${products.length} product routes, ${intents.length} intent routes, ${pillars.length} pillar routes`
   );
-  return { blog, products, intents };
+  return { blog, products, intents, pillars };
 }
