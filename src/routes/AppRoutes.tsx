@@ -300,6 +300,8 @@ const AppRoutes = () => {
 
           {/* SEO Intent-Pages: /kurse/<curriculum>/<intent>/<competency> — must be BEFORE /:slug catch-all */}
           <Route path="/kurse/:curriculumSlug/:intentSlug/:competencySlug" element={<IntentLandingPage />} />
+          {/* SEO Pillar-Pages: /kurse/<curriculum> — Hub für alle Spokes eines Curriculums */}
+          <Route path="/kurse/:curriculumSlug" element={<PillarLandingPage />} />
 
           <Route path="/:slug" element={<ProgrammaticSEODispatcher />} />
 
