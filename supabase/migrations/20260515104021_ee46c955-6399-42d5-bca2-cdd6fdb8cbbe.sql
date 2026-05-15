@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.get_published_pillar_page(text) TO anon, authenticated;
