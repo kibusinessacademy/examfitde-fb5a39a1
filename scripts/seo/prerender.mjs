@@ -492,7 +492,7 @@ function postValidateHtml(routes) {
     // Intent pages have shorter rendered above-the-fold; the rich SSOT body
     // (intro+pain_points+expert_tip+faq+links) typically yields 800-1500 chars.
     // Soft floor for intents = 600; SSOT routes keep 1200 hard floor.
-    const minVisible = r.kind === "intent" ? 600 : 1200;
+    const minVisible = r.kind === "intent" ? 600 : r.kind === "pillar" ? 1500 : 1200;
     if (visible.length < minVisible)
       errors.push(`${r.path}: rendered visible text ${visible.length} <${minVisible}`);
   }
