@@ -1,0 +1,1 @@
+SELECT public.admin_seo_link_spokes_to_pillar('c2e41dc3-0fdb-4906-a694-485d0ddea180'::uuid) AS aevo_link_run;
