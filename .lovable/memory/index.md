@@ -24,6 +24,7 @@ complete_job (beide Overloads) committet NUR via WHERE status='processing' (CAS)
 
 
 ## Memories
+- [Failed-Job Hotloop Quarantine v1](mem://architektur/ops/failed-job-hotloop-quarantine-v1) — fn_normalize_job_error_code (NULL→PRE_HEARTBEAT_KILL), v_failed_job_hotloops_24h ≥5, admin_get/admin_quarantine RPCs, Cron 240 (30min, threshold=20), Active-Job-Dedup für tutor_index, Bronze manual_bypass auto-expire nach erstem Post-Bypass-Fail. UI FailedJobHotloopsCard.
 - [LF Repair Gap Classification SSOT](mem://architektur/pipeline/lf-repair-gap-classification-ssot-v1) — v_exam_pool_lf_repair_gap_classification/_summary + admin_get_exam_pool_lf_repair_gaps. Klassen BLUEPRINT_GAP/VARIANT_GAP/QUESTION_GAP_ONLY/MIXED_GAP/OK. Repair-Worker MUSS Klasse prüfen bevor Fragen generiert werden. Baseline 2026-05-13: 285 Pakete brauchen Heilung (134 BP / 105 VAR / 46 MIXED), nur 154 OK.
 - [Integrity Deterministic Pulse v2](mem://architektur/ops/integrity-deterministic-pulse-v2) — 8 Stage-Boundaries, pulse(stage), kein setInterval, meta.last_stage+heartbeat_log Forensik
 - [Revenue Funnel Loop A](mem://architektur/marketing/revenue-funnel-loop-a-v1) — SSOT Marketing→CRM→Checkout, 6 Pflicht-Events, DOI, Lead-Scoring
