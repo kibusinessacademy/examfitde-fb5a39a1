@@ -78,6 +78,7 @@ import { PreHeartbeatKillRiskCard } from "@/components/admin/heal/cards/PreHeart
 import { PreHeartbeatKillForensicsCard } from "@/components/admin/heal/cards/PreHeartbeatKillForensicsCard";
 import { AggregateStateDiffCard } from "@/components/admin/heal/cards/AggregateStateDiffCard";
 import { HealStatusCard } from "@/components/admin/heal/cards/HealStatusCard";
+import { PublishTailBlockersCard } from "@/components/admin/heal/cards/PublishTailBlockersCard";
 import { SoftDriftMcRepairCard } from "@/components/admin/heal/cards/SoftDriftMcRepairCard";
 import { JobTypeWorkerAuditCard } from "@/components/admin/heal/cards/JobTypeWorkerAuditCard";
 import { ExamPoolDriftLogCard } from "@/components/admin/heal/cards/ExamPoolDriftLogCard";
@@ -322,6 +323,7 @@ export default function HealCockpitPage() {
             />
           </AccordionTrigger>
           <AccordionContent className="pb-4 space-y-3">
+            <PublishTailBlockersCard />
             <DidaktikAuditCard />
             <BuildIntegrityE2ECard />
             <SeoPublishDriftCard />
