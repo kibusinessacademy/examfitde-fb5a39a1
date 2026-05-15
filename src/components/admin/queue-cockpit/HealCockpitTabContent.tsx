@@ -21,6 +21,7 @@ import { PricingHealAuditCard } from "@/components/admin/heal/cards/PricingHealA
 import { DagBlockedDashboardCard } from "@/components/admin/heal/cards/DagBlockedDashboardCard";
 import { DeferredJobsPullForwardCard } from "@/components/admin/heal/cards/DeferredJobsPullForwardCard";
 import { FailedJobHotloopsCard } from "@/components/admin/heal/cards/FailedJobHotloopsCard";
+import { VariantPipelineHealthCard } from "@/components/admin/heal/cards/VariantPipelineHealthCard";
 
 export function HealCockpitTabContent() {
   return (
