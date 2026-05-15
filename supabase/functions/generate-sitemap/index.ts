@@ -327,10 +327,29 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         .eq("status", "published")
         .gte("quality_score", 80)
         .limit(2000);
+      const seen = new Set<string>();
       for (const r of intents || []) {
         if (!r.slug || r.slug.split("/").length !== 3) continue;
         const lm = (r.last_generated_at || r.updated_at || "").split("T")[0] || today;
-        urls.push({ loc: `${SITE_URL}/kurse/${r.slug}`, lastmod: lm, changefreq: "weekly", priority: 0.7 });
+        const loc = `${SITE_URL}/kurse/${r.slug}`;
+        if (seen.has(loc)) continue;
+        seen.add(loc);
+        urls.push({ loc, lastmod: lm, changefreq: "weekly", priority: 0.7 });
+      }
+      // ── SEO Pillar-Pages (curriculum hubs) → URL: /kurse/<curriculum-slug> ──
+      const { data: pillars } = await sb.from("seo_content_pages")
+        .select("slug, last_generated_at, updated_at, quality_score")
+        .eq("page_type", "pillar_page")
+        .eq("status", "published")
+        .gte("quality_score", 80)
+        .limit(500);
+      for (const r of pillars || []) {
+        if (!r.slug || r.slug.includes("/")) continue;
+        const lm = (r.last_generated_at || r.updated_at || "").split("T")[0] || today;
+        const loc = `${SITE_URL}/kurse/${r.slug}`;
+        if (seen.has(loc)) continue;
+        seen.add(loc);
+        urls.push({ loc, lastmod: lm, changefreq: "weekly", priority: 0.8 });
       }
       return xmlResponse(toSitemapXML(urls), headers);
     }
