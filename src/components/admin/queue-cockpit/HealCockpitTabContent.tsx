@@ -13,6 +13,7 @@ import { BlockedPackagesCard } from "@/components/admin/heal/BlockedPackagesCard
 import { HealClusterExplanationPanel } from "@/components/admin/heal/HealClusterExplanationPanel";
 import { CouplingHealV4Card } from "@/components/admin/heal/cards/CouplingHealV4Card";
 import { BronzeReviewCard } from "@/components/admin/heal/cards/BronzeReviewCard";
+import { ManualReviewFrontierCard } from "@/components/admin/heal/cards/ManualReviewFrontierCard";
 import { ProducerNoiseTrendCard } from "@/components/admin/heal/cards/ProducerNoiseTrendCard";
 import { LxiPublishBlockMonitorCard } from "@/components/admin/heal/cards/LxiPublishBlockMonitorCard";
 import { LxiQueuedNoLessonsReinitCard } from "@/components/admin/heal/cards/LxiQueuedNoLessonsReinitCard";
@@ -50,6 +51,7 @@ export function HealCockpitTabContent() {
       <LxiQueuedNoLessonsReinitCard />
       <PricingHealAuditCard />
       <ProducerNoiseTrendCard />
+      <ManualReviewFrontierCard />
       <BronzeReviewCard />
       <CouplingHealV4Card />
       <HealClusterExplanationPanel />
