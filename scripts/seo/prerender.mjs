@@ -155,7 +155,49 @@ function renderAboveTheFold(route) {
 </div>`.trim();
   }
 
-  // Default: SSOT routes with keyFacts + faq
+  if (route.kind === "pillar") {
+    const breadcrumbHtml = (route.breadcrumbs || []).length
+      ? `<nav aria-label="Breadcrumb"><ol>${(route.breadcrumbs || [])
+          .map((b) =>
+            b.href
+              ? `<li><a href="${escapeHtml(b.href)}">${escapeHtml(b.label)}</a></li>`
+              : `<li>${escapeHtml(b.label)}</li>`
+          )
+          .join("")}</ol></nav>`
+      : "";
+    const sections = route.sections || {};
+    const spokesHtml = (route.internalLinks || []).length
+      ? `<nav aria-label="Themen-Übersicht"><h2>Alle Themen im Überblick</h2><ul>${(route.internalLinks || [])
+          .map(
+            (l) =>
+              `<li><a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a></li>`
+          )
+          .join("")}</ul></nav>`
+      : "";
+    const ctaHtml = route.cta && route.cta.href
+      ? `<p><a href="${escapeHtml(route.cta.href)}">${escapeHtml(route.cta.label || "Prüfung starten")}</a></p>`
+      : "";
+    const faq = (route.faq || [])
+      .map(
+        (f) =>
+          `<details><summary>${escapeHtml(f.q)}</summary><p>${escapeHtml(f.a)}</p></details>`
+      )
+      .join("");
+    return `
+<div id="prerender-content">
+  ${breadcrumbHtml}
+  <article>
+    <header><h1>${escapeHtml(route.h1)}</h1></header>
+    ${route.intro ? `<section aria-label="Einführung"><p>${escapeHtml(route.intro)}</p></section>` : ""}
+    ${sections.curriculum_overview ? `<section aria-label="Curriculum-Überblick"><h2>Curriculum-Überblick</h2><p>${escapeHtml(sections.curriculum_overview)}</p></section>` : ""}
+    ${sections.learning_journey ? `<section aria-label="Lernpfad"><h2>Lernpfad</h2><p>${escapeHtml(sections.learning_journey)}</p></section>` : ""}
+    ${sections.exam_strategy ? `<section aria-label="Prüfungsstrategie"><h2>Prüfungsstrategie</h2><p>${escapeHtml(sections.exam_strategy)}</p></section>` : ""}
+    ${spokesHtml}
+    ${faq ? `<section aria-label="Häufige Fragen"><h2>Häufige Fragen</h2>${faq}</section>` : ""}
+    ${ctaHtml}
+  </article>
+</div>`.trim();
+  }
   const facts = (route.keyFacts || [])
     .map(
       (k) =>
