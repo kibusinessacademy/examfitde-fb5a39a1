@@ -240,9 +240,28 @@ Deno.serve(async (req) => {
   const userPrompt = [
     `Generiere eine Pillar-Page (Hub-Seite) für "${curriculum.title}".`,
     ``,
-    `Antwortformat: JSON-Objekt mit den Feldern h1, meta_description, sections (Objekt mit intro, curriculum_overview, learning_journey, exam_strategy), faq (Array von {question, answer}).`,
+    `STRIKTES ANTWORTFORMAT — gib EXAKT folgendes JSON-Objekt zurück (alle Felder PFLICHT):`,
+    `{`,
+    `  "h1": "...",`,
+    `  "meta_description": "...",`,
+    `  "sections": {`,
+    `    "intro": "...",`,
+    `    "curriculum_overview": "...",`,
+    `    "learning_journey": "...",`,
+    `    "exam_strategy": "..."`,
+    `  },`,
+    `  "faq": [`,
+    `    {"question": "...", "answer": "..."},`,
+    `    {"question": "...", "answer": "..."},`,
+    `    {"question": "...", "answer": "..."},`,
+    `    {"question": "...", "answer": "..."},`,
+    `    {"question": "...", "answer": "..."}`,
+    `  ]`,
+    `}`,
     ``,
-    `Pflichtanforderungen:`,
+    `KRITISCH: Das Feld "faq" ist PFLICHT, MUSS ein Array mit MINDESTENS 5 Einträgen sein. Jede Antwort >= 60 Zeichen. Fehlt "faq" oder hat <5 Einträge, wird die gesamte Antwort verworfen.`,
+    ``,
+    `Pflichtanforderungen Inhalt:`,
     `- h1: starker, klarer H1 mit "${curriculumToken}", max. 70 Zeichen`,
     `- meta_description: 120–170 Zeichen, mit "${curriculumToken}" und Nutzen`,
     `- sections.intro: 180–260 Wörter, ehrlicher Einstieg, Zielgruppe Azubi`,
@@ -251,7 +270,7 @@ Deno.serve(async (req) => {
     `- sections.exam_strategy: 180–260 Wörter, prüfungsnahe Strategie (typische Fehler, Zeitmanagement, Wiederholungslogik)`,
     `- Gesamt aller vier Sektionen >= 800 Wörter (Hard-QC-Gate)`,
     `- Pflichtbegriff "${curriculumToken}" muss in mindestens 3 Sektionen vorkommen`,
-    `- faq: mindestens 5 prägnante Fragen mit Antworten >= 60 Zeichen`,
+    `- faq[]: 5–8 prägnante prüfungsnahe Fragen, jede Antwort 60–280 Zeichen, keine Werbung`,
     `- KEINE Floskeln ("in der heutigen Zeit", "spannende Reise", "tauche ein", "maßgeschneidert", "egal ob Anfänger oder Profi")`,
     `- KEINE Markdown-Codefences im Output, reines JSON`,
     ``,
@@ -290,7 +309,36 @@ Deno.serve(async (req) => {
   }
 
   // 6) QC
-  const qc = runQc(parsed, curriculum.title, internalLinks.length);
+  let qc = runQc(parsed, curriculum.title, internalLinks.length);
+
+  // 6b) FAQ-Auto-Repair: wenn ALLE anderen Checks grün sind und nur faq_too_few fehlt,
+  // ein gezielter Re-Prompt für FAQ — dann mergen + QC neu rechnen.
+  const onlyFaqMissing = qc.reasons.length > 0
+    && qc.reasons.every((r) => r.startsWith("faq_too_few") || r === "faq_item_invalid");
+  if (onlyFaqMissing) {
+    try {
+      const faqPrompt = [
+        `Liefere ausschließlich ein JSON-Objekt der Form { "faq": [ {"question": "...", "answer": "..."} ] }.`,
+        `Genau 5–8 prüfungsnahe FAQs für "${curriculum.title}".`,
+        `Jede Antwort 60–280 Zeichen, sachlich, basierend auf den Lernfeldern und Kompetenzen.`,
+        `Keine Werbung, keine Floskeln, kein Markdown.`,
+        ``,
+        `Lernfelder:`,
+        ragLfs || "(keine)",
+        ``,
+        `Kompetenzen (Auswahl):`,
+        ragComps || "(keine)",
+      ].join("\n");
+      const faqOnly = await callLovableAi(systemPrompt, faqPrompt);
+      if (Array.isArray(faqOnly?.faq) && faqOnly.faq.length >= MIN_FAQ) {
+        parsed.faq = faqOnly.faq;
+        qc = runQc(parsed, curriculum.title, internalLinks.length);
+        console.log("seo_pillar_faq_auto_repair_ok", { curriculum_id: curriculumId, faq_count: parsed.faq.length });
+      }
+    } catch (e: any) {
+      console.error("seo_pillar_faq_auto_repair_failed", { curriculum_id: curriculumId, error: String(e?.message ?? e) });
+    }
+  }
 
   if (payload.dry_run) {
     return json(200, { qc, parsed, slug: curriculumSlug, internal_links: internalLinks.length }, origin);
