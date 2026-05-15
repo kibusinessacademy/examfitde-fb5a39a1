@@ -309,7 +309,36 @@ Deno.serve(async (req) => {
   }
 
   // 6) QC
-  const qc = runQc(parsed, curriculum.title, internalLinks.length);
+  let qc = runQc(parsed, curriculum.title, internalLinks.length);
+
+  // 6b) FAQ-Auto-Repair: wenn ALLE anderen Checks grün sind und nur faq_too_few fehlt,
+  // ein gezielter Re-Prompt für FAQ — dann mergen + QC neu rechnen.
+  const onlyFaqMissing = qc.reasons.length > 0
+    && qc.reasons.every((r) => r.startsWith("faq_too_few") || r === "faq_item_invalid");
+  if (onlyFaqMissing) {
+    try {
+      const faqPrompt = [
+        `Liefere ausschließlich ein JSON-Objekt der Form { "faq": [ {"question": "...", "answer": "..."} ] }.`,
+        `Genau 5–8 prüfungsnahe FAQs für "${curriculum.title}".`,
+        `Jede Antwort 60–280 Zeichen, sachlich, basierend auf den Lernfeldern und Kompetenzen.`,
+        `Keine Werbung, keine Floskeln, kein Markdown.`,
+        ``,
+        `Lernfelder:`,
+        ragLfs || "(keine)",
+        ``,
+        `Kompetenzen (Auswahl):`,
+        ragComps || "(keine)",
+      ].join("\n");
+      const faqOnly = await callLovableAi(systemPrompt, faqPrompt);
+      if (Array.isArray(faqOnly?.faq) && faqOnly.faq.length >= MIN_FAQ) {
+        parsed.faq = faqOnly.faq;
+        qc = runQc(parsed, curriculum.title, internalLinks.length);
+        console.log("seo_pillar_faq_auto_repair_ok", { curriculum_id: curriculumId, faq_count: parsed.faq.length });
+      }
+    } catch (e: any) {
+      console.error("seo_pillar_faq_auto_repair_failed", { curriculum_id: curriculumId, error: String(e?.message ?? e) });
+    }
+  }
 
   if (payload.dry_run) {
     return json(200, { qc, parsed, slug: curriculumSlug, internal_links: internalLinks.length }, origin);
