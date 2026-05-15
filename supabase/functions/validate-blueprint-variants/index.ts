@@ -6,27 +6,18 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-interface ValidationResult {
-  blueprint_id: string;
-  blueprint_name: string;
-  total_variants: number;
-  passed: boolean;
-  gates: Record<string, { passed: boolean; actual: number; required: number; detail?: string }>;
-}
-
+// ── Gate definitions (unchanged) ──────────────────────────────
 interface DistributionGate {
   type: string;
   min_pct: number;
   max_pct?: number;
 }
-
 const STUDIUM_GATES: DistributionGate[] = [
   { type: "transfer_shift", min_pct: 20 },
   { type: "trap_shift", min_pct: 15 },
   { type: "context_shift", min_pct: 15 },
   { type: "parameter_shift", min_pct: 0, max_pct: 35 },
 ];
-
 const VOCATIONAL_GATES: DistributionGate[] = [
   { type: "transfer_shift", min_pct: 15 },
   { type: "trap_shift", min_pct: 15 },
@@ -34,34 +25,84 @@ const VOCATIONAL_GATES: DistributionGate[] = [
   { type: "parameter_shift", min_pct: 0, max_pct: 40 },
 ];
 
+const HARD_FLAGS = new Set([
+  "MISSING_TRAP",
+  "TOO_FEW_DISTRACTORS",
+  "TRANSFER_WITHOUT_NEW_CONTEXT",
+]);
+
+interface ValidationResult {
+  blueprint_id: string;
+  blueprint_name: string;
+  total_variants: number;
+  reviewed: number;
+  rejected: number;
+  kept_review: number;
+  passed: boolean;
+  gates: Record<string, { passed: boolean; actual: number; required: number; detail?: string }>;
+}
+
+/** Decide reject vs keep for a single review-status variant */
+function shouldReject(v: any, minQuality: number): { reject: boolean; reason?: string } {
+  const flags: string[] = Array.isArray(v.quality_flags) ? v.quality_flags : [];
+  const hard = flags.find((f) => HARD_FLAGS.has(f));
+  if (hard) return { reject: true, reason: `hard_flag:${hard}` };
+
+  if (v.quality_score == null || Number(v.quality_score) < minQuality) {
+    return { reject: true, reason: `quality_below_${minQuality}` };
+  }
+  if (!v.question_text || String(v.question_text).length < 20) {
+    return { reject: true, reason: "question_text_too_short" };
+  }
+  if (!Array.isArray(v.options) || v.options.length < 2) {
+    return { reject: true, reason: "options_insufficient" };
+  }
+  const correctIdx = v.options.findIndex((o: any) => o && o.is_correct === true);
+  if (correctIdx < 0) return { reject: true, reason: "no_correct_answer" };
+
+  return { reject: false };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
 
+  // Aggregate result that we ALWAYS persist to variant_validation_worker_result
+  let auditPayload: Record<string, unknown> = {};
+
+  try {
     const body = await req.json();
     const p = body.payload || body;
 
-    // Boundary normalization: accept both camelCase and snake_case
     const blueprintId = p.blueprintId ?? p.blueprint_id ?? null;
     const curriculumId = p.curriculumId ?? p.curriculum_id ?? null;
     const packageId = p.package_id ?? p.packageId ?? null;
+    const jobId = p.job_id ?? p.jobId ?? body.job_id ?? null;
     const isStudium = p.isStudium ?? p.is_studium ?? true;
     const minVariants = p.minVariants ?? p.min_variants ?? 10;
     const minAvgQuality = p.minAvgQuality ?? p.min_avg_quality ?? 70;
     const maxFlaggedPct = p.maxFlaggedPct ?? p.max_flagged_pct ?? 30;
+    const dryRun = p.dryRun ?? p.dry_run ?? false;
 
     if (!blueprintId && !curriculumId && !packageId) {
-      return new Response(JSON.stringify({ error: "blueprintId, curriculumId, or package_id required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: "blueprintId, curriculumId, or package_id required",
+          noop_reason: "missing_scope",
+          reviewed_count: 0,
+          rejected_count: 0,
+          approved_count: 0,
+          status_changed_count: 0,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Resolve curriculum_id from package_id if needed
@@ -76,18 +117,26 @@ Deno.serve(async (req) => {
     }
 
     if (!blueprintId && !resolvedCurriculumId) {
-      return new Response(JSON.stringify({ error: "Could not resolve curriculum_id from package" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: "Could not resolve curriculum_id from package",
+          noop_reason: "scope_unresolvable",
+          reviewed_count: 0,
+          rejected_count: 0,
+          approved_count: 0,
+          status_changed_count: 0,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    // ── Batch-fetch blueprints ──────────────────────────────────
-    let blueprintIds: string[] = [];
+    // ── Resolve blueprints in scope ────────────────────────────
+    const blueprintIds: string[] = [];
     const blueprintNames = new Map<string, string>();
 
     if (blueprintId) {
-      blueprintIds = [blueprintId];
+      blueprintIds.push(blueprintId);
       const { data: bpRow } = await sb
         .from("question_blueprints")
         .select("id, name")
@@ -95,7 +144,6 @@ Deno.serve(async (req) => {
         .single();
       if (bpRow) blueprintNames.set(bpRow.id, bpRow.name ?? "?");
     } else {
-      // Fetch ALL blueprints with names in ONE query
       const { data: bps } = await sb
         .from("question_blueprints")
         .select("id, name")
@@ -107,18 +155,43 @@ Deno.serve(async (req) => {
       }
     }
 
+    const scope = blueprintId ? "blueprint" : packageId ? "package" : "curriculum";
+
     if (blueprintIds.length === 0) {
-      return new Response(JSON.stringify({
-        ok: true,
-        summary: { total_blueprints: 0, passed_blueprints: 0, failed_blueprints: 0, all_passed: true },
-        results: [],
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      auditPayload = {
+        scope,
+        ok: false,
+        noop_reason: "no_blueprints_in_scope",
+        reviewed_count: 0,
+        rejected_count: 0,
+        approved_count: 0,
+        kept_review_count: 0,
+      };
+      await sb.from("variant_validation_worker_result").insert({
+        job_id: jobId,
+        package_id: packageId,
+        curriculum_id: resolvedCurriculumId,
+        blueprint_id: blueprintId,
+        scope,
+        ok: false,
+        noop_reason: "no_blueprints_in_scope",
       });
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          noop_reason: "no_blueprints_in_scope",
+          reviewed_count: 0,
+          rejected_count: 0,
+          approved_count: 0,
+          status_changed_count: 0,
+          summary: { total_blueprints: 0 },
+          results: [],
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    // ── Batch-fetch ALL variants in ONE query ───────────────────
-    // Supabase has a 1000-row default limit; paginate if needed
+    // ── Fetch ALL variants in scope (paginated) ────────────────
     const allVariants: any[] = [];
     const PAGE_SIZE = 1000;
     let offset = 0;
@@ -127,7 +200,7 @@ Deno.serve(async (req) => {
     while (hasMore) {
       const { data: page, error: vErr } = await sb
         .from("exam_question_variants")
-        .select("blueprint_id, variant_type, quality_score, quality_flags, trap_applied, distractor_meta, status")
+        .select("id, blueprint_id, variant_type, quality_score, quality_flags, trap_applied, distractor_meta, status, question_text, options")
         .in("blueprint_id", blueprintIds)
         .order("id", { ascending: true })
         .range(offset, offset + PAGE_SIZE - 1);
@@ -136,7 +209,6 @@ Deno.serve(async (req) => {
         console.error("variant fetch error:", vErr.message);
         break;
       }
-
       if (page && page.length > 0) {
         allVariants.push(...page);
         offset += page.length;
@@ -146,35 +218,65 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Group variants by blueprint_id
-    const variantsByBlueprint = new Map<string, any[]>();
+    // ── Per-variant classification (only status='review' is mutated) ──
+    const rejectIds: string[] = [];
+    let reviewedCount = 0;
+    let rejectedCount = 0;
+    let keptReview = 0;
+
     for (const v of allVariants) {
-      const arr = variantsByBlueprint.get(v.blueprint_id) || [];
-      arr.push(v);
-      variantsByBlueprint.set(v.blueprint_id, arr);
+      if (v.status !== "review") continue;
+      reviewedCount++;
+      const dec = shouldReject(v, minAvgQuality);
+      if (dec.reject) {
+        rejectIds.push(v.id);
+        rejectedCount++;
+      } else {
+        keptReview++;
+      }
     }
 
-    // ── Validate each blueprint (in-memory, no more DB calls) ──
+    // ── Bulk reject (chunked to keep PostgREST URLs sane) ──
+    if (!dryRun && rejectIds.length > 0) {
+      const CHUNK = 500;
+      for (let i = 0; i < rejectIds.length; i += CHUNK) {
+        const slice = rejectIds.slice(i, i + CHUNK);
+        const { error: uErr } = await sb
+          .from("exam_question_variants")
+          .update({ status: "rejected", updated_at: new Date().toISOString() })
+          .in("id", slice);
+        if (uErr) {
+          console.error("variant reject update error:", uErr.message, "chunk", i);
+          // Stop early; don't lie about counts
+          rejectedCount = i + slice.length === rejectIds.length ? rejectedCount : i;
+          break;
+        }
+      }
+    }
+
+    // ── Per-blueprint gate evaluation (after rejection so gates see live state) ──
+    const variantsByBlueprint = new Map<string, any[]>();
+    for (const v of allVariants) {
+      // Re-classify status in-memory for the gate snapshot
+      const live = rejectIds.includes(v.id) ? { ...v, status: "rejected" } : v;
+      const arr = variantsByBlueprint.get(live.blueprint_id) || [];
+      arr.push(live);
+      variantsByBlueprint.set(live.blueprint_id, arr);
+    }
+
     const distGates = isStudium ? STUDIUM_GATES : VOCATIONAL_GATES;
     const results: ValidationResult[] = [];
     let allPassed = true;
 
     for (const bpId of blueprintIds) {
-      const variants = variantsByBlueprint.get(bpId) || [];
+      const variants = (variantsByBlueprint.get(bpId) || []).filter((v) => v.status !== "rejected");
       const total = variants.length;
       const gates: ValidationResult["gates"] = {};
 
-      // Gate 1: Minimum variant count
-      gates.min_variants = {
-        passed: total >= minVariants,
-        actual: total,
-        required: minVariants,
-      };
+      gates.min_variants = { passed: total >= minVariants, actual: total, required: minVariants };
 
-      // Gate 2: Distribution checks
       const typeCounts: Record<string, number> = {};
       for (const v of variants) typeCounts[v.variant_type] = (typeCounts[v.variant_type] ?? 0) + 1;
-
       for (const g of distGates) {
         const count = typeCounts[g.type] ?? 0;
         const pct = total > 0 ? (count / total) * 100 : 0;
@@ -188,45 +290,22 @@ Deno.serve(async (req) => {
         };
       }
 
-      // Gate 3: Average quality score
       const avgScore = total > 0
-        ? variants.reduce((s: number, v: any) => s + (v.quality_score ?? 0), 0) / total
+        ? variants.reduce((s: number, v: any) => s + (Number(v.quality_score) || 0), 0) / total
         : 0;
-      gates.avg_quality = {
-        passed: avgScore >= minAvgQuality,
-        actual: Math.round(avgScore),
-        required: minAvgQuality,
-      };
+      gates.avg_quality = { passed: avgScore >= minAvgQuality, actual: Math.round(avgScore), required: minAvgQuality };
 
-      // Gate 4: Flagged variant percentage
-      const flagged = variants.filter(
-        (v: any) => v.quality_flags && Array.isArray(v.quality_flags) && v.quality_flags.length > 0
-      ).length;
+      const flagged = variants.filter((v: any) => Array.isArray(v.quality_flags) && v.quality_flags.length > 0).length;
       const flaggedPct = total > 0 ? (flagged / total) * 100 : 0;
-      gates.flagged_pct = {
-        passed: flaggedPct <= maxFlaggedPct,
-        actual: Math.round(flaggedPct),
-        required: maxFlaggedPct,
-        detail: "max allowed %",
-      };
+      gates.flagged_pct = { passed: flaggedPct <= maxFlaggedPct, actual: Math.round(flaggedPct), required: maxFlaggedPct };
 
-      // Gate 5: trap_applied coverage
       const withTrap = variants.filter((v: any) => v.trap_applied != null).length;
       const trapPct = total > 0 ? (withTrap / total) * 100 : 0;
-      gates.trap_coverage = {
-        passed: trapPct >= 60,
-        actual: Math.round(trapPct),
-        required: 60,
-      };
+      gates.trap_coverage = { passed: trapPct >= 60, actual: Math.round(trapPct), required: 60 };
 
-      // Gate 6: distractor_meta coverage
       const withDist = variants.filter((v: any) => v.distractor_meta != null).length;
       const distPct = total > 0 ? (withDist / total) * 100 : 0;
-      gates.distractor_meta_coverage = {
-        passed: distPct >= 50,
-        actual: Math.round(distPct),
-        required: 50,
-      };
+      gates.distractor_meta_coverage = { passed: distPct >= 50, actual: Math.round(distPct), required: 50 };
 
       const bpPassed = Object.values(gates).every((g) => g.passed);
       if (!bpPassed) allPassed = false;
@@ -235,6 +314,9 @@ Deno.serve(async (req) => {
         blueprint_id: bpId,
         blueprint_name: blueprintNames.get(bpId) ?? "?",
         total_variants: total,
+        reviewed: (variantsByBlueprint.get(bpId) || []).filter((v) => v.status === "rejected" || v.status === "review").length,
+        rejected: (variantsByBlueprint.get(bpId) || []).filter((v) => v.status === "rejected").length,
+        kept_review: (variantsByBlueprint.get(bpId) || []).filter((v) => v.status === "review").length,
         passed: bpPassed,
         gates,
       });
@@ -247,14 +329,83 @@ Deno.serve(async (req) => {
       all_passed: allPassed,
     };
 
-    return new Response(JSON.stringify({ ok: true, summary, results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // ── FAIL-CLOSED: if no review variants existed in scope, this is a no-op. ──
+    let ok = true;
+    let noopReason: string | null = null;
+    if (reviewedCount === 0) {
+      ok = false;
+      noopReason = "no_review_variants_in_scope";
+    }
+
+    auditPayload = {
+      scope,
+      ok,
+      noop_reason: noopReason,
+      reviewed_count: reviewedCount,
+      rejected_count: rejectedCount,
+      approved_count: 0,
+      kept_review_count: keptReview,
+      gate_summary: summary,
+    };
+
+    // Persist audit row (best-effort; never block the response)
+    try {
+      await sb.from("variant_validation_worker_result").insert({
+        job_id: jobId,
+        package_id: packageId,
+        curriculum_id: resolvedCurriculumId,
+        blueprint_id: blueprintId,
+        scope,
+        reviewed_count: reviewedCount,
+        rejected_count: rejectedCount,
+        approved_count: 0,
+        kept_review_count: keptReview,
+        ok,
+        noop_reason: noopReason,
+        gate_summary: summary,
+        notes: { dry_run: dryRun, blueprints: blueprintIds.length },
+      });
+    } catch (auditErr) {
+      console.error("vvwr insert failed:", auditErr instanceof Error ? auditErr.message : auditErr);
+    }
+
+    return new Response(
+      JSON.stringify({
+        ok,
+        noop_reason: noopReason,
+        reviewed_count: reviewedCount,
+        rejected_count: rejectedCount,
+        approved_count: 0,
+        kept_review_count: keptReview,
+        status_changed_count: rejectedCount, // approved_count === 0 in this worker
+        summary,
+        results,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (e) {
     console.error("validate-blueprint-variants error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // Best-effort audit of the failure
+    try {
+      await sb.from("variant_validation_worker_result").insert({
+        scope: "error",
+        ok: false,
+        noop_reason: `exception:${e instanceof Error ? e.message : "unknown"}`.slice(0, 500),
+        ...auditPayload,
+      });
+    } catch (_) { /* swallow */ }
+
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: e instanceof Error ? e.message : "Unknown error",
+        noop_reason: "exception",
+        reviewed_count: 0,
+        rejected_count: 0,
+        approved_count: 0,
+        status_changed_count: 0,
+      }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });
