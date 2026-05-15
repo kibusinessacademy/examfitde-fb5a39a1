@@ -344,6 +344,40 @@ Deno.serve(async (req) => {
       all_passed: allPassed,
     };
 
+    // ── Phase 2: APPROVE pass — only for variants whose blueprint passed gates ──
+    const approveIds: string[] = [];
+    const approveIdSet = new Set<string>();
+    for (const r of results) {
+      if (!r.passed) continue;
+      const cands = candidateApproveByBp.get(r.blueprint_id) || [];
+      for (const id of cands) {
+        approveIds.push(id);
+        approveIdSet.add(id);
+      }
+    }
+
+    let approvedCount = 0;
+    if (!dryRun && approveIds.length > 0) {
+      const CHUNK = 500;
+      for (let i = 0; i < approveIds.length; i += CHUNK) {
+        const slice = approveIds.slice(i, i + CHUNK);
+        const { error: aErr } = await sb
+          .from("exam_question_variants")
+          .update({ status: "approved", updated_at: new Date().toISOString() })
+          .in("id", slice)
+          .eq("status", "review"); // safety: only flip review→approved
+        if (aErr) {
+          console.error("variant approve update error:", aErr.message, "chunk", i);
+          break;
+        }
+        approvedCount += slice.length;
+      }
+    }
+
+    // kept = reviewed - rejected - approved (idempotent definition)
+    const keptReview = Math.max(0, reviewedCount - rejectedCount - approvedCount);
+    const statusChangedCount = rejectedCount + approvedCount;
+
     // ── FAIL-CLOSED: if no review variants existed in scope, this is a no-op. ──
     let ok = true;
     let noopReason: string | null = null;
@@ -358,8 +392,9 @@ Deno.serve(async (req) => {
       noop_reason: noopReason,
       reviewed_count: reviewedCount,
       rejected_count: rejectedCount,
-      approved_count: 0,
+      approved_count: approvedCount,
       kept_review_count: keptReview,
+      status_changed_count: statusChangedCount,
       gate_summary: summary,
     };
 
@@ -373,12 +408,13 @@ Deno.serve(async (req) => {
         scope,
         reviewed_count: reviewedCount,
         rejected_count: rejectedCount,
-        approved_count: 0,
+        approved_count: approvedCount,
         kept_review_count: keptReview,
+        status_changed_count: statusChangedCount,
         ok,
         noop_reason: noopReason,
         gate_summary: summary,
-        notes: { dry_run: dryRun, blueprints: blueprintIds.length },
+        notes: { dry_run: dryRun, blueprints: blueprintIds.length, approve_min_quality: 80 },
       });
     } catch (auditErr) {
       console.error("vvwr insert failed:", auditErr instanceof Error ? auditErr.message : auditErr);
@@ -390,9 +426,9 @@ Deno.serve(async (req) => {
         noop_reason: noopReason,
         reviewed_count: reviewedCount,
         rejected_count: rejectedCount,
-        approved_count: 0,
+        approved_count: approvedCount,
         kept_review_count: keptReview,
-        status_changed_count: rejectedCount, // approved_count === 0 in this worker
+        status_changed_count: statusChangedCount,
         summary,
         results,
       }),
