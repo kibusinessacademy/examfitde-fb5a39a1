@@ -410,7 +410,7 @@ Deno.serve(async (req) => {
         rejected_count: rejectedCount,
         approved_count: approvedCount,
         kept_review_count: keptReview,
-        status_changed_count: statusChangedCount,
+        // status_changed_count is a generated column — do not insert
         ok,
         noop_reason: noopReason,
         gate_summary: summary,
