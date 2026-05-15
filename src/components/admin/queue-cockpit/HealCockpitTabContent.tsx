@@ -42,6 +42,7 @@ export function HealCockpitTabContent() {
       </div>
       <MorningBriefing />
       <FailedJobHotloopsCard />
+      <VariantPipelineHealthCard />
       <DagBlockedDashboardCard />
       <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
