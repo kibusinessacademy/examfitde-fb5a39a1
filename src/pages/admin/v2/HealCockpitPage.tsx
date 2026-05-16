@@ -57,6 +57,7 @@ import { LessonJoinParityCard } from "@/components/admin/heal/cards/LessonJoinPa
 import { PostPublishOrchestratorCard } from "@/components/admin/heal/cards/PostPublishOrchestratorCard";
 import { PaidButNotDeliveredCard } from "@/components/admin/heal/cards/PaidButNotDeliveredCard";
 import { ActivationFunnelCard } from "@/components/admin/heal/cards/ActivationFunnelCard";
+import { ExamReadinessDistributionCard } from "@/components/admin/heal/cards/ExamReadinessDistributionCard";
 import { SeoJobHealthCard } from "@/components/admin/heal/cards/SeoJobHealthCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
