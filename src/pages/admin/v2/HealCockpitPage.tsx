@@ -122,6 +122,7 @@ import NotificationFinalizationCard from "@/components/admin/heal/cards/Notifica
 import NotificationRevenueAttributionCard from "@/components/admin/heal/cards/NotificationRevenueAttributionCard";
 import B2bRenewalPipelineCard from "@/components/admin/heal/cards/B2bRenewalPipelineCard";
 import UpsellDiscoveryCard from "@/components/admin/heal/cards/UpsellDiscoveryCard";
+import { TrackM4StatusCard } from "@/components/admin/heal/cards/TrackM4StatusCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
@@ -378,6 +379,7 @@ export default function HealCockpitPage() {
             <NotificationRevenueAttributionCard />
             <B2bRenewalPipelineCard />
             <UpsellDiscoveryCard />
+            <TrackM4StatusCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
             <QueuedStallSuggestionCard />
