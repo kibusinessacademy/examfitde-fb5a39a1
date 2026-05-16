@@ -64,6 +64,7 @@ import { ExamSuccessDriversCard } from "@/components/admin/heal/cards/ExamSucces
 import { InterventionEffectivenessCard } from "@/components/admin/heal/cards/InterventionEffectivenessCard";
 import { NbaWeightingHealthCard } from "@/components/admin/heal/cards/NbaWeightingHealthCard";
 import { TutorInterventionHealthCard } from "@/components/admin/heal/cards/TutorInterventionHealthCard";
+import { CohortPopulationIntelligenceCard } from "@/components/admin/heal/cards/CohortPopulationIntelligenceCard";
 import { SeoJobHealthCard } from "@/components/admin/heal/cards/SeoJobHealthCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
@@ -427,6 +428,7 @@ export default function HealCockpitPage() {
                 <InterventionEffectivenessCard />
                 <NbaWeightingHealthCard />
                 <TutorInterventionHealthCard />
+                <CohortPopulationIntelligenceCard />
                 <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
