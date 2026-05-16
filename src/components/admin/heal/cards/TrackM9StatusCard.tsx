@@ -46,6 +46,22 @@ export function TrackM9StatusCard() {
     refetch();
   };
 
+  const runPostPublishRepair = async (dryRun: boolean) => {
+    const { data, error } = await supabase.rpc(
+      "admin_m9_post_publish_repair_dispatch" as any,
+      { p_limit: 10, p_dry_run: dryRun },
+    );
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const res = data as any;
+    toast.success(
+      `M9.3b ${dryRun ? "Dry-Run" : "Live"}: dispatched ${res?.dispatched ?? 0}, skipped ${res?.skipped ?? 0} (WIP ${res?.wip_now ?? 0}/${res?.wip_cap ?? 0})`,
+    );
+    refetch();
+  };
+
   if (isLoading || !data) {
     return (
       <Card>
