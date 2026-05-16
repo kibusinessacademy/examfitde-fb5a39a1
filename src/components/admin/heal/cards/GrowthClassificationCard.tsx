@@ -255,6 +255,7 @@ export function GrowthClassificationCard() {
             </div>
 
             <EligibleRepairsSection />
+            <LocalRepairWorkerSection />
 
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium text-foreground">Filter:</span>
@@ -554,6 +555,189 @@ function EligibleRepairsSection() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Track 2.3d — Local Repair Worker Section
+// Read-only status + admin dry-run/live for the cron-driven worker.
+// Worker consumes v_growth_repair_local_targets_v1 (FANOUT_NOT_STARTED).
+// TRACKING_NOT_EMITTED is shown as platform-fix only — never dispatched.
+// ─────────────────────────────────────────────────────────────────────
+type LocalSummary = {
+  targets: {
+    fanout_safe: number;
+    fanout_blocked: number;
+    tracking_total: number;
+    by_signal: Record<string, number> | null;
+  };
+  recent_runs: Array<{
+    created_at: string;
+    result_status: "ok" | "partial" | "failed";
+    metadata: {
+      run_id?: string;
+      mode?: "dry_run" | "live";
+      scanned?: number;
+      dispatched?: number;
+      skipped?: number;
+      failed?: number;
+    } | null;
+  }>;
+};
+
+function LocalRepairWorkerSection() {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<"dry" | "live" | null>(null);
+
+  const sumQ = useQuery({
+    queryKey: ["growth-local-worker-summary"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_growth_local_worker_summary" as any,
+      );
+      if (error) throw error;
+      return data as LocalSummary;
+    },
+    refetchInterval: 60_000,
+  });
+
+  const runDry = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_growth_local_worker_dry_run" as any,
+        { _limit: 25 },
+      );
+      if (error) throw error;
+      return data as { dispatched: number; skipped: number; scanned: number };
+    },
+    onSuccess: (r) => toast.success(`Dry-run: ${r.dispatched} would dispatch · ${r.skipped} skipped`),
+    onError: (e: any) => toast.error(e.message ?? "Dry-run failed"),
+    onSettled: () => {
+      setBusy(null);
+      qc.invalidateQueries({ queryKey: ["growth-local-worker-summary"] });
+    },
+  });
+
+  const runLive = useMutation({
+    mutationFn: async (reason: string) => {
+      const { data, error } = await supabase.rpc(
+        "admin_growth_local_worker_live" as any,
+        { _limit: 25, _reason: reason },
+      );
+      if (error) throw error;
+      return data as { dispatched: number; skipped: number; failed: number };
+    },
+    onSuccess: (r) =>
+      toast.success(`Worker: ${r.dispatched} dispatched · ${r.skipped} skipped · ${r.failed} failed`),
+    onError: (e: any) => toast.error(e.message ?? "Worker failed"),
+    onSettled: () => {
+      setBusy(null);
+      qc.invalidateQueries({ queryKey: ["growth-local-worker-summary"] });
+    },
+  });
+
+  const s = sumQ.data;
+  const t = s?.targets;
+  const bySignal = t?.by_signal ?? {};
+
+  return (
+    <div className="mt-6 rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Rocket className="h-4 w-4 text-foreground" />
+          <h4 className="text-sm font-semibold text-foreground">
+            Local Repair Worker · Track 2.3d
+          </h4>
+          <Badge variant="outline" className="text-[10px] font-mono">cron 30min · max 25/run</Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline" size="sm" className="h-7 text-xs"
+            disabled={busy !== null}
+            onClick={() => { setBusy("dry"); runDry.mutate(); }}
+          >
+            <FlaskConical className="h-3 w-3 mr-1" />
+            {busy === "dry" ? "…" : "Dry-Run"}
+          </Button>
+          <Button
+            variant="default" size="sm" className="h-7 text-xs"
+            disabled={busy !== null}
+            onClick={() => {
+              const reason = window.prompt("Reason (min 3 chars)") ?? "";
+              if (reason.trim().length < 3) {
+                toast.error("Reason required");
+                return;
+              }
+              setBusy("live");
+              runLive.mutate(reason.trim());
+            }}
+          >
+            <Rocket className="h-3 w-3 mr-1" />
+            {busy === "live" ? "…" : "Run Now"}
+          </Button>
+        </div>
+      </div>
+
+      {sumQ.isLoading && <Skeleton className="h-16 w-full" />}
+      {s && t && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <KpiPill label="Fanout · safe" value={t.fanout_safe} tone="success" />
+            <KpiPill label="Fanout · blocked" value={t.fanout_blocked} tone="warning" />
+            <KpiPill label="Tracking · platform-fix" value={t.tracking_total} tone="info" />
+            <KpiPill label="By signal" value={Object.keys(bySignal).length} tone="neutral" />
+          </div>
+
+          {Object.keys(bySignal).length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {Object.entries(bySignal).map(([sig, n]) => (
+                <Badge key={sig} variant="outline" className="text-[10px] font-mono">
+                  {sig}: {n}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <div className="text-[11px] text-muted-foreground font-medium">Recent runs (cron + admin)</div>
+            {s.recent_runs.length === 0 && (
+              <div className="text-[11px] text-muted-foreground">Noch keine Worker-Läufe.</div>
+            )}
+            {s.recent_runs.map((r, i) => {
+              const m = r.metadata ?? {};
+              return (
+                <div key={i} className="flex items-center justify-between text-[11px] font-mono border-l-2 border-border pl-2">
+                  <span className="text-muted-foreground">
+                    {new Date(r.created_at).toLocaleString("de-DE")} ·
+                    <span className="text-foreground"> {m.dispatched ?? 0}↑</span> /
+                    <span className="text-muted-foreground"> {m.skipped ?? 0} skip</span> /
+                    <span className="text-destructive"> {m.failed ?? 0} fail</span>
+                    {m.mode && <> · {m.mode}</>}
+                  </span>
+                  <Pill tone={r.result_status === "ok" ? "success" : r.result_status === "partial" ? "warning" : "destructive"}>
+                    {r.result_status}
+                  </Pill>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function KpiPill({ label, value, tone }: { label: string; value: number; tone: "success" | "warning" | "info" | "neutral" }) {
+  const cls =
+    tone === "success" ? "border-emerald-500/30 text-emerald-500" :
+    tone === "warning" ? "border-amber-500/30 text-amber-500" :
+    tone === "info"    ? "border-sky-500/30 text-sky-500" :
+                         "border-border text-foreground";
+  return (
+    <div className={`rounded-md border bg-card/50 px-2 py-1.5 ${cls}`}>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-base font-semibold tabular-nums">{value}</div>
     </div>
   );
 }
