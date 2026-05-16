@@ -14,6 +14,30 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY");
 const FROM = "ExamFit Reports <noreply@examfit.de>";
 const BATCH = 25;
+const TRACK_BASE = `${SUPABASE_URL}/functions/v1/owner-digest-track`;
+
+function trackUrl(token: string, recipient: string, type: "open" | "click", linkUrl?: string): string {
+  const u = new URL(TRACK_BASE);
+  u.searchParams.set("t", token);
+  u.searchParams.set("r", recipient);
+  u.searchParams.set("type", type);
+  if (linkUrl) u.searchParams.set("u", linkUrl);
+  return u.toString();
+}
+
+function injectTracking(html: string, token: string, recipient: string): string {
+  if (!token || !recipient) return html;
+  // Wrap http(s) hrefs through click-tracker
+  const rewritten = html.replace(/href="(https?:\/\/[^"]+)"/g, (_m, link) => {
+    return `href="${trackUrl(token, recipient, "click", link)}"`;
+  });
+  // Append 1x1 open pixel
+  const pixel = `<img src="${trackUrl(token, recipient, "open")}" width="1" height="1" alt="" style="display:none" />`;
+  if (rewritten.includes("</body>")) {
+    return rewritten.replace("</body>", `${pixel}</body>`);
+  }
+  return rewritten + pixel;
+}
 
 function eur(cents: number | null | undefined): string {
   if (cents == null) return "—";
@@ -101,7 +125,22 @@ Deno.serve(async (req) => {
         }
 
         const period = (job.payload as any)?.period ?? "weekly";
-        const { subject, html } = renderDigestHtml(job.payload, period);
+        const { subject, html: rawHtml } = renderDigestHtml(job.payload, period);
+
+        // Resolve tracking token for this digest (one per org_owner_digests row)
+        const digestId = (job.payload as any)?.digest_id ?? null;
+        let trackingToken: string | null = (job.payload as any)?.tracking_token ?? null;
+        if (!trackingToken && digestId) {
+          const { data: digestRow } = await supa
+            .from("org_owner_digests")
+            .select("tracking_token")
+            .eq("id", digestId)
+            .maybeSingle();
+          trackingToken = (digestRow as any)?.tracking_token ?? null;
+        }
+        const html = trackingToken
+          ? injectTracking(rawHtml, trackingToken, email)
+          : rawHtml;
 
         const res = await resend.emails.send({
           from: FROM, to: [email], subject, html,
