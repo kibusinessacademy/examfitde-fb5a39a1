@@ -58,6 +58,7 @@ import { PostPublishOrchestratorCard } from "@/components/admin/heal/cards/PostP
 import { PaidButNotDeliveredCard } from "@/components/admin/heal/cards/PaidButNotDeliveredCard";
 import { ActivationFunnelCard } from "@/components/admin/heal/cards/ActivationFunnelCard";
 import { ExamReadinessDistributionCard } from "@/components/admin/heal/cards/ExamReadinessDistributionCard";
+import { ContentFeedbackPipelineCard } from "@/components/admin/heal/cards/ContentFeedbackPipelineCard";
 import { SeoJobHealthCard } from "@/components/admin/heal/cards/SeoJobHealthCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
@@ -415,6 +416,7 @@ export default function HealCockpitPage() {
                 <PaidButNotDeliveredCard />
                 <ActivationFunnelCard />
                 <ExamReadinessDistributionCard />
+                <ContentFeedbackPipelineCard />
                 <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
