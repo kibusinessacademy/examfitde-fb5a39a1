@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.fn_delivery_capability_matrix(text) TO PUBLIC;
