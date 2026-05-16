@@ -12,6 +12,7 @@ import { Info, Shield, Clock, Moon, Smartphone, CheckCircle2, XCircle } from "lu
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
+import LearnerNotificationHistory from "@/components/app/notifications/LearnerNotificationHistory";
 
 interface Prefs {
   channel_push: boolean;
@@ -260,6 +261,8 @@ export default function AppNotificationsPage() {
             {saving ? "Speichert…" : "Speichern"}
           </Button>
         </div>
+
+        <LearnerNotificationHistory />
       </div>
     </>
   );
