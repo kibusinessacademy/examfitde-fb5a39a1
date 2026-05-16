@@ -173,6 +173,12 @@ export default function AppNotificationsPage() {
           </AccordionItem>
         </Accordion>
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Shield className="h-4 w-4" /> Kanäle
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
