@@ -10,7 +10,7 @@
  *               Observability = nur Daten fehlen, kein Funktionsdefekt.
  */
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription,
@@ -21,7 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Layers, RefreshCw, ShieldAlert, Wrench, Eye } from "lucide-react";
+import { Layers, RefreshCw, ShieldAlert, Wrench, Eye, Rocket, FlaskConical } from "lucide-react";
+import { toast } from "sonner";
 
 type ClassRow = {
   class: string;
@@ -253,7 +254,8 @@ export function GrowthClassificationCard() {
               </table>
             </div>
 
-            {/* Drilldown filters */}
+            <EligibleRepairsSection />
+
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium text-foreground">Filter:</span>
               <Select value={filter.cls ?? ""} onValueChange={(v) => setFilter(f => ({ ...f, cls: v || undefined }))}>
@@ -328,5 +330,230 @@ export function GrowthClassificationCard() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Track 2.3c — Eligible Repairs Section
+// Diagnose + dry-run + live dispatch (admin only). No frontend table reads.
+// ─────────────────────────────────────────────────────────────────────
+type DispatchDecision = {
+  action: "dispatch" | "skip";
+  skip_reason?: string;
+  canonical_job_type?: string;
+  idempotency_key?: string;
+  worker_pool?: string;
+  priority?: number;
+};
+type DispatchRow = {
+  package_id: string;
+  package_key?: string | null;
+  signal: string;
+  expected_job_type: string;
+  decision?: DispatchDecision;
+  status?: "dispatched" | "skipped" | "failed";
+  skip_reason?: string;
+  canonical_job_type?: string;
+  idempotency_key?: string;
+  job_id?: string;
+  error?: string;
+};
+type DispatchResult = {
+  mode: "dry_run" | "live";
+  run_id?: string;
+  scanned: number;
+  would_dispatch?: number;
+  would_skip?: number;
+  dispatched?: number;
+  skipped?: number;
+  failed?: number;
+  limit: number;
+  generated_at: string;
+  rows: DispatchRow[];
+};
+type RecentRun = {
+  run_id: string;
+  created_at: string;
+  result_status: string;
+  dispatched: number;
+  skipped: number;
+  failed: number;
+  scanned: number;
+  reason: string | null;
+};
+
+function EligibleRepairsSection() {
+  const qc = useQueryClient();
+  const [batchLimit, setBatchLimit] = useState<number>(25);
+  const [lastResult, setLastResult] = useState<DispatchResult | null>(null);
+
+  const recentQ = useQuery({
+    queryKey: ["growth-repair-recent-runs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_growth_repair_recent_runs" as any, { _limit: 5 },
+      );
+      if (error) throw error;
+      return (data ?? []) as RecentRun[];
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const dryRun = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_growth_repair_dispatch_dry_run" as any, { _limit: batchLimit },
+      );
+      if (error) throw error;
+      return data as DispatchResult;
+    },
+    onSuccess: (data) => {
+      setLastResult(data);
+      toast.success(`Dry-run: ${data.would_dispatch ?? 0} would dispatch · ${data.would_skip ?? 0} skip`);
+    },
+    onError: (e: Error) => toast.error(`Dry-run fehlgeschlagen: ${e.message}`),
+  });
+
+  const live = useMutation({
+    mutationFn: async (reason: string) => {
+      const { data, error } = await supabase.rpc(
+        "admin_growth_repair_dispatch_live" as any,
+        { _limit: batchLimit, _reason: reason },
+      );
+      if (error) throw error;
+      return data as DispatchResult;
+    },
+    onSuccess: (data) => {
+      setLastResult(data);
+      toast.success(
+        `Dispatch: ${data.dispatched ?? 0} dispatched · ${data.skipped ?? 0} skip · ${data.failed ?? 0} fail`,
+      );
+      qc.invalidateQueries({ queryKey: ["growth-repair-recent-runs"] });
+      qc.invalidateQueries({ queryKey: ["growth-classification-summary"] });
+    },
+    onError: (e: Error) => toast.error(`Dispatch fehlgeschlagen: ${e.message}`),
+  });
+
+  const onLive = () => {
+    const reason = window.prompt(
+      `Live-Dispatch bestätigen.\nBatch-Limit: ${batchLimit}\nGib einen Grund ein (Pflicht für Audit):`,
+      "",
+    );
+    if (!reason || reason.trim().length < 3) {
+      toast.error("Grund (min. 3 Zeichen) ist Pflicht.");
+      return;
+    }
+    live.mutate(reason.trim());
+  };
+
+  return (
+    <div className="rounded-md border border-warning/40 bg-warning-bg-subtle/40 p-3 space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Rocket className="h-4 w-4 text-warning-foreground" />
+            Eligible Repairs · Track 2.3c Dispatcher
+            <Badge variant="outline" className="text-[10px]">safe_to_repair=true</Badge>
+          </div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">
+            Disponiert ausschließlich aus <code>v_growth_repair_eligibility_v1</code> ·
+            Blocked/Platform-Fix werden NIE dispatched · stündliche Idempotency · Audit pflicht.
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Select value={String(batchLimit)} onValueChange={(v) => setBatchLimit(Number(v))}>
+            <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {[5, 10, 25, 50, 100].map(n => (
+                <SelectItem key={n} value={String(n)} className="text-xs">Limit {n}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline" size="sm" className="h-7 text-xs"
+            onClick={() => dryRun.mutate()} disabled={dryRun.isPending}
+          >
+            <FlaskConical className="h-3.5 w-3.5 mr-1" />
+            {dryRun.isPending ? "…" : "Dry-Run"}
+          </Button>
+          <Button
+            variant="default" size="sm" className="h-7 text-xs"
+            onClick={onLive} disabled={live.isPending}
+          >
+            <Rocket className="h-3.5 w-3.5 mr-1" />
+            {live.isPending ? "…" : "Dispatch"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Last result preview */}
+      {lastResult && (
+        <div className="rounded-md border border-border bg-card/50 p-2 space-y-1.5">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-mono text-muted-foreground">
+              {lastResult.mode === "dry_run" ? "DRY-RUN" : "LIVE"} ·
+              scanned {lastResult.scanned} ·
+              {lastResult.mode === "dry_run"
+                ? <> would_dispatch {lastResult.would_dispatch} · would_skip {lastResult.would_skip}</>
+                : <> dispatched {lastResult.dispatched} · skipped {lastResult.skipped} · failed {lastResult.failed}</>}
+            </span>
+            <span className="text-muted-foreground">
+              {new Date(lastResult.generated_at).toLocaleTimeString("de-DE")}
+            </span>
+          </div>
+          <div className="max-h-48 overflow-y-auto divide-y divide-border">
+            {lastResult.rows.slice(0, 50).map((r, i) => {
+              const action = r.decision?.action ?? r.status ?? "skipped";
+              const skipReason = r.decision?.skip_reason ?? r.skip_reason;
+              return (
+                <div key={i} className="py-1.5 text-[11px] flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-mono text-foreground truncate">
+                      {r.package_key ?? r.package_id.slice(0, 8)} · <span className="text-muted-foreground">{r.signal}</span> → <span className="text-foreground">{r.decision?.canonical_job_type ?? r.canonical_job_type ?? r.expected_job_type}</span>
+                    </div>
+                    {(skipReason || r.error) && (
+                      <div className="text-[10px] text-muted-foreground font-mono">
+                        {skipReason && <>skip_reason=<span className="text-warning-foreground">{skipReason}</span></>}
+                        {r.error && <> · err={r.error}</>}
+                      </div>
+                    )}
+                  </div>
+                  <Pill tone={action === "dispatch" || action === "dispatched" ? "success"
+                          : action === "failed" ? "destructive" : "secondary"}>
+                    {action}
+                  </Pill>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Recent runs */}
+      <div className="space-y-1">
+        <div className="text-[11px] font-medium text-foreground flex items-center gap-2">
+          <RefreshCw className="h-3 w-3" /> Letzte Runs
+        </div>
+        {recentQ.isLoading && <div className="text-[11px] text-muted-foreground">Lade…</div>}
+        {recentQ.data && recentQ.data.length === 0 && (
+          <div className="text-[11px] text-muted-foreground">Noch keine Dispatcher-Läufe.</div>
+        )}
+        {recentQ.data && recentQ.data.map((r) => (
+          <div key={r.run_id} className="flex items-center justify-between text-[11px] font-mono border-l-2 border-border pl-2">
+            <span className="text-muted-foreground">
+              {new Date(r.created_at).toLocaleString("de-DE")} ·
+              <span className="text-foreground"> {r.dispatched}↑</span> /
+              <span className="text-muted-foreground"> {r.skipped} skip</span> /
+              <span className="text-destructive"> {r.failed} fail</span>
+              {r.reason && <> · "{r.reason}"</>}
+            </span>
+            <Pill tone={r.result_status === "ok" ? "success" : r.result_status === "partial" ? "warning" : "destructive"}>
+              {r.result_status}
+            </Pill>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
