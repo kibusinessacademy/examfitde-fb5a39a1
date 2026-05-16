@@ -10,7 +10,7 @@
  *               Observability = nur Daten fehlen, kein Funktionsdefekt.
  */
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Card, CardContent, CardHeader, CardTitle, CardDescription,
@@ -21,7 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Layers, RefreshCw, ShieldAlert, Wrench, Eye } from "lucide-react";
+import { Layers, RefreshCw, ShieldAlert, Wrench, Eye, Rocket, FlaskConical } from "lucide-react";
+import { toast } from "sonner";
 
 type ClassRow = {
   class: string;
