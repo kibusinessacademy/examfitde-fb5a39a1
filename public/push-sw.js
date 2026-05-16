@@ -1,5 +1,6 @@
 /* ExamFit Push Service Worker
- * Phase 4: appends ?nj=<job_id>&nj_k=<kind> to deeplink for attribution.
+ * Phase 4 + Track 2.2: appends ?nj=<job_id>&nj_k=<kind>&nj_cta=1 to deeplink for attribution
+ * incl. cta_clicked when the user actively clicks the notification.
  */
 self.addEventListener('install', (e) => e.waitUntil(self.skipWaiting()));
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
@@ -24,11 +25,12 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-function withAttribution(target, jobId, kind) {
+function withAttribution(target, jobId, kind, isCta) {
   try {
     const u = new URL(target, self.location.origin);
     if (jobId) u.searchParams.set('nj', String(jobId));
     if (kind)  u.searchParams.set('nj_k', String(kind));
+    if (isCta) u.searchParams.set('nj_cta', '1');
     u.searchParams.set('nj_t', String(Date.now()));
     return u.pathname + u.search + u.hash;
   } catch {
@@ -39,7 +41,8 @@ function withAttribution(target, jobId, kind) {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
-  const target = withAttribution(data.url || '/app', data.job_id, data.kind);
+  // Active click on the notification body itself = CTA click (Track 2.2).
+  const target = withAttribution(data.url || '/app', data.job_id, data.kind, true);
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of all) {
