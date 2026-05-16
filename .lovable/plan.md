@@ -1,98 +1,104 @@
-## Ausgangslage
+## Post-Purchase Delivery Assurance v1
 
-`fn_post_publish_growth_fanout` (Trigger `trg_post_publish_growth_fanout`) existiert und fanou-t bereits 9 Growth-Jobs bei `status='published' AND is_published=true`. Außerdem laufen `trg_post_publish_seo_suite`, `trg_post_publish_learner_e2e`, `trg_auto_publish_seo_pages`, plus Health/Repair/Backfill-RPCs und Worker `post-publish-growth-worker`.
+Brücke von `paid` → `delivered`. Kein bezahlter Kauf darf >2 Min ohne aktives Learner-Entitlement und verifizierten Kurszugriff bleiben.
 
-**Was bereits fanou-ed wird:** `package_auto_generate_seo_suite, seo_sitemap_refresh, seo_indexnow_submit, package_post_publish_blog, seo_internal_links, package_og_image_generate, package_distribution_plan, package_campaign_assets_generate, package_email_sequence_enroll`.
+### Scope (P0, minimal)
 
-**Was fehlt** (Commerce-Gate + Repair-Branching):
-- `commerce_product_visibility_check`
-- `commerce_price_activation_check`
-- `commerce_sellability_gate_check`
-- `commerce_audit_snapshot`
-- Repair-Jobs: `commerce_repair_product_missing`, `commerce_repair_price_missing`, `commerce_repair_lesson_gate_failed`
-- SEO-Backlog-Expand und CRM-Sync sind **bewusst nicht** im Trigger-Fanout, sondern werden vom Sellability-Gate gated: nur sellable=true triggert `seo_backlog_expand_one` und `crm_product_sync`. Verhindert SEO-Output ohne Kaufpfad (Memory: aktuelle 9-vs-25-Befund).
+**1. Delivery-Readiness SSOT (extends Sellability-Gate)**
 
-→ **Kein Parallel-Orchestrator** (SSOT/Migration-Discipline). Stattdessen: Commerce-Gate-Sub-Fanout in die bestehende Growth-Fanout-Funktion + drei Gate-Checker-Funktionen + Repair-Branching + SSOT-View + E2E-Smoke.
+`v_course_delivery_readiness` (service_role only):
+- `course_package_id`, `product_id`, `curriculum_id`
+- `has_lessons`, `lessons_ready_count`, `lessons_total_count`
+- `minichecks_ready` (≥1 approved minicheck per lesson), `exam_trainer_ready` (≥approved-Pool-Threshold)
+- `tutor_context_ready` (RAG-Index vorhanden), `oral_exam_ready`, `h5p_assets_ready`, `storage_assets_accessible`
+- `delivery_ready` bool, `blocking_reasons text[]`
 
-## Architektur
+Erweitert `v_post_publish_readiness` um Delivery-Spalten → neues SSOT `v_sellable_and_deliverable`:
+`sellable = commerce_ready AND delivery_ready` (harte Regel, ersetzt rein-Stripe-basierte Prüfung).
 
-```text
-status→published
-     │
-     ▼
-fn_post_publish_growth_fanout  (extend)
-     ├─ existing 9 growth jobs ……………… unverändert
-     └─ commerce gate fanout (NEU):
-           commerce_product_visibility_check ─── FAIL ──► commerce_repair_product_missing
-           commerce_price_activation_check ───── FAIL ──► commerce_repair_price_missing
-           commerce_sellability_gate_check ───── PASS ──► seo_backlog_expand_one + crm_product_sync
-                                                └─ FAIL ──► commerce_repair_lesson_gate_failed
-           commerce_audit_snapshot ───────────── always last
-```
+**2. learner_entitlements (neue SSOT-Tabelle, falls noch nicht kanonisch)**
 
-Idempotenz: bestehende Form `commerce:<pkg_id>:<job_type>` als `idempotency_key`. Repair-Jobs hängen `:<reason>` an.
+Bestehende Tabellen `entitlements` + `learner_course_grants` prüfen; bei Bedarf neue View `v_learner_entitlements_ssot` mit Pflichtfeldern:
+`id, buyer_user_id, learner_user_id, product_id, package_id, license_id, status (pending|active|blocked|revoked|failed), access_scope jsonb, activated_at, last_verified_at, blocking_reason`.
 
-## Phasen (jede Phase ist ein Concern, eine Migration)
+Buyer/Learner-Trennung explizit (B2B-fähig).
 
-### Phase 1 — Registry + SSOT-View
-- Migration: 7 neue `ops_job_type_registry`-Rows (4 gate + 3 repair) mit `lane='control'`, `pool='control'`, `requires_package_id=true`, `is_governance=true`.
-- View `v_post_publish_commerce_status_ssot`: pro published Package → `product_public, has_stripe_price, lesson_ready, is_sellable, gate_state ('PASS'|'PRODUCT_MISSING'|'PRICE_MISSING'|'LESSON_GATE_FAILED'|'NOT_SELLABLE')`. REVOKE FROM PUBLIC, GRANT service_role only.
-- RPC `admin_get_post_publish_commerce_status(p_limit, p_state)` mit `has_role('admin')`-Gate.
-- Smoke-SQL: 49 published → state-distribution. Audit `auto_heal_log action_type='commerce_gate_ssot_baseline'`.
+**3. v_my_active_entitlements** — RLS: nur eigene Zeilen (`learner_user_id = auth.uid()`). Frontend-API ausschließlich hierüber.
 
-### Phase 2 — Gate-Check-Funktionen (Handler-RPCs)
-SECURITY DEFINER, service_role only. Werden vom Worker aufgerufen (kein Edge-Code-Touch in Phase 2):
-- `fn_commerce_product_visibility_check(p_package_id)` → PASS/FAIL, enqueued repair job bei FAIL (mirror via `job_queue` mit `enqueue_source='commerce_gate'`), Audit.
-- `fn_commerce_price_activation_check(p_package_id)` analog.
-- `fn_commerce_sellability_gate_check(p_package_id)` (kombiniert `v_public_sellable_courses` per curriculum_id). PASS → enqueued `seo_backlog_expand_one` + `crm_product_sync` mit `wave_tag='post_publish_auto_<pkg_id>'`. FAIL → Repair-Branch passend zur Reason.
-- `fn_commerce_audit_snapshot(p_package_id)` schreibt eine Row in `auto_heal_log` mit allen Flags.
+**4. Post-Purchase Delivery Orchestrator**
 
-Jede Funktion idempotent + retryable + audit-loggt. Bronze-Lock-Override nicht nötig (nicht Council-Pfad).
+Trigger auf `orders.status='paid'` (idempotent, bestehender `trg_orders_paid_grant` wird erweitert):
+Fanout in `job_queue`:
+- `post_purchase_entitlement_create`
+- `post_purchase_license_assign`
+- `post_purchase_course_access_verify`
+- `post_purchase_feature_access_verify` (h5p, tutor, oral, exam)
+- `post_purchase_first_lesson_probe`
+- `post_purchase_delivery_audit_snapshot`
 
-### Phase 3 — Worker-Wiring
-Edge-Function `post-publish-growth-worker` existiert bereits. Erweitern um Dispatch der 7 neuen `job_type`s → ruft die Phase-2-RPCs auf. Deploy direkt nach Code-Push (Memory: Deploy edge functions immediately).
+Erst wenn alle grün → `delivery_status = 'confirmed'` auf `orders` + Audit `auto_heal_log.action_type='post_purchase_delivery'`.
 
-### Phase 4 — Fanout-Extension
-Migration: `fn_post_publish_growth_fanout` um 4 commerce-gate-Jobs erweitern (nicht die Repair-Jobs — die entstehen reaktiv aus Gate-FAIL). Idempotency-Key-Prefix bleibt `post_publish_growth:`.
+Registrierung in `ops_job_type_registry` (lane=`commerce`, requires_package_id=true).
 
-### Phase 5 — Repair-Job-Allowlist
-Migration: Erweiterung des bestehenden `fn_guard_bronze_lock_on_job_enqueue`-Pendants ist nicht nötig (Commerce-Pfad nicht Bronze-gated). Aber: Pflicht-Allowlist für `enqueue_source='commerce_gate'` in jeder Stelle, die fanout-Jobs blockiert (Audit-Check, keine Mutation falls bereits passive).
+**5. Worker**
 
-### Phase 6 — E2E-Smoke
-Script `scripts/e2e/commerce-fanout-smoke.mjs`:
-1. Pick 3 published Pakete: 1 sellable, 1 lesson-gate-fail, 1 ohne Product.
-2. Trigger Re-Fanout via `admin_backfill_post_publish_growth` für jedes.
-3. Erwarte pro Paket 13 Jobs enqueued (9 alt + 4 commerce gate).
-4. Worker laufen lassen (claim) und Gate-States validieren gegen `v_post_publish_commerce_status_ssot`.
-5. Erwarte: Sellable-Paket hat zusätzlich `seo_backlog_expand_one`-Row in `seo_content_priority_queue`. Lesson-Gate-Fail-Paket hat `commerce_repair_lesson_gate_failed`-Job. Product-missing analog.
-6. Audit-Schreibung in `auto_heal_log` für alle Steps.
-7. CI-Workflow `.github/workflows/commerce-fanout-smoke.yml` (PR-Gate).
+Neue Edge `post-purchase-delivery-worker` (oder Erweiterung `post-publish-growth-worker`) mit RPC-Handlern für die 6 Job-Typen. Jeder Handler ruft eine `SECURITY DEFINER` Funktion `fn_post_purchase_*_check(order_id, learner_id)`.
 
-### Phase 7 — Memory + Doc
-- Memory-File `mem://architektur/marketing/post-publish-commerce-gate-fanout-v1.md` (state-machine, job-types, repair-mapping, SSOT-View).
-- Update `mem://index.md` Memories-Liste.
-- Update `docs/LAUNCH_READINESS.md` Sektion „Verkaufbarkeitsregel“ → Link zur Commerce-Gate-SSOT.
+**6. SLA-Wächter (2-Min-Regel)**
 
-## Abgrenzungen (was diese Iteration NICHT macht)
+`fn_detect_post_purchase_delivery_sla_breach(p_minutes int default 2)`:
+findet `orders.status='paid'` ohne `delivery_status='confirmed'` >2 Min → enqueued Audit + (falls möglich) Auto-Repair.
+Cron `post-purchase-delivery-sla-2min` alle 2 Min.
 
-- **Keine** automatische Erzeugung von Products/Prices/Lessons. Gate-Checks enqueuen Repair-Jobs als Signal; tatsächliche Pricing-/Content-Erzeugung bleibt manueller Admin-Pfad (Risiko Stripe-Side-Effects).
-- **Keine** Persona-Expansion (umschueler bleibt off-limits).
-- **Keine** Änderung an bestehenden 9 Growth-Jobs oder am Worker-Auto-Heal-Pfad.
+**7. Admin-Cockpit Card**
 
-## Rollback-Hints
+`PaidButNotDeliveredCard.tsx` im HealCockpit Diagnostics-Tab:
+- Counter pro Status (pending/blocked/failed)
+- Top-N offene Orders mit `blocking_reason`
+- Buttons: Repair Order / Repair Entitlement
 
-- Migration 4 (Fanout-Extension): `CREATE OR REPLACE FUNCTION` zurück auf vorherige 9-Job-Liste — Schema-Snapshot im PR.
-- Migration 1 (Registry): `UPDATE ops_job_type_registry SET is_active=false WHERE job_type LIKE 'commerce\_%'`.
-- Repair-Jobs in `job_queue` cancellbar via `admin_run_post_publish_growth_repair` mit `mode='cancel'`.
+**8. Auto-Repair RPCs (service_role + admin-RPC-Wrapper)**
 
-## Aufwand (Schätzung)
+- `admin_repair_purchase_delivery(p_order_id uuid)` → re-enqueued kompletten Fanout
+- `admin_repair_learner_entitlement(p_entitlement_id uuid)` → revalidate + reactivate
+- Mapping pro Blocking-Reason → spezifischer Repair-Job (entitlement_missing, license_unassigned, access_denied, lesson_unready, h5p_missing, tutor_missing, exam_pool_empty, stripe_paid_app_failed=CRITICAL_ALERT)
 
-- 4 Migrationen (Registry, View+RPC, Gate-RPCs, Fanout-Extension)
-- 1 Edge-Function-Update + Deploy
-- 1 Smoke-Script + 1 CI-Workflow
-- 1 Memory-File + Index-Update
+**9. Checkout-Gate verschärfen**
 
-**Bestätigung benötigt vor Implementierung:**
-1. Commerce-Gate ist Hard-Block (kein SEO/CRM bei NOT_SELLABLE) — korrekt?
-2. `seo_backlog_expand` läuft nur auf sellable=true via Gate, nicht im Trigger-Fanout — korrekt?
-3. Repair-Jobs sind Signal-only (kein Auto-Pricing/Auto-Lesson-Generation) — korrekt?
+`create-product-checkout` prüft jetzt `v_sellable_and_deliverable.is_sellable_and_deliverable=true` statt nur `has_stripe_price`. Bei Fail: 422 + Audit `checkout_blocked_not_deliverable`.
+
+**10. Memory & Doku**
+
+- Memory-Leaf `architektur/marketing/post-purchase-delivery-assurance-v1.md`
+- Update License-Loop-C Bridge Memory (Verweis)
+- `package_license_template_prepare` als **v1-placeholder-noop** im Orchestrator-Memory klar markieren.
+
+### Reihenfolge (in dieser Migration-Discipline-konformen Order)
+
+1. Schema-Introspect (entitlements, learner_course_grants, orders, lesson tables, h5p assets) — eigener Read-Only-Pass
+2. Migration A: `v_course_delivery_readiness` + `v_sellable_and_deliverable`
+3. Migration B: `learner_entitlements` (falls neu) + `v_my_active_entitlements` + RLS
+4. Migration C: 6 neue Job-Typen in `ops_job_type_registry` + Fanout-Trigger-Erweiterung
+5. Migration D: 6 `fn_post_purchase_*_check` RPCs + `fn_detect_post_purchase_delivery_sla_breach`
+6. Edge: `post-purchase-delivery-worker` (RPC-handler-factory wie bei Orchestrator v1.1)
+7. Cron: 2-Min SLA (via insert tool, projekt-spezifisch)
+8. Migration E: `admin_repair_purchase_delivery` + `admin_repair_learner_entitlement`
+9. UI: `PaidButNotDeliveredCard` + HealCockpit-Integration
+10. Edge-Update: `create-product-checkout` Gate verschärfen
+11. Memory + Doku
+12. Smoke: `b2c-ssot-server-smoke.mjs` erweitern um Delivery-Check-Assertion
+
+### Akzeptanzkriterien
+
+- Kein `orders.status='paid'` >2 Min ohne `delivery_status='confirmed'` ODER ein gemeldeter `blocking_reason` mit Repair-Job.
+- `v_my_active_entitlements` ist einzige Frontend-API für Zugriffsprüfung.
+- `sellable = commerce_ready AND delivery_ready` durchgesetzt im Checkout.
+- Smoke grün (single+bundle+refund+delivery-probe).
+
+### Offene Frage vor Implementierung
+
+Eine kurze Klärung, dann ziehe ich durch:
+
+**Soll `learner_entitlements` als neue Tabelle eingeführt werden, oder reicht eine konsolidierende SSOT-View `v_learner_entitlements_ssot` über die bestehenden `entitlements` + `learner_course_grants` (Loop-C-Bridge v2)?**
+
+Empfehlung: **View first**, neue Tabelle nur wenn buyer_id/learner_id-Split in den bestehenden Tabellen nicht abbildbar ist. Das vermeidet Schema-Drift und Doppel-SSOT.
