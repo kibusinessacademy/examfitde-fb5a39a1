@@ -69,7 +69,7 @@ export function ContentFeedbackPipelineCard() {
 
   const resolve = useMutation({
     mutationFn: async ({ id, action }: { id: string; action: "resolve" | "reject" | "duplicate" | "triage" }) => {
-      const { error } = await supabase.rpc("admin_resolve_feedback_event" as never, {
+      const { error } = await (supabase.rpc as any)("admin_resolve_feedback_event", {
         _event_id: id,
         _action: action,
         _notes: null,
