@@ -254,7 +254,8 @@ export function GrowthClassificationCard() {
               </table>
             </div>
 
-            {/* Drilldown filters */}
+            <EligibleRepairsSection />
+
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium text-foreground">Filter:</span>
               <Select value={filter.cls ?? ""} onValueChange={(v) => setFilter(f => ({ ...f, cls: v || undefined }))}>
