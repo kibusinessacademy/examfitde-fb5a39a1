@@ -99,6 +99,11 @@ export default function LearnerDashboard() {
 
         {/* ━━━ HERO: Single Decision Card (Above the Fold) ━━━ */}
         {activeCurriculumId && (
+          <div className="mb-4">
+            <LearnerIntelligenceCard curriculumId={activeCurriculumId} />
+          </div>
+        )}
+        {activeCurriculumId && (
           <div className="mb-6">
             <HeroDecisionCard curriculumId={activeCurriculumId} />
           </div>
