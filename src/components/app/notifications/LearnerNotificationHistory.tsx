@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { History } from "lucide-react";
+import { History, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { de } from "date-fns/locale";
@@ -19,13 +19,15 @@ type Row = {
   opened_at: string | null;
 };
 
-const KIND_LABEL: Record<string, string> = {
-  daily_reminder: "Tageserinnerung",
-  rescue: "Rescue-Hinweis",
-  streak_recovery: "Streak-Recovery",
-  exam_countdown: "Prüfungs-Countdown",
-  weak_competency: "Schwächen-Erinnerung",
-  readiness_summary: "Readiness-Zusammenfassung",
+type Intent = {
+  intent_key: string;
+  label: string;
+  description: string;
+  trigger_reason: string;
+  recovery_action: string;
+  max_per_day: number;
+  respects_quiet_hours: boolean;
+  respects_fatigue: boolean;
 };
 
 const REASON_LABEL: Record<string, string> = {
@@ -34,30 +36,24 @@ const REASON_LABEL: Record<string, string> = {
   fatigue_suppress: "Erschöpfungsschutz",
   wind_down: "Reduzierte Intensität (Bridge-14)",
   same_kind_cooldown: "Cooldown (30 Min.)",
-  daily_cap: "Tageslimit (max. 3)",
-  max_per_day: "Tageslimit (max. 3)",
+  daily_cap: "Tageslimit",
+  max_per_day: "Tageslimit",
 };
-
-function whyText(r: Row): string {
-  if (r.state === "suppressed") {
-    const k = r.suppression_reason ?? "unknown";
-    return REASON_LABEL[k] ?? `Unterdrückt: ${k}`;
-  }
-  if (r.kind === "rescue") return "Lernziel kurz vor dem Verlust — kurzer Auffrischer empfohlen.";
-  if (r.kind === "exam_countdown") return "Deine Prüfungsphase nähert sich.";
-  if (r.kind === "weak_competency") return "Erkannte Lücke in einer Kernkompetenz.";
-  if (r.kind === "streak_recovery") return "Sanfte Erinnerung — kein Druck, nur Empfehlung.";
-  if (r.kind === "readiness_summary") return "Wöchentliche Readiness-Zusammenfassung.";
-  return "Empfehlung deiner Lernsteuerung.";
-}
 
 export default function LearnerNotificationHistory() {
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [registry, setRegistry] = useState<Record<string, Intent>>({});
 
   useEffect(() => {
     (async () => {
-      const { data } = await (supabase as any).rpc("learner_get_recent_notifications", { p_limit: 20 });
-      setRows((data as Row[]) ?? []);
+      const [{ data: rs }, { data: reg }] = await Promise.all([
+        (supabase as any).rpc("learner_get_recent_notifications", { p_limit: 20 }),
+        (supabase as any).rpc("learner_get_intent_registry"),
+      ]);
+      setRows((rs as Row[]) ?? []);
+      const map: Record<string, Intent> = {};
+      ((reg as Intent[]) ?? []).forEach((i) => { map[i.intent_key] = i; });
+      setRegistry(map);
     })();
   }, []);
 
@@ -87,10 +83,23 @@ export default function LearnerNotificationHistory() {
       <CardContent className="space-y-3">
         {rows.map((r) => {
           const ts = r.delivered_at ?? r.scheduled_for;
+          const intent = registry[r.kind];
+          const label = intent?.label ?? r.kind;
+
+          let why: string;
+          if (r.state === "suppressed") {
+            const k = r.suppression_reason ?? "unknown";
+            why = REASON_LABEL[k] ?? `Unterdrückt: ${k}`;
+          } else if (intent) {
+            why = intent.trigger_reason || intent.description;
+          } else {
+            why = "Empfehlung deiner Lernsteuerung.";
+          }
+
           return (
             <div key={r.job_id} className="rounded-md border p-3 text-xs space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium">{KIND_LABEL[r.kind] ?? r.kind}</span>
+                <span className="font-medium">{label}</span>
                 <div className="flex gap-1">
                   {r.state === "delivered" && <Badge variant="outline" className="text-[10px]">Zugestellt</Badge>}
                   {r.state === "suppressed" && <Badge variant="secondary" className="text-[10px]">Unterdrückt</Badge>}
@@ -99,9 +108,16 @@ export default function LearnerNotificationHistory() {
                   {r.was_opened && <Badge className="text-[10px]">Geöffnet</Badge>}
                 </div>
               </div>
-              <p className="text-muted-foreground">
-                <span className="font-medium text-foreground">Warum:</span> {whyText(r)}
+              <p className="text-muted-foreground flex items-start gap-1">
+                <Info className="h-3 w-3 mt-0.5 shrink-0" />
+                <span><span className="font-medium text-foreground">Warum bekomme ich das?</span> {why}</span>
               </p>
+              {intent && (
+                <p className="text-muted-foreground text-[10px]">
+                  Max. {intent.max_per_day}/Tag · {intent.respects_quiet_hours ? "Ruhezeit aktiv" : "ignoriert Ruhezeit"} ·
+                  {intent.respects_fatigue ? " Fatigue-Schutz" : " ohne Fatigue-Schutz"}
+                </p>
+              )}
               <p className="text-muted-foreground">
                 {ts ? formatDistanceToNow(new Date(ts), { addSuffix: true, locale: de }) : "—"}
               </p>
