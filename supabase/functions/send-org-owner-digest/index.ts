@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ status: "ok", processed: jobs.length, sent, failed }),
+    return new Response(JSON.stringify({ status: "ok", processed: jobs.length, sent, failed, skipped_pref }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     return new Response(JSON.stringify({ status: "error", error: String(err) }),
