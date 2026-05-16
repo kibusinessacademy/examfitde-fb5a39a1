@@ -39,7 +39,29 @@ const HANDLED_JOB_TYPES = [
   "package_campaign_assets_generate",
   "package_email_sequence_enroll",
   "package_og_image_generate",
+  // Post-Publish Commerce & Growth Orchestrator v1
+  "commerce_product_visibility_check",
+  "commerce_price_activation_check",
+  "commerce_sellability_gate_check",
+  "commerce_audit_snapshot",
+  "package_seo_backlog_expand",
+  "package_license_template_prepare",
+  "package_post_publish_audit_snapshot",
 ];
+
+// Generic RPC-backed handler factory: calls a SECURITY DEFINER fn(p_package_id uuid)
+// and maps result jsonb {status,reason,details} → Outcome.
+function rpcHandler(fnName: string, args: (pkg: any) => Record<string, unknown> = (p) => ({ p_package_id: p.id })) {
+  return async (sb: ReturnType<typeof createClient>, pkg: any): Promise<Outcome> => {
+    const { data, error } = await sb.rpc(fnName, args(pkg) as any);
+    if (error) return { status: "failed", reason: `rpc_${fnName}: ${error.message}` };
+    const r = (data ?? {}) as Record<string, unknown>;
+    const status = (r.status as string) === "completed" || (r.status as string) === "noop" || (r.status as string) === "failed"
+      ? (r.status as Outcome["status"])
+      : "completed";
+    return { status, reason: (r.reason as string) ?? undefined, details: (r.details as Record<string, unknown>) ?? r };
+  };
+}
 
 type Outcome = {
   status: "completed" | "failed" | "noop";
