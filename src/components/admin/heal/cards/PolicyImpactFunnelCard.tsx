@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Funnel, Beaker } from "lucide-react";
+import { RefreshCw, Filter, Beaker } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type Row = {
@@ -53,7 +53,7 @@ export default function PolicyImpactFunnelCard() {
     <Card className="border-border">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-foreground">
-          <Funnel className="h-4 w-4 text-primary" />
+          <Filter className="h-4 w-4 text-primary" />
           Policy Impact Funnel
           <Badge variant="outline" className="ml-2 text-xs">Track 2.5</Badge>
         </CardTitle>
