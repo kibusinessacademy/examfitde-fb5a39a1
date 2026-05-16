@@ -112,6 +112,7 @@ import { SystemIntentsKpiCard } from "@/components/admin/heal/cards/SystemIntent
 import NotificationKpiCard from "@/components/admin/heal/cards/NotificationKpiCard";
 import NotificationAttributionCard from "@/components/admin/heal/cards/NotificationAttributionCard";
 import NotificationHealthCard from "@/components/admin/heal/cards/NotificationHealthCard";
+import NotificationActionFunnelCard from "@/components/admin/heal/cards/NotificationActionFunnelCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
@@ -358,6 +359,7 @@ export default function HealCockpitPage() {
             <NotificationKpiCard />
             <NotificationAttributionCard />
             <NotificationHealthCard />
+            <NotificationActionFunnelCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
             <QueuedStallSuggestionCard />
