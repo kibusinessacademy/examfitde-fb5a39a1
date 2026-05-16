@@ -83,9 +83,56 @@ async function runMode(mode) {
   return { ok: json.ok && failures.length === 0, mode, failures, order_id: json.order_id };
 }
 
+/**
+ * Post-Purchase Delivery Assurance v1 — SLA 2 min.
+ * Polls orders.delivery_status via PostgREST (service-role) up to 150s
+ * (worker + SLA cron run every 2 min). Pass = delivery_status='confirmed'.
+ */
+async function assertDeliveryConfirmed(orderId, mode, { timeoutMs = 150_000, intervalMs = 5_000 } = {}) {
+  if (!orderId) return { ok: true, mode, skipped: true, reason: 'no_order_id' };
+  const url = `${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}&select=delivery_status,delivery_blocking_reasons,delivery_confirmed_at,status`;
+  const headers = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` };
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    const res = await fetch(url, { headers });
+    const rows = await res.json().catch(() => []);
+    last = Array.isArray(rows) && rows[0] ? rows[0] : null;
+    if (last?.delivery_status === 'confirmed') {
+      const elapsed = Math.round((timeoutMs - (deadline - Date.now())) / 1000);
+      console.log(`[delivery:${mode}] ✅ confirmed in ~${elapsed}s order=${orderId}`);
+      return { ok: true, mode, order_id: orderId, delivery_status: 'confirmed', elapsed_s: elapsed };
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  console.error(`[delivery:${mode}] ❌ NOT confirmed within ${timeoutMs/1000}s — last=`, last);
+  return {
+    ok: false,
+    mode,
+    order_id: orderId,
+    failures: [`delivery_not_confirmed_within_${timeoutMs/1000}s status=${last?.delivery_status ?? 'null'} reasons=${(last?.delivery_blocking_reasons ?? []).join('|')}`],
+  };
+}
+
 const results = [];
 for (const mode of MODES) {
   results.push(await runMode(mode));
+}
+
+// Post-Purchase Delivery Assurance v1 — assert delivery_confirmed for single+bundle modes.
+// Skipped automatically when SMOKE_SKIP_DELIVERY_ASSERT=true (e.g. CI in cold-start).
+if (process.env.SMOKE_SKIP_DELIVERY_ASSERT !== 'true') {
+  for (const r of results) {
+    if (!r.ok) continue;
+    if (!['single', 'bundle'].includes(r.mode)) continue;
+    const dr = await assertDeliveryConfirmed(r.order_id, r.mode);
+    if (!dr.ok) {
+      r.ok = false;
+      r.failures = [...(r.failures || []), ...(dr.failures || [])];
+    } else if (!dr.skipped) {
+      r.delivery_elapsed_s = dr.elapsed_s;
+    }
+  }
 }
 
 console.log('\n[server-smoke] === SUMMARY ===');
