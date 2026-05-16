@@ -134,6 +134,7 @@ import { GrowthSignalsCard } from "@/components/admin/heal/cards/GrowthSignalsCa
 import { GrowthClassificationCard } from "@/components/admin/heal/cards/GrowthClassificationCard";
 import { CanonicalDriftRunbookCard } from "@/components/admin/heal/cards/CanonicalDriftRunbookCard";
 import { AttributionAuditCard } from "@/components/admin/heal/cards/AttributionAuditCard";
+import { RepairEligibilityCard } from "@/components/admin/heal/cards/RepairEligibilityCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
@@ -401,6 +402,7 @@ export default function HealCockpitPage() {
             <GrowthClassificationCard />
             <CanonicalDriftRunbookCard />
             <AttributionAuditCard />
+            <RepairEligibilityCard />
             <CustomerSafeReadinessCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
