@@ -44,6 +44,7 @@ const AppInvoicesPage = lazyRetry(() => import('@/pages/app/AppInvoicesPage'));
 const AppDownloadsPage = lazyRetry(() => import('@/pages/app/AppDownloadsPage'));
 const AppLicensesPage = lazyRetry(() => import('@/pages/app/AppLicensesPage'));
 const AppProfilePage = lazyRetry(() => import('@/pages/app/AppProfilePage'));
+const AppNotificationsPage = lazyRetry(() => import('@/pages/app/AppNotificationsPage'));
 const AppGdprPage = lazyRetry(() => import('@/pages/app/AppGdprPage'));
 
 // SEO Pages
@@ -440,6 +441,7 @@ const AppRoutes = () => {
             <Route path="downloads" element={<AppDownloadsPage />} />
             <Route path="lizenzen" element={<AppLicensesPage />} />
             <Route path="profil" element={<AppProfilePage />} />
+            <Route path="benachrichtigungen" element={<AppNotificationsPage />} />
             <Route path="dsgvo" element={<AppGdprPage />} />
           </Route>
         </Route>
