@@ -55,6 +55,7 @@ import { OpsCancelSkipRiseCard } from "@/components/admin/heal/cards/OpsCancelSk
 import { ArtifactCompletenessCard } from "@/components/admin/heal/cards/ArtifactCompletenessCard";
 import { LessonJoinParityCard } from "@/components/admin/heal/cards/LessonJoinParityCard";
 import { PostPublishOrchestratorCard } from "@/components/admin/heal/cards/PostPublishOrchestratorCard";
+import { PaidButNotDeliveredCard } from "@/components/admin/heal/cards/PaidButNotDeliveredCard";
 import { SeoJobHealthCard } from "@/components/admin/heal/cards/SeoJobHealthCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
@@ -409,6 +410,7 @@ export default function HealCockpitPage() {
                 <OpsCancelSkipRiseCard />
                 <LessonJoinParityCard />
                 <PostPublishOrchestratorCard />
+                <PaidButNotDeliveredCard />
                 <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />

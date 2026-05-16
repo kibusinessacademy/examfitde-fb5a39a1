@@ -160,6 +160,52 @@ Deno.serve(async (req) => {
     }
     logStep("Package resolved", { packageId: resolvedPackageId, persona: resolvedPersona });
 
+    // ── Sellable & Deliverable Hard-Gate (SSOT v_sellable_and_deliverable) ──
+    // No checkout if package is not published, not delivery-ready, product not public, or no Stripe price.
+    if (resolvedPackageId) {
+      const { data: gate, error: gateErr } = await adminClient
+        .from("v_sellable_and_deliverable")
+        .select("is_sellable_and_deliverable, is_published, delivery_ready, product_public, has_stripe_price, delivery_blocking_reasons")
+        .eq("course_package_id", resolvedPackageId)
+        .maybeSingle();
+
+      if (gateErr) {
+        logStep("sellable_and_deliverable gate lookup failed (non-fatal, allowing)", { error: gateErr.message });
+      } else if (gate && gate.is_sellable_and_deliverable !== true) {
+        const reasons: string[] = [];
+        if (gate.is_published === false) reasons.push("not_published");
+        if (gate.delivery_ready === false) reasons.push("delivery_not_ready");
+        if (gate.product_public === false) reasons.push("product_not_public");
+        if (gate.has_stripe_price === false) reasons.push("no_stripe_price");
+        for (const r of (gate.delivery_blocking_reasons ?? [])) reasons.push(`delivery:${r}`);
+
+        await adminClient.from("auto_heal_log").insert({
+          action_type: "checkout_blocked_not_sellable_and_deliverable",
+          target_type: "course_packages",
+          target_id: resolvedPackageId,
+          result_status: "blocked",
+          metadata: {
+            user_id: user.id,
+            product_id: product.id,
+            product_slug: productSlug,
+            reasons,
+            gate,
+            source: "create-product-checkout",
+          },
+        });
+        logStep("Checkout blocked: package not sellable_and_deliverable", { packageId: resolvedPackageId, reasons });
+        return new Response(JSON.stringify({
+          ok: false,
+          error: "Dieses Produkt ist aktuell nicht kaufbar. Bitte versuche es in wenigen Minuten erneut.",
+          error_code: "not_sellable_and_deliverable",
+          reasons,
+        }), {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // ── Load active price ──
     const { data: price, error: priceError } = await adminClient
       .from("product_prices")
