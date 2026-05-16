@@ -130,6 +130,7 @@ import { TrackM8StatusCard } from "@/components/admin/heal/cards/TrackM8StatusCa
 import { TrackM9StatusCard } from "@/components/admin/heal/cards/TrackM9StatusCard";
 import { CustomerSafeReadinessCard } from "@/components/admin/heal/cards/CustomerSafeReadinessCard";
 import { OperationalStateCard } from "@/components/admin/heal/cards/OperationalStateCard";
+import { GrowthSignalsCard } from "@/components/admin/heal/cards/GrowthSignalsCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
