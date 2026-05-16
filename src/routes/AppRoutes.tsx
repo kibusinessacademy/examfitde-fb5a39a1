@@ -239,6 +239,7 @@ const AppRoutes = () => {
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/installieren" element={<InstallPage />} />
+        <Route path="/renew" element={<RenewPage />} />
         <Route path="/tools/event-inspector" element={<EventInspectorPage />} />
         <Route path="/quiz/:slug" element={<LeadQuizPage />} />
         <Route path="/lernplan/:slug" element={<LernplanPage />} />
