@@ -121,6 +121,7 @@ import PolicyImpactFunnelCard from "@/components/admin/heal/cards/PolicyImpactFu
 import NotificationFinalizationCard from "@/components/admin/heal/cards/NotificationFinalizationCard";
 import NotificationRevenueAttributionCard from "@/components/admin/heal/cards/NotificationRevenueAttributionCard";
 import B2bRenewalPipelineCard from "@/components/admin/heal/cards/B2bRenewalPipelineCard";
+import UpsellDiscoveryCard from "@/components/admin/heal/cards/UpsellDiscoveryCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
