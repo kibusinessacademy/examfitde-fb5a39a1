@@ -119,6 +119,7 @@ import NotificationEffectivenessCard from "@/components/admin/heal/cards/Notific
 import AdaptivePolicyCard from "@/components/admin/heal/cards/AdaptivePolicyCard";
 import PolicyImpactFunnelCard from "@/components/admin/heal/cards/PolicyImpactFunnelCard";
 import NotificationFinalizationCard from "@/components/admin/heal/cards/NotificationFinalizationCard";
+import NotificationRevenueAttributionCard from "@/components/admin/heal/cards/NotificationRevenueAttributionCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
