@@ -126,6 +126,7 @@ import { TrackM4StatusCard } from "@/components/admin/heal/cards/TrackM4StatusCa
 import { TrackM5StatusCard } from "@/components/admin/heal/cards/TrackM5StatusCard";
 import { TrackM6StatusCard } from "@/components/admin/heal/cards/TrackM6StatusCard";
 import { TrackM7StatusCard } from "@/components/admin/heal/cards/TrackM7StatusCard";
+import { TrackM8StatusCard } from "@/components/admin/heal/cards/TrackM8StatusCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
