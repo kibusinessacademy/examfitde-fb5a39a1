@@ -19,6 +19,7 @@ import AppRoutes from "@/routes/AppRoutes";
 import { AccessDebugPanel } from "@/components/debug/AccessDebugPanel";
 import { useHeatmapTracking } from "@/features/analytics/useHeatmapTracking";
 import { useGtmPageView } from "@/hooks/useGtmPageView";
+import { useNotificationAttribution } from "@/hooks/useNotificationAttribution";
 import { CookieConsentBanner } from "@/components/consent/CookieConsentBanner";
 
 const queryClient = new QueryClient({
@@ -91,6 +92,7 @@ function AppChrome() {
   useTrailingSlashNormalizer();
   useHeatmapTracking({ source: "site" });
   useGtmPageView();
+  useNotificationAttribution();
 
   // Detect partner referral params on landing
   useEffect(() => {
