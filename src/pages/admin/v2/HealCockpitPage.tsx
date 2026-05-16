@@ -110,6 +110,8 @@ import { ForcePublishLogPanel } from "@/components/admin/heal/ForcePublishLogPan
 import { CouncilDeferredCard } from "@/components/admin/heal/cards/CouncilDeferredCard";
 import { SystemIntentsKpiCard } from "@/components/admin/heal/cards/SystemIntentsKpiCard";
 import NotificationKpiCard from "@/components/admin/heal/cards/NotificationKpiCard";
+import NotificationAttributionCard from "@/components/admin/heal/cards/NotificationAttributionCard";
+import NotificationHealthCard from "@/components/admin/heal/cards/NotificationHealthCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
@@ -354,6 +356,8 @@ export default function HealCockpitPage() {
             <SnapshotDriftCard />
             <SystemIntentsKpiCard />
             <NotificationKpiCard />
+            <NotificationAttributionCard />
+            <NotificationHealthCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
             <QueuedStallSuggestionCard />
