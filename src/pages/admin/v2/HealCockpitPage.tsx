@@ -125,6 +125,7 @@ import UpsellDiscoveryCard from "@/components/admin/heal/cards/UpsellDiscoveryCa
 import { TrackM4StatusCard } from "@/components/admin/heal/cards/TrackM4StatusCard";
 import { TrackM5StatusCard } from "@/components/admin/heal/cards/TrackM5StatusCard";
 import { TrackM6StatusCard } from "@/components/admin/heal/cards/TrackM6StatusCard";
+import { TrackM7StatusCard } from "@/components/admin/heal/cards/TrackM7StatusCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
@@ -384,6 +385,7 @@ export default function HealCockpitPage() {
             <TrackM4StatusCard />
             <TrackM5StatusCard />
             <TrackM6StatusCard />
+            <TrackM7StatusCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
             <QueuedStallSuggestionCard />
