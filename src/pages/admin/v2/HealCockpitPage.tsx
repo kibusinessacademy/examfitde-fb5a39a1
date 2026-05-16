@@ -61,6 +61,7 @@ import { ExamReadinessDistributionCard } from "@/components/admin/heal/cards/Exa
 import { ContentFeedbackPipelineCard } from "@/components/admin/heal/cards/ContentFeedbackPipelineCard";
 import { NextBestActionDistributionCard } from "@/components/admin/heal/cards/NextBestActionDistributionCard";
 import { ExamSuccessDriversCard } from "@/components/admin/heal/cards/ExamSuccessDriversCard";
+import { InterventionEffectivenessCard } from "@/components/admin/heal/cards/InterventionEffectivenessCard";
 import { SeoJobHealthCard } from "@/components/admin/heal/cards/SeoJobHealthCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
@@ -421,6 +422,7 @@ export default function HealCockpitPage() {
                 <ContentFeedbackPipelineCard />
                 <NextBestActionDistributionCard />
                 <ExamSuccessDriversCard />
+                <InterventionEffectivenessCard />
                 <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
