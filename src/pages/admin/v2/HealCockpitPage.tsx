@@ -412,6 +412,7 @@ export default function HealCockpitPage() {
                 <LessonJoinParityCard />
                 <PostPublishOrchestratorCard />
                 <PaidButNotDeliveredCard />
+                <ActivationFunnelCard />
                 <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
