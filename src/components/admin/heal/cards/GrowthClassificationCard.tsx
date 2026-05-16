@@ -257,6 +257,7 @@ export function GrowthClassificationCard() {
             <EligibleRepairsSection />
             <LocalRepairWorkerSection />
             <RepairOutcomeVerificationSection />
+            <RepairGovernanceSection />
 
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium text-foreground">Filter:</span>
@@ -940,6 +941,293 @@ function RepairOutcomeVerificationSection() {
               );
             })}
           </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Track 2.3f — Outcome-based Repair Governance Section
+// Read-only health table per (signal, canonical_job_type) with
+// recommendation + state badge. Admin override + manual recompute.
+// ─────────────────────────────────────────────────────────────────────
+type StrategyRow = {
+  signal: string;
+  canonical_job_type: string;
+  total: number;
+  pending: number;
+  closed: number;
+  failed: number;
+  stale: number;
+  abandoned: number;
+  verified: number;
+  close_rate_pct: number | null;
+  fail_rate_pct: number | null;
+  stale_rate_pct: number | null;
+  abandoned_rate_pct: number | null;
+  avg_close_minutes: number | null;
+  trust_score: number | null;
+  governance_state: "active" | "downranked" | "blocked";
+  persisted_recommendation: string | null;
+  manual_override: boolean | null;
+  override_reason: string | null;
+  last_recomputed_at: string | null;
+  state_changed_at: string | null;
+};
+
+type GovernanceHealth = {
+  window_days: number;
+  totals: {
+    strategies: number;
+    blocked: number;
+    downranked: number;
+    active: number;
+    manual: number;
+    total_outcomes: number | null;
+    total_closed: number | null;
+    total_failed: number | null;
+  };
+  strategies: StrategyRow[];
+  recent_events: Array<{
+    created_at: string;
+    result_status: string;
+    metadata: Record<string, unknown> | null;
+  }>;
+};
+
+function RepairGovernanceSection() {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<"recompute" | "override" | null>(null);
+
+  const healthQ = useQuery({
+    queryKey: ["growth-repair-governance-health"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_growth_repair_strategy_health" as any,
+      );
+      if (error) throw error;
+      return data as GovernanceHealth;
+    },
+    refetchInterval: 60_000,
+  });
+
+  const recompute = useMutation({
+    mutationFn: async (reason: string) => {
+      const { data, error } = await supabase.rpc(
+        "admin_recompute_growth_repair_governance" as any,
+        { _reason: reason },
+      );
+      if (error) throw error;
+      return data as {
+        seen: number;
+        changed: number;
+        blocked: number;
+        downranked: number;
+        active: number;
+      };
+    },
+    onSuccess: (r) =>
+      toast.success(
+        `Recompute: ${r.seen} strategies · ${r.changed} state changes · ${r.blocked} blocked / ${r.downranked} downranked`,
+      ),
+    onError: (e: any) => toast.error(e.message ?? "Recompute failed"),
+    onSettled: () => {
+      setBusy(null);
+      qc.invalidateQueries({ queryKey: ["growth-repair-governance-health"] });
+    },
+  });
+
+  const override = useMutation({
+    mutationFn: async (args: {
+      signal: string;
+      canonical: string;
+      state: "active" | "downranked" | "blocked";
+      reason: string;
+    }) => {
+      const { data, error } = await supabase.rpc(
+        "admin_set_growth_repair_strategy_override" as any,
+        {
+          _signal: args.signal,
+          _canonical_job_type: args.canonical,
+          _state: args.state,
+          _reason: args.reason,
+          _manual: true,
+        },
+      );
+      if (error) throw error;
+      return data as { new_state: string; old_state: string };
+    },
+    onSuccess: (r) =>
+      toast.success(`Override applied: ${r.old_state} → ${r.new_state}`),
+    onError: (e: any) => toast.error(e.message ?? "Override failed"),
+    onSettled: () => {
+      setBusy(null);
+      qc.invalidateQueries({ queryKey: ["growth-repair-governance-health"] });
+    },
+  });
+
+  const h = healthQ.data;
+  const t = h?.totals;
+
+  function recBadge(rec: string | null | undefined) {
+    if (!rec) return null;
+    const tone: "success" | "warning" | "destructive" | "secondary" =
+      rec === "trust"     ? "success" :
+      rec === "block"     ? "destructive" :
+      rec === "downrank"  ? "warning" :
+      rec === "tune"      ? "warning" :
+      "secondary";
+    return <Pill tone={tone}>{rec}</Pill>;
+  }
+
+  function stateBadge(state: StrategyRow["governance_state"], manual: boolean | null) {
+    const tone =
+      state === "blocked"    ? "destructive" :
+      state === "downranked" ? "warning" :
+      "success";
+    return (
+      <span className="inline-flex items-center gap-1">
+        <Pill tone={tone}>{state}</Pill>
+        {manual && <Badge variant="outline" className="text-[9px] font-mono">manual</Badge>}
+      </span>
+    );
+  }
+
+  function promptOverride(s: StrategyRow) {
+    const target = window.prompt(
+      `Override state for ${s.signal} / ${s.canonical_job_type}\nCurrent: ${s.governance_state}\nEnter: active | downranked | blocked`,
+      s.governance_state,
+    );
+    if (!target || !["active", "downranked", "blocked"].includes(target.trim())) {
+      if (target) toast.error("Invalid state");
+      return;
+    }
+    const reason = window.prompt("Reason (min 3 chars)") ?? "";
+    if (reason.trim().length < 3) {
+      toast.error("Reason required");
+      return;
+    }
+    setBusy("override");
+    override.mutate({
+      signal: s.signal,
+      canonical: s.canonical_job_type,
+      state: target.trim() as "active" | "downranked" | "blocked",
+      reason: reason.trim(),
+    });
+  }
+
+  return (
+    <div className="mt-6 rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-4 w-4 text-foreground" />
+          <h4 className="text-sm font-semibold text-foreground">
+            Repair Governance · Track 2.3f
+          </h4>
+          <Badge variant="outline" className="text-[10px] font-mono">
+            cron 1h · 14d window
+          </Badge>
+        </div>
+        <Button
+          variant="outline" size="sm" className="h-7 text-xs"
+          disabled={busy !== null}
+          onClick={() => {
+            const reason = window.prompt("Reason (min 3 chars)") ?? "";
+            if (reason.trim().length < 3) {
+              toast.error("Reason required");
+              return;
+            }
+            setBusy("recompute");
+            recompute.mutate(reason.trim());
+          }}
+        >
+          <RefreshCw className="h-3 w-3 mr-1" />
+          {busy === "recompute" ? "…" : "Recompute"}
+        </Button>
+      </div>
+
+      {healthQ.isLoading && <Skeleton className="h-16 w-full" />}
+      {h && t && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <KpiPill label="Strategies" value={t.strategies} tone="neutral" />
+            <KpiPill label="Active" value={t.active} tone="success" />
+            <KpiPill label="Downranked" value={t.downranked} tone="warning" />
+            <KpiPill label="Blocked" value={t.blocked} tone="warning" />
+            <KpiPill label="Manual" value={t.manual} tone="info" />
+          </div>
+
+          {h.strategies.length === 0 && (
+            <div className="text-[11px] text-muted-foreground">
+              Noch keine Outcomes — Governance wartet auf Verifier-Daten (Track 2.3e).
+            </div>
+          )}
+
+          {h.strategies.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] font-mono">
+                <thead>
+                  <tr className="text-muted-foreground border-b border-border">
+                    <th className="text-left py-1 pr-2">Signal / Job</th>
+                    <th className="text-right pr-2">N</th>
+                    <th className="text-right pr-2">close%</th>
+                    <th className="text-right pr-2">fail%</th>
+                    <th className="text-right pr-2">stale%</th>
+                    <th className="text-right pr-2">trust</th>
+                    <th className="text-left pr-2">Rec.</th>
+                    <th className="text-left pr-2">State</th>
+                    <th className="text-right">·</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {h.strategies.map((s, i) => (
+                    <tr key={i} className="border-b border-border/40">
+                      <td className="py-1 pr-2">
+                        <div className="text-foreground">{s.signal}</div>
+                        <div className="text-muted-foreground">{s.canonical_job_type}</div>
+                      </td>
+                      <td className="text-right pr-2 text-foreground">{s.total}</td>
+                      <td className="text-right pr-2">{s.close_rate_pct ?? "—"}</td>
+                      <td className="text-right pr-2">{s.fail_rate_pct ?? "—"}</td>
+                      <td className="text-right pr-2">{s.stale_rate_pct ?? "—"}</td>
+                      <td className="text-right pr-2">{s.trust_score ?? "—"}</td>
+                      <td className="pr-2">{recBadge(s.persisted_recommendation)}</td>
+                      <td className="pr-2">{stateBadge(s.governance_state, s.manual_override)}</td>
+                      <td className="text-right">
+                        <Button
+                          variant="ghost" size="sm" className="h-6 px-2 text-[10px]"
+                          disabled={busy !== null}
+                          onClick={() => promptOverride(s)}
+                        >
+                          override
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {h.recent_events.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[11px] text-muted-foreground font-medium">
+                Recent governance events
+              </div>
+              {h.recent_events.slice(0, 6).map((r, i) => {
+                const m = (r.metadata ?? {}) as any;
+                return (
+                  <div key={i} className="text-[10px] font-mono text-muted-foreground border-l-2 border-border pl-2">
+                    {new Date(r.created_at).toLocaleString("de-DE")} ·{" "}
+                    <span className="text-foreground">{r.result_status}</span>
+                    {m.old_state && m.new_state && <> · {m.old_state} → {m.new_state}</>}
+                    {m.changed !== undefined && <> · {m.changed} changed</>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
     </div>
