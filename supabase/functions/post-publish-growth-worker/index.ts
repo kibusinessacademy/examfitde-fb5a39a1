@@ -39,7 +39,29 @@ const HANDLED_JOB_TYPES = [
   "package_campaign_assets_generate",
   "package_email_sequence_enroll",
   "package_og_image_generate",
+  // Post-Publish Commerce & Growth Orchestrator v1
+  "commerce_product_visibility_check",
+  "commerce_price_activation_check",
+  "commerce_sellability_gate_check",
+  "commerce_audit_snapshot",
+  "package_seo_backlog_expand",
+  "package_license_template_prepare",
+  "package_post_publish_audit_snapshot",
 ];
+
+// Generic RPC-backed handler factory: calls a SECURITY DEFINER fn(p_package_id uuid)
+// and maps result jsonb {status,reason,details} → Outcome.
+function rpcHandler(fnName: string, args: (pkg: any) => Record<string, unknown> = (p) => ({ p_package_id: p.id })) {
+  return async (sb: ReturnType<typeof createClient>, pkg: any): Promise<Outcome> => {
+    const { data, error } = await sb.rpc(fnName, args(pkg) as any);
+    if (error) return { status: "failed", reason: `rpc_${fnName}: ${error.message}` };
+    const r = (data ?? {}) as Record<string, unknown>;
+    const status = (r.status as string) === "completed" || (r.status as string) === "noop" || (r.status as string) === "failed"
+      ? (r.status as Outcome["status"])
+      : "completed";
+    return { status, reason: (r.reason as string) ?? undefined, details: (r.details as Record<string, unknown>) ?? r };
+  };
+}
 
 type Outcome = {
   status: "completed" | "failed" | "noop";
@@ -486,6 +508,19 @@ const HANDLERS: Record<string, (sb: any, pkg: any) => Promise<Outcome>> = {
   package_campaign_assets_generate: handleCampaignAssets,
   package_email_sequence_enroll: handleEmailSequenceEnroll,
   package_og_image_generate: handleOgImageGenerate,
+  // Post-Publish Commerce & Growth Orchestrator v1 (RPC-backed)
+  commerce_product_visibility_check: rpcHandler("fn_commerce_product_visibility_check"),
+  commerce_price_activation_check: rpcHandler("fn_commerce_price_activation_check"),
+  commerce_sellability_gate_check: rpcHandler("fn_commerce_sellability_gate_check"),
+  commerce_audit_snapshot: rpcHandler("fn_commerce_audit_snapshot"),
+  package_post_publish_audit_snapshot: rpcHandler("fn_commerce_audit_snapshot"),
+  package_seo_backlog_expand: rpcHandler("fn_seo_backlog_expand_for_package"),
+  // Signal-only placeholder until license_template SSOT exists.
+  package_license_template_prepare: async (_sb, _pkg) => ({
+    status: "noop",
+    reason: "license_template_signal_only_v1",
+    details: { note: "Placeholder handler — to be wired when license_template SSOT lands." },
+  }),
 };
 
 // ── Drain loop ────────────────────────────────────────────────────
