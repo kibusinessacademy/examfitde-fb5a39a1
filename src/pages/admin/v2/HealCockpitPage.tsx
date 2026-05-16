@@ -131,6 +131,7 @@ import { TrackM9StatusCard } from "@/components/admin/heal/cards/TrackM9StatusCa
 import { CustomerSafeReadinessCard } from "@/components/admin/heal/cards/CustomerSafeReadinessCard";
 import { OperationalStateCard } from "@/components/admin/heal/cards/OperationalStateCard";
 import { GrowthSignalsCard } from "@/components/admin/heal/cards/GrowthSignalsCard";
+import { GrowthClassificationCard } from "@/components/admin/heal/cards/GrowthClassificationCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
@@ -395,6 +396,7 @@ export default function HealCockpitPage() {
             <TrackM9StatusCard />
             <OperationalStateCard />
             <GrowthSignalsCard />
+            <GrowthClassificationCard />
             <CustomerSafeReadinessCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
