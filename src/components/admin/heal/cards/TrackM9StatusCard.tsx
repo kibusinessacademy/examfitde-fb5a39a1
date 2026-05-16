@@ -12,6 +12,7 @@ type SummaryRow = {
   modules_missing: number;
   lessons_missing: number;
   lessons_not_ready: number;
+  content_gap_published_locked: number;
   questions_missing: number;
   pricing_missing: number;
 };
@@ -62,22 +63,34 @@ export function TrackM9StatusCard() {
     (s, r) => s + r.modules_missing + r.lessons_missing + r.lessons_not_ready,
     0,
   );
+  const publishedLocked = data.reduce(
+    (s, r) => s + (r.content_gap_published_locked ?? 0),
+    0,
+  );
   const pct = total > 0 ? Math.round((sellable / total) * 100) : 0;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
+        <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
           M9 · Content Sellability Gap Closure
           <Badge variant={contentGaps === 0 ? "default" : "secondary"}>
             {sellable}/{total} sellable · {pct}%
           </Badge>
+          {publishedLocked > 0 && (
+            <Badge variant="outline">
+              {publishedLocked} published-locked (M9.3b)
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-xs">
         <p className="text-muted-foreground">
           Track-aware: EXAM_FIRST braucht nur ≥50 approved questions + Pricing.
           AUSBILDUNG_VOLL / EXAM_FIRST_PLUS zusätzlich Modules + Lessons (ready).
+          <strong className="ml-1">published-locked</strong> = Pipeline-Guards
+          blocken Repair-Jobs auf published Paketen; eigener Post-Publish Worker
+          (M9.3b) folgt — Backfill ignoriert diese Klasse.
         </p>
 
         <div className="overflow-x-auto">
@@ -90,6 +103,7 @@ export function TrackM9StatusCard() {
                 <th>Mod−</th>
                 <th>Les−</th>
                 <th>NotReady</th>
+                <th>Locked</th>
                 <th>Q−</th>
                 <th>Pric−</th>
               </tr>
@@ -103,6 +117,7 @@ export function TrackM9StatusCard() {
                   <td>{r.modules_missing || ""}</td>
                   <td>{r.lessons_missing || ""}</td>
                   <td>{r.lessons_not_ready || ""}</td>
+                  <td>{r.content_gap_published_locked || ""}</td>
                   <td>{r.questions_missing || ""}</td>
                   <td>{r.pricing_missing || ""}</td>
                 </tr>
@@ -123,9 +138,15 @@ export function TrackM9StatusCard() {
             Repair-Backfill (10)
           </Button>
         </div>
-        {contentGaps === 0 && (
+        {contentGaps === 0 && publishedLocked === 0 && (
           <p className="text-muted-foreground">
-            Keine echten Content-Gaps offen. Pricing/Questions werden in M8 / Content-Gap-Top-Up gehandhabt.
+            Keine echten Content-Gaps offen.
+          </p>
+        )}
+        {contentGaps === 0 && publishedLocked > 0 && (
+          <p className="text-muted-foreground">
+            Keine pipeline-reparierbaren Gaps. {publishedLocked} Pakete warten
+            auf M9.3b Post-Publish Content-Repair Worker.
           </p>
         )}
       </CardContent>
