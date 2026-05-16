@@ -256,6 +256,7 @@ export function GrowthClassificationCard() {
 
             <EligibleRepairsSection />
             <LocalRepairWorkerSection />
+            <RepairOutcomeVerificationSection />
 
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium text-foreground">Filter:</span>
