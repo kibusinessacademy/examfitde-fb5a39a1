@@ -117,6 +117,7 @@ import NotificationSuppressionGovernanceCard from "@/components/admin/heal/cards
 import NotificationRecoveryRoutingCard from "@/components/admin/heal/cards/NotificationRecoveryRoutingCard";
 import NotificationEffectivenessCard from "@/components/admin/heal/cards/NotificationEffectivenessCard";
 import AdaptivePolicyCard from "@/components/admin/heal/cards/AdaptivePolicyCard";
+import PolicyImpactFunnelCard from "@/components/admin/heal/cards/PolicyImpactFunnelCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
@@ -368,6 +369,7 @@ export default function HealCockpitPage() {
             <NotificationRecoveryRoutingCard />
             <NotificationEffectivenessCard />
             <AdaptivePolicyCard />
+            <PolicyImpactFunnelCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
             <QueuedStallSuggestionCard />

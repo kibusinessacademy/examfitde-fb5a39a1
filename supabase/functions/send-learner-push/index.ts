@@ -51,8 +51,16 @@ Deno.serve(async (req) => {
   let delivered = 0;
   let failed = 0;
   let no_subs = 0;
+  let suppressed = 0;
+  let delayed = 0;
 
   for (const job of jobs) {
+    // Track 2.5 — enforce adaptive policy at dispatch time
+    const { data: enforcement } = await sb.rpc("fn_enforce_notification_policy", { p_job_id: job.id });
+    const action = (enforcement as any)?.action ?? "allowed";
+    if (action === "suppressed") { suppressed += 1; continue; }
+    if (action === "delayed") { delayed += 1; continue; }
+
     const { data: subs } = await sb
       .from("learner_push_subscriptions")
       .select("id,endpoint,p256dh,auth_key")
@@ -120,7 +128,7 @@ Deno.serve(async (req) => {
   }
 
   return new Response(
-    JSON.stringify({ status: "ok", claimed: jobs.length, delivered, failed, no_subs }),
+    JSON.stringify({ status: "ok", claimed: jobs.length, delivered, failed, no_subs, suppressed, delayed }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
   );
 });
