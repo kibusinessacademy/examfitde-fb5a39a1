@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.fn_growth_repair_class(text) TO PUBLIC;
