@@ -95,9 +95,84 @@ export default function AppNotificationsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Shield className="h-4 w-4" /> Kanäle
+              <Smartphone className="h-4 w-4" /> Push auf diesem Gerät
             </CardTitle>
           </CardHeader>
+          <CardContent className="space-y-3">
+            {push.status === "unsupported" && (
+              <p className="text-xs text-muted-foreground">
+                Dein Browser unterstützt keine Web-Push-Benachrichtigungen. Auf iOS funktioniert Push
+                nur, wenn ExamFit als Web-App zum Home-Bildschirm hinzugefügt wurde.
+              </p>
+            )}
+            {push.status === "denied" && (
+              <Alert variant="destructive">
+                <XCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  Du hast Benachrichtigungen für diese Seite blockiert. Aktiviere sie in den
+                  Browser-Einstellungen unter „Website-Berechtigungen“.
+                </AlertDescription>
+              </Alert>
+            )}
+            {push.status === "subscribed" && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span>Push ist auf diesem Gerät aktiv.</span>
+                </div>
+                <Button size="sm" variant="outline" onClick={push.unsubscribe} disabled={push.busy}>
+                  Push abmelden
+                </Button>
+              </div>
+            )}
+            {(push.status === "prompt" || push.status === "idle" || push.status === "error") && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm">Push-Benachrichtigungen auf diesem Gerät aktivieren.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Du kannst es jederzeit wieder abschalten.
+                  </p>
+                </div>
+                <Button size="sm" onClick={push.subscribe} disabled={push.busy}>
+                  {push.busy ? "…" : "Aktivieren"}
+                </Button>
+              </div>
+            )}
+            {push.error && (
+              <p className="text-xs text-destructive">{push.error}</p>
+            )}
+            <div className="flex flex-wrap gap-2 pt-2 border-t">
+              <Badge variant="outline" className="text-[10px]">Max. 3 Pushes / Tag</Badge>
+              <Badge variant="outline" className="text-[10px]">Ruhezeiten aktiv</Badge>
+              <Badge variant="outline" className="text-[10px]">Erschöpfungsschutz</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Accordion type="single" collapsible className="rounded-md border bg-card">
+          <AccordionItem value="why" className="border-b-0">
+            <AccordionTrigger className="px-4 text-sm">
+              Warum bekomme ich Erinnerungen?
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4 text-xs text-muted-foreground space-y-2">
+              <p>
+                ExamFit sendet nur Erinnerungen, die nachweisbar deinem Prüfungserfolg helfen —
+                niemals manipulative „Streak-Pushes“ oder künstlicher Stress.
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Prüfungs-Countdown:</strong> wenn deine Prüfungsphase es erfordert.</li>
+                <li><strong>Schwächen-Erinnerungen:</strong> bei unbehandelten Lücken in Kernkompetenzen.</li>
+                <li><strong>Rescue-Hinweise:</strong> wenn ein Lernziel kurz vor dem Verlust steht.</li>
+                <li><strong>Streak-Recovery:</strong> dezent, nicht beschämend.</li>
+              </ul>
+              <p>
+                Maximal 3 Pushes pro 24h. Ruhezeiten werden respektiert. In der finalen
+                Prüfungsphase dürfen sie nur überschrieben werden, wenn du das oben erlaubst.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
