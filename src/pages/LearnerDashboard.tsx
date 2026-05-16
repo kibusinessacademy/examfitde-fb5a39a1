@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboardSummary, type DashboardEnrollment } from '@/hooks/useDashboardSummary';
 import { HeroDecisionCard } from '@/components/dashboard/HeroDecisionCard';
+import { LearnerIntelligenceCard } from '@/components/dashboard/LearnerIntelligenceCard';
 import { ReadinessRadar } from '@/components/dashboard/ReadinessRadar';
 import { TopGapsCard } from '@/components/dashboard/TopGapsCard';
 import { ReadinessTrendCard } from '@/components/dashboard/ReadinessTrendCard';
