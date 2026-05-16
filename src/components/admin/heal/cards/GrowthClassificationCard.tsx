@@ -256,6 +256,7 @@ export function GrowthClassificationCard() {
 
             <EligibleRepairsSection />
             <LocalRepairWorkerSection />
+            <RepairOutcomeVerificationSection />
 
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium text-foreground">Filter:</span>
@@ -738,6 +739,209 @@ function KpiPill({ label, value, tone }: { label: string; value: number; tone: "
     <div className={`rounded-md border bg-card/50 px-2 py-1.5 ${cls}`}>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="text-base font-semibold tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Track 2.3e — Repair Outcome Verification Section
+// ─────────────────────────────────────────────────────────────────────
+type OutcomeSummary = {
+  window_days: number;
+  totals: {
+    total: number;
+    pending: number;
+    signal_closed: number;
+    job_failed: number;
+    stale: number;
+    abandoned: number;
+    verified: number;
+    avg_close_minutes: number | null;
+  };
+  by_signal: Array<{
+    signal: string; total: number; closed: number;
+    failed: number; stale: number; pending: number;
+  }>;
+  by_dispatcher: Array<{
+    dispatcher: string; total: number; closed: number; failed: number;
+  }>;
+  recent_runs: Array<{
+    id: string;
+    created_at: string;
+    result_status: "ok" | "partial" | "failed";
+    metadata: {
+      run_id?: string; mode?: string; scanned?: number;
+      signal_closed?: number; job_failed?: number;
+      stale?: number; still_pending?: number;
+    } | null;
+  }>;
+};
+
+function RepairOutcomeVerificationSection() {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<"dry" | "live" | null>(null);
+
+  const sumQ = useQuery({
+    queryKey: ["growth-repair-outcomes-summary"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_growth_repair_outcomes_summary" as any,
+      );
+      if (error) throw error;
+      return data as OutcomeSummary;
+    },
+    refetchInterval: 60_000,
+  });
+
+  const runDry = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_growth_repair_verify_now" as any,
+        { _mode: "dry_run", _limit: 100 },
+      );
+      if (error) throw error;
+      return data as { scanned: number; signal_closed: number };
+    },
+    onSuccess: (r) =>
+      toast.success(`Dry-run: ${r.scanned} scanned · ${r.signal_closed} would close`),
+    onError: (e: any) => toast.error(e.message ?? "Dry-run failed"),
+    onSettled: () => {
+      setBusy(null);
+      qc.invalidateQueries({ queryKey: ["growth-repair-outcomes-summary"] });
+    },
+  });
+
+  const runLive = useMutation({
+    mutationFn: async (reason: string) => {
+      const { data, error } = await supabase.rpc(
+        "admin_growth_repair_verify_now" as any,
+        { _mode: "live", _limit: 100, _reason: reason },
+      );
+      if (error) throw error;
+      return data as {
+        scanned: number; signal_closed: number;
+        job_failed: number; stale: number;
+      };
+    },
+    onSuccess: (r) =>
+      toast.success(
+        `Verified: ${r.signal_closed} closed · ${r.job_failed} failed · ${r.stale} stale (of ${r.scanned})`,
+      ),
+    onError: (e: any) => toast.error(e.message ?? "Verify failed"),
+    onSettled: () => {
+      setBusy(null);
+      qc.invalidateQueries({ queryKey: ["growth-repair-outcomes-summary"] });
+    },
+  });
+
+  const s = sumQ.data;
+  const t = s?.totals;
+  const closeRate =
+    t && t.verified > 0
+      ? Math.round((t.signal_closed / t.verified) * 100)
+      : null;
+
+  return (
+    <div className="mt-6 rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Eye className="h-4 w-4 text-foreground" />
+          <h4 className="text-sm font-semibold text-foreground">
+            Repair Outcome Verification · Track 2.3e
+          </h4>
+          <Badge variant="outline" className="text-[10px] font-mono">
+            cron 15min · 14d window
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline" size="sm" className="h-7 text-xs"
+            disabled={busy !== null}
+            onClick={() => { setBusy("dry"); runDry.mutate(); }}
+          >
+            <FlaskConical className="h-3 w-3 mr-1" />
+            {busy === "dry" ? "…" : "Dry-Run"}
+          </Button>
+          <Button
+            variant="default" size="sm" className="h-7 text-xs"
+            disabled={busy !== null}
+            onClick={() => {
+              const reason = window.prompt("Reason (min 3 chars)") ?? "";
+              if (reason.trim().length < 3) {
+                toast.error("Reason required");
+                return;
+              }
+              setBusy("live");
+              runLive.mutate(reason.trim());
+            }}
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            {busy === "live" ? "…" : "Verify Now"}
+          </Button>
+        </div>
+      </div>
+
+      {sumQ.isLoading && <Skeleton className="h-16 w-full" />}
+      {s && t && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+            <KpiPill label="Total" value={t.total} tone="neutral" />
+            <KpiPill label="Pending" value={t.pending} tone="info" />
+            <KpiPill label="Signal closed" value={t.signal_closed} tone="success" />
+            <KpiPill label="Job failed" value={t.job_failed} tone="warning" />
+            <KpiPill label="Stale" value={t.stale} tone="warning" />
+            <KpiPill
+              label="Close rate %"
+              value={closeRate ?? 0}
+              tone={closeRate !== null && closeRate >= 70 ? "success" : "warning"}
+            />
+          </div>
+
+          {t.avg_close_minutes !== null && (
+            <div className="text-[11px] text-muted-foreground">
+              Avg time-to-close: {Math.round(t.avg_close_minutes)} min
+            </div>
+          )}
+
+          {s.by_signal.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[11px] text-muted-foreground font-medium">By signal</div>
+              <div className="flex flex-wrap gap-1">
+                {s.by_signal.map((b) => (
+                  <Badge key={b.signal} variant="outline" className="text-[10px] font-mono">
+                    {b.signal}: {b.closed}✓ / {b.failed}✗ / {b.pending}…
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <div className="text-[11px] text-muted-foreground font-medium">Recent verifier runs</div>
+            {s.recent_runs.length === 0 && (
+              <div className="text-[11px] text-muted-foreground">Noch keine Verifier-Läufe.</div>
+            )}
+            {s.recent_runs.map((r) => {
+              const m = r.metadata ?? {};
+              return (
+                <div key={r.id} className="flex items-center justify-between text-[11px] font-mono border-l-2 border-border pl-2">
+                  <span className="text-muted-foreground">
+                    {new Date(r.created_at).toLocaleString("de-DE")} ·
+                    <span className="text-emerald-500"> {m.signal_closed ?? 0}✓</span> /
+                    <span className="text-amber-500"> {m.job_failed ?? 0}✗</span> /
+                    <span className="text-muted-foreground"> {m.stale ?? 0} stale</span> /
+                    <span className="text-sky-500"> {m.still_pending ?? 0}…</span>
+                    {m.mode && <> · {m.mode}</>}
+                  </span>
+                  <Pill tone={r.result_status === "ok" ? "success" : "warning"}>
+                    {r.result_status}
+                  </Pill>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
