@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDashboardSummary, type DashboardEnrollment } from '@/hooks/useDashboardSummary';
 import { HeroDecisionCard } from '@/components/dashboard/HeroDecisionCard';
 import { LearnerIntelligenceCard } from '@/components/dashboard/LearnerIntelligenceCard';
+import { MobileReEntryCard } from '@/components/mobile/MobileReEntryCard';
 import { ReadinessRadar } from '@/components/dashboard/ReadinessRadar';
 import { TopGapsCard } from '@/components/dashboard/TopGapsCard';
 import { ReadinessTrendCard } from '@/components/dashboard/ReadinessTrendCard';
@@ -97,7 +98,12 @@ export default function LearnerDashboard() {
           )}
         </div>
 
-        {/* ━━━ HERO: Single Decision Card (Above the Fold) ━━━ */}
+        {/* ━━━ HERO: Re-Entry + Intelligence (Above the Fold) ━━━ */}
+        {activeCurriculumId && (
+          <div className="mb-3">
+            <MobileReEntryCard curriculumId={activeCurriculumId} />
+          </div>
+        )}
         {activeCurriculumId && (
           <div className="mb-4">
             <LearnerIntelligenceCard curriculumId={activeCurriculumId} />

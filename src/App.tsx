@@ -12,6 +12,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { NativeTabBar } from "@/components/native/NativeTabBar";
+import { MobileWebBottomNav } from "@/components/mobile/MobileWebBottomNav";
 import { useNativeApp } from "@/hooks/useNativeApp";
 import { useTrailingSlashNormalizer } from "@/hooks/useTrailingSlashNormalizer";
 import AppRoutes from "@/routes/AppRoutes";
@@ -102,9 +103,9 @@ function AppChrome() {
       <Toaster />
       <Sonner />
       <AppRoutes />
-      {showNativeTabBar ? <NativeTabBar /> : null}
+      {showNativeTabBar ? <NativeTabBar /> : <MobileWebBottomNav />}
       <InstallPrompt />
-      {showNativeTabBar ? <div className="h-20" /> : null}
+      {showNativeTabBar ? <div className="h-20" /> : <div className="h-16 md:hidden" />}
       <AccessDebugPanel />
       <CookieConsentBanner />
     </>
