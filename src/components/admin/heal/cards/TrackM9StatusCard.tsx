@@ -46,6 +46,22 @@ export function TrackM9StatusCard() {
     refetch();
   };
 
+  const runPostPublishRepair = async (dryRun: boolean) => {
+    const { data, error } = await supabase.rpc(
+      "admin_m9_post_publish_repair_dispatch" as any,
+      { p_limit: 10, p_dry_run: dryRun },
+    );
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const res = data as any;
+    toast.success(
+      `M9.3b ${dryRun ? "Dry-Run" : "Live"}: dispatched ${res?.dispatched ?? 0}, skipped ${res?.skipped ?? 0} (WIP ${res?.wip_now ?? 0}/${res?.wip_cap ?? 0})`,
+    );
+    refetch();
+  };
+
   if (isLoading || !data) {
     return (
       <Card>
@@ -137,16 +153,29 @@ export function TrackM9StatusCard() {
           >
             Repair-Backfill (10)
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => runPostPublishRepair(true)}
+            disabled={publishedLocked === 0}
+          >
+            M9.3b Dry-Run (10)
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => runPostPublishRepair(false)}
+            disabled={publishedLocked === 0}
+          >
+            M9.3b Repair (10)
+          </Button>
         </div>
         {contentGaps === 0 && publishedLocked === 0 && (
-          <p className="text-muted-foreground">
-            Keine echten Content-Gaps offen.
-          </p>
+          <p className="text-muted-foreground">Keine Content-Gaps offen.</p>
         )}
-        {contentGaps === 0 && publishedLocked > 0 && (
+        {publishedLocked > 0 && (
           <p className="text-muted-foreground">
-            Keine pipeline-reparierbaren Gaps. {publishedLocked} Pakete warten
-            auf M9.3b Post-Publish Content-Repair Worker.
+            M9.3b Worker (Cron 5min) drained automatisch. „M9.3b Repair" enqueued
+            sofort — idempotent pro Paket+Reparaturtyp, WIP-Cap 10.
           </p>
         )}
       </CardContent>
