@@ -20,7 +20,7 @@ export function useReEntryState(curriculumId: string | null | undefined) {
     staleTime: 60_000,
     queryFn: async (): Promise<ReEntryState | null> => {
       const { data, error } = await supabase.rpc("learner_get_re_entry_state", {
-        p_curriculum_id: curriculumId,
+        p_curriculum_id: curriculumId as string,
       });
       if (error) throw error;
       return (data as unknown as ReEntryState) ?? null;
@@ -45,13 +45,15 @@ export async function trackReEntryEvent(
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from("learner_re_entry_events").insert({
-      user_id: user.id,
-      curriculum_id: opts.curriculumId ?? null,
-      event_type: eventType,
-      source: opts.source ?? "web",
-      payload: opts.payload ?? {},
-    });
+    await supabase.from("learner_re_entry_events").insert([
+      {
+        user_id: user.id,
+        curriculum_id: opts.curriculumId ?? null,
+        event_type: eventType,
+        source: opts.source ?? "web",
+        payload: (opts.payload ?? {}) as never,
+      },
+    ]);
   } catch {
     // best-effort
   }
