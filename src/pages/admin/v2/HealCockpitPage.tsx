@@ -71,6 +71,7 @@ import { SkillGraphIntelligenceCard } from "@/components/admin/heal/cards/SkillG
 import { AdaptivePathOrchestrationCard } from "@/components/admin/heal/cards/AdaptivePathOrchestrationCard";
 import { CognitiveLoadIntelligenceCard } from "@/components/admin/heal/cards/CognitiveLoadIntelligenceCard";
 import { TemporalIntelligenceCard } from "@/components/admin/heal/cards/TemporalIntelligenceCard";
+import { PredictiveSimulationCard } from "@/components/admin/heal/cards/PredictiveSimulationCard";
 import { SeoJobHealthCard } from "@/components/admin/heal/cards/SeoJobHealthCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
@@ -441,6 +442,7 @@ export default function HealCockpitPage() {
                 <AdaptivePathOrchestrationCard />
                 <CognitiveLoadIntelligenceCard />
                 <TemporalIntelligenceCard />
+                <PredictiveSimulationCard />
                 <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
