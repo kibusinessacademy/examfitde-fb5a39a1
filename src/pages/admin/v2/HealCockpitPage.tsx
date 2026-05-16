@@ -440,6 +440,7 @@ export default function HealCockpitPage() {
                 <SkillGraphIntelligenceCard />
                 <AdaptivePathOrchestrationCard />
                 <CognitiveLoadIntelligenceCard />
+                <TemporalIntelligenceCard />
                 <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
