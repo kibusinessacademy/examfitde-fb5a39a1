@@ -37,6 +37,7 @@ export default function AppNotificationsPage() {
   const [prefs, setPrefs] = useState<Prefs>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const push = usePushSubscription();
 
   useEffect(() => {
     (async () => {
