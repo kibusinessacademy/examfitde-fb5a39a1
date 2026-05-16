@@ -69,6 +69,7 @@ import { TrainerIntelligenceCard } from "@/components/admin/heal/cards/TrainerIn
 import { AutonomousOptimizationCard } from "@/components/admin/heal/cards/AutonomousOptimizationCard";
 import { SkillGraphIntelligenceCard } from "@/components/admin/heal/cards/SkillGraphIntelligenceCard";
 import { AdaptivePathOrchestrationCard } from "@/components/admin/heal/cards/AdaptivePathOrchestrationCard";
+import { CognitiveLoadIntelligenceCard } from "@/components/admin/heal/cards/CognitiveLoadIntelligenceCard";
 import { SeoJobHealthCard } from "@/components/admin/heal/cards/SeoJobHealthCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
@@ -437,6 +438,7 @@ export default function HealCockpitPage() {
                 <AutonomousOptimizationCard />
                 <SkillGraphIntelligenceCard />
                 <AdaptivePathOrchestrationCard />
+                <CognitiveLoadIntelligenceCard />
                 <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
