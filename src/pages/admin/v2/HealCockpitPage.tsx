@@ -371,6 +371,7 @@ export default function HealCockpitPage() {
             <NotificationEffectivenessCard />
             <AdaptivePolicyCard />
             <PolicyImpactFunnelCard />
+            <NotificationFinalizationCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
             <QueuedStallSuggestionCard />
