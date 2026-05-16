@@ -21,6 +21,7 @@ Queue-Health: terminale Verdicts (STALE_REAP_LOOP_TERMINAL, BRONZE_LOCK_TERMINAL
 Tracking-Mirror: TrackingEvents.landingView() schreibt DUAL — tracking_events (Usage-Timeline) UND conversion_events via trackFunnel (Funnel-SSOT für GA4/GTM/Reports). Niemals nur eine Senke nutzen wenn Event auch im Funnel-Schema steht.
 Mastery-Engine-Konstanten (τ, α, anchor, REPAIR/DRILL/REINFORCE) NUR aus mastery_engine_config via fn_get_mastery_config lesen — niemals hardcoded außer Fallback. Quiz/Exam/Tutor schreiben Mastery NUR via record_attempt_mastery_bulk oder update_mastery_from_attempt (single choke-point).
 complete_job (beide Overloads) committet NUR via WHERE status='processing' (CAS) — verhindert Reaper-vs-Completion-Kollision. Long-Running Worker nutzen DETERMINISTIC PULSE: await heartbeat.pulse('<stage>') an jeder Stage-Boundary (≤30s Gap), kein setInterval — Edge-Runtime suspendiert Timer in awaits. meta.heartbeat_log+last_stage geben Forensik. Stage-Liste im Contract-Test gespiegelt.
+Architecture-Freeze post Bridge 16: Keine neuen Intelligence-Bridges (17+). Jedes Ticket muss auf einen der 6 Commercialization-Tracks einzahlen (B2B / Habit / Activation / SEO / Mobile / Tutor-UX). Reihenfolge 6→5→2→1→3→4. Detail: mem://constraints/architecture-freeze-post-bridge-16-v1.
 
 
 ## Memories
