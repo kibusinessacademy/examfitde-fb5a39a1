@@ -426,6 +426,7 @@ export default function HealCockpitPage() {
                 <ExamSuccessDriversCard />
                 <InterventionEffectivenessCard />
                 <NbaWeightingHealthCard />
+                <TutorInterventionHealthCard />
                 <SeoJobHealthCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
