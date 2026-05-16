@@ -1,0 +1,332 @@
+/**
+ * GrowthClassificationCard
+ * ────────────────────────
+ * Track 2.2 — Growth Signal Classification SSOT.
+ * Klassifiziert jedes fehlende Growth-Signal in 6 Klassen mit
+ * scope (systemic/local) + severity + repairable.
+ *
+ * Anti-Phantom: Systemic critical = Plattform-Fix (NICHT 190 Repair-Jobs).
+ *               Lokal repairable = echter Per-Paket-Backlog.
+ *               Observability = nur Daten fehlen, kein Funktionsdefekt.
+ */
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Card, CardContent, CardHeader, CardTitle, CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Layers, RefreshCw, ShieldAlert, Wrench, Eye } from "lucide-react";
+
+type ClassRow = {
+  class: string;
+  scope: "systemic" | "local";
+  severity: "critical" | "warn" | "info";
+  repairable: boolean;
+  signal_count: number;
+  package_count: number;
+  gap_pct_global: number;
+};
+
+type Summary = {
+  total_published: number;
+  critical_systemic_classes: number;
+  repairable_local_signals: number;
+  classes: ClassRow[];
+  generated_at: string;
+};
+
+type SignalRow = {
+  package_id: string;
+  package_key: string | null;
+  package_title: string | null;
+  track: string | null;
+  signal: string;
+  class: string;
+  scope: "systemic" | "local";
+  severity: "critical" | "warn" | "info";
+  repairable: boolean;
+  gap_pct_global: number;
+};
+
+const CLASS_HINT: Record<string, string> = {
+  SYSTEMIC_PLATFORM_DRIFT: "Globale Routing-/Canonical-Invariante → 1 Plattform-Fix, KEINE Per-Paket-Repairs",
+  SEO_ARTIFACT_MISSING:    "SEO-Page / Canonical / Dead-End fehlt → Artefakt-Generierung",
+  TRACKING_NOT_EMITTED:    "Keine conversion_events → Pixel/Producer-Wiring fehlt",
+  TRACKING_NOT_ATTRIBUTED: "Events ohne pricing_view / checkout_started → Attribution-Drift",
+  FANOUT_NOT_STARTED:      "Blog / OG / IndexNow / Distribution nicht angestoßen",
+  OBSERVABILITY_GAP:       "Daten fehlen, Funktion intakt → nur Messung verbessern",
+};
+
+function sevTone(s: ClassRow["severity"]) {
+  return s === "critical" ? "destructive" : s === "warn" ? "warning" : "secondary";
+}
+function scopeTone(s: ClassRow["scope"]) {
+  return s === "systemic" ? "destructive" : "secondary";
+}
+
+function Pill({
+  tone, children,
+}: {
+  tone: "success" | "warning" | "destructive" | "secondary";
+  children: React.ReactNode;
+}) {
+  const t = {
+    success: "bg-success-bg-subtle text-success border-success/30",
+    warning: "bg-warning-bg-subtle text-warning-foreground border-warning/30",
+    destructive: "bg-destructive-bg-subtle text-destructive border-destructive/30",
+    secondary: "bg-muted text-muted-foreground border-border",
+  }[tone];
+  return (
+    <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${t}`}>
+      {children}
+    </span>
+  );
+}
+
+export function GrowthClassificationCard() {
+  const [filter, setFilter] = useState<{
+    cls?: string; scope?: string; severity?: string; repairable?: string;
+  }>({});
+
+  const summaryQ = useQuery({
+    queryKey: ["growth-classification-summary"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        "admin_get_growth_classification_summary" as any,
+      );
+      if (error) throw error;
+      return data as Summary;
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const hasFilter = Object.values(filter).some(Boolean);
+
+  const signalsQ = useQuery({
+    queryKey: ["growth-classification-signals", filter],
+    enabled: hasFilter,
+    queryFn: async () => {
+      const args: Record<string, unknown> = { _limit: 100 };
+      if (filter.cls)        args._class = filter.cls;
+      if (filter.scope)      args._scope = filter.scope;
+      if (filter.severity)   args._severity = filter.severity;
+      if (filter.repairable) args._repairable = filter.repairable === "true";
+      const { data, error } = await supabase.rpc(
+        "admin_get_growth_classification_signals" as any, args as any,
+      );
+      if (error) throw error;
+      return (data ?? []) as SignalRow[];
+    },
+    staleTime: 30_000,
+  });
+
+  const s = summaryQ.data;
+  const totalRepairable = s?.classes
+    .filter(c => c.repairable)
+    .reduce((acc, c) => acc + c.signal_count, 0) ?? 0;
+
+  return (
+    <Card className="border-border">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Layers className="h-4 w-4 text-primary" />
+              Growth-Classification v1 — Signal-Typisierung
+              <Badge variant="outline" className="text-[10px]">Track 2.2 · Diagnose-only</Badge>
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              6 Klassen × scope (systemic/local) × severity × repairable.
+              Trennt globale Plattform-Drifts von echten Per-Paket-Gaps.
+            </CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { summaryQ.refetch(); if (hasFilter) signalsQ.refetch(); }}
+            disabled={summaryQ.isFetching}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${summaryQ.isFetching ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {summaryQ.isLoading && <Skeleton className="h-60 w-full" />}
+        {summaryQ.error && (
+          <div className="rounded-md border border-destructive/30 bg-destructive-bg-subtle p-3 text-xs text-destructive">
+            Fehler: {(summaryQ.error as Error).message}
+            <Button variant="outline" size="sm" className="ml-2 h-7" onClick={() => summaryQ.refetch()}>
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {s && (
+          <>
+            {/* KPI-Strip */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="rounded-md border border-border bg-card/50 p-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Eye className="h-3 w-3" /> published
+                </div>
+                <div className="text-xl font-bold text-foreground mt-0.5">{s.total_published}</div>
+              </div>
+              <div className="rounded-md border border-destructive/30 bg-destructive-bg-subtle p-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-destructive">
+                  <ShieldAlert className="h-3 w-3" /> systemic critical classes
+                </div>
+                <div className="text-xl font-bold text-destructive mt-0.5">
+                  {s.critical_systemic_classes}
+                </div>
+                <div className="text-[10px] text-muted-foreground">→ Plattform-Fix, keine Per-Paket-Repairs</div>
+              </div>
+              <div className="rounded-md border border-warning/30 bg-warning-bg-subtle p-3">
+                <div className="flex items-center gap-1.5 text-[11px] text-warning-foreground">
+                  <Wrench className="h-3 w-3" /> repairable local signals
+                </div>
+                <div className="text-xl font-bold text-foreground mt-0.5">
+                  {s.repairable_local_signals}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  echter Per-Paket-Backlog (von {totalRepairable} insgesamt repairable)
+                </div>
+              </div>
+            </div>
+
+            {/* Class matrix */}
+            <div className="rounded-md border border-border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40">
+                  <tr className="text-left text-[10px] text-muted-foreground uppercase">
+                    <th className="px-2 py-1.5">Class</th>
+                    <th className="px-2 py-1.5">Scope</th>
+                    <th className="px-2 py-1.5">Severity</th>
+                    <th className="px-2 py-1.5">Repair</th>
+                    <th className="px-2 py-1.5 text-right">Signals</th>
+                    <th className="px-2 py-1.5 text-right">Pakete</th>
+                    <th className="px-2 py-1.5 text-right">Gap %</th>
+                    <th className="px-2 py-1.5"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.classes.length === 0 && (
+                    <tr><td colSpan={8} className="px-2 py-3 text-center text-muted-foreground">
+                      Keine Klassen — alle Signale ready.
+                    </td></tr>
+                  )}
+                  {s.classes.map((c, i) => (
+                    <tr key={i} className="border-t border-border hover:bg-muted/20">
+                      <td className="px-2 py-2">
+                        <div className="font-medium text-foreground font-mono text-[11px]">{c.class}</div>
+                        <div className="text-[10px] text-muted-foreground">{CLASS_HINT[c.class]}</div>
+                      </td>
+                      <td className="px-2 py-2"><Pill tone={scopeTone(c.scope)}>{c.scope}</Pill></td>
+                      <td className="px-2 py-2"><Pill tone={sevTone(c.severity)}>{c.severity}</Pill></td>
+                      <td className="px-2 py-2">
+                        {c.repairable
+                          ? <Pill tone="warning">yes</Pill>
+                          : <Pill tone="secondary">no</Pill>}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums text-foreground">{c.signal_count}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-foreground">{c.package_count}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{c.gap_pct_global}%</td>
+                      <td className="px-2 py-2 text-right">
+                        <Button
+                          variant="ghost" size="sm" className="h-6 px-2 text-[10px]"
+                          onClick={() => setFilter({
+                            cls: c.class, scope: c.scope,
+                            severity: c.severity, repairable: String(c.repairable),
+                          })}
+                        >Drill</Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Drilldown filters */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-medium text-foreground">Filter:</span>
+              <Select value={filter.cls ?? ""} onValueChange={(v) => setFilter(f => ({ ...f, cls: v || undefined }))}>
+                <SelectTrigger className="h-7 w-52 text-xs"><SelectValue placeholder="Class" /></SelectTrigger>
+                <SelectContent>
+                  {Object.keys(CLASS_HINT).map(k => (
+                    <SelectItem key={k} value={k} className="text-xs font-mono">{k}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filter.scope ?? ""} onValueChange={(v) => setFilter(f => ({ ...f, scope: v || undefined }))}>
+                <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="Scope" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="systemic" className="text-xs">systemic</SelectItem>
+                  <SelectItem value="local" className="text-xs">local</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filter.severity ?? ""} onValueChange={(v) => setFilter(f => ({ ...f, severity: v || undefined }))}>
+                <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="Severity" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="critical" className="text-xs">critical</SelectItem>
+                  <SelectItem value="warn" className="text-xs">warn</SelectItem>
+                  <SelectItem value="info" className="text-xs">info</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filter.repairable ?? ""} onValueChange={(v) => setFilter(f => ({ ...f, repairable: v || undefined }))}>
+                <SelectTrigger className="h-7 w-32 text-xs"><SelectValue placeholder="Repairable" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true" className="text-xs">repairable</SelectItem>
+                  <SelectItem value="false" className="text-xs">not repairable</SelectItem>
+                </SelectContent>
+              </Select>
+              {hasFilter && (
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setFilter({})}>Reset</Button>
+              )}
+            </div>
+
+            {/* Signal drill-down list */}
+            {hasFilter && (
+              <div className="rounded-md border border-border bg-card/50 max-h-80 overflow-y-auto">
+                {signalsQ.isLoading && <div className="p-3 text-xs text-muted-foreground">Lade…</div>}
+                {signalsQ.data && signalsQ.data.length === 0 && (
+                  <div className="p-3 text-xs text-muted-foreground">Keine Signale für diesen Filter.</div>
+                )}
+                {signalsQ.data && signalsQ.data.map((row, i) => (
+                  <div key={i} className="px-3 py-2 border-b border-border last:border-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium text-foreground truncate">
+                          {row.package_title ?? row.package_key ?? row.package_id.slice(0, 8)}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground font-mono truncate">
+                          {row.track ?? "—"} · {row.package_id.slice(0, 8)} · signal=<span className="text-foreground">{row.signal}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-1 flex-wrap justify-end shrink-0">
+                        <Pill tone={sevTone(row.severity)}>{row.severity}</Pill>
+                        <Pill tone={scopeTone(row.scope)}>{row.scope}</Pill>
+                        {row.repairable && <Pill tone="warning">repairable</Pill>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="text-[10px] text-muted-foreground">
+              Stand: {new Date(s.generated_at).toLocaleTimeString("de-DE")} ·
+              Track 2.2 · systemic-threshold ≥80% global gap · diagnose-only
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
