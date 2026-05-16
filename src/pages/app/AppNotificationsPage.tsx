@@ -6,9 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Info, Shield, Clock, Moon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Info, Shield, Clock, Moon, Smartphone, CheckCircle2, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { usePushSubscription } from "@/hooks/usePushSubscription";
 
 interface Prefs {
   channel_push: boolean;
