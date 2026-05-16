@@ -35,6 +35,7 @@ const Auth = lazyRetry(() => import('@/pages/Auth'));
 const ResetPassword = lazyRetry(() => import('@/pages/auth/ResetPassword'));
 const NotFound = lazyRetry(() => import('@/pages/NotFound'));
 const InstallPage = lazyRetry(() => import('@/pages/InstallPage'));
+const RenewPage = lazyRetry(() => import('@/pages/org/RenewPage'));
 
 // /app — Account/Verwaltungsbereich (separat von /dashboard Lern-Hub)
 const AppLayout = lazyRetry(() => import('@/pages/app/AppLayout'));
@@ -238,6 +239,7 @@ const AppRoutes = () => {
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/installieren" element={<InstallPage />} />
+        <Route path="/renew" element={<RenewPage />} />
         <Route path="/tools/event-inspector" element={<EventInspectorPage />} />
         <Route path="/quiz/:slug" element={<LeadQuizPage />} />
         <Route path="/lernplan/:slug" element={<LernplanPage />} />

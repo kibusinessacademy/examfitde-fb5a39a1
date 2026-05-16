@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    let sent = 0, failed = 0;
+    let sent = 0, failed = 0, skipped_pref = 0;
     for (const job of jobs) {
       try {
         // resolve recipient email
@@ -125,6 +125,35 @@ Deno.serve(async (req) => {
         }
 
         const period = (job.payload as any)?.period ?? "weekly";
+        const orgIdForPref = (job.payload as any)?.org_id ?? null;
+
+        // M7: Org-Owner Digest Preference Check
+        if (orgIdForPref) {
+          const { data: pref } = await supa
+            .from("org_owner_digest_preferences")
+            .select("cadence, enabled")
+            .eq("org_id", orgIdForPref)
+            .eq("owner_user_id", job.user_id)
+            .maybeSingle();
+          if (pref && (pref.enabled === false || pref.cadence === "disabled")) {
+            await supa.from("notification_jobs").update({
+              state: "suppressed",
+              suppression_reason: "m7_owner_pref_disabled",
+              updated_at: new Date().toISOString(),
+            }).eq("id", job.id);
+            skipped_pref++;
+            continue;
+          }
+          if (pref && pref.cadence && pref.cadence !== period) {
+            await supa.from("notification_jobs").update({
+              state: "suppressed",
+              suppression_reason: `m7_owner_pref_cadence_mismatch:${pref.cadence}_vs_${period}`,
+              updated_at: new Date().toISOString(),
+            }).eq("id", job.id);
+            skipped_pref++;
+            continue;
+          }
+        }
         const { subject, html: rawHtml } = renderDigestHtml(job.payload, period);
 
         // Resolve tracking token for this digest (one per org_owner_digests row)
@@ -177,7 +206,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ status: "ok", processed: jobs.length, sent, failed }),
+    return new Response(JSON.stringify({ status: "ok", processed: jobs.length, sent, failed, skipped_pref }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     return new Response(JSON.stringify({ status: "error", error: String(err) }),
