@@ -390,6 +390,7 @@ export default function HealCockpitPage() {
             <TrackM7StatusCard />
             <TrackM8StatusCard />
             <TrackM9StatusCard />
+            <CustomerSafeReadinessCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
             <QueuedStallSuggestionCard />
