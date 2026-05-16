@@ -12,6 +12,7 @@ type SummaryRow = {
   modules_missing: number;
   lessons_missing: number;
   lessons_not_ready: number;
+  content_gap_published_locked: number;
   questions_missing: number;
   pricing_missing: number;
 };
