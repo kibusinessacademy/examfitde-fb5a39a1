@@ -56,7 +56,7 @@ export function ContentFeedbackPipelineCard() {
   const events = useQuery({
     queryKey: ["content-feedback-events", filterEntity],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_list_content_feedback_events" as never, {
+      const { data, error } = await (supabase.rpc as any)("admin_list_content_feedback_events", {
         _status: "open",
         _entity_type: filterEntity,
         _limit: 25,
