@@ -109,6 +109,7 @@ import { ContinuationFailuresCard } from "@/components/admin/heal/cards/Continua
 import { ForcePublishLogPanel } from "@/components/admin/heal/ForcePublishLogPanel";
 import { CouncilDeferredCard } from "@/components/admin/heal/cards/CouncilDeferredCard";
 import { SystemIntentsKpiCard } from "@/components/admin/heal/cards/SystemIntentsKpiCard";
+import NotificationKpiCard from "@/components/admin/heal/cards/NotificationKpiCard";
 import { DriftOverviewCard } from "@/components/admin/heal/cards/DriftOverviewCard";
 import { AutoPublishErrorOverviewCard } from "@/components/admin/heal/cards/AutoPublishErrorOverviewCard";
 import { StaleLockEscalationsCard } from "@/components/admin/heal/cards/StaleLockEscalationsCard";
@@ -352,6 +353,7 @@ export default function HealCockpitPage() {
             <DriftOverviewCard />
             <SnapshotDriftCard />
             <SystemIntentsKpiCard />
+            <NotificationKpiCard />
             <PackagePipelineLiveCard />
             <HealAuditLayersCard />
             <QueuedStallSuggestionCard />
