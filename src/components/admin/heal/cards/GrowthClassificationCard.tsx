@@ -1072,12 +1072,12 @@ function RepairGovernanceSection() {
 
   function recBadge(rec: string | null | undefined) {
     if (!rec) return null;
-    const tone =
+    const tone: "success" | "warning" | "destructive" | "secondary" =
       rec === "trust"     ? "success" :
       rec === "block"     ? "destructive" :
       rec === "downrank"  ? "warning" :
       rec === "tune"      ? "warning" :
-      "info";
+      "secondary";
     return <Pill tone={tone}>{rec}</Pill>;
   }
 
