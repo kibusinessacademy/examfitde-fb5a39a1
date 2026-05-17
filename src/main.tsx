@@ -6,11 +6,15 @@ import "./index.css";
 async function clearLegacyRuntimeArtifacts() {
   if (typeof window === "undefined") return;
 
-  const cleanupKey = "examfit-runtime-cleanup-v2";
+  const cleanupKey = "examfit-runtime-cleanup-v3";
   const url = new URL(window.location.href);
   const hasReloadFlag = url.searchParams.get("sw-reset") === "1";
 
-  if (sessionStorage.getItem(cleanupKey) === "done" && !hasReloadFlag) {
+  const cleanupAlreadyDone =
+    localStorage.getItem(cleanupKey) === "done" ||
+    sessionStorage.getItem(cleanupKey) === "done";
+
+  if (cleanupAlreadyDone && !hasReloadFlag) {
     return;
   }
 
@@ -19,8 +23,12 @@ async function clearLegacyRuntimeArtifacts() {
   if ("serviceWorker" in navigator) {
     try {
       const registrations = await navigator.serviceWorker.getRegistrations();
-      shouldReload = shouldReload || registrations.length > 0 || !!navigator.serviceWorker.controller;
-      await Promise.all(registrations.map((registration) => registration.unregister().catch(() => false)));
+      const legacyRegistrations = registrations.filter((registration) => {
+        const activeUrl = registration.active?.scriptURL ?? registration.installing?.scriptURL ?? registration.waiting?.scriptURL ?? "";
+        return !activeUrl.endsWith("/push-sw.js");
+      });
+      shouldReload = shouldReload || legacyRegistrations.length > 0;
+      await Promise.all(legacyRegistrations.map((registration) => registration.unregister().catch(() => false)));
     } catch (error) {
       console.warn("Failed to unregister service workers", error);
     }
@@ -36,7 +44,11 @@ async function clearLegacyRuntimeArtifacts() {
     }
   }
 
-  sessionStorage.setItem(cleanupKey, "done");
+  try {
+    localStorage.setItem(cleanupKey, "done");
+  } catch {
+    sessionStorage.setItem(cleanupKey, "done");
+  }
 
   if (shouldReload && !hasReloadFlag) {
     url.searchParams.set("sw-reset", "1");
