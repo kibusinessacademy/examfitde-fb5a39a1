@@ -503,11 +503,13 @@ export async function assertNoLegacyBundleUrls(
     await sb.rpc("fn_emit_audit" as never, {
       _target_type: "test_fixture",
       _action_type: passed ? "naming_assert_passed" : "naming_assert_failure",
+      _target_id: opts.correlationId ?? null,
       _result_status: passed ? "ok" : "warning",
       _payload: passed
         ? { scope: "smoke.b2c.commerce", asserted: "no_legacy_bundle_urls", sample_size: sample, correlation_id: opts.correlationId }
         : { scope: "smoke.b2c.commerce", reason: "legacy_bundle_url_in_products", violations, correlation_id: opts.correlationId },
-      _correlation_id: opts.correlationId,
+      _trigger_source: "test_fixture_contract",
+      _error_message: passed ? null : `legacy_bundle_url_in_products: ${violations.join("; ")}`,
     } as never);
   } catch { /* swallow */ }
 
