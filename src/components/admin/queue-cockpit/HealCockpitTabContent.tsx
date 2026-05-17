@@ -53,6 +53,7 @@ export function HealCockpitTabContent() {
       <SeoDeadEndCoverageCard />
       <PillarGenerationBackfillCard />
       <PillarPublishGateCard />
+      <IntentPillarBridgeCard />
       <DagBlockedDashboardCard />
       <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
