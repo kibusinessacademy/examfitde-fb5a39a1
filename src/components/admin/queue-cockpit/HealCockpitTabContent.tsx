@@ -49,6 +49,7 @@ export function HealCockpitTabContent() {
       <VariantPipelineHealthCard />
       <InternalLinkMaterializationCard />
       <SeoDeadEndCoverageCard />
+      <PillarGenerationBackfillCard />
       <DagBlockedDashboardCard />
       <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
