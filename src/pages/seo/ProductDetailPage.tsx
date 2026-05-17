@@ -66,7 +66,7 @@ function BundleDetailPageComponent() {
     return () => obs.disconnect();
   }, [beruf]);
 
-  const handleCheckoutStart = useCallback((source: string) => {
+  const handleCheckoutStart = useCallback(async (source: string) => {
     trackConversion({ event: 'cta_click', source, label: 'bundle_checkout_start' });
     trackConversion({ event: 'checkout_start', source, label: slug });
     const sourcePage = `/bundle/${slug}`;
@@ -84,8 +84,39 @@ function BundleDetailPageComponent() {
       source_page: sourcePage,
       metadata: { source, bundle_slug: slug },
     });
-    navigate('/shop');
-  }, [navigate, slug, pkgCtx]);
+
+    const productSlug = product?.slug || slug;
+    if (!productSlug) {
+      toast({
+        title: 'Checkout nicht verfügbar',
+        description: 'Dieses Bundle ist aktuell nicht buchbar. Bitte später erneut versuchen.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const result = await startProductCheckout(productSlug, { source: `bundle_${source}` });
+
+    if (!result.ok || !result.checkout_url) {
+      // Hard-fail toast + Audit (kein navigate('/shop')-Fallback mehr)
+      toast({
+        title: 'Checkout fehlgeschlagen',
+        description: result.error || 'Konnte Stripe-Checkout nicht starten. Bitte erneut versuchen.',
+        variant: 'destructive',
+      });
+      // Audit via SSOT fn_emit_audit (silent-drop-frei)
+      void supabase.rpc('fn_emit_audit', {
+        _action_type: 'checkout_redirect_missing_url',
+        _target_type: 'checkout',
+        _target_id: productSlug,
+        _result_status: 'error',
+        _payload: { product_slug: productSlug, source: `bundle_${source}`, error: result.error ?? null },
+        _trigger_source: 'bundle_cta',
+        _error_message: result.error ?? 'missing checkout_url',
+      } as never);
+    }
+    // bei Erfolg führt startProductCheckout selbst den Stripe-Redirect aus
+  }, [slug, pkgCtx, product?.slug]);
 
   const seo = useMemo(() => beruf ? SEO_TEMPLATES.bundle(beruf.title) : null, [beruf]);
   const price = PRODUCT_PRICES.bundle;
