@@ -125,7 +125,7 @@ function BundleDetailPageComponent() {
   const structuredData = useMemo(() => {
     if (!beruf || !seo) return undefined;
     return generateProductSchema({
-      name: `${beruf.title} Komplett-Bundle`,
+      name: `${beruf.title} Komplettpaket`,
       description: seo.description,
       price,
       url: `${SITE_URL}/bundle/${slug}`,

@@ -31,7 +31,7 @@ const FAQS = [
   { question: 'Welche Programmiersprache wird in der Klausur verwendet?', answer: 'Pseudocode oder eine selbstgewählte verbreitete Sprache (z. B. Java, C#, Python). Wichtig ist Lesbarkeit und korrekte Syntax in der gewählten Sprache.' },
   { question: 'Was zählt mehr: Klausur oder Projekt?', answer: 'Beide Bereiche müssen mindestens „ausreichend" sein. Das betriebliche Projekt + Fachgespräch hat besonders hohes Gewicht für die Gesamtnote – wer hier glänzt, bekommt sehr gute Endnoten.' },
   { question: 'Wie lange dauert die Vorbereitung realistisch?', answer: 'Die meisten Azubis beginnen 3–6 Monate vor der Prüfung mit gezielter Wiederholung. Mit dem Selbsttest siehst du in 2 Min., wo du wirklich stehst – und unser Lernplan priorisiert genau die Lücken.' },
-  { question: 'Was kostet die Vorbereitung bei ExamFit?', answer: `Das FIAE-Komplett-Bundle kostet ${PRICING.defaultPrice} einmalig (${PRICING.noSubscription.toLowerCase()}) für ${PRICING.defaultAccess} Zugang – mit allen Handlungsfeldern, Probeklausuren, Projekt-Coaching und Fachgespräch-Simulation.` },
+  { question: 'Was kostet die Vorbereitung bei ExamFit?', answer: `Das FIAE-Komplettpaket kostet ${PRICING.defaultPrice} einmalig (${PRICING.noSubscription.toLowerCase()}) für ${PRICING.defaultAccess} Zugang – mit allen Handlungsfeldern, Probeklausuren, Projekt-Coaching und Fachgespräch-Simulation.` },
 ];
 
 const TYPISCHE_FEHLER = [
@@ -193,7 +193,7 @@ export default function FIAEPruefungsvorbereitungPage() {
 
         <QuizCTA quizSlug={QUIZ} cluster={CLUSTER} location="footer"
           label="Bereit für die FIAE-Abschlussprüfung?"
-          subtitle={`Starte mit dem 5-Fragen-Selbsttest, erhalte deinen Lernplan und entscheide danach, ob du das Komplett-Bundle (${PRICING.defaultPrice}) brauchst.`} />
+          subtitle={`Starte mit dem 5-Fragen-Selbsttest, erhalte deinen Lernplan und entscheide danach, ob du das Komplettpaket (${PRICING.defaultPrice}) brauchst.`} />
       </div>
     </>
   );

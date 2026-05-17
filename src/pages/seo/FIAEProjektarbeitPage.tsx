@@ -134,7 +134,7 @@ export default function FIAEProjektarbeitPage() {
 
         <QuizCTA quizSlug={QUIZ} cluster={CLUSTER} location="footer"
           label="Bereit für Projekt & Fachgespräch?"
-          subtitle={`Mache den Selbsttest, sieh deinen Lernplan und entscheide danach über das Komplett-Bundle (${PRICING.defaultPrice}).`} />
+          subtitle={`Mache den Selbsttest, sieh deinen Lernplan und entscheide danach über das Komplettpaket (${PRICING.defaultPrice}).`} />
       </div>
     </>
   );

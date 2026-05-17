@@ -132,7 +132,7 @@ export default function BilanzbuchhalterBuchhaltungPage() {
 
         <QuizCTA quizSlug={QUIZ} cluster={CLUSTER} location="footer"
           label="Bereit für Buchhaltung & Geschäftsvorfälle?"
-          subtitle={`Mache den Selbsttest, sieh deinen Lernplan und entscheide danach über das Komplett-Bundle (${PRICING.defaultPrice}).`} />
+          subtitle={`Mache den Selbsttest, sieh deinen Lernplan und entscheide danach über das Komplettpaket (${PRICING.defaultPrice}).`} />
       </div>
     </>
   );
