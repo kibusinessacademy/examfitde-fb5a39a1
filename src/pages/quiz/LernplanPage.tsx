@@ -205,7 +205,7 @@ export default function LernplanPage() {
               >
                 <Link to={`/bundle/${mapping.bundleSlug}`}>
                   <ShoppingCart className="mr-2 h-4 w-4" />
-                  Komplett-Bundle (24,90 €)
+                  Komplettpaket (24,90 €)
                 </Link>
               </Button>
             )}
@@ -248,7 +248,7 @@ export default function LernplanPage() {
           <Card className="mt-8 bg-primary/5 border-primary/20 no-print">
             <CardContent className="py-6 text-center">
               <h2 className="text-xl font-bold mb-2">
-                Diesen Plan mit dem Komplett-Bundle umsetzen
+                Diesen Plan mit dem Komplettpaket umsetzen
               </h2>
               <p className="text-muted-foreground mb-4">
                 Lernkurs, Prüfungstrainer & AI-Tutor für 24,90 € — alles, was du brauchst.

@@ -31,7 +31,7 @@ const FAQS = [
   { question: 'Welche Programmiersprache wird in der Klausur verwendet?', answer: 'Pseudocode oder eine selbstgewählte verbreitete Sprache (z. B. Java, C#, Python). Wichtig ist Lesbarkeit und korrekte Syntax in der gewählten Sprache.' },
   { question: 'Was zählt mehr: Klausur oder Projekt?', answer: 'Beide Bereiche müssen mindestens „ausreichend" sein. Das betriebliche Projekt + Fachgespräch hat besonders hohes Gewicht für die Gesamtnote – wer hier glänzt, bekommt sehr gute Endnoten.' },
   { question: 'Wie lange dauert die Vorbereitung realistisch?', answer: 'Die meisten Azubis beginnen 3–6 Monate vor der Prüfung mit gezielter Wiederholung. Mit dem Selbsttest siehst du in 2 Min., wo du wirklich stehst – und unser Lernplan priorisiert genau die Lücken.' },
-  { question: 'Was kostet die Vorbereitung bei ExamFit?', answer: `Das FIAE-Komplett-Bundle kostet ${PRICING.defaultPrice} einmalig (${PRICING.noSubscription.toLowerCase()}) für ${PRICING.defaultAccess} Zugang – mit allen Handlungsfeldern, Probeklausuren, Projekt-Coaching und Fachgespräch-Simulation.` },
+  { question: 'Was kostet die Vorbereitung bei ExamFit?', answer: `Das FIAE-Komplettpaket kostet ${PRICING.defaultPrice} einmalig (${PRICING.noSubscription.toLowerCase()}) für ${PRICING.defaultAccess} Zugang – mit allen Handlungsfeldern, Probeklausuren, Projekt-Coaching und Fachgespräch-Simulation.` },
 ];
 
 const TYPISCHE_FEHLER = [
@@ -77,7 +77,7 @@ export default function FIAEPruefungsvorbereitungPage() {
               <div className="flex flex-wrap gap-4">
                 <QuizCTA quizSlug={QUIZ} cluster={CLUSTER} location="hero" label="Bin ich prüfungsreif? Gratis-Selbsttest" />
                 <Button size="lg" variant="outline" className="h-14 px-8" asChild>
-                  <Link to="/bundle/fachinformatiker-anwendungsentwicklung">Komplett-Bundle ansehen</Link>
+                  <Link to="/paket/fachinformatiker-anwendungsentwicklung">Komplettpaket ansehen</Link>
                 </Button>
               </div>
             </div>
@@ -171,7 +171,7 @@ export default function FIAEPruefungsvorbereitungPage() {
             <div className="grid sm:grid-cols-2 gap-3">
               <Link to={`/quiz/${QUIZ}`} className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>5-Fragen-Selbsttest</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
               <Link to={`/lernplan/${QUIZ}`} className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Persönlicher Lernplan</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
-              <Link to="/bundle/fachinformatiker-anwendungsentwicklung" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Komplett-Bundle</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
+              <Link to="/paket/fachinformatiker-anwendungsentwicklung" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Komplettpaket</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
               <Link to="/pruefungstraining/fachinformatiker-ae" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Mündliche Prüfungssimulation</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
             </div>
           </div>
@@ -193,7 +193,7 @@ export default function FIAEPruefungsvorbereitungPage() {
 
         <QuizCTA quizSlug={QUIZ} cluster={CLUSTER} location="footer"
           label="Bereit für die FIAE-Abschlussprüfung?"
-          subtitle={`Starte mit dem 5-Fragen-Selbsttest, erhalte deinen Lernplan und entscheide danach, ob du das Komplett-Bundle (${PRICING.defaultPrice}) brauchst.`} />
+          subtitle={`Starte mit dem 5-Fragen-Selbsttest, erhalte deinen Lernplan und entscheide danach, ob du das Komplettpaket (${PRICING.defaultPrice}) brauchst.`} />
       </div>
     </>
   );

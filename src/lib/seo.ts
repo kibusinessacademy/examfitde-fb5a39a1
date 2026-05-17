@@ -67,7 +67,7 @@ export function generateAltText(options: {
   const productLabels = {
     lernkurs: 'Lernkurs',
     pruefungstrainer: 'Prüfungstrainer',
-    bundle: 'Komplett-Bundle',
+    bundle: 'Komplettpaket',
   };
   
   let alt = subject;

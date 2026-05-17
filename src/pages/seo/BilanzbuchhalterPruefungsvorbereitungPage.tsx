@@ -30,7 +30,7 @@ const FAQS = [
   { question: 'Wie ist die Bilanzbuchhalter-Prüfung aufgebaut?', answer: 'Die IHK-Prüfung umfasst mehrere schriftliche Teile zu den Handlungsbereichen sowie ein mündliches situationsbezogenes Fachgespräch. Genaue Anzahl, Dauer und Inhalte ergeben sich aus der aktuellen Prüfungsverordnung deiner zuständigen IHK.' },
   { question: 'Welche Bestehensgrenze gilt?', answer: 'Jeder Prüfungsteil muss mindestens mit „ausreichend" bestanden werden. Unter bestimmten Voraussetzungen ist eine mündliche Ergänzungsprüfung möglich – Details regelt die Prüfungsverordnung deiner IHK.' },
   { question: 'Wie lange dauert die Vorbereitung realistisch?', answer: 'Mit ~10 h/Woche solider Vorbereitung benötigen die meisten Kandidat*innen 6–9 Monate. Mit unserem Lernplan, der nach dem Selbsttest individuell angepasst wird, lässt sich das oft auf 4–6 Monate verkürzen.' },
-  { question: 'Was kostet die Vorbereitung bei ExamFit?', answer: `Das Bilanzbuchhalter-Komplett-Bundle kostet ${PRICING.defaultPrice} einmalig (${PRICING.noSubscription.toLowerCase()}) für ${PRICING.defaultAccess} Zugang – inklusive aller 5 Handlungsbereiche, mündlicher Prüfungssimulation und KI-Coach.` },
+  { question: 'Was kostet die Vorbereitung bei ExamFit?', answer: `Das Bilanzbuchhalter-Komplettpaket kostet ${PRICING.defaultPrice} einmalig (${PRICING.noSubscription.toLowerCase()}) für ${PRICING.defaultAccess} Zugang – inklusive aller 5 Handlungsbereiche, mündlicher Prüfungssimulation und KI-Coach.` },
   { question: 'Sind IFRS wirklich prüfungsrelevant?', answer: 'Ja. Handlungsbereich 5 (Berichterstattung nach IFRS) wird seit der Reform regelmäßig schriftlich geprüft – häufig in Verbindung mit HGB-Vergleichsfragen. Wer IFRS unterschätzt, scheitert oft an diesem Teil.' },
 ];
 
@@ -80,7 +80,7 @@ export default function BilanzbuchhalterPruefungsvorbereitungPage() {
               <div className="flex flex-wrap gap-4">
                 <QuizCTA quizSlug={QUIZ} cluster={CLUSTER} location="hero" label="Bin ich prüfungsreif? Gratis-Selbsttest" />
                 <Button size="lg" variant="outline" className="h-14 px-8" asChild>
-                  <Link to="/bundle/bilanzbuchhalter-ihk">Komplett-Bundle ansehen</Link>
+                  <Link to="/paket/bilanzbuchhalter-ihk">Komplettpaket ansehen</Link>
                 </Button>
               </div>
             </div>
@@ -194,8 +194,8 @@ export default function BilanzbuchhalterPruefungsvorbereitungPage() {
               <Link to={`/lernplan/${QUIZ}`} className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors flex items-center justify-between">
                 <span>Persönlichen Lernplan ansehen</span><ArrowRight className="h-4 w-4 text-primary" />
               </Link>
-              <Link to="/bundle/bilanzbuchhalter-ihk" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors flex items-center justify-between">
-                <span>Komplett-Bundle &amp; Preis</span><ArrowRight className="h-4 w-4 text-primary" />
+              <Link to="/paket/bilanzbuchhalter-ihk" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors flex items-center justify-between">
+                <span>Komplettpaket &amp; Preis</span><ArrowRight className="h-4 w-4 text-primary" />
               </Link>
               <Link to="/pruefungstraining/fachwirt/bilanzbuchhalter" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors flex items-center justify-between">
                 <span>Mündliche Prüfungssimulation</span><ArrowRight className="h-4 w-4 text-primary" />
@@ -225,7 +225,7 @@ export default function BilanzbuchhalterPruefungsvorbereitungPage() {
           cluster={CLUSTER}
           location="footer"
           label="Bereit für die Bilanzbuchhalter-Prüfung?"
-          subtitle={`Starte mit dem 5-Fragen-Selbsttest, erhalte deinen Lernplan und entscheide danach, ob du das Komplett-Bundle (${PRICING.defaultPrice}) brauchst.`}
+          subtitle={`Starte mit dem 5-Fragen-Selbsttest, erhalte deinen Lernplan und entscheide danach, ob du das Komplettpaket (${PRICING.defaultPrice}) brauchst.`}
         />
       </div>
     </>

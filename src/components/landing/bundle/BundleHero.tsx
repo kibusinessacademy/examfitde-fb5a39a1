@@ -20,7 +20,7 @@ export function BundleHero({ beruf, priceDisplay, onCtaClick }: Props) {
       <div className="relative max-w-3xl mx-auto px-4 text-center">
         <Badge variant="outline" className="mb-3 gap-1.5 border-primary/30 text-primary text-xs">
           <Zap className="h-3 w-3" />
-          Komplett-Bundle · {beruf}
+          Komplettpaket · {beruf}
         </Badge>
 
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold leading-tight mb-3 md:mb-4">
@@ -44,7 +44,7 @@ export function BundleHero({ beruf, priceDisplay, onCtaClick }: Props) {
           onClick={onCtaClick}
           data-cta-location="bundle_hero_primary"
         >
-          Bundle starten – {priceDisplay}
+          Komplettpaket starten – {priceDisplay}
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
 

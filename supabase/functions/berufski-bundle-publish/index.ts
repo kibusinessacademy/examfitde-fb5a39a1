@@ -1,83 +1,53 @@
-// Deno.serve is built-in
-import Stripe from "npm:stripe@14.21.0";
-import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { getCorsHeaders, handleCorsPreflightRequest, json } from "../_shared/cors.ts";
+/**
+ * berufski-bundle-publish — DEPRECATED 2026-05-17
+ *
+ * Naming-Migration Phase A4: deny-by-default. Funktion bleibt 7–14 Tage online,
+ * lehnt jedoch alle Calls mit 410 ab und schreibt einen Audit-Hit, damit wir
+ * versteckte Caller erkennen. Ohne Hits in 14 Tagen → Delete (siehe Plan).
+ */
+import { createClient } from "npm:@supabase/supabase-js@2";
 
-const logStep = (step: string, details?: Record<string, unknown>) => {
-  console.log(`[WORK-BUNDLE-PUBLISH] ${step}`, details ? JSON.stringify(details) : '');
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 Deno.serve(async (req) => {
-  const corsResponse = handleCorsPreflightRequest(req);
-  if (corsResponse) return corsResponse;
-  const origin = req.headers.get('origin');
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not set");
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { bundleId } = await req.json();
-    if (!bundleId) return json(400, { ok: false, error: "bundleId required" }, origin);
-
-    const { data: bundle, error: bErr } = await adminClient
-      .from('work_bundles')
-      .select('*')
-      .eq('id', bundleId)
-      .single();
-
-    if (bErr || !bundle) return json(404, { ok: false, error: "Bundle not found" }, origin);
-
-    const { data: assets } = await adminClient
-      .from('work_bundle_assets')
-      .select('kind, storage_path')
-      .eq('bundle_id', bundleId);
-
-    const hasPdf = (assets ?? []).some((a: any) => a.kind === 'pdf');
-    if (!hasPdf) {
-      return json(400, { ok: false, error: "Publish Gate failed: Bundle PDF asset missing." }, origin);
-    }
-
-    const amountCents = bundle.price_cents;
-    let stripeProductId = bundle.stripe_product_id;
-    let stripePriceId = bundle.stripe_price_id;
-
-    if (!stripeProductId) {
-      const sp = await stripe.products.create({
-        name: bundle.title,
-        description: bundle.description || 'ExamFit@work Bundle',
-        metadata: { scope: 'bundle', bundleId, brand: 'ExamFit@work' },
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (supabaseUrl && serviceKey) {
+      const admin = createClient(supabaseUrl, serviceKey);
+      await admin.rpc("fn_emit_audit", {
+        _action_type: "deprecated_edge_function_called",
+        _target_type: "edge_function",
+        _target_id: "berufski-bundle-publish",
+        _result_status: "warning",
+        _payload: {
+          fn: "berufski-bundle-publish",
+          method: req.method,
+          ua: req.headers.get("user-agent"),
+          origin: req.headers.get("origin"),
+          referer: req.headers.get("referer"),
+        },
+        _trigger_source: "deprecated_fn_guard",
+        _error_message: "Edge function deprecated 2026-05-17 (naming-migration A4).",
       });
-      stripeProductId = sp.id;
     }
-
-    if (!stripePriceId) {
-      const pr = await stripe.prices.create({
-        product: stripeProductId!,
-        currency: 'eur',
-        unit_amount: amountCents,
-        metadata: { scope: 'bundle', bundleId },
-      });
-      stripePriceId = pr.id;
-    }
-
-    await adminClient.from('work_bundles').update({
-      stripe_product_id: stripeProductId,
-      stripe_price_id: stripePriceId,
-      is_active: true,
-    }).eq('id', bundleId);
-
-    logStep("Bundle published", { bundleId, stripeProductId, stripePriceId });
-    return json(200, { ok: true, stripeProductId, stripePriceId }, origin);
-
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    logStep("ERROR", { message: msg });
-    return json(500, { ok: false, error: msg }, origin);
+  } catch (_e) {
+    // never fail on audit problems — primary goal is the 410 response
   }
+
+  return new Response(
+    JSON.stringify({
+      ok: false,
+      error: "gone",
+      message: "berufski-bundle-publish wurde am 2026-05-17 deprecated. Wird nach 14 Tagen ohne Caller gelöscht.",
+    }),
+    { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
 });

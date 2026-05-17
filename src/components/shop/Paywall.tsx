@@ -26,7 +26,7 @@ const FEATURE_NAMES: Record<PaywallProps['feature'], string> = {
 const BUNDLE_OPTION = {
   key: 'bundle',
   price: PRICING.defaultPrice,
-  label: '🎁 Komplett-Bundle',
+  label: '🎁 Komplettpaket',
   recommended: true,
 } as const;
 

@@ -73,7 +73,7 @@ export default function HomePage() {
     <>
       <SEOHead
         title={seoTitle("Prüfungsreife testen — IHK-Prüfung gezielt vorbereiten")}
-        description="Finde in 4 Minuten heraus, wie prüfungsreif du bist. ExamFit analysiert Schwächen, erstellt deinen Lernplan und trainiert schriftlich + mündlich bis zur Prüfung. Komplett-Bundle 24,90 €, kein Abo."
+        description="Finde in 4 Minuten heraus, wie prüfungsreif du bist. ExamFit analysiert Schwächen, erstellt deinen Lernplan und trainiert schriftlich + mündlich bis zur Prüfung. Komplettpaket 24,90 €, kein Abo."
         canonical={`${SITE_URL}/`}
         type="website"
         structuredData={[
@@ -127,7 +127,7 @@ export default function HomePage() {
                   data-cta-location="hero_secondary"
                   onClick={() => trackConversion({ event: 'cta_click', source: 'hero', label: 'bundle_view' })}
                 >
-                  Komplett-Bundle ansehen
+                  Komplettpaket ansehen
                 </Button>
               </Link>
             </div>

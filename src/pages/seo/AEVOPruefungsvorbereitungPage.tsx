@@ -211,7 +211,7 @@ export default function AEVOPruefungsvorbereitungPage() {
         <AEVOQuizCTA
           location="footer"
           label="Bereit für den Ausbilderschein?"
-          subtitle={`Starte mit dem 5-Fragen-Selbsttest, erhalte deinen Lernplan und entscheide danach, ob du das Komplett-Bundle (${PRICING.defaultPrice}) brauchst.`}
+          subtitle={`Starte mit dem 5-Fragen-Selbsttest, erhalte deinen Lernplan und entscheide danach, ob du das Komplettpaket (${PRICING.defaultPrice}) brauchst.`}
         />
       </div>
     </>

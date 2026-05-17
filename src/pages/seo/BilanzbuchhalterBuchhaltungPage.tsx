@@ -111,7 +111,7 @@ export default function BilanzbuchhalterBuchhaltungPage() {
               <Link to={`/quiz/${QUIZ}`} className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>5-Fragen-Selbsttest</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
               <Link to={`/lernplan/${QUIZ}`} className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Persönlicher Lernplan</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
               <Link to="/bilanzbuchhalter-jahresabschluss" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Weiter: Jahresabschluss</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
-              <Link to="/bundle/bilanzbuchhalter-ihk" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Komplett-Bundle</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
+              <Link to="/paket/bilanzbuchhalter-ihk" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Komplettpaket</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
             </div>
           </div>
         </section>
@@ -132,7 +132,7 @@ export default function BilanzbuchhalterBuchhaltungPage() {
 
         <QuizCTA quizSlug={QUIZ} cluster={CLUSTER} location="footer"
           label="Bereit für Buchhaltung & Geschäftsvorfälle?"
-          subtitle={`Mache den Selbsttest, sieh deinen Lernplan und entscheide danach über das Komplett-Bundle (${PRICING.defaultPrice}).`} />
+          subtitle={`Mache den Selbsttest, sieh deinen Lernplan und entscheide danach über das Komplettpaket (${PRICING.defaultPrice}).`} />
       </div>
     </>
   );
