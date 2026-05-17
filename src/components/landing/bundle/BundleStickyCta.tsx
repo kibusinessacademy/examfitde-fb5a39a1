@@ -33,7 +33,7 @@ export function BundleStickyCta({ priceDisplay, visible, onCtaClick }: Props) {
           onClick={onCtaClick}
           data-cta-location="bundle_sticky_cta"
         >
-          Bundle starten
+          Komplettpaket starten
           <ArrowRight className="ml-1.5 h-4 w-4" />
         </Button>
       </div>

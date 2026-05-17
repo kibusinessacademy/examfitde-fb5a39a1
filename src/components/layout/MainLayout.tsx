@@ -189,7 +189,7 @@ export default function MainLayout() {
             <div>
               <h2 className="font-semibold text-sm mb-4">Produkte</h2>
               <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-                <Link to="/bundle" className="hover:text-foreground transition-colors">Komplett-Bundle</Link>
+                <Link to="/paket" className="hover:text-foreground transition-colors">Komplettpaket</Link>
                 <Link to="/berufe" className="hover:text-foreground transition-colors">Berufe</Link>
                 <Link to="/preise" className="hover:text-foreground transition-colors">Preise</Link>
               </nav>

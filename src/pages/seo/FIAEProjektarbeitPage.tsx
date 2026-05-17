@@ -113,7 +113,7 @@ export default function FIAEProjektarbeitPage() {
               <Link to={`/quiz/${QUIZ}`} className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>5-Fragen-Selbsttest</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
               <Link to={`/lernplan/${QUIZ}`} className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Persönlicher Lernplan</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
               <Link to="/pruefungstraining/fachinformatiker-ae" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Mündliche Prüfungssimulation</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
-              <Link to="/bundle/fachinformatiker-anwendungsentwicklung" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Komplett-Bundle</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
+              <Link to="/paket/fachinformatiker-anwendungsentwicklung" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 flex items-center justify-between"><span>Komplettpaket</span><ArrowRight className="h-4 w-4 text-primary" /></Link>
             </div>
           </div>
         </section>

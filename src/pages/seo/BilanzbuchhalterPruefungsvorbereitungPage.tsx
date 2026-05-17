@@ -80,7 +80,7 @@ export default function BilanzbuchhalterPruefungsvorbereitungPage() {
               <div className="flex flex-wrap gap-4">
                 <QuizCTA quizSlug={QUIZ} cluster={CLUSTER} location="hero" label="Bin ich prüfungsreif? Gratis-Selbsttest" />
                 <Button size="lg" variant="outline" className="h-14 px-8" asChild>
-                  <Link to="/bundle/bilanzbuchhalter-ihk">Komplett-Bundle ansehen</Link>
+                  <Link to="/paket/bilanzbuchhalter-ihk">Komplettpaket ansehen</Link>
                 </Button>
               </div>
             </div>
@@ -194,7 +194,7 @@ export default function BilanzbuchhalterPruefungsvorbereitungPage() {
               <Link to={`/lernplan/${QUIZ}`} className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors flex items-center justify-between">
                 <span>Persönlichen Lernplan ansehen</span><ArrowRight className="h-4 w-4 text-primary" />
               </Link>
-              <Link to="/bundle/bilanzbuchhalter-ihk" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors flex items-center justify-between">
+              <Link to="/paket/bilanzbuchhalter-ihk" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors flex items-center justify-between">
                 <span>Komplett-Bundle &amp; Preis</span><ArrowRight className="h-4 w-4 text-primary" />
               </Link>
               <Link to="/pruefungstraining/fachwirt/bilanzbuchhalter" className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors flex items-center justify-between">
