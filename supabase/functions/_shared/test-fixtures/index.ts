@@ -481,11 +481,13 @@ export async function assertNoLegacyBundleUrls(
     .eq("status", "active")
     .limit(sample);
   if (error) {
-    await emitAudit(sb, "test_fixture_created" as any, {
-      _placeholder: "naming_assert_lookup_failed",
-      correlation_id: opts.correlationId,
-      error: error.message,
-    }).catch(() => {});
+    try {
+      await emitAudit(sb, "test_fixture_created" as any, {
+        _placeholder: "naming_assert_lookup_failed",
+        correlation_id: opts.correlationId,
+        error: error.message,
+      });
+    } catch { /* swallow */ }
   } else {
     for (const p of (data ?? [])) {
       const hay = `${p.seo_title ?? ""} ${p.seo_description ?? ""}`;
