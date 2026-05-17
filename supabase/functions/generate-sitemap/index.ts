@@ -142,7 +142,7 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         { loc: `${SITE_URL}/ihk-pruefungen`, lastmod: today, changefreq: "weekly", priority: 0.9 },
         { loc: `${SITE_URL}/lernkurse`, lastmod: today, changefreq: "weekly", priority: 0.9 },
         { loc: `${SITE_URL}/pruefungstrainer`, lastmod: today, changefreq: "weekly", priority: 0.9 },
-        { loc: `${SITE_URL}/bundle`, lastmod: today, changefreq: "weekly", priority: 0.9 },
+        { loc: `${SITE_URL}/paket`, lastmod: today, changefreq: "weekly", priority: 0.9 },
         { loc: `${SITE_URL}/shop`, lastmod: today, changefreq: "weekly", priority: 0.8 },
         // IHK Pillar-Cluster Hubs (zentrale Topic-Pages)
         { loc: `${SITE_URL}/ihk-pruefungsvorbereitung`, lastmod: today, changefreq: "weekly", priority: 0.9 },
@@ -278,9 +278,8 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         const slug = generateSlug(b.bezeichnung_kurz);
         const lm = (b.updated_at || "").split("T")[0] || today;
         urls.push({ loc: `${SITE_URL}/berufe/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.8 });
-        for (const t of ["lernkurs", "pruefungstrainer", "bundle"]) {
-          urls.push({ loc: `${SITE_URL}/${t}/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.7 });
-        }
+        // Komplettpaket-SSOT: nur /paket/:slug in Sitemap; /lernkurse/* + /pruefungstrainer/* + /bundle/* sind nur Legacy-Redirects.
+        urls.push({ loc: `${SITE_URL}/paket/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.8 });
         urls.push({ loc: `${SITE_URL}/ihk-pruefungen/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.7 });
       }
       const { data: certs } = await sb.from("certification_catalog")
