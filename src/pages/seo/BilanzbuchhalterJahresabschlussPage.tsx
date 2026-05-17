@@ -131,7 +131,7 @@ export default function BilanzbuchhalterJahresabschlussPage() {
 
         <QuizCTA quizSlug={QUIZ} cluster={CLUSTER} location="footer"
           label="Bereit für den Jahresabschluss?"
-          subtitle={`Mache den Selbsttest, sieh deinen Lernplan und entscheide danach über das Komplett-Bundle (${PRICING.defaultPrice}).`} />
+          subtitle={`Mache den Selbsttest, sieh deinen Lernplan und entscheide danach über das Komplettpaket (${PRICING.defaultPrice}).`} />
       </div>
     </>
   );

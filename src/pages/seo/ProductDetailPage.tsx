@@ -89,7 +89,7 @@ function BundleDetailPageComponent() {
     if (!productSlug) {
       toast({
         title: 'Checkout nicht verfügbar',
-        description: 'Dieses Bundle ist aktuell nicht buchbar. Bitte später erneut versuchen.',
+        description: 'Dieses Komplettpaket ist aktuell nicht buchbar. Bitte später erneut versuchen.',
         variant: 'destructive',
       });
       return;
@@ -128,7 +128,7 @@ function BundleDetailPageComponent() {
       name: `${beruf.title} Komplettpaket`,
       description: seo.description,
       price,
-      url: `${SITE_URL}/bundle/${slug}`,
+      url: `${SITE_URL}/paket/${slug}`,
       sku: `bundle-${slug}`,
       ratingValue: 4.9,
       reviewCount: 127,
@@ -139,9 +139,9 @@ function BundleDetailPageComponent() {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <h1 className="text-2xl font-bold mb-4">Bundle nicht gefunden</h1>
+          <h1 className="text-2xl font-bold mb-4">Komplettpaket nicht gefunden</h1>
           <p className="text-sm text-muted-foreground mb-6">
-            Dieses Bundle ist nicht verfügbar. Sieh dir alle Berufe an oder gehe zurück zur Startseite.
+            Dieses Komplettpaket ist nicht verfügbar. Sieh dir alle Berufe an oder gehe zurück zur Startseite.
           </p>
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
             <Button asChild><Link to="/berufe">Alle Berufe anzeigen</Link></Button>
@@ -157,7 +157,7 @@ function BundleDetailPageComponent() {
       <SEOHead
         title={product?.seo_title || seo!.title}
         description={product?.seo_description || seo!.description}
-        canonical={`${SITE_URL}/bundle/${slug}`}
+        canonical={`${SITE_URL}/paket/${slug}`}
         type="product"
         structuredData={structuredData}
       />
@@ -166,7 +166,7 @@ function BundleDetailPageComponent() {
         <div className="container max-w-5xl pt-4">
           <Breadcrumbs
             items={[
-              { label: 'Bundles', href: '/bundle' },
+              { label: 'Komplettpakete', href: '/paket' },
               { label: beruf.title },
             ]}
           />
@@ -200,7 +200,7 @@ function BundleDetailPageComponent() {
               onClick={() => handleCheckoutStart('bundle_final')}
               data-cta-location="bundle_final_cta"
             >
-              Bundle starten – {priceDisplay}
+              Komplettpaket starten – {priceDisplay}
             </Button>
             <p className="mt-4 text-xs text-text-secondary">
               Kein Abo · 12 Monate Zugang · Sofort starten

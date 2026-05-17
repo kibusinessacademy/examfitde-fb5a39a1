@@ -165,11 +165,11 @@ const live: SeoRoute[] = [
       "Alle ExamFit-Lernkurse im Überblick: IHK Teil 1 + 2, AEVO, Bilanzbuchhalter, FIAE, Fachwirt und Sachkundeprüfungen mit echten Prüfungsfragen und KI-Tutor.",
     h1: "Alle Lernkurse im Überblick",
     intro:
-      "Im ExamFit-Kurskatalog findest du alle verfügbaren Prüfungstrainings auf einen Blick: kaufmännische und gewerblich-technische IHK-Abschlussprüfungen (Teil 1 + 2), die komplette AEVO-Vorbereitung (schriftlich, praktisch und Fachgespräch), Bilanzbuchhalter (Buchhaltung, Jahresabschluss, Steuern), Fachinformatiker Anwendungsentwicklung (FIAE), Wirtschaftsfachwirt sowie Sachkundeprüfungen wie §34a. Jeder Kurs ist nach offiziellem DIHK-Rahmenstoffplan strukturiert, kombiniert kompakte Lektionen mit Mini-Checks, prüfungsnahen Übungsfragen und einem KI-Tutor mit Quellenangaben. Mehrere Lektionen pro Kurs sind dauerhaft kostenlos – für den Vollzugriff inklusive Prüfungssimulationen mit Readiness-Score wählst du das passende Komplett-Bundle. So findest du den richtigen Kurs für deine konkrete Prüfung in unter einer Minute.",
+      "Im ExamFit-Kurskatalog findest du alle verfügbaren Prüfungstrainings auf einen Blick: kaufmännische und gewerblich-technische IHK-Abschlussprüfungen (Teil 1 + 2), die komplette AEVO-Vorbereitung (schriftlich, praktisch und Fachgespräch), Bilanzbuchhalter (Buchhaltung, Jahresabschluss, Steuern), Fachinformatiker Anwendungsentwicklung (FIAE), Wirtschaftsfachwirt sowie Sachkundeprüfungen wie §34a. Jeder Kurs ist nach offiziellem DIHK-Rahmenstoffplan strukturiert, kombiniert kompakte Lektionen mit Mini-Checks, prüfungsnahen Übungsfragen und einem KI-Tutor mit Quellenangaben. Mehrere Lektionen pro Kurs sind dauerhaft kostenlos – für den Vollzugriff inklusive Prüfungssimulationen mit Readiness-Score wählst du das passende Komplettpaket. So findest du den richtigen Kurs für deine konkrete Prüfung in unter einer Minute.",
     keyFacts: [
       { label: "Kurspfade", value: "IHK, AEVO, Bilanzbuchhalter, FIAE, Fachwirt, §34a" },
       { label: "Format", value: "Lektionen + Mini-Checks + Übungsfragen + KI-Tutor" },
-      { label: "Preise", value: "Free-Tier kostenlos, Komplett-Bundles ab 19 €" },
+      { label: "Preise", value: "Free-Tier kostenlos, Komplettpakets ab 19 €" },
       { label: "Updates", value: "Synchron mit DIHK-Rahmenstoffplänen" },
       { label: "Simulationen", value: "Prüfungsnahe Tests mit Readiness-Score" },
       { label: "Sprache", value: "Deutsch" },
@@ -179,7 +179,7 @@ const live: SeoRoute[] = [
       { q: "Welcher Kurs passt zu meiner Prüfung?", a: "Wähle deinen Beruf bzw. deine Fortbildung im Katalog – jeder Kurs zeigt Inhalte, Handlungsfelder und Prüfungsformate transparent an, sodass du den passenden Kurs in unter einer Minute findest." },
       { q: "Sind die Kurse für eine bestimmte IHK?", a: "Nein. Die Inhalte basieren auf den DIHK-Rahmenstoffplänen und gelten bundesweit für alle Industrie- und Handelskammern." },
       { q: "Kann ich Kurse kostenlos testen?", a: "Ja, jeder Kurs hat dauerhaft kostenlose Lektionen plus den kostenlosen Selbsttest mit Lernplan-Empfehlung." },
-      { q: "Was kostet der Vollzugriff?", a: "Komplett-Bundles starten ab 19 € pro Prüfung, oft als Einmalkauf ohne Abo." },
+      { q: "Was kostet der Vollzugriff?", a: "Komplettpakets starten ab 19 € pro Prüfung, oft als Einmalkauf ohne Abo." },
       { q: "Wie aktuell sind die Inhalte?", a: "Inhalte werden bei jeder DIHK-Aktualisierung des Rahmenstoffplans nachgezogen, in der Regel binnen weniger Wochen." },
     ],
     sitemapGroup: "products",

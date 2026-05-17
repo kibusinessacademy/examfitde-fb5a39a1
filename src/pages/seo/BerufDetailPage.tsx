@@ -91,7 +91,7 @@ export default function BerufDetailPage() {
     },
     {
       question: `Was kostet ExamFit für ${title}?`,
-      answer: `Das Komplett-Bundle kostet einmalig ${PRODUCT_PRICES.bundle} € – inklusive Lernkurs, Prüfungstrainer, KI-Tutor und mündlicher Simulation. 12 Monate Zugang. Kein Abo.`,
+      answer: `Das Komplettpaket kostet einmalig ${PRODUCT_PRICES.bundle} € – inklusive Lernkurs, Prüfungstrainer, KI-Tutor und mündlicher Simulation. 12 Monate Zugang. Kein Abo.`,
     },
     {
       question: `Gibt es eine mündliche Prüfungssimulation für ${title}?`,
@@ -176,14 +176,14 @@ export default function BerufDetailPage() {
             </h2>
             <p className="text-text-secondary">
               Starte in 4 Minuten mit dem kostenlosen Prüfungsreife-Check oder sichere dir
-              direkt das Komplett-Bundle für {PRODUCT_PRICES.bundle} €.
+              direkt das Komplettpaket für {PRODUCT_PRICES.bundle} €.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button asChild size="lg" onClick={() => trackCta('footer_quiz')}>
                 <Link to={quizHref}>Prüfungsreife testen</Link>
               </Button>
               <Button asChild size="lg" variant="outline" onClick={() => trackCta('footer_bundle')}>
-                <Link to={bundleHref}>Komplett-Bundle ansehen</Link>
+                <Link to={bundleHref}>Komplettpaket ansehen</Link>
               </Button>
             </div>
           </div>

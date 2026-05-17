@@ -74,7 +74,7 @@ export function BerufHero({ beruf, kammer, description, bundleHref, quizHref, on
             className="h-12 px-6 text-base"
             onClick={onSecondaryCta}
           >
-            <Link to={bundleHref}>Komplett-Bundle ansehen</Link>
+            <Link to={bundleHref}>Komplettpaket ansehen</Link>
           </Button>
         </div>
 
