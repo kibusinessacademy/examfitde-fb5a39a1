@@ -1,4 +1,10 @@
 # Cloudflare Pages SPA fallback
 # Per-route prerendered HTML (dist/<path>/index.html) is served verbatim if it exists.
 # All other paths fall through to the SPA shell.
+
+# Commerce-Naming-Migration: /bundle/* → /paket/* (301 auf Cloudflare/Vercel,
+# auf Lovable-Hosting ignoriert — dort übernimmt BundleToPaketRedirect client-seitig).
+/bundle/*    /paket/:splat    301
+/bundle      /paket           301
+
 /*    /index.html   200

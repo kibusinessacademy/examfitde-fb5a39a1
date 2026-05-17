@@ -1,70 +1,74 @@
-# Journey 1 P0/P1 Fixes + Audit-Write-Contract
+# Pfad A — Bundle → Complete Naming-Cleanup
 
-Ziel: Top-of-Funnel reparieren (Checkout, Tracking, RLS, Drift) **und** das strukturelle Problem „schreibt gegen nicht existierende Spalten, wird stillschweigend verworfen" einmal an der Wurzel lösen.
+**Invariante (Guard):** Ein Beruf = ein kanonisches Komplettpaket. Keine Änderung an Pricing, Fulfillment, Entitlements, `process_order_paid_fulfillment`, `grant_learner_course_access`, `channel_policy_json`, `store_products.product_key='bundle'` Datensätzen oder Tracking-Semantik.
 
-## Phase 0 — Audit-Write-Contract (Wurzel-Fix, zuerst)
+## Scope (5 atomare Sub-Schritte)
 
-Damit kein Folgefix wieder still droppt.
+### A1 — Routes umstellen (Quelle der Wahrheit)
+- Neue Routes `/paket` und `/paket/:slug` registrieren → rendern dieselben `BundleListPage`/`BundleDetailPage`-Komponenten (intern noch so benannt, Umbenennung in A3).
+- `/bundle` und `/bundle/:slug` bleiben als **Redirect-Routes** (client-seitig via `LegacyProductRedirect`-Muster: Helmet canonical → `/paket/...`, `<Navigate replace>`).
+- `public/_redirects` ergänzen `/bundle/* /paket/:splat 301` (auch wenn Lovable es ignoriert — Cloudflare/Vercel-ready; vgl. Memory `seo/hosting-spa-fallback-blocks-prerender-v1`).
+- **Sitemap/SEO**: `generate-sitemap` + `generate-sitemap-index` schreiben `/paket/...`; alte `/bundle/...` Einträge entfernen.
+- **Canonical-Drift-Audit:** alle `SITE_URL + '/bundle/'`-Vorkommen → `/paket/`.
 
-1. **SSOT-Funktion `fn_emit_audit(...)`** (SECURITY DEFINER, einziger erlaubter Schreibpfad in `auto_heal_log` / `ops_guardrail_events` / `conversion_events` / `tracking_events`)
-   - Pflicht-Argumente typisiert: `_target_type`, `_action_type`, `_result_status`, `_payload jsonb`, `_correlation_id`
-   - Validiert `action_type` gegen Whitelist-View `v_audit_action_registry`
-   - Validiert `_payload`-Pflichtfelder via `ops_audit_contract` (action_type → required_jsonb_keys[])
-   - **HARD FAIL**: `RAISE EXCEPTION` bei unknown action_type oder fehlenden Pflichtfeldern (kein `EXCEPTION WHEN OTHERS THEN NULL`)
-2. **Trigger `trg_audit_write_contract` BEFORE INSERT** auf `auto_heal_log`: wenn Insert **nicht** aus `fn_emit_audit` kommt (session var `audit.via_contract='1'`), → RAISE im Strict-Mode-Flag `app_settings.audit_strict='warn'|'enforce'`. Start mit `warn` + Mirror in `ops_guardrail_events`, nach 48h auf `enforce`.
-3. **Registry-Tabelle `ops_audit_contract(action_type, required_keys, schema_version, owner_module)`** + Seeder für die ~21 bereits genutzten action_types.
-4. **CI-Guard** `scripts/guards/audit-write-contract-guard.mjs`: greppt nach direktem `INSERT INTO auto_heal_log`/`ops_guardrail_events` außerhalb von `fn_emit_audit` + Allowlist.
-5. **Smoke**: 4 Cases — valid, unknown action, missing payload key, malformed jsonb. Erwartung: 1 green, 3 hard fail.
+### A2 — Interne Links umstellen
+Alle React-Code `to="/bundle/..."` / `href="/bundle/..."` → `/paket/...`. Betroffen u.a.: HomePage, ProductListPage, ProductDetailPage, BerufDetailPage, QuizResultPage, LeadQuizRunner, ResultCtaBlock, ProductCards, Paywall, ShopPage, PreisePage, HandbookLandingPage, alle SEO-Seiten mit `/bundle/`-Links. Keine Logikänderung — reines String-Replace pro Datei.
 
-## Phase 1 — P0-1: Bundle-CTA → Checkout
+### A3 — UI-Komponenten umbenennen (`Bundle*` → `Complete*`)
+- `src/components/landing/bundle/` → `src/components/landing/complete/`
+  - `BundleHero.tsx` → `CompleteHero.tsx`
+  - `BundleStickyCta.tsx` → `CompleteStickyCta.tsx`
+  - `BundleModulesBlock.tsx` → `CompleteModulesBlock.tsx`
+  - `BundleComparisonBlock.tsx` → `CompleteComparisonBlock.tsx`
+  - `BundleOutcomesBlock.tsx` → `CompleteOutcomesBlock.tsx`
+- `src/pages/seo/BundleListPage.tsx` → `CompletePackageListPage.tsx`
+- `src/pages/seo/BundleDetailPage.tsx` → `CompletePackageDetailPage.tsx`
+- Sichtbare Headlines/Badges bleiben sprachlich **"Komplettpaket"** (bereits heutige Copy, vgl. `BundleHero` "Komplett-Bundle"). Wir vereinheitlichen auf **"Komplettpaket"**.
+- `data-cta-location`: `bundle_hero_primary` → `complete_hero_primary`, `bundle_sticky_cta` → `complete_sticky_cta`. **Tracking-Folge:** GTM-Mapping + `cta_winner_decisions` werden in einer **separaten Migration A3b** mit alias-Map versorgt (alte Werte 90 Tage akzeptiert für CTA-Auto-Promote-Historie).
 
-`src/pages/BundleDetail.tsx` (oder gleichwertige Bundle-Route):
-- `onClick` ruft **direkt** `supabase.functions.invoke('create-product-checkout', { body: { product_id, persona, source: 'bundle_detail' } })`
-- Hard-fail toast wenn `data.url` fehlt + `fn_emit_audit('checkout','checkout_redirect_missing_url','error', payload)`
-- Niemals `navigate('/shop')` als Fallback — stattdessen Error-State
-- E2E-Smoke `scripts/journey1-bundle-cta-smoke.mjs` (HEAD-Check auf Stripe-Host)
+### A4 — Dead-Code entfernen
+- `src/pages/work/WorkBundleBuyPage.tsx` löschen + Route in `AppRoutes.tsx` raus.
+- Edge-Functions löschen (via deploy-Drift-Check abgesegnet):
+  - `supabase/functions/berufski-bundle-publish/`
+  - `supabase/functions/validate-standalone-bundle-secure/`
+  - `supabase/functions/build-standalone-bundle/` (Legacy-Snapshot)
+  - `supabase/functions/build-standalone-snapshot/` (nur falls nicht von aktivem Pfad referenziert — vorher grep)
+- `src/components/marketing/BundlesTab.tsx` + `course_bundles`-Query → wenn Tab nirgends gemountet: löschen; sonst hide-only + Memory-Note. (Recon vor Delete.)
+- `E2EBundleCheckCard` umbenennen zu `E2ECompletePackageCheckCard` (nur Component-Name + Import).
 
-## Phase 2 — P0-2 + P0-3: Tracking-Pipeline
+### A5 — Bewusst NICHT angefasst (Allowlist)
+- `lesson-generate-competency-bundle` (interner Content-Begriff: Lesson-Kompetenz-Set).
+- `quizBundleMap.ts` (interne Quiz-Persona-Map, kein Commerce-Bundle).
+- `b2c-ssot-smoke mode=bundle` — **bleibt** (wird in Pfad C migriert/umbenannt).
+- `store_products.product_key='bundle'` Daten — bleiben (Fulfillment-Key).
+- `berufski-bundle-checkout` Edge-Function — bleibt (aktiver Checkout-Pfad B2C-Single-Beruf).
+- `BerufsKIBundleBuyPage` — bleibt (separater BerufsKI-Funnel, andere Produkt-Linie).
 
-1. Migration: RLS-Policy `tracking_events_anon_insert` (INSERT, anon+authenticated, `WITH CHECK true`, kein SELECT für anon)
-2. Enum-Erweiterung `track_conversion_event_v2`: `landing_view` in allowed list (idempotent via `IF NOT EXISTS`)
-3. SSOT-View `v_conversion_event_registry` (event_type, required_keys, persona_required) + Contract-Tests
-4. `useTrackingClient` ruft bei 401/400 → `fn_emit_audit('tracking','tracking_insert_failed','error', { code, event_type, ... })` statt silent-drop
+## Migration / Audit
+- Eine SQL-Migration: `cta_winner_decisions` + `conversion_events` View `v_cta_location_aliases` (alias-Map `bundle_hero_primary`→`complete_hero_primary` etc.), damit Historie konsistent bleibt.
+- `fn_emit_audit` action_type `naming_migration_route_redirect` registriert + einmaliger Audit-Log-Eintrag mit Counts (alte vs neue Routes/Components).
+- Kein DB-Tabellen-Rename, keine Spaltenänderungen.
 
-## Phase 3 — P0-4: Public Product RLS
+## Verifikation
+1. Build green (typecheck/eslint).
+2. Manuell: `/bundle/<slug>` → Redirect → `/paket/<slug>` rendert identisch.
+3. `rg "/bundle/" src/` → nur noch in `LegacyProductRedirect` + `_redirects` + Sitemap-Legacy-Block.
+4. `rg "BundleHero|BundleStickyCta|BundleModulesBlock" src/` → 0 Treffer.
+5. Sitemap-XML enthält `/paket/...`, nicht `/bundle/...`.
+6. CTA-Tracking: emittierter `cta_location` = neuer Wert; View liefert alten Wert weiterhin in Historie.
 
-Migration: explizite anon SELECT-Policies auf `store_products` + `curriculum_products`:
-```
-USING (is_active = true AND published = true)
-```
-Sensible Spalten (cost_price, internal_notes) via View `v_store_products_public` + Base-Table SELECT-Deny für anon.
+## Reihenfolge der Commits (separate Migrations/Diffs)
+1. **A1** Routes + Redirects (klein, isoliert)
+2. **A2** Link-Updates (groß, aber mechanisch)
+3. **A3** Component-Rename + CTA-Location-Update
+4. **A3b** SQL-Migration CTA-Alias-View + Audit-Registry
+5. **A4** Dead-Code-Delete (nach Recon)
 
-## Phase 4 — P1: 190 vs 166 Catalog-Drift Recon
+Pfad C (`b2c-ssot-smoke mode=bundle`→`mode=complete`) und das Verschieben des Smoke auf die Factories aus Pfad B kommen separat.
 
-Diagnose-RPC `admin_get_catalog_visibility_drift()` → liefert pro Paket:
-- `published` ✓/✗, `has_active_product` ✓/✗, `has_active_price` ✓/✗, `has_hero_image` ✓/✗, `in_v_full_course_catalog` ✓/✗, `gate_reason text`
-- + Cockpit-Card `CatalogVisibilityDriftCard` im /admin/growth Audit-Tab
-- **Kein Auto-Fix** — Recon-Report, dann gezielter Heal in Folge-Sprint
+---
 
-## Phase 5 — Verifikation
-
-- Browser-Live: `/bundle/<slug>` → CTA → Stripe URL erreichbar
-- `tracking_events` anon-Insert 201
-- `track_conversion_event_v2('landing_view', ...)` 200
-- `store_products` REST anon 200 mit gefilterten Rows
-- `admin_get_catalog_visibility_drift()` liefert 190 Rows, davon ~24 mit non-null gate_reason
-- `fn_emit_audit` smoke: 1 ok / 3 hard-fail
-- 4 CI-Guards grün
-
-## Technische Notizen
-
-- Migration-Discipline: **5 separate Migrationen** (Contract, CTA-Fix nur Code, Tracking, RLS, Recon-RPC). Jede mit Smoke + Rollback-Hint + `auto_heal_log`-Eintrag via `fn_emit_audit`.
-- Audit-Strict startet `warn`, nicht `enforce` — sonst riskieren wir Migration-Block durch Legacy-Inserts. 48h Beobachtung, dann Flip.
-- `conversion_events.package_id` Generated Column bleibt SSOT — `fn_emit_audit` validiert nur Wrapper-Pfad.
-
-## Out of Scope (bewusst)
-
-- Journey 2/3/4 Audit (erst nach Entry-Funnel-Reparatur)
-- Hero-Layout-Glitch (UX, kein Blocker)
-- Direktkauf-CTA auf Produktseite (P1 UX, eigener Sprint)
-- 24 Drift-Pakete tatsächlich heilen (erst nach Recon-Daten)
+**Bestätigung benötigt:**
+- (1) Sichtbare Copy auf "Komplettpaket" vereinheitlichen — ok?
+- (2) `build-standalone-bundle` + `build-standalone-snapshot` löschen, sofern Recon zeigt: nicht referenziert — ok?
+- (3) `BundlesTab.tsx`/`course_bundles` löschen statt verstecken, falls nicht gemountet — ok?

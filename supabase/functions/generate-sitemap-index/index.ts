@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
           { path: "/ihk-pruefungen", priority: 0.9, changefreq: "weekly" },
           { path: "/lernkurse", priority: 0.9, changefreq: "weekly" },
           { path: "/pruefungstrainer", priority: 0.9, changefreq: "weekly" },
-          { path: "/bundle", priority: 0.9, changefreq: "weekly" },
+          { path: "/paket", priority: 0.9, changefreq: "weekly" },
           { path: "/shop", priority: 0.8, changefreq: "weekly" },
           { path: "/wissen", priority: 0.8, changefreq: "daily" },
           { path: "/blog", priority: 0.8, changefreq: "daily" },

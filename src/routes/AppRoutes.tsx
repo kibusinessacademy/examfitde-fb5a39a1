@@ -62,8 +62,9 @@ const UnternehmenPage = lazyRetry(() => import('@/pages/seo/UnternehmenPage'));
 const PartnerDashboardPage = lazyRetry(() => import('@/pages/partner/PartnerDashboardPage'));
 const PreisePage = lazyRetry(() => import('@/pages/seo/PreisePage'));
 const LegacyProductRedirect = lazyRetry(() => import('@/pages/seo/LegacyProductRedirect'));
-const BundleListPage = lazyRetry(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.BundleListPage })));
-const BundleDetailPage = lazyRetry(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.BundleDetailPage })));
+const PaketListPage = lazyRetry(() => import('@/pages/seo/ProductListPage').then(m => ({ default: m.BundleListPage })));
+const PaketDetailPage = lazyRetry(() => import('@/pages/seo/ProductDetailPage').then(m => ({ default: m.BundleDetailPage })));
+const BundleToPaketRedirect = lazyRetry(() => import('@/pages/seo/BundleToPaketRedirect'));
 const WissenPage = lazyRetry(() => import('@/pages/seo/WissenPage'));
 const WitzPage = lazyRetry(() => import('@/pages/seo/WitzPage'));
 const FrageDesTagsPage = lazyRetry(() => import('@/pages/seo/FrageDesTagsPage'));
@@ -376,13 +377,16 @@ const AppRoutes = () => {
           <Route path="/ihk-pruefungen/:slug" element={<BerufDetailPage />} />
           <Route path="/berufe" element={<BerufePage />} />
           <Route path="/berufe/:slug" element={<BerufDetailPage />} />
-          {/* Bundle-only Strategie: Legacy-Produktrouten redirecten dauerhaft auf /bundle. */}
+          {/* Komplettpaket-Strategie: Ein Beruf = ein kanonisches Paket unter /paket/:slug.
+              Legacy /lernkurse, /pruefungstrainer, /bundle redirecten auf /paket. */}
           <Route path="/lernkurse" element={<LegacyProductRedirect />} />
           <Route path="/lernkurse/:slug" element={<LegacyProductRedirect />} />
           <Route path="/pruefungstrainer" element={<LegacyProductRedirect />} />
           <Route path="/pruefungstrainer/:slug" element={<LegacyProductRedirect />} />
-          <Route path="/bundle" element={<BundleListPage />} />
-          <Route path="/bundle/:slug" element={<BundleDetailPage />} />
+          <Route path="/bundle" element={<BundleToPaketRedirect />} />
+          <Route path="/bundle/:slug" element={<BundleToPaketRedirect />} />
+          <Route path="/paket" element={<PaketListPage />} />
+          <Route path="/paket/:slug" element={<PaketDetailPage />} />
           <Route path="/unternehmen" element={<UnternehmenPage />} />
           <Route path="/preise" element={<PreisePage />} />
           <Route path="/karriere" element={<KarrierePage />} />
