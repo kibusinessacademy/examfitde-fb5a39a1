@@ -8,7 +8,7 @@ import { TopicMapNav } from '@/components/seo/TopicMapNav';
 
 const navigation = [
   { name: 'IHK-Prüfungen', href: '/ihk-pruefungen', icon: Home },
-  { name: 'Komplett-Bundle', href: '/bundle', icon: Award },
+  { name: 'Komplettpaket', href: '/paket', icon: Award },
   { name: 'Berufe', href: '/berufe', icon: GraduationCap },
   { name: 'Unternehmen', href: '/unternehmen', icon: Building2 },
   { name: 'Preise', href: '/preise', icon: CreditCard },

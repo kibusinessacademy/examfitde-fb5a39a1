@@ -12,7 +12,7 @@ import { useNativeApp } from '@/hooks/useNativeApp';
 
 const NAV_ITEMS = [
   { to: '/berufe', label: 'Berufe' },
-  { to: '/bundle', label: 'Komplett-Bundle' },
+  { to: '/paket', label: 'Komplettpaket' },
   { to: '/wissen', label: 'Wissen' },
   { to: '/preise', label: 'Preise' },
 ] as const;
