@@ -55,6 +55,7 @@ export function HealCockpitTabContent() {
       <PillarGenerationBackfillCard />
       <PillarPublishGateCard />
       <IntentPillarBridgeCard />
+      <PersonaCertPillarBridgeCard />
       <DagBlockedDashboardCard />
       <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
