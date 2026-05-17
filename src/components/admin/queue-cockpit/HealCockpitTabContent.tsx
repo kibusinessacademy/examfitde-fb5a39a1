@@ -47,6 +47,7 @@ export function HealCockpitTabContent() {
       <FailedJobHotloopsCard />
       <VariantPipelineHealthCard />
       <InternalLinkMaterializationCard />
+      <SeoDeadEndCoverageCard />
       <DagBlockedDashboardCard />
       <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
