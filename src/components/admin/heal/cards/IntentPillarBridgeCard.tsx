@@ -51,11 +51,10 @@ export function IntentPillarBridgeCard() {
 
   const dispatch = useMutation({
     mutationFn: async ({ dry }: { dry: boolean }) => {
-      // @ts-expect-error RPC type added after types regen
       const { data, error } = await supabase.rpc("admin_seo_bridge_intent_to_cert_pillar", {
         p_limit: limit,
         p_dry_run: dry,
-        p_reason: dry ? null : reason.trim(),
+        p_reason: dry ? undefined : reason.trim(),
       });
       if (error) throw error;
       return data as {
