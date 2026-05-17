@@ -91,6 +91,18 @@
     <!-- Favicons & Icons -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#0F3D3E" />
+    <script>
+      (function () {
+        var host = window.location.hostname;
+        var isLovablePreview = host.endsWith('.lovableproject.com') || host.endsWith('.lovable.app');
+        if (!isLovablePreview) {
+          var link = document.createElement('link');
+          link.rel = 'manifest';
+          link.href = '/manifest.webmanifest';
+          document.head.appendChild(link);
+        }
+      })();
+    </script>
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
