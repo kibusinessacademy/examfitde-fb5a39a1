@@ -51,6 +51,7 @@ export function HealCockpitTabContent() {
       <InternalLinkMaterializationCard />
       <SeoDeadEndCoverageCard />
       <PillarGenerationBackfillCard />
+      <PillarPublishGateCard />
       <DagBlockedDashboardCard />
       <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
