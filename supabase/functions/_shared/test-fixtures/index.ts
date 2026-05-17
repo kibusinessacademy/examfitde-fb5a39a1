@@ -496,15 +496,17 @@ export async function assertNoLegacyBundleUrls(
   }
 
   const passed = violations.length === 0;
-  await sb.rpc("fn_emit_audit" as never, {
-    _target_type: "test_fixture",
-    _action_type: passed ? "naming_assert_passed" : "naming_assert_failure",
-    _result_status: passed ? "ok" : "warning",
-    _payload: passed
-      ? { scope: "smoke.b2c.commerce", asserted: "no_legacy_bundle_urls", sample_size: sample, correlation_id: opts.correlationId }
-      : { scope: "smoke.b2c.commerce", reason: "legacy_bundle_url_in_products", violations, correlation_id: opts.correlationId },
-    _correlation_id: opts.correlationId,
-  } as never).catch(() => {});
+  try {
+    await sb.rpc("fn_emit_audit" as never, {
+      _target_type: "test_fixture",
+      _action_type: passed ? "naming_assert_passed" : "naming_assert_failure",
+      _result_status: passed ? "ok" : "warning",
+      _payload: passed
+        ? { scope: "smoke.b2c.commerce", asserted: "no_legacy_bundle_urls", sample_size: sample, correlation_id: opts.correlationId }
+        : { scope: "smoke.b2c.commerce", reason: "legacy_bundle_url_in_products", violations, correlation_id: opts.correlationId },
+      _correlation_id: opts.correlationId,
+    } as never);
+  } catch { /* swallow */ }
 
   return { passed, scope: "smoke.b2c.commerce", violations };
 }
