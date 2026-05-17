@@ -27,6 +27,7 @@ import { InternalLinkMaterializationCard } from "@/components/admin/heal/cards/I
 import { SeoDeadEndCoverageCard } from "@/components/admin/heal/cards/SeoDeadEndCoverageCard";
 import { PillarGenerationBackfillCard } from "@/components/admin/heal/cards/PillarGenerationBackfillCard";
 import { PillarPublishGateCard } from "@/components/admin/heal/cards/PillarPublishGateCard";
+import { IntentPillarBridgeCard } from "@/components/admin/heal/cards/IntentPillarBridgeCard";
 
 export function HealCockpitTabContent() {
   return (
@@ -52,6 +53,7 @@ export function HealCockpitTabContent() {
       <SeoDeadEndCoverageCard />
       <PillarGenerationBackfillCard />
       <PillarPublishGateCard />
+      <IntentPillarBridgeCard />
       <DagBlockedDashboardCard />
       <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
