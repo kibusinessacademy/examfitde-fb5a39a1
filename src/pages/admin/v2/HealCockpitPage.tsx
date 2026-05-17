@@ -73,6 +73,7 @@ import { CognitiveLoadIntelligenceCard } from "@/components/admin/heal/cards/Cog
 import { TemporalIntelligenceCard } from "@/components/admin/heal/cards/TemporalIntelligenceCard";
 import { PredictiveSimulationCard } from "@/components/admin/heal/cards/PredictiveSimulationCard";
 import { SeoJobHealthCard } from "@/components/admin/heal/cards/SeoJobHealthCard";
+import { SeoGraphImpactCard } from "@/components/admin/heal/cards/SeoGraphImpactCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
 import { AccessSsotHealthCard } from "@/components/admin/heal/cards/AccessSsotHealthCard";
@@ -496,6 +497,7 @@ export default function HealCockpitPage() {
                 <TemporalIntelligenceCard />
                 <PredictiveSimulationCard />
                 <SeoJobHealthCard />
+                <SeoGraphImpactCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
                 <AccessSsotHealthCard />
