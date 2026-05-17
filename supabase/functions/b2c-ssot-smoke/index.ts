@@ -1,36 +1,40 @@
 /**
- * b2c-ssot-smoke
- * --------------
- * Synthetic Smoke für die SSOT-B2C-Pipeline.
+ * b2c-ssot-smoke (Pfad C: complete + factories)
+ * ---------------------------------------------
+ * Synthetic Smoke für die SSOT-B2C-Pipeline. Schreibt ausschließlich über
+ * `_shared/test-fixtures/` (Factories) — keine rohen Inserts mehr.
  *
- * Modi (POST body):
- *   { "mode"?: "single" | "bundle" | "refund", ... }
+ * Modi:
+ *   - "single":   1 Produkt → 7 Artefakte + Replay-Idempotenz.
+ *   - "complete": Mehrere Produkte in 1 Order (Komplettpaket-Shape-Test).
+ *                 Verifiziert: order_items=N, invoices=1, grants=N, ents=1/curr.
+ *   - "bundle":   DEPRECATED alias → leitet auf "complete" um + Audit
+ *                 `deprecated_smoke_mode_called`.
+ *   - "refund":   single-paid → fn_revoke_grant_on_refund → revoke + idempotenz.
+ *   - "access_e2e": paid → 4 Feature-Gates + tutor + storage assertions.
  *
- * mode="single" (default): 1 product, voller Order→paid-Pfad,
- *   verifiziert 7 Artefakte + Idempotenz-Replay.
+ * Naming-Assertion: assertNoLegacyBundleUrls() läuft in jedem Modus.
  *
- * mode="bundle": mehrere products in 1 Order
- *   { "product_ids": uuid[] }  (default: top 2 active products mit curriculum_id)
- *   Verifiziert: order_items=N, invoices=1, invoice_items>=N, payments=1,
- *   ledger_entries>=1, learner_course_grants=N (1 pro product), entitlements=N
- *   (1 pro distinct curriculum). Idempotenz-Replay.
- *
- * mode="refund": ruft single-mode intern auf, dann fn_revoke_grant_on_refund
- *   und verifiziert: grants→refunded, entitlements valid_until<=now,
- *   admin_actions Audit vorhanden, 2. Refund-Aufruf idempotent.
- *
- * Common params: { "user_id"?: uuid, "cleanup"?: boolean }
- * Antwort: { ok, mode, order_id, checks, idempotency, failures }
+ * Body: { mode?, user_id?, product_id?, product_ids?, cleanup?, correlation_id?, ... }
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { handleCorsPreflightRequest } from "../_shared/cors.ts";
+import {
+  newCorrelationId,
+  createSmokeOrder,
+  createSmokeCompleteOrder,
+  cleanupSmokeByCorrelation,
+  assertNoLegacyBundleUrls,
+} from "../_shared/test-fixtures/index.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Content-Type": "application/json",
 };
+
+type Mode = "single" | "complete" | "bundle" | "refund" | "access_e2e";
 
 Deno.serve(async (req) => {
   const pre = handleCorsPreflightRequest(req);
@@ -39,232 +43,147 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   if (!serviceKey) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "SUPABASE_SERVICE_ROLE_KEY missing" }),
-      { status: 500, headers: cors },
-    );
+    return new Response(JSON.stringify({ ok: false, error: "SUPABASE_SERVICE_ROLE_KEY missing" }),
+      { status: 500, headers: cors });
   }
   const sb = createClient(url, serviceKey);
 
   let body: any = {};
-  try {
-    body = await req.json();
-  } catch {
-    body = {};
-  }
+  try { body = await req.json(); } catch { body = {}; }
 
-  const failures: string[] = [];
+  const correlationId: string = body.correlation_id ?? newCorrelationId();
   const log = (...m: unknown[]) => console.log("[b2c-ssot-smoke]", ...m);
-  const mode: "single" | "bundle" | "refund" = body.mode ?? "single";
+  let mode: Mode = body.mode ?? "single";
 
-  // ============================================================
-  // MODE: bundle — mehrere products in 1 Order
-  // ============================================================
+  // Naming-Assertion läuft immer (deprecation-mode-call wird zusätzlich auditiert)
+  const naming = await assertNoLegacyBundleUrls(sb, { correlationId, sampleSize: 10 });
+
+  // Deprecated alias: bundle → complete
   if (mode === "bundle") {
-    return await runBundleMode(sb, body, log);
+    await sb.rpc("fn_emit_audit" as never, {
+      _target_type: "test_fixture",
+      _action_type: "deprecated_smoke_mode_called",
+      _result_status: "warning",
+      _payload: { legacy_mode: "bundle", canonical_mode: "complete", correlation_id: correlationId },
+      _correlation_id: correlationId,
+    } as never).catch(() => {});
+    log(`mode=bundle deprecated → routing to mode=complete (correlation=${correlationId})`);
+    mode = "complete";
   }
 
-  // ============================================================
-  // MODE: refund — single-Order paid, dann fn_revoke_grant_on_refund
-  // ============================================================
-  if (mode === "refund") {
-    return await runRefundMode(sb, body, log);
+  try {
+    if (mode === "complete") return await runCompleteMode(sb, body, correlationId, naming, log);
+    if (mode === "refund")   return await runRefundMode(sb, body, correlationId, naming, log);
+    if (mode === "access_e2e") return await runAccessE2eMode(sb, body, correlationId, naming, log);
+    return await runSingleMode(sb, body, correlationId, naming, log);
+  } catch (e: any) {
+    return new Response(JSON.stringify({
+      ok: false, mode, correlation_id: correlationId, naming,
+      error: e?.message ?? String(e),
+    }, null, 2), { status: 500, headers: cors });
   }
+});
 
-  // ============================================================
-  // MODE: access_e2e — paid order → assert tutor + storage + 4 features allowed
-  // ============================================================
-  if (mode === "access_e2e") {
-    return await runAccessE2eMode(sb, body, log);
+// ============================================================================
+// Helpers
+// ============================================================================
+
+async function resolveUserId(sb: SupabaseClient, body: any): Promise<string | null> {
+  if (body.user_id) return body.user_id;
+  const { data } = await (sb as any).from("profiles")
+    .select("user_id").not("user_id", "is", null)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  return data?.user_id ?? null;
+}
+
+async function pickProduct(sb: SupabaseClient, productId?: string | null) {
+  if (productId) {
+    const { data } = await (sb as any).from("products")
+      .select("id, title, curriculum_id").eq("id", productId).maybeSingle();
+    return data;
   }
+  const { data } = await (sb as any).from("products")
+    .select("id, title, curriculum_id")
+    .not("curriculum_id", "is", null).eq("status", "active")
+    .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+  return data;
+}
 
-  // 1. Resolve User + Product
-  let userId: string | null = body.user_id ?? null;
-  if (!userId) {
-    const { data } = await sb
-      .from("profiles")
-      .select("user_id")
-      .not("user_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    userId = data?.user_id ?? null;
+async function pickProducts(sb: SupabaseClient, ids?: string[]): Promise<Array<{id:string;title:string|null;curriculum_id:string|null}>> {
+  if (Array.isArray(ids) && ids.length > 0) {
+    const { data } = await (sb as any).from("products")
+      .select("id, title, curriculum_id").in("id", ids);
+    return data ?? [];
   }
-  if (!userId) {
-    return new Response(JSON.stringify({ ok: false, error: "no user found" }), {
-      status: 400,
-      headers: cors,
-    });
+  const { data } = await (sb as any).from("products")
+    .select("id, title, curriculum_id")
+    .not("curriculum_id", "is", null).eq("status", "active")
+    .order("updated_at", { ascending: false }).limit(20);
+  const seen = new Set<string>(); const out: any[] = [];
+  for (const p of (data ?? [])) {
+    if (!p.curriculum_id || seen.has(p.curriculum_id)) continue;
+    seen.add(p.curriculum_id); out.push(p);
+    if (out.length >= 2) break;
   }
+  return out;
+}
 
-  let productId: string | null = body.product_id ?? null;
-  let productTitle: string | null = null;
-  if (!productId) {
-    const { data } = await sb
-      .from("products")
-      .select("id, title")
-      .not("curriculum_id", "is", null)
-      .eq("status", "active")
-      .not("title", "is", null)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    productId = data?.id ?? null;
-    productTitle = data?.title ?? null;
-  } else {
-    const { data } = await sb.from("products").select("title").eq("id", productId).maybeSingle();
-    productTitle = data?.title ?? null;
-  }
-  if (!productId) {
-    return new Response(JSON.stringify({ ok: false, error: "no product found" }), {
-      status: 400,
-      headers: cors,
-    });
-  }
+async function countRows(sb: SupabaseClient, table: string, qb: (q: any) => any): Promise<number> {
+  const { count } = await qb((sb as any).from(table).select("*", { count: "exact", head: true }));
+  return count ?? 0;
+}
 
-  log("user", userId, "product", productId, productTitle);
+// ============================================================================
+// SINGLE
+// ============================================================================
+async function runSingleMode(sb: SupabaseClient, body: any, correlationId: string, naming: any, log: (...m:unknown[])=>void) {
+  const failures: string[] = [];
+  if (!naming.passed) failures.push(`naming_violations=${naming.violations.length}`);
 
-  // 2. Synthetic Order: pending → items → paid
-  const sessionId = `cs_test_synthetic_${crypto.randomUUID()}`;
-  const piId = `pi_test_synthetic_${crypto.randomUUID()}`;
-  const stripeInvId = `in_test_synthetic_${crypto.randomUUID().slice(0, 8)}`;
-  const totalCents = 4900;
-  const subtotal = Math.round(totalCents / 1.19);
-  const tax = totalCents - subtotal;
+  const userId = await resolveUserId(sb, body);
+  if (!userId) return new Response(JSON.stringify({ ok: false, mode: "single", correlation_id: correlationId, error: "no user found" }), { status: 400, headers: cors });
+  const product = await pickProduct(sb, body.product_id);
+  if (!product?.id) return new Response(JSON.stringify({ ok: false, mode: "single", correlation_id: correlationId, error: "no product found" }), { status: 400, headers: cors });
+  log("user", userId, "product", product.id, product.title);
 
-  const { data: order, error: orderErr } = await sb
-    .from("orders")
-    .insert({
-      buyer_user_id: userId,
-      billing_email: "smoke@test.local",
-      billing_name: "B2C SSOT Smoke",
-      currency: "eur",
-      country: "DE",
-      tax_mode: "gross",
-      subtotal_cents: subtotal,
-      tax_cents: tax,
-      total_cents: totalCents,
-      status: "pending",
-      stripe_checkout_session_id: sessionId,
-      stripe_payment_intent_id: piId,
-      stripe_fee_cents: 150,
-      stripe_invoice_id: stripeInvId,
-      stripe_invoice_pdf_url: "https://invoice.test/pdf",
-      stripe_customer_id: "cus_test_synthetic",
-    })
-    .select("id")
-    .single();
-
-  if (orderErr || !order) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "order insert failed", detail: orderErr }),
-      { status: 500, headers: cors },
-    );
-  }
-  const orderId = order.id;
-  log("order created (pending)", orderId);
-
-  const { error: itemErr } = await sb.from("order_items").insert({
-    order_id: orderId,
-    product_id: productId,
-    description: productTitle ?? "Smoke Product",
-    quantity: 1,
-    unit_amount_net_cents: subtotal,
-    unit_amount_gross_cents: totalCents,
-    tax_rate: 19.0,
-    tax_amount_cents: tax,
+  const created = await createSmokeOrder(sb, {
+    correlationId, userId, productId: product.id, productTitle: product.title, kind: "single",
   });
-  if (itemErr) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "order_item insert failed", detail: itemErr, order_id: orderId }),
-      { status: 500, headers: cors },
-    );
-  }
-
-  // status → paid: feuert process_order_paid_fulfillment
-  const { error: flipErr } = await sb.from("orders").update({ status: "paid" }).eq("id", orderId);
-  if (flipErr) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "status flip failed", detail: flipErr, order_id: orderId }),
-      { status: 500, headers: cors },
-    );
-  }
-  log("order flipped → paid", orderId);
-
-  // 3. Verifizierung aller Artefakte
-  async function count(table: string, qb: (q: any) => any): Promise<number> {
-    const { count: c } = await qb(sb.from(table).select("*", { count: "exact", head: true }));
-    return c ?? 0;
-  }
+  const orderId = created.orderId;
+  log("order paid", orderId);
 
   const checks = {
-    order_items: await count("order_items", (q: any) => q.eq("order_id", orderId)),
-    invoices: await count("invoices", (q: any) => q.eq("order_id", orderId)),
+    order_items: await countRows(sb, "order_items", (q: any) => q.eq("order_id", orderId)),
+    invoices: await countRows(sb, "invoices", (q: any) => q.eq("order_id", orderId)),
     invoice_items: 0,
-    payments: await count("payments", (q: any) => q.eq("order_id", orderId)),
-    ledger_entries: await count("ledger_entries", (q: any) => q.eq("order_id", orderId)),
-    learner_course_grants: 0,
+    payments: await countRows(sb, "payments", (q: any) => q.eq("order_id", orderId)),
+    ledger_entries: await countRows(sb, "ledger_entries", (q: any) => q.eq("order_id", orderId)),
+    learner_course_grants: await countRows(sb, "learner_course_grants",
+      (q: any) => q.eq("order_id", orderId).eq("status", "active")),
     entitlements: 0,
   };
-  // invoice_items via Subselect
-  const { data: invs } = await sb.from("invoices").select("id").eq("order_id", orderId);
-  if (invs && invs.length > 0) {
-    const ids = invs.map((r: any) => r.id);
-    const { count: c } = await sb
-      .from("invoice_items")
-      .select("*", { count: "exact", head: true })
-      .in("invoice_id", ids);
-    checks.invoice_items = c ?? 0;
+  const { data: invs } = await (sb as any).from("invoices").select("id").eq("order_id", orderId);
+  if (invs?.length) {
+    const { count } = await (sb as any).from("invoice_items").select("*", { count: "exact", head: true })
+      .in("invoice_id", invs.map((r: any) => r.id));
+    checks.invoice_items = count ?? 0;
   }
-  // grants/entitlements: per order_id (nicht created_at — UPSERTs lassen created_at unverändert)
-  // Entitlement-Match per source_ref=order_id, da entitlements keine direkte order_id-FK hat.
-  checks.learner_course_grants = await count("learner_course_grants", (q: any) =>
-    q.eq("order_id", orderId).eq("status", "active"),
-  );
-  // Fallback für entitlements: Curriculum aus Order ableiten und matchen
-  const { data: orderProd } = await sb
-    .from("order_items")
-    .select("products(curriculum_id)")
-    .eq("order_id", orderId)
-    .limit(1)
-    .maybeSingle();
-  const curriculumId = (orderProd as any)?.products?.curriculum_id ?? null;
-  if (curriculumId) {
-    const { data: ent } = await sb
-      .from("entitlements")
-      .select("id, has_learning_course, has_exam_trainer, has_ai_tutor, has_oral_trainer, valid_until")
-      .eq("user_id", userId)
-      .eq("curriculum_id", curriculumId)
+  if (product.curriculum_id) {
+    const { data: ent } = await (sb as any).from("entitlements")
+      .select("id").eq("user_id", userId).eq("curriculum_id", product.curriculum_id)
       .gt("valid_until", new Date().toISOString())
-      .eq("has_learning_course", true)
-      .eq("has_exam_trainer", true)
-      .eq("has_ai_tutor", true)
-      .eq("has_oral_trainer", true)
-      .maybeSingle();
+      .eq("has_learning_course", true).eq("has_exam_trainer", true)
+      .eq("has_ai_tutor", true).eq("has_oral_trainer", true).maybeSingle();
     checks.entitlements = ent ? 1 : 0;
-  } else {
-    checks.entitlements = 0;
-    failures.push("curriculum_id not resolvable from order_items");
   }
+  for (const [k, v] of Object.entries(checks)) if (v < 1) failures.push(`${k}=0`);
 
-  for (const [k, v] of Object.entries(checks)) {
-    if (v < 1) failures.push(`${k}=0`);
-  }
-
-  // 4. Idempotenz-Re-Run via Replay-RPC
-  const { data: replay, error: replayErr } = await sb.rpc(
-    "admin_smoke_replay_order_fulfillment" as any,
-    { p_order_id: orderId },
-  );
-  if (replayErr) {
-    failures.push(`replay rpc error: ${replayErr.message}`);
-  }
-
-  // Re-Verify: counts dürfen sich NICHT verändert haben
+  const { data: replay, error: replayErr } = await (sb as any).rpc("admin_smoke_replay_order_fulfillment", { p_order_id: orderId });
+  if (replayErr) failures.push(`replay rpc error: ${replayErr.message}`);
   const post = {
-    invoices: await count("invoices", (q: any) => q.eq("order_id", orderId)),
-    payments: await count("payments", (q: any) => q.eq("order_id", orderId)),
-    ledger_entries: await count("ledger_entries", (q: any) => q.eq("order_id", orderId)),
+    invoices: await countRows(sb, "invoices", (q: any) => q.eq("order_id", orderId)),
+    payments: await countRows(sb, "payments", (q: any) => q.eq("order_id", orderId)),
+    ledger_entries: await countRows(sb, "ledger_entries", (q: any) => q.eq("order_id", orderId)),
   };
   const idempotency = {
     invoices_delta: post.invoices - checks.invoices,
@@ -272,207 +191,70 @@ Deno.serve(async (req) => {
     ledger_delta: post.ledger_entries - checks.ledger_entries,
     replay_result: replay ?? null,
   };
-  for (const [k, v] of Object.entries(idempotency)) {
+  for (const [k, v] of Object.entries(idempotency))
     if (typeof v === "number" && v !== 0) failures.push(`idempotency drift ${k}=${v}`);
-  }
 
-  // 5. Optional Cleanup (default false → /app/rechnungen kann verifiziert werden)
-  if (body.cleanup === true) {
-    await sb.from("ledger_entries").delete().eq("order_id", orderId);
-    await sb.from("payments").delete().eq("order_id", orderId);
-    if (invs && invs.length > 0) {
-      await sb.from("invoice_items").delete().in("invoice_id", invs.map((r: any) => r.id));
-      await sb.from("invoices").delete().eq("order_id", orderId);
-    }
-    await sb.from("order_items").delete().eq("order_id", orderId);
-    await sb.from("orders").delete().eq("id", orderId);
-    log("cleanup done");
-  }
+  if (body.cleanup === true) await cleanupSmokeByCorrelation(sb, { correlationId });
 
-  return new Response(
-    JSON.stringify({
-      ok: failures.length === 0,
-      mode: "single",
-      order_id: orderId,
-      session_id: sessionId,
-      checks,
-      idempotency,
-      failures,
-    }, null, 2),
-    { status: failures.length === 0 ? 200 : 500, headers: cors },
-  );
-});
-
-// ================================================================
-// Helpers — Bundle / Refund
-// ================================================================
-
-async function resolveUserId(sb: any, body: any): Promise<string | null> {
-  if (body.user_id) return body.user_id;
-  const { data } = await sb
-    .from("profiles")
-    .select("user_id")
-    .not("user_id", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data?.user_id ?? null;
+  return new Response(JSON.stringify({
+    ok: failures.length === 0, mode: "single", correlation_id: correlationId,
+    order_id: orderId, session_id: created.sessionId, naming, checks, idempotency, failures,
+  }, null, 2), { status: failures.length === 0 ? 200 : 500, headers: cors });
 }
 
-async function countRows(sb: any, table: string, qb: (q: any) => any): Promise<number> {
-  const { count } = await qb(sb.from(table).select("*", { count: "exact", head: true }));
-  return count ?? 0;
-}
-
-async function runBundleMode(sb: any, body: any, log: (...m: unknown[]) => void): Promise<Response> {
+// ============================================================================
+// COMPLETE (formerly bundle)
+// ============================================================================
+async function runCompleteMode(sb: SupabaseClient, body: any, correlationId: string, naming: any, log: (...m:unknown[])=>void) {
   const failures: string[] = [];
+  if (!naming.passed) failures.push(`naming_violations=${naming.violations.length}`);
+
   const userId = await resolveUserId(sb, body);
-  if (!userId) {
-    return new Response(JSON.stringify({ ok: false, mode: "bundle", error: "no user found" }), {
-      status: 400, headers: cors,
-    });
-  }
+  if (!userId) return new Response(JSON.stringify({ ok: false, mode: "complete", correlation_id: correlationId, error: "no user found" }), { status: 400, headers: cors });
+  const products = await pickProducts(sb, body.product_ids);
+  if (products.length < 2) return new Response(JSON.stringify({
+    ok: false, mode: "complete", correlation_id: correlationId,
+    error: "need >=2 products with distinct curriculum_id", resolved: products,
+  }), { status: 400, headers: cors });
+  const distinctCurricula = new Set(products.map((p) => p.curriculum_id).filter(Boolean) as string[]);
 
-  // Resolve product_ids (default: 2 jüngste active products mit curriculum_id, distinct curriculum)
-  let productIds: string[] = Array.isArray(body.product_ids) ? body.product_ids : [];
-  if (productIds.length === 0) {
-    const { data } = await sb
-      .from("products")
-      .select("id, curriculum_id")
-      .not("curriculum_id", "is", null)
-      .eq("status", "active")
-      .order("updated_at", { ascending: false })
-      .limit(20);
-    const seenCurr = new Set<string>();
-    for (const p of (data ?? [])) {
-      if (!seenCurr.has(p.curriculum_id)) {
-        seenCurr.add(p.curriculum_id);
-        productIds.push(p.id);
-      }
-      if (productIds.length >= 2) break;
-    }
-  }
-  if (productIds.length < 2) {
-    return new Response(JSON.stringify({
-      ok: false, mode: "bundle",
-      error: "need >=2 products with distinct curriculum_id",
-      resolved: productIds,
-    }), { status: 400, headers: cors });
-  }
+  const created = await createSmokeCompleteOrder(sb, { correlationId, userId, products });
+  const orderId = created.orderId;
+  log("complete order paid", orderId, "items=", products.length);
 
-  const { data: prods } = await sb
-    .from("products")
-    .select("id, title, curriculum_id")
-    .in("id", productIds);
-  const products = prods ?? [];
-  const distinctCurricula = new Set(products.map((p: any) => p.curriculum_id).filter(Boolean));
-
-  const sessionId = `cs_test_bundle_${crypto.randomUUID()}`;
-  const piId = `pi_test_bundle_${crypto.randomUUID()}`;
-  const stripeInvId = `in_test_bundle_${crypto.randomUUID().slice(0, 8)}`;
-  const unitGross = 4900;
-  const unitNet = Math.round(unitGross / 1.19);
-  const unitTax = unitGross - unitNet;
-  const totalGross = unitGross * products.length;
-  const totalNet = unitNet * products.length;
-  const totalTax = unitTax * products.length;
-
-  const { data: order, error: orderErr } = await sb.from("orders").insert({
-    buyer_user_id: userId,
-    billing_email: "smoke-bundle@test.local",
-    billing_name: "B2C SSOT Bundle Smoke",
-    currency: "eur", country: "DE", tax_mode: "gross",
-    subtotal_cents: totalNet, tax_cents: totalTax, total_cents: totalGross,
-    status: "pending",
-    stripe_checkout_session_id: sessionId,
-    stripe_payment_intent_id: piId,
-    stripe_fee_cents: 150,
-    stripe_invoice_id: stripeInvId,
-    stripe_invoice_pdf_url: "https://invoice.test/pdf",
-    stripe_customer_id: "cus_test_bundle",
-  }).select("id").single();
-
-  if (orderErr || !order) {
-    return new Response(JSON.stringify({
-      ok: false, mode: "bundle", error: "order insert failed", detail: orderErr,
-    }), { status: 500, headers: cors });
-  }
-  const orderId = order.id;
-  log("bundle order created", orderId, "items=", products.length);
-
-  // N order_items
-  const itemsPayload = products.map((p: any) => ({
-    order_id: orderId,
-    product_id: p.id,
-    description: p.title ?? "Bundle Item",
-    quantity: 1,
-    unit_amount_net_cents: unitNet,
-    unit_amount_gross_cents: unitGross,
-    tax_rate: 19.0,
-    tax_amount_cents: unitTax,
-  }));
-  const { error: itemErr } = await sb.from("order_items").insert(itemsPayload);
-  if (itemErr) {
-    return new Response(JSON.stringify({
-      ok: false, mode: "bundle", order_id: orderId,
-      error: "order_items insert failed", detail: itemErr,
-    }), { status: 500, headers: cors });
-  }
-
-  // Flip → paid
-  const { error: flipErr } = await sb.from("orders").update({ status: "paid" }).eq("id", orderId);
-  if (flipErr) {
-    return new Response(JSON.stringify({
-      ok: false, mode: "bundle", order_id: orderId,
-      error: "status flip failed", detail: flipErr,
-    }), { status: 500, headers: cors });
-  }
-  log("bundle order → paid", orderId);
-
-  // Verify
   const checks: Record<string, number> = {
     order_items: await countRows(sb, "order_items", (q: any) => q.eq("order_id", orderId)),
     invoices: await countRows(sb, "invoices", (q: any) => q.eq("order_id", orderId)),
     invoice_items: 0,
     payments: await countRows(sb, "payments", (q: any) => q.eq("order_id", orderId)),
     ledger_entries: await countRows(sb, "ledger_entries", (q: any) => q.eq("order_id", orderId)),
-    learner_course_grants: await countRows(sb, "learner_course_grants", (q: any) =>
-      q.eq("order_id", orderId).eq("status", "active")),
+    learner_course_grants: await countRows(sb, "learner_course_grants",
+      (q: any) => q.eq("order_id", orderId).eq("status", "active")),
     entitlements: 0,
   };
-  const { data: invs } = await sb.from("invoices").select("id").eq("order_id", orderId);
-  if (invs && invs.length > 0) {
-    const { count } = await sb.from("invoice_items").select("*", { count: "exact", head: true })
+  const { data: invs } = await (sb as any).from("invoices").select("id").eq("order_id", orderId);
+  if (invs?.length) {
+    const { count } = await (sb as any).from("invoice_items").select("*", { count: "exact", head: true })
       .in("invoice_id", invs.map((r: any) => r.id));
     checks.invoice_items = count ?? 0;
   }
-  // entitlements: 1 pro distinct curriculum, alle 4 has_*
-  const { data: ents } = await sb.from("entitlements")
+  const { data: ents } = await (sb as any).from("entitlements")
     .select("curriculum_id, has_learning_course, has_exam_trainer, has_ai_tutor, has_oral_trainer, valid_until")
-    .eq("user_id", userId)
-    .in("curriculum_id", Array.from(distinctCurricula))
+    .eq("user_id", userId).in("curriculum_id", Array.from(distinctCurricula))
     .gt("valid_until", new Date().toISOString());
-  const validEnts = (ents ?? []).filter((e: any) =>
-    e.has_learning_course && e.has_exam_trainer && e.has_ai_tutor && e.has_oral_trainer);
-  checks.entitlements = validEnts.length;
+  checks.entitlements = (ents ?? []).filter((e: any) =>
+    e.has_learning_course && e.has_exam_trainer && e.has_ai_tutor && e.has_oral_trainer).length;
 
   const expected = {
-    order_items: products.length,
-    invoices: 1,
-    payments: 1,
-    learner_course_grants: products.length,
-    entitlements: distinctCurricula.size,
+    order_items: products.length, invoices: 1, payments: 1,
+    learner_course_grants: products.length, entitlements: distinctCurricula.size,
   };
-  for (const [k, v] of Object.entries(expected)) {
+  for (const [k, v] of Object.entries(expected))
     if (checks[k] !== v) failures.push(`${k} expected=${v} got=${checks[k]}`);
-  }
   if (checks.invoice_items < products.length) failures.push(`invoice_items<${products.length} (got ${checks.invoice_items})`);
   if (checks.ledger_entries < 1) failures.push(`ledger_entries=0`);
 
-  // Idempotenz-Replay
-  const { data: replay, error: replayErr } = await sb.rpc(
-    "admin_smoke_replay_order_fulfillment" as any, { p_order_id: orderId },
-  );
+  const { data: replay, error: replayErr } = await (sb as any).rpc("admin_smoke_replay_order_fulfillment", { p_order_id: orderId });
   if (replayErr) failures.push(`replay rpc error: ${replayErr.message}`);
   const post = {
     invoices: await countRows(sb, "invoices", (q: any) => q.eq("order_id", orderId)),
@@ -486,379 +268,177 @@ async function runBundleMode(sb: any, body: any, log: (...m: unknown[]) => void)
     grants_delta: post.grants - checks.learner_course_grants,
     replay_result: replay ?? null,
   };
-  for (const [k, v] of Object.entries(idempotency)) {
+  for (const [k, v] of Object.entries(idempotency))
     if (typeof v === "number" && v !== 0) failures.push(`idempotency drift ${k}=${v}`);
-  }
 
-  if (body.cleanup === true) {
-    await sb.from("ledger_entries").delete().eq("order_id", orderId);
-    await sb.from("payments").delete().eq("order_id", orderId);
-    if (invs && invs.length > 0) {
-      await sb.from("invoice_items").delete().in("invoice_id", invs.map((r: any) => r.id));
-      await sb.from("invoices").delete().eq("order_id", orderId);
-    }
-    await sb.from("order_items").delete().eq("order_id", orderId);
-    await sb.from("orders").delete().eq("id", orderId);
-  }
+  if (body.cleanup === true) await cleanupSmokeByCorrelation(sb, { correlationId });
 
   return new Response(JSON.stringify({
-    ok: failures.length === 0,
-    mode: "bundle",
-    order_id: orderId,
-    session_id: sessionId,
-    products: products.map((p: any) => ({ id: p.id, title: p.title, curriculum_id: p.curriculum_id })),
+    ok: failures.length === 0, mode: "complete", correlation_id: correlationId,
+    order_id: orderId, session_id: created.sessionId,
+    products: products.map((p) => ({ id: p.id, title: p.title, curriculum_id: p.curriculum_id })),
     distinct_curricula: distinctCurricula.size,
-    checks, expected, idempotency, failures,
+    naming, checks, expected, idempotency, failures,
   }, null, 2), { status: failures.length === 0 ? 200 : 500, headers: cors });
 }
 
-async function runRefundMode(sb: any, body: any, log: (...m: unknown[]) => void): Promise<Response> {
+// ============================================================================
+// REFUND
+// ============================================================================
+async function runRefundMode(sb: SupabaseClient, body: any, correlationId: string, naming: any, log: (...m:unknown[])=>void) {
   const failures: string[] = [];
+  if (!naming.passed) failures.push(`naming_violations=${naming.violations.length}`);
+
   const userId = await resolveUserId(sb, body);
-  if (!userId) {
-    return new Response(JSON.stringify({ ok: false, mode: "refund", error: "no user found" }), {
-      status: 400, headers: cors,
-    });
-  }
+  if (!userId) return new Response(JSON.stringify({ ok: false, mode: "refund", correlation_id: correlationId, error: "no user found" }), { status: 400, headers: cors });
+  const product = await pickProduct(sb, body.product_id);
+  if (!product?.id) return new Response(JSON.stringify({ ok: false, mode: "refund", correlation_id: correlationId, error: "no product" }), { status: 400, headers: cors });
 
-  // 1. Pick product
-  let productId: string | null = body.product_id ?? null;
-  let productTitle: string | null = null;
-  if (!productId) {
-    const { data } = await sb.from("products")
-      .select("id, title")
-      .not("curriculum_id", "is", null)
-      .eq("status", "active")
-      .order("updated_at", { ascending: false })
-      .limit(1).maybeSingle();
-    productId = data?.id ?? null;
-    productTitle = data?.title ?? null;
-  }
-  if (!productId) {
-    return new Response(JSON.stringify({ ok: false, mode: "refund", error: "no product" }), {
-      status: 400, headers: cors,
-    });
-  }
-
-  // 2. Synth Order paid
-  const sessionId = `cs_test_refund_${crypto.randomUUID()}`;
-  const piId = `pi_test_refund_${crypto.randomUUID()}`;
-  const stripeInvId = `in_test_refund_${crypto.randomUUID().slice(0, 8)}`;
-  const totalCents = 4900;
-  const subtotal = Math.round(totalCents / 1.19);
-  const tax = totalCents - subtotal;
-
-  const { data: order, error: orderErr } = await sb.from("orders").insert({
-    buyer_user_id: userId,
-    billing_email: "smoke-refund@test.local",
-    billing_name: "B2C Refund Smoke",
-    currency: "eur", country: "DE", tax_mode: "gross",
-    subtotal_cents: subtotal, tax_cents: tax, total_cents: totalCents,
-    status: "pending",
-    stripe_checkout_session_id: sessionId,
-    stripe_payment_intent_id: piId,
-    stripe_fee_cents: 150,
-    stripe_invoice_id: stripeInvId,
-    stripe_invoice_pdf_url: "https://invoice.test/pdf",
-    stripe_customer_id: "cus_test_refund",
-  }).select("id").single();
-  if (orderErr || !order) {
-    return new Response(JSON.stringify({
-      ok: false, mode: "refund", error: "order insert", detail: orderErr,
-    }), { status: 500, headers: cors });
-  }
-  const orderId = order.id;
-
-  await sb.from("order_items").insert({
-    order_id: orderId, product_id: productId, description: productTitle ?? "Refund Smoke",
-    quantity: 1, unit_amount_net_cents: subtotal, unit_amount_gross_cents: totalCents,
-    tax_rate: 19.0, tax_amount_cents: tax,
+  const created = await createSmokeOrder(sb, {
+    correlationId, userId, productId: product.id, productTitle: product.title, kind: "refund",
   });
-  await sb.from("orders").update({ status: "paid" }).eq("id", orderId);
+  const orderId = created.orderId;
   log("refund: order paid", orderId);
 
-  const grantsBefore = await countRows(sb, "learner_course_grants", (q: any) =>
-    q.eq("order_id", orderId).eq("status", "active"));
+  const grantsBefore = await countRows(sb, "learner_course_grants",
+    (q: any) => q.eq("order_id", orderId).eq("status", "active"));
   if (grantsBefore < 1) failures.push(`pre-refund: no active grants (got ${grantsBefore})`);
 
-  // 3. Trigger refund via RPC
-  const refundId = `re_test_${crypto.randomUUID().slice(0, 8)}`;
-  const { data: refundRes, error: refundErr } = await sb.rpc(
-    "fn_revoke_grant_on_refund" as any,
-    { p_stripe_payment_intent_id: piId, p_refund_id: refundId, p_reason: "smoke_test" },
-  );
+  const refundId = `re_test_${correlationId.slice(0, 12)}`;
+  const { data: refundRes, error: refundErr } = await (sb as any).rpc("fn_revoke_grant_on_refund", {
+    p_stripe_payment_intent_id: created.paymentIntentId, p_refund_id: refundId, p_reason: "smoke_test",
+  });
   if (refundErr) failures.push(`refund rpc error: ${refundErr.message}`);
 
-  // 4. Verify revoke
-  const grantsActive = await countRows(sb, "learner_course_grants", (q: any) =>
-    q.eq("order_id", orderId).eq("status", "active"));
-  const grantsRefunded = await countRows(sb, "learner_course_grants", (q: any) =>
-    q.eq("order_id", orderId).eq("status", "refunded"));
-  const { data: entsAfter } = await sb.from("entitlements")
-    .select("id, valid_until, metadata_json")
-    .eq("source_ref", orderId);
+  const grantsActive = await countRows(sb, "learner_course_grants",
+    (q: any) => q.eq("order_id", orderId).eq("status", "active"));
+  const grantsRefunded = await countRows(sb, "learner_course_grants",
+    (q: any) => q.eq("order_id", orderId).eq("status", "refunded"));
+  const { data: entsAfter } = await (sb as any).from("entitlements")
+    .select("id, valid_until").eq("source_ref", orderId);
   const entsRevoked = (entsAfter ?? []).filter((e: any) =>
     e.valid_until && new Date(e.valid_until) <= new Date()).length;
-  const { data: audit } = await sb.from("admin_actions")
-    .select("id, action")
-    .eq("action", "gdpr_or_refund.grant_revoked_on_refund")
-    .contains("payload", { refund_id: refundId } as any)
-    .limit(1);
+  const { data: audit } = await (sb as any).from("admin_actions")
+    .select("id").eq("action", "gdpr_or_refund.grant_revoked_on_refund")
+    .contains("payload", { refund_id: refundId } as any).limit(1);
 
-  if (grantsActive !== 0) failures.push(`grants still active=${grantsActive} (expected 0)`);
-  if (grantsRefunded < 1) failures.push(`grants refunded=${grantsRefunded} (expected >=1)`);
-  if (entsRevoked < 1) failures.push(`entitlements revoked=${entsRevoked} (expected >=1)`);
-  if (!audit || audit.length === 0) failures.push("audit row missing in admin_actions");
+  if (grantsActive !== 0) failures.push(`grants still active=${grantsActive}`);
+  if (grantsRefunded < 1) failures.push(`grants refunded=${grantsRefunded}`);
+  if (entsRevoked < 1) failures.push(`entitlements revoked=${entsRevoked}`);
+  if (!audit || audit.length === 0) failures.push("audit row missing");
 
-  // 5. Idempotenz: 2. Refund-Aufruf darf keine zusätzlichen Updates erzeugen
-  const { data: refund2 } = await sb.rpc(
-    "fn_revoke_grant_on_refund" as any,
-    { p_stripe_payment_intent_id: piId, p_refund_id: refundId, p_reason: "smoke_test" },
-  );
-  const r2 = (refund2 ?? {}) as any;
-  if (r2.revoked_grants !== undefined && r2.revoked_grants > 0) {
-    failures.push(`refund idempotency: 2nd run revoked ${r2.revoked_grants} grants`);
-  }
+  const { data: refund2 } = await (sb as any).rpc("fn_revoke_grant_on_refund", {
+    p_stripe_payment_intent_id: created.paymentIntentId, p_refund_id: refundId, p_reason: "smoke_test",
+  });
+  if ((refund2 as any)?.revoked_grants > 0) failures.push(`refund 2nd run revoked ${(refund2 as any).revoked_grants}`);
 
-  if (body.cleanup === true) {
-    const { data: invs2 } = await sb.from("invoices").select("id").eq("order_id", orderId);
-    await sb.from("ledger_entries").delete().eq("order_id", orderId);
-    await sb.from("payments").delete().eq("order_id", orderId);
-    if (invs2 && invs2.length > 0) {
-      await sb.from("invoice_items").delete().in("invoice_id", invs2.map((r: any) => r.id));
-      await sb.from("invoices").delete().eq("order_id", orderId);
-    }
-    await sb.from("order_items").delete().eq("order_id", orderId);
-    await sb.from("orders").delete().eq("id", orderId);
-  }
+  if (body.cleanup === true) await cleanupSmokeByCorrelation(sb, { correlationId });
 
   return new Response(JSON.stringify({
-    ok: failures.length === 0,
-    mode: "refund",
-    order_id: orderId,
-    refund_id: refundId,
-    refund_result: refundRes ?? null,
-    refund_idempotency: refund2 ?? null,
+    ok: failures.length === 0, mode: "refund", correlation_id: correlationId,
+    order_id: orderId, refund_id: refundId, naming,
+    refund_result: refundRes ?? null, refund_idempotency: refund2 ?? null,
     pre: { grants_active: grantsBefore },
-    post: {
-      grants_active: grantsActive,
-      grants_refunded: grantsRefunded,
-      entitlements_revoked: entsRevoked,
-      audit_rows: audit?.length ?? 0,
-    },
+    post: { grants_active: grantsActive, grants_refunded: grantsRefunded, entitlements_revoked: entsRevoked, audit_rows: audit?.length ?? 0 },
     failures,
   }, null, 2), { status: failures.length === 0 ? 200 : 500, headers: cors });
 }
 
-
-// ================================================================
-// MODE: access_e2e — End-to-End Access Assertions
-// Setup: synth paid order (single-product) → asserts:
-//   - check_product_access_by_curriculum(feat) == true for all 4 features
-//   - tutor_access_check.allowed === true   (no reason='no_entitlement')
-//   - has_storage_entitlement === true
-// Optional: { drop_entitlement: true } removes the entitlement and re-asserts
-//   that grant-only access still satisfies tutor + storage (Path D).
-// ================================================================
-async function runAccessE2eMode(sb: any, body: any, log: (...m: unknown[]) => void): Promise<Response> {
+// ============================================================================
+// ACCESS E2E
+// ============================================================================
+async function runAccessE2eMode(sb: SupabaseClient, body: any, correlationId: string, naming: any, log: (...m:unknown[])=>void) {
   const failures: string[] = [];
+  if (!naming.passed) failures.push(`naming_violations=${naming.violations.length}`);
+
   const userId = await resolveUserId(sb, body);
-  if (!userId) {
-    return new Response(JSON.stringify({ ok: false, mode: "access_e2e", error: "no user found" }), {
-      status: 400, headers: cors,
-    });
-  }
+  if (!userId) return new Response(JSON.stringify({ ok: false, mode: "access_e2e", correlation_id: correlationId, error: "no user" }), { status: 400, headers: cors });
+  const product = await pickProduct(sb, body.product_id);
+  if (!product?.id || !product.curriculum_id) return new Response(JSON.stringify({
+    ok: false, mode: "access_e2e", correlation_id: correlationId, error: "no product+curriculum",
+  }), { status: 400, headers: cors });
+  const curriculumId = product.curriculum_id;
 
-  // Pick product with curriculum_id
-  let productId: string | null = body.product_id ?? null;
-  let productTitle: string | null = null;
-  let curriculumId: string | null = null;
-  if (productId) {
-    const { data } = await sb.from("products").select("title, curriculum_id").eq("id", productId).maybeSingle();
-    productTitle = data?.title ?? null;
-    curriculumId = data?.curriculum_id ?? null;
-  } else {
-    const { data } = await sb.from("products")
-      .select("id, title, curriculum_id")
-      .not("curriculum_id", "is", null)
-      .eq("status", "active")
-      .order("updated_at", { ascending: false })
-      .limit(1).maybeSingle();
-    productId = data?.id ?? null;
-    productTitle = data?.title ?? null;
-    curriculumId = data?.curriculum_id ?? null;
-  }
-  if (!productId || !curriculumId) {
-    return new Response(JSON.stringify({
-      ok: false, mode: "access_e2e", error: "no product+curriculum",
-    }), { status: 400, headers: cors });
-  }
-
-  // Synth paid order
-  const sessionId = `cs_test_access_${crypto.randomUUID()}`;
-  const piId = `pi_test_access_${crypto.randomUUID()}`;
-  const stripeInvId = `in_test_access_${crypto.randomUUID().slice(0, 8)}`;
-  const totalCents = 4900;
-  const subtotal = Math.round(totalCents / 1.19);
-  const tax = totalCents - subtotal;
-
-  const { data: order, error: orderErr } = await sb.from("orders").insert({
-    buyer_user_id: userId,
-    billing_email: "smoke-access@test.local",
-    billing_name: "Access E2E Smoke",
-    currency: "eur", country: "DE", tax_mode: "gross",
-    subtotal_cents: subtotal, tax_cents: tax, total_cents: totalCents,
-    status: "pending",
-    stripe_checkout_session_id: sessionId,
-    stripe_payment_intent_id: piId,
-    stripe_fee_cents: 150,
-    stripe_invoice_id: stripeInvId,
-    stripe_invoice_pdf_url: "https://invoice.test/pdf",
-    stripe_customer_id: "cus_test_access",
-  }).select("id").single();
-  if (orderErr || !order) {
-    return new Response(JSON.stringify({
-      ok: false, mode: "access_e2e", error: "order insert", detail: orderErr,
-    }), { status: 500, headers: cors });
-  }
-  const orderId = order.id;
-
-  await sb.from("order_items").insert({
-    order_id: orderId, product_id: productId, description: productTitle ?? "Access Smoke",
-    quantity: 1, unit_amount_net_cents: subtotal, unit_amount_gross_cents: totalCents,
-    tax_rate: 19.0, tax_amount_cents: tax,
+  const created = await createSmokeOrder(sb, {
+    correlationId, userId, productId: product.id, productTitle: product.title, kind: "access",
   });
-  await sb.from("orders").update({ status: "paid" }).eq("id", orderId);
+  const orderId = created.orderId;
   log("access_e2e: order paid", orderId);
-
-  // Wait briefly for trigger fulfillment to land
   await new Promise((r) => setTimeout(r, 500));
 
   async function assertFeatureAccess(label: string): Promise<Record<string, any>> {
     const features = ["learning_course", "exam_trainer", "ai_tutor", "oral_trainer"] as const;
     const out: Record<string, any> = {};
     for (const feat of features) {
-      const { data, error } = await sb.rpc("check_product_access_by_curriculum" as any, {
-        p_user_id: userId,
-        p_curriculum_id: curriculumId,
-        p_feature: feat,
+      const { data, error } = await (sb as any).rpc("check_product_access_by_curriculum", {
+        p_user_id: userId, p_curriculum_id: curriculumId, p_feature: feat,
       });
-      if (error) failures.push(`[${label}] check_product_access_by_curriculum(${feat}) error: ${error.message}`);
+      if (error) failures.push(`[${label}] check(${feat}) error: ${error.message}`);
       out[feat] = data;
-      if (data !== true) failures.push(`[${label}] feature ${feat} allowed=${data} (expected true)`);
+      if (data !== true) failures.push(`[${label}] ${feat} allowed=${data}`);
     }
-    const { data: tutor, error: tErr } = await sb.rpc("tutor_access_check" as any, {
-      p_user_id: userId, p_curriculum_id: curriculumId, p_daily_limit: 200,
-    });
-    if (tErr) failures.push(`[${label}] tutor_access_check error: ${tErr.message}`);
+    const { data: tutor } = await (sb as any).rpc("tutor_access_check",
+      { p_user_id: userId, p_curriculum_id: curriculumId, p_daily_limit: 200 });
     out.tutor = tutor;
-    if (!tutor || tutor.allowed !== true) {
-      failures.push(`[${label}] tutor_access_check.allowed=${tutor?.allowed} reason=${tutor?.reason}`);
-    }
-    if (tutor?.reason === "no_entitlement") {
-      failures.push(`[${label}] tutor reason='no_entitlement' — Path D broken`);
-    }
-    const { data: storage, error: sErr } = await sb.rpc("has_storage_entitlement" as any, {
-      p_user_id: userId, p_curriculum_id: curriculumId,
-    });
-    if (sErr) failures.push(`[${label}] has_storage_entitlement error: ${sErr.message}`);
+    if (!tutor || tutor.allowed !== true) failures.push(`[${label}] tutor allowed=${tutor?.allowed} reason=${tutor?.reason}`);
+    if (tutor?.reason === "no_entitlement") failures.push(`[${label}] tutor reason=no_entitlement`);
+    const { data: storage } = await (sb as any).rpc("has_storage_entitlement",
+      { p_user_id: userId, p_curriculum_id: curriculumId });
     out.storage = storage;
-    if (storage !== true) failures.push(`[${label}] has_storage_entitlement=${storage} (expected true)`);
-
-    const { data: prodAccess, error: pErr } = await sb.rpc("can_access_product" as any, {
-      p_user_id: userId, p_product_id: productId,
-    });
-    if (pErr) failures.push(`[${label}] can_access_product error: ${pErr.message}`);
+    if (storage !== true) failures.push(`[${label}] storage=${storage}`);
+    const { data: prodAccess } = await (sb as any).rpc("can_access_product",
+      { p_user_id: userId, p_product_id: product.id });
     out.product = prodAccess;
-    if (prodAccess !== true) failures.push(`[${label}] can_access_product=${prodAccess} (expected true)`);
-
+    if (prodAccess !== true) failures.push(`[${label}] product=${prodAccess}`);
     return out;
   }
 
   const baseline = await assertFeatureAccess("with_entitlement");
 
-  // Optional: simulate "grant-only" user by removing the entitlement row(s)
-  // and re-running assertions. This proves Path D (grant-aware) works alone.
   let grantOnly: Record<string, any> | null = null;
   if (body.drop_entitlement === true) {
-    await sb.from("entitlements")
-      .delete()
-      .eq("user_id", userId)
-      .eq("curriculum_id", curriculumId)
-      .eq("source_ref", orderId);
+    await (sb as any).from("entitlements").delete()
+      .eq("user_id", userId).eq("curriculum_id", curriculumId).eq("source_ref", orderId);
     await new Promise((r) => setTimeout(r, 200));
     grantOnly = await assertFeatureAccess("grant_only");
   }
 
-  // Optional: NEGATIVE assertion — drop BOTH grant AND entitlement and verify
-  // all gates DENY. Proves the access functions are not fail-open and that
-  // can_access_product / tutor_access_check / has_storage_entitlement correctly
-  // reject when neither source is present.
   let driftDenied: Record<string, any> | null = null;
   if (body.assert_drift_denies === true) {
-    await sb.from("entitlements")
-      .delete()
-      .eq("user_id", userId)
-      .eq("curriculum_id", curriculumId)
-      .eq("source_ref", orderId);
-    await sb.from("learner_course_grants")
-      .delete()
-      .eq("user_id", userId)
-      .eq("order_id", orderId);
+    await (sb as any).from("entitlements").delete()
+      .eq("user_id", userId).eq("curriculum_id", curriculumId).eq("source_ref", orderId);
+    await (sb as any).from("learner_course_grants").delete()
+      .eq("user_id", userId).eq("order_id", orderId);
     await new Promise((r) => setTimeout(r, 200));
 
     const features = ["learning_course", "exam_trainer", "ai_tutor", "oral_trainer"] as const;
     const denyOut: Record<string, any> = {};
     for (const feat of features) {
-      const { data } = await sb.rpc("check_product_access_by_curriculum" as any, {
-        p_user_id: userId, p_curriculum_id: curriculumId, p_feature: feat,
-      });
+      const { data } = await (sb as any).rpc("check_product_access_by_curriculum",
+        { p_user_id: userId, p_curriculum_id: curriculumId, p_feature: feat });
       denyOut[feat] = data;
-      if (data !== false) failures.push(`[drift_deny] feature ${feat} expected=false got=${data} (gate fail-open!)`);
+      if (data !== false) failures.push(`[drift_deny] ${feat} expected=false got=${data}`);
     }
-    const { data: tutor } = await sb.rpc("tutor_access_check" as any, {
-      p_user_id: userId, p_curriculum_id: curriculumId, p_daily_limit: 200,
-    });
+    const { data: tutor } = await (sb as any).rpc("tutor_access_check",
+      { p_user_id: userId, p_curriculum_id: curriculumId, p_daily_limit: 200 });
     denyOut.tutor = tutor;
-    if (tutor?.allowed === true) failures.push(`[drift_deny] tutor still allowed (fail-open!)`);
-    const { data: storage } = await sb.rpc("has_storage_entitlement" as any, {
-      p_user_id: userId, p_curriculum_id: curriculumId,
-    });
+    if (tutor?.allowed === true) failures.push(`[drift_deny] tutor still allowed`);
+    const { data: storage } = await (sb as any).rpc("has_storage_entitlement",
+      { p_user_id: userId, p_curriculum_id: curriculumId });
     denyOut.storage = storage;
-    if (storage !== false) failures.push(`[drift_deny] storage expected=false got=${storage} (fail-open!)`);
-    const { data: prodAccess } = await sb.rpc("can_access_product" as any, {
-      p_user_id: userId, p_product_id: productId,
-    });
+    if (storage !== false) failures.push(`[drift_deny] storage=${storage}`);
+    const { data: prodAccess } = await (sb as any).rpc("can_access_product",
+      { p_user_id: userId, p_product_id: product.id });
     denyOut.product = prodAccess;
-    if (prodAccess !== false) failures.push(`[drift_deny] can_access_product expected=false got=${prodAccess} (fail-open!)`);
-
+    if (prodAccess !== false) failures.push(`[drift_deny] product=${prodAccess}`);
     driftDenied = denyOut;
   }
 
-  if (body.cleanup === true) {
-    const { data: invs2 } = await sb.from("invoices").select("id").eq("order_id", orderId);
-    await sb.from("ledger_entries").delete().eq("order_id", orderId);
-    await sb.from("payments").delete().eq("order_id", orderId);
-    if (invs2 && invs2.length > 0) {
-      await sb.from("invoice_items").delete().in("invoice_id", invs2.map((r: any) => r.id));
-      await sb.from("invoices").delete().eq("order_id", orderId);
-    }
-    await sb.from("order_items").delete().eq("order_id", orderId);
-    await sb.from("learner_course_grants").delete().eq("order_id", orderId);
-    await sb.from("entitlements").delete().eq("user_id", userId).eq("source_ref", orderId);
-    await sb.from("orders").delete().eq("id", orderId);
-  }
+  if (body.cleanup === true) await cleanupSmokeByCorrelation(sb, { correlationId });
 
   return new Response(JSON.stringify({
-    ok: failures.length === 0,
-    mode: "access_e2e",
-    order_id: orderId,
-    user_id: userId,
-    product_id: productId,
-    curriculum_id: curriculumId,
-    baseline,
-    grant_only: grantOnly,
-    drift_denied: driftDenied,
-    failures,
+    ok: failures.length === 0, mode: "access_e2e", correlation_id: correlationId,
+    order_id: orderId, user_id: userId, product_id: product.id, curriculum_id: curriculumId,
+    naming, baseline, grant_only: grantOnly, drift_denied: driftDenied, failures,
   }, null, 2), { status: failures.length === 0 ? 200 : 500, headers: cors });
 }
