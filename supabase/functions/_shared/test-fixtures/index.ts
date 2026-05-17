@@ -70,12 +70,15 @@ async function emitAudit(
     | "test_fixture_schema_drift",
   payload: Record<string, unknown>,
 ): Promise<void> {
+  const corr = (payload.correlation_id as string) ?? null;
   const { error } = await sb.rpc("fn_emit_audit" as never, {
     _target_type: "test_fixture",
     _action_type: actionType,
+    _target_id: corr,
     _result_status: "ok",
     _payload: payload,
-    _correlation_id: (payload.correlation_id as string) ?? null,
+    _trigger_source: "test_fixture_contract",
+    _error_message: null,
   } as never);
   if (error) {
     throw new Error(
