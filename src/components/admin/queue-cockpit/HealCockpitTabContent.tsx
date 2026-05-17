@@ -24,6 +24,7 @@ import { DeferredJobsPullForwardCard } from "@/components/admin/heal/cards/Defer
 import { FailedJobHotloopsCard } from "@/components/admin/heal/cards/FailedJobHotloopsCard";
 import { VariantPipelineHealthCard } from "@/components/admin/heal/cards/VariantPipelineHealthCard";
 import { InternalLinkMaterializationCard } from "@/components/admin/heal/cards/InternalLinkMaterializationCard";
+import { SeoDeadEndCoverageCard } from "@/components/admin/heal/cards/SeoDeadEndCoverageCard";
 
 export function HealCockpitTabContent() {
   return (
@@ -46,6 +47,7 @@ export function HealCockpitTabContent() {
       <FailedJobHotloopsCard />
       <VariantPipelineHealthCard />
       <InternalLinkMaterializationCard />
+      <SeoDeadEndCoverageCard />
       <DagBlockedDashboardCard />
       <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
