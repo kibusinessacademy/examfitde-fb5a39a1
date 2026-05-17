@@ -26,6 +26,7 @@ import { VariantPipelineHealthCard } from "@/components/admin/heal/cards/Variant
 import { InternalLinkMaterializationCard } from "@/components/admin/heal/cards/InternalLinkMaterializationCard";
 import { SeoDeadEndCoverageCard } from "@/components/admin/heal/cards/SeoDeadEndCoverageCard";
 import { PillarGenerationBackfillCard } from "@/components/admin/heal/cards/PillarGenerationBackfillCard";
+import { PillarPublishGateCard } from "@/components/admin/heal/cards/PillarPublishGateCard";
 
 export function HealCockpitTabContent() {
   return (
