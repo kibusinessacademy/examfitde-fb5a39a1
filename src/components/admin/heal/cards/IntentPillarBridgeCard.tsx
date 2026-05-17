@@ -35,7 +35,6 @@ export function IntentPillarBridgeCard() {
   const { data, isLoading, error } = useQuery({
     queryKey: QK,
     queryFn: async (): Promise<SummaryRow[]> => {
-      // @ts-expect-error RPC type added after types regen
       const { data, error } = await supabase.rpc("admin_get_intent_pillar_bridge_summary");
       if (error) throw error;
       return (data ?? []) as SummaryRow[];
