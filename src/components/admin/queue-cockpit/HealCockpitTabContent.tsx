@@ -28,6 +28,7 @@ import { SeoDeadEndCoverageCard } from "@/components/admin/heal/cards/SeoDeadEnd
 import { PillarGenerationBackfillCard } from "@/components/admin/heal/cards/PillarGenerationBackfillCard";
 import { PillarPublishGateCard } from "@/components/admin/heal/cards/PillarPublishGateCard";
 import { IntentPillarBridgeCard } from "@/components/admin/heal/cards/IntentPillarBridgeCard";
+import { PersonaCertPillarBridgeCard } from "@/components/admin/heal/cards/PersonaCertPillarBridgeCard";
 
 export function HealCockpitTabContent() {
   return (
