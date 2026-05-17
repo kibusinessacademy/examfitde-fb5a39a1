@@ -497,6 +497,7 @@ export default function HealCockpitPage() {
                 <TemporalIntelligenceCard />
                 <PredictiveSimulationCard />
                 <SeoJobHealthCard />
+                <SeoGraphImpactCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
                 <AccessSsotHealthCard />
