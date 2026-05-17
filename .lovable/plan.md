@@ -1,68 +1,70 @@
-# Lifecycle Bridges P0 — Roadmap
+# Journey 1 P0/P1 Fixes + Audit-Write-Contract
 
-Du hast 10 Brücken benannt. Bevor ich Code schreibe, bestätige bitte den Scope. Empfehlung: **drei P0-Brücken in genau dieser Reihenfolge** (jede ist eine eigene Migration-Welle, mit Worker + SLA-Cron + Cockpit-Card + Smoke + Memory-Leaf — analog zum bewährten Pattern aus Post-Publish/Post-Purchase).
+Ziel: Top-of-Funnel reparieren (Checkout, Tracking, RLS, Drift) **und** das strukturelle Problem „schreibt gegen nicht existierende Spalten, wird stillschweigend verworfen" einmal an der Wurzel lösen.
 
-## Bridge 1 — Delivered → Activated (P0)
+## Phase 0 — Audit-Write-Contract (Wurzel-Fix, zuerst)
 
-**Trigger:** `learner_entitlements.activated_at IS NOT NULL` (erste je User) → Activation-Orchestrator.
+Damit kein Folgefix wieder still droppt.
 
-**Fanout-Jobs (neu in `ops_job_type_registry`):**
-- `activation_welcome_sequence_enqueue` (verdrahtet email_delivery_queue Loop B)
-- `activation_goal_capture_prompt` (setzt `learner_profile.goal_capture_pending=true`)
-- `activation_exam_date_capture_prompt`
-- `activation_study_plan_generate` (RPC `fn_generate_study_plan_v1` aus mastery + exam_date)
-- `activation_streak_initialize` (insert `learner_streaks` row)
-- `activation_first_minicheck_seed` (picks easiest LF1 minicheck → `learner_next_best_step`)
+1. **SSOT-Funktion `fn_emit_audit(...)`** (SECURITY DEFINER, einziger erlaubter Schreibpfad in `auto_heal_log` / `ops_guardrail_events` / `conversion_events` / `tracking_events`)
+   - Pflicht-Argumente typisiert: `_target_type`, `_action_type`, `_result_status`, `_payload jsonb`, `_correlation_id`
+   - Validiert `action_type` gegen Whitelist-View `v_audit_action_registry`
+   - Validiert `_payload`-Pflichtfelder via `ops_audit_contract` (action_type → required_jsonb_keys[])
+   - **HARD FAIL**: `RAISE EXCEPTION` bei unknown action_type oder fehlenden Pflichtfeldern (kein `EXCEPTION WHEN OTHERS THEN NULL`)
+2. **Trigger `trg_audit_write_contract` BEFORE INSERT** auf `auto_heal_log`: wenn Insert **nicht** aus `fn_emit_audit` kommt (session var `audit.via_contract='1'`), → RAISE im Strict-Mode-Flag `app_settings.audit_strict='warn'|'enforce'`. Start mit `warn` + Mirror in `ops_guardrail_events`, nach 48h auf `enforce`.
+3. **Registry-Tabelle `ops_audit_contract(action_type, required_keys, schema_version, owner_module)`** + Seeder für die ~21 bereits genutzten action_types.
+4. **CI-Guard** `scripts/guards/audit-write-contract-guard.mjs`: greppt nach direktem `INSERT INTO auto_heal_log`/`ops_guardrail_events` außerhalb von `fn_emit_audit` + Allowlist.
+5. **Smoke**: 4 Cases — valid, unknown action, missing payload key, malformed jsonb. Erwartung: 1 green, 3 hard fail.
 
-**SSOT-View:** `v_learner_activation_state` mit state-machine:
-`NOT_STARTED | ONBOARDING | ACTIVATED | ENGAGED | AT_RISK | DORMANT`
-abgeleitet aus `entitlement.activated_at`, `last_event_at`, `streak_days`, `minichecks_completed_count`.
+## Phase 1 — P0-1: Bundle-CTA → Checkout
 
-**SLA-Wächter:** Cron 5min — Activation-Fanout muss ≤10min nach `delivery_confirmed` abgeschlossen sein, sonst auto_heal_log `activation_sla_breach`.
+`src/pages/BundleDetail.tsx` (oder gleichwertige Bundle-Route):
+- `onClick` ruft **direkt** `supabase.functions.invoke('create-product-checkout', { body: { product_id, persona, source: 'bundle_detail' } })`
+- Hard-fail toast wenn `data.url` fehlt + `fn_emit_audit('checkout','checkout_redirect_missing_url','error', payload)`
+- Niemals `navigate('/shop')` als Fallback — stattdessen Error-State
+- E2E-Smoke `scripts/journey1-bundle-cta-smoke.mjs` (HEAD-Check auf Stripe-Host)
 
-**Worker:** `learner-activation-worker` (analog post-purchase-delivery-worker).
+## Phase 2 — P0-2 + P0-3: Tracking-Pipeline
 
-**Cockpit:** `ActivationFunnelCard` — counts pro state, "DormantRescue" repair button.
+1. Migration: RLS-Policy `tracking_events_anon_insert` (INSERT, anon+authenticated, `WITH CHECK true`, kein SELECT für anon)
+2. Enum-Erweiterung `track_conversion_event_v2`: `landing_view` in allowed list (idempotent via `IF NOT EXISTS`)
+3. SSOT-View `v_conversion_event_registry` (event_type, required_keys, persona_required) + Contract-Tests
+4. `useTrackingClient` ruft bei 401/400 → `fn_emit_audit('tracking','tracking_insert_failed','error', { code, event_type, ... })` statt silent-drop
 
-## Bridge 2 — Mastery → Exam Readiness (P0)
+## Phase 3 — P0-4: Public Product RLS
 
-**Bereits vorhanden:** `useExamReadiness`, `calculate_exam_readiness`, `compute_readiness`. **Lücke:** kein orchestrierter Lifecycle, keine LF/Blueprint/Zeitdruck-Gewichtung, keine `AT_RISK/CRITICAL`-Eskalation, kein Auto-Intervention.
+Migration: explizite anon SELECT-Policies auf `store_products` + `curriculum_products`:
+```
+USING (is_active = true AND published = true)
+```
+Sensible Spalten (cost_price, internal_notes) via View `v_store_products_public` + Base-Table SELECT-Deny für anon.
 
-**Neu:**
-- View `v_exam_readiness_v2` — kombiniert: LF-Coverage %, Blueprint-Coverage %, Sim-Score 7d-trend, Error-Type-Distribution, Repetition-Stability (mastery decay), Days-To-Exam-Pressure.
-- Verdict-Enum: `READY (≥85)` | `PARTIAL (70-84)` | `AT_RISK (55-69)` | `CRITICAL (<55)`.
-- RPC `fn_exam_readiness_v2(user_id, curriculum_id)` SECURITY DEFINER.
-- Trigger nach jedem minicheck/sim_session → enqueue `learner_readiness_recompute` (debounced 30s).
-- Bei `AT_RISK`/`CRITICAL`-Übergang → enqueue `learner_intervention_dispatch` (Tutor-Hint, Weakness-Drill, Email-Sequence "rescue").
-- SSOT-Audit: `learner_readiness_history` (state, score, verdict, computed_at).
+## Phase 4 — P1: 190 vs 166 Catalog-Drift Recon
 
-**Cockpit:** `ExamReadinessDistributionCard` pro Curriculum — READY/PARTIAL/AT_RISK/CRITICAL counts + Trend.
+Diagnose-RPC `admin_get_catalog_visibility_drift()` → liefert pro Paket:
+- `published` ✓/✗, `has_active_product` ✓/✗, `has_active_price` ✓/✗, `has_hero_image` ✓/✗, `in_v_full_course_catalog` ✓/✗, `gate_reason text`
+- + Cockpit-Card `CatalogVisibilityDriftCard` im /admin/growth Audit-Tab
+- **Kein Auto-Fix** — Recon-Report, dann gezielter Heal in Folge-Sprint
 
-## Bridge 3 — Support → Product Repair (P0)
+## Phase 5 — Verifikation
 
-**Lücke:** `support_tickets` ist isoliert — kein Link zu Content-Entity, kein Auto-Enqueue eines Repair-Jobs.
+- Browser-Live: `/bundle/<slug>` → CTA → Stripe URL erreichbar
+- `tracking_events` anon-Insert 201
+- `track_conversion_event_v2('landing_view', ...)` 200
+- `store_products` REST anon 200 mit gefilterten Rows
+- `admin_get_catalog_visibility_drift()` liefert 190 Rows, davon ~24 mit non-null gate_reason
+- `fn_emit_audit` smoke: 1 ok / 3 hard-fail
+- 4 CI-Guards grün
 
-**Neu:**
-- Tabelle `content_feedback_events` (FK → ticket_id?, entity_type ENUM `exam_question|lesson|h5p_asset|tutor_response|handbook_section`, entity_id UUID, severity, reason_code, reporter_user_id, status `open|triaged|repair_enqueued|resolved|rejected`).
-- Trigger `trg_feedback_event_auto_route` → wenn `severity in ('high','critical')` und entity bekannt → enqueue Repair-Job pro entity_type (mapping: exam_question→`package_repair_exam_pool_quality`, lesson→`repair_learning_content`, h5p_asset→`asset_revalidate`, tutor_response→`tutor_index_partial_rebuild`, handbook→`handbook_expand_section`).
-- RPC `admin_resolve_feedback_event(id, action)` mit revalidation-hook.
-- Ticket→Feedback-Bridge: bei `support_tickets.context_course_id IS NOT NULL` und category `content_error` → auto-insert `content_feedback_events`.
-- View `v_content_feedback_pipeline` — open / triaged / repair_enqueued / resolved counts pro entity_type, MTTR.
+## Technische Notizen
 
-**Cockpit:** `ContentFeedbackPipelineCard` — Backlog + "Triage" Buttons.
+- Migration-Discipline: **5 separate Migrationen** (Contract, CTA-Fix nur Code, Tracking, RLS, Recon-RPC). Jede mit Smoke + Rollback-Hint + `auto_heal_log`-Eintrag via `fn_emit_audit`.
+- Audit-Strict startet `warn`, nicht `enforce` — sonst riskieren wir Migration-Block durch Legacy-Inserts. 48h Beobachtung, dann Flip.
+- `conversion_events.package_id` Generated Column bleibt SSOT — `fn_emit_audit` validiert nur Wrapper-Pfad.
 
-## Out-of-Scope (P1+, später)
-4 Certified/Completed · 6 Auto-Optimization · 7 Cost-Governance · 8 Compliance · 9 Multi-Channel · 10 Human-Escalation — separate Wellen.
+## Out of Scope (bewusst)
 
-## Pattern pro Bridge (1 Welle = 5 Schritte)
-1. Migration A: Schema + SSOT-View + Trigger
-2. Migration B: Job-Types in `ops_job_type_registry` + Orchestrator-Fanout-Function + SLA-Detector
-3. Edge Function: dedizierter Worker mit RPC-MAP
-4. Cron: `*-worker-2min` + `*-sla-5min` (via `supabase--insert`, da projekt-spezifische Keys)
-5. Cockpit-Card + Memory-Leaf + Smoke-Erweiterung
-
-## Frage vor Ausführung
-**Bestätige ich die 3 Brücken in dieser Reihenfolge und Tiefe?** Oder soll ich:
-- (a) nur **Bridge 1 (Activation)** in dieser Welle vollständig schließen und Bridge 2+3 als separate Bestätigungen,
-- (b) alle 3 in einer großen Welle (≈4 Migrations + 3 Edge-Functions + 3 Cards),
-- (c) andere Priorisierung (z.B. Support→Repair zuerst, weil Quality-Loop)?
+- Journey 2/3/4 Audit (erst nach Entry-Funnel-Reparatur)
+- Hero-Layout-Glitch (UX, kein Blocker)
+- Direktkauf-CTA auf Produktseite (P1 UX, eigener Sprint)
+- 24 Drift-Pakete tatsächlich heilen (erst nach Recon-Daten)
