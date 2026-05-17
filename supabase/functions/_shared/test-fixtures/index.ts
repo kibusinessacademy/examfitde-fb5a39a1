@@ -70,12 +70,15 @@ async function emitAudit(
     | "test_fixture_schema_drift",
   payload: Record<string, unknown>,
 ): Promise<void> {
+  const corr = (payload.correlation_id as string) ?? null;
   const { error } = await sb.rpc("fn_emit_audit" as never, {
     _target_type: "test_fixture",
     _action_type: actionType,
+    _target_id: corr,
     _result_status: "ok",
     _payload: payload,
-    _correlation_id: (payload.correlation_id as string) ?? null,
+    _trigger_source: "test_fixture_contract",
+    _error_message: null,
   } as never);
   if (error) {
     throw new Error(
@@ -481,11 +484,13 @@ export async function assertNoLegacyBundleUrls(
     .eq("status", "active")
     .limit(sample);
   if (error) {
-    await emitAudit(sb, "test_fixture_created" as any, {
-      _placeholder: "naming_assert_lookup_failed",
-      correlation_id: opts.correlationId,
-      error: error.message,
-    }).catch(() => {});
+    try {
+      await emitAudit(sb, "test_fixture_created" as any, {
+        _placeholder: "naming_assert_lookup_failed",
+        correlation_id: opts.correlationId,
+        error: error.message,
+      });
+    } catch { /* swallow */ }
   } else {
     for (const p of (data ?? [])) {
       const hay = `${p.seo_title ?? ""} ${p.seo_description ?? ""}`;
@@ -494,15 +499,19 @@ export async function assertNoLegacyBundleUrls(
   }
 
   const passed = violations.length === 0;
-  await sb.rpc("fn_emit_audit" as never, {
-    _target_type: "test_fixture",
-    _action_type: passed ? "naming_assert_passed" : "naming_assert_failure",
-    _result_status: passed ? "ok" : "warning",
-    _payload: passed
-      ? { scope: "smoke.b2c.commerce", asserted: "no_legacy_bundle_urls", sample_size: sample, correlation_id: opts.correlationId }
-      : { scope: "smoke.b2c.commerce", reason: "legacy_bundle_url_in_products", violations, correlation_id: opts.correlationId },
-    _correlation_id: opts.correlationId,
-  } as never).catch(() => {});
+  try {
+    await sb.rpc("fn_emit_audit" as never, {
+      _target_type: "test_fixture",
+      _action_type: passed ? "naming_assert_passed" : "naming_assert_failure",
+      _target_id: opts.correlationId ?? null,
+      _result_status: passed ? "ok" : "warning",
+      _payload: passed
+        ? { scope: "smoke.b2c.commerce", asserted: "no_legacy_bundle_urls", sample_size: sample, correlation_id: opts.correlationId }
+        : { scope: "smoke.b2c.commerce", reason: "legacy_bundle_url_in_products", violations, correlation_id: opts.correlationId },
+      _trigger_source: "test_fixture_contract",
+      _error_message: passed ? null : `legacy_bundle_url_in_products: ${violations.join("; ")}`,
+    } as never);
+  } catch { /* swallow */ }
 
   return { passed, scope: "smoke.b2c.commerce", violations };
 }
