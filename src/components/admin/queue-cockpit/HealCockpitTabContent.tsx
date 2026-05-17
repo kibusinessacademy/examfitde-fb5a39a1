@@ -23,6 +23,7 @@ import { DagBlockedDashboardCard } from "@/components/admin/heal/cards/DagBlocke
 import { DeferredJobsPullForwardCard } from "@/components/admin/heal/cards/DeferredJobsPullForwardCard";
 import { FailedJobHotloopsCard } from "@/components/admin/heal/cards/FailedJobHotloopsCard";
 import { VariantPipelineHealthCard } from "@/components/admin/heal/cards/VariantPipelineHealthCard";
+import { InternalLinkMaterializationCard } from "@/components/admin/heal/cards/InternalLinkMaterializationCard";
 
 export function HealCockpitTabContent() {
   return (
@@ -44,6 +45,7 @@ export function HealCockpitTabContent() {
       <MorningBriefing />
       <FailedJobHotloopsCard />
       <VariantPipelineHealthCard />
+      <InternalLinkMaterializationCard />
       <DagBlockedDashboardCard />
       <DeferredJobsPullForwardCard />
       <ForensicAuditRunnerCard />
