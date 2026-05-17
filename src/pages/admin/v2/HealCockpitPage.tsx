@@ -75,6 +75,7 @@ import { PredictiveSimulationCard } from "@/components/admin/heal/cards/Predicti
 import { SeoJobHealthCard } from "@/components/admin/heal/cards/SeoJobHealthCard";
 import { SeoGraphImpactCard } from "@/components/admin/heal/cards/SeoGraphImpactCard";
 import { SeoGraphReconCard } from "@/components/admin/heal/cards/SeoGraphReconCard";
+import { SeoBridgeActivationCard } from "@/components/admin/heal/cards/SeoBridgeActivationCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
 import { AccessSsotHealthCard } from "@/components/admin/heal/cards/AccessSsotHealthCard";
