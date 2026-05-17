@@ -45,8 +45,8 @@ const SCOPED_TABLES = [
   "products",
 ];
 
+// Baseline waivers (legacy). b2c-ssot-smoke was migrated to factories in Pfad C (2026-05-17).
 const BASELINE_WAIVERS = new Set([
-  "supabase/functions/b2c-ssot-smoke/index.ts",
   "supabase/functions/test-orchestrator/tests/wave3-entitlement-fulfillment.test.ts",
 ]);
 

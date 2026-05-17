@@ -22,7 +22,9 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
   process.exit(1);
 }
 
-const MODES = (process.env.SMOKE_MODES || 'single,bundle,refund,access_e2e')
+// Pfad C: canonical mode is `complete` (formerly `bundle`). `bundle` still
+// works as deprecated alias and emits a warning audit.
+const MODES = (process.env.SMOKE_MODES || 'single,complete,refund,access_e2e')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
 const baseBody = {
@@ -124,7 +126,7 @@ for (const mode of MODES) {
 if (process.env.SMOKE_SKIP_DELIVERY_ASSERT !== 'true') {
   for (const r of results) {
     if (!r.ok) continue;
-    if (!['single', 'bundle'].includes(r.mode)) continue;
+    if (!['single', 'complete', 'bundle'].includes(r.mode)) continue;
     const dr = await assertDeliveryConfirmed(r.order_id, r.mode);
     if (!dr.ok) {
       r.ok = false;
