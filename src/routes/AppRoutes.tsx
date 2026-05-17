@@ -193,7 +193,7 @@ const AdminTrafficFunnelPage = lazyRetry(() => import('@/pages/admin/v2/AdminTra
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
 const WorkSuccessPage = lazyRetry(() => import('@/pages/work/WorkSuccessPage'));
 const WorkBuyPage = lazyRetry(() => import('@/pages/work/WorkBuyPage'));
-const WorkBundleBuyPage = lazyRetry(() => import('@/pages/work/WorkBundleBuyPage'));
+// WorkBundleBuyPage removed 2026-05-17 (A4 dead-code cleanup, no active funnel pointing to /work/bundles/:bundleId)
 const WorkCorporatePage = lazyRetry(() => import('@/pages/work/WorkCorporatePage'));
 
 // Learner Pages
@@ -255,7 +255,7 @@ const AppRoutes = () => {
         <Route path="/partner" element={<PartnerDashboardPage />} />
         <Route path="/work/success" element={<WorkSuccessPage />} />
         <Route path="/work/buy/:productId" element={<WorkBuyPage />} />
-        <Route path="/work/bundles/:bundleId" element={<WorkBundleBuyPage />} />
+        {/* /work/bundles/:bundleId entfernt 2026-05-17 (A4 dead-code, WorkBundleBuyPage gelöscht) */}
         <Route path="/work/corporate" element={<WorkCorporatePage />} />
 
         {/* Legacy /berufski/* → 410 Gone */}
