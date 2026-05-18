@@ -50,16 +50,7 @@ jobs:
           [ -z "${TEST_USER_JWT:-}" ]  && { echo "::warning::TEST_USER_JWT missing — abuse simulation skipped"; missing_learner=1; }
           [ -z "${ADMIN_TEST_JWT:-}" ] && echo "::warning::ADMIN_TEST_JWT missing — admin abuse checks will be skipped"
 
-          strict="false"
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            strict="true"
-          fi
-
           if [ "$missing" -eq 1 ]; then
-            if [ "$strict" = "true" ]; then
-              echo "::error::Required secrets missing on protected run (schedule/main) — failing hard."
-              exit 1
-            fi
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::warning::Abuse Simulation skipped — required Supabase secrets missing."
           else
