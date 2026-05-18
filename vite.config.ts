@@ -20,6 +20,9 @@ import { VitePWA } from "vite-plugin-pwa";
  * the NotFound component client-side.
  */
 function removeDist404Plugin(): Plugin {
+  const isVercel =
+    process.env.VERCEL === "1" || process.env.DEPLOY_TARGET === "vercel";
+  const isCloudflare = process.env.DEPLOY_TARGET === "cloudflare";
   return {
     name: "examfit-remove-dist-404",
     apply: "build",
@@ -27,9 +30,29 @@ function removeDist404Plugin(): Plugin {
     closeBundle() {
       const dist = path.resolve(process.cwd(), "dist");
       const target = path.join(dist, "404.html");
+
+      if (isCloudflare) {
+        console.log("[remove-dist-404] skipped (DEPLOY_TARGET=cloudflare)");
+        return;
+      }
+
+      // Default + Vercel: dist/404.html must NOT exist (Vercel would serve it
+      // with HTTP 404 for any unmatched route, bypassing the SPA rewrite).
       if (fs.existsSync(target)) {
         fs.unlinkSync(target);
-        console.log("[remove-dist-404] dist/404.html deleted (Vercel SPA-fallback fix)");
+        console.log(
+          `[remove-dist-404] dist/404.html deleted (target=${isVercel ? "vercel" : "default"})`,
+        );
+      } else {
+        console.log("[remove-dist-404] dist/404.html not present — ok");
+      }
+
+      // Hard P0 guard: on Vercel, fail the build loudly if anything wrote it back.
+      if (isVercel && fs.existsSync(target)) {
+        throw new Error(
+          "[remove-dist-404] P0 SEO guard failed: dist/404.html still exists after cleanup. " +
+            "Vercel would serve it with HTTP 404 and break SEO for deep links.",
+        );
       }
     },
   };
