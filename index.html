@@ -67,13 +67,54 @@
 
     <!--
       KEIN statischer Canonical / hreflang im SPA-Shell!
-      Lovable Hosting liefert index.html als Fallback für ALLE Routen aus.
-      Ein statischer canonical=https://examfit.de/ würde damit auf jeder Route
-      identisch erscheinen → Duplicate-Content-Cluster für Crawler ohne JS.
       Per-Route canonical/hreflang wird via @/components/seo/SEOHead gesetzt.
-      Geschützte Routen werden via @/components/seo/RouteNoindex auf
-      noindex,nofollow gesetzt + Canonical entfernt.
+      Geschützte Routen + Non-Authority-Hosts werden via
+      @/components/seo/RouteNoindex auf noindex,nofollow gesetzt + Canonical
+      auf https://examfit.de${pathname} normalisiert.
     -->
+
+    <!--
+      SEO Authority Guard (Pre-Hydration Fallback)
+      SSOT: mem://constraints/hosting-and-seo-authority-topology-v1
+      Nur examfit.de + www.examfit.de sind SEO-autoritativ. Auf JEDEM anderen
+      Host (lovable.app, vercel.app, id-preview--*, localhost, Legacy):
+        - robots = noindex,nofollow,noarchive,nosnippet
+        - canonical → https://examfit.de${pathname} (Tracking-Params gestrippt)
+      Minimal, ohne React/Router/Supabase. Läuft vor Hydration. RouteNoindex
+      übernimmt nach Hydration und reagiert auf Client-Navigation.
+    -->
+    <script>
+      (function () {
+        try {
+          var host = (window.location.hostname || '').toLowerCase().trim();
+          var AUTHORITY = ['examfit.de', 'www.examfit.de'];
+          if (AUTHORITY.indexOf(host) !== -1) return;
+
+          var robots = document.querySelector('meta[name="robots"]');
+          if (!robots) {
+            robots = document.createElement('meta');
+            robots.setAttribute('name', 'robots');
+            document.head.appendChild(robots);
+          }
+          robots.setAttribute('content', 'noindex, nofollow, noarchive, nosnippet');
+
+          var path = window.location.pathname || '/';
+          if (path.length > 1 && path.charAt(path.length - 1) === '/') {
+            path = path.slice(0, -1);
+          }
+          var canonHref = 'https://examfit.de' + path;
+          var existing = document.querySelector('link[rel="canonical"]');
+          if (existing) {
+            existing.setAttribute('href', canonHref);
+          } else {
+            var link = document.createElement('link');
+            link.setAttribute('rel', 'canonical');
+            link.setAttribute('href', canonHref);
+            document.head.appendChild(link);
+          }
+        } catch (e) { /* fail-open */ }
+      })();
+    </script>
 
 
     <!-- Theme & PWA -->
