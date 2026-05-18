@@ -29,11 +29,19 @@ export default function DiagPage() {
     (async () => {
       const next = [...init];
 
-      // REST ping
-      if (url && key) {
+      // REST ping — auth/v1/health liefert bei gültigem Projekt 200 (kein Key nötig)
+      if (url) {
         try {
-          const r = await fetch(`${url}/rest/v1/?apikey=${key}`, { headers: { apikey: key } });
-          next[5] = { label: init[5].label, status: r.ok ? "ok" : "fail", detail: `HTTP ${r.status}` };
+          const r = await fetch(`${url}/auth/v1/health`, {
+            headers: key ? { apikey: key } : {},
+          });
+          // 200 = healthy. 401 nur wenn URL falsch ist — sonst gilt der Endpoint als erreichbar.
+          const ok = r.ok || r.status === 401 ? r.ok : false;
+          next[5] = {
+            label: init[5].label,
+            status: r.ok ? "ok" : "fail",
+            detail: `HTTP ${r.status}${r.ok ? " · auth service healthy" : ""}`,
+          };
         } catch (e: any) {
           next[5] = { label: init[5].label, status: "fail", detail: e?.message ?? "network error" };
         }
