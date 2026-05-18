@@ -1,0 +1,96 @@
+name: Vercel Prerender Gate
+
+# Runs on every PR + every push to main.
+# Vercel's GitHub integration deploys automatically on push to main;
+# this workflow is the pre-deploy quality gate (build + per-route HTML must exist)
+# and the post-deploy smoke (verify the live URL after Vercel finishes).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-prerender-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-verify:
+    name: Build + Verify Per-Route HTML
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build (runs Vite + Prerender plugin)
+        run: npm run build
+
+      - name: Verify per-route HTML output
+        env:
+          MIN_PRERENDERED: '20'
+        run: node scripts/seo/verify-prerender-output.mjs
+
+      - name: Upload dist as artifact (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-prerender-debug
+          path: |
+            dist/index.html
+            dist/**/index.html
+          retention-days: 5
+
+  post-deploy-smoke:
+    # Only after main is pushed AND build verified.
+    # Vercel auto-deploys on push; we wait, then smoke the live URL.
+    name: Post-Deploy Smoke against examfit.de
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wait for Vercel deploy to propagate (90s)
+        run: sleep 90
+
+      - name: Verify per-route HTML is live
+        run: |
+          set -e
+          echo "▶ Checking per-route HTML drift on examfit.de"
+          ROOT=$(curl -sf https://examfit.de/ | head -c 8000)
+          ROUTE=$(curl -sf https://examfit.de/aevo-pruefung | head -c 8000)
+          if [ "$ROOT" = "$ROUTE" ]; then
+            echo "❌ /aevo-pruefung is identical to / — Per-Route-HTML NOT served"
+            exit 1
+          fi
+          echo "✅ Per-Route-HTML drift OK"
+
+      - name: X-Robots-Tag on protected routes
+        run: |
+          set -e
+          H=$(curl -sI https://examfit.de/dashboard | tr -d '\r' | grep -i '^x-robots-tag:' || true)
+          echo "Header: $H"
+          echo "$H" | grep -iq 'noindex' || { echo "❌ /dashboard missing X-Robots-Tag: noindex"; exit 1; }
+          echo "✅ X-Robots-Tag OK"
+
+      - name: Full post-cutover smoke
+        run: node scripts/seo/post-cutover-smoke.mjs
