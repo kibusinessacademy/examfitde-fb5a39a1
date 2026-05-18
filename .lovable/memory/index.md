@@ -9,7 +9,7 @@ conversion_events.v2 mit 6 Pflicht-Events. Marketing/CRM/Checkout SSOT-verkabelt
 Email-Sequenzen via email_delivery_queue + email-sequence-worker (cron 5min).
 Bulk-Heal queued→building NUR via admin_bulk_promote_queued_to_building (WIP-Cap, Skip-Reasons). Per-Paket via admin_nudge_atomic_trigger.
 Design-System v2: Tokens für text-/surface-/border-Hierarchie + status-bg-subtle + density-Modi + shadow-elev-*. Niemals text-white/text-black, niemals bg-X/10 für Status — immer Tokens.
-status-Familie v2: API = `(bg|border|text)-status-{error|success|warning|info}-{bg-subtle|border|text|fg|foreground}`. KEINE `danger`/`warn` Aliase, KEINE inverted `bg-status-bg-subtle-X` oder `text-status-fg-X`, KEINE `/N` Opacity. Audit hard-failed.
+status-Familie v2 (FROZEN 2026-05-18): API = `(bg|border|text)-status-{error|success|warning|info}-{bg-subtle|border|text|fg|foreground}`. KEINE `danger`/`warn` Aliase, KEINE inverted `bg-status-bg-subtle-X` / `text-status-fg-X`, KEINE `/N` Opacity. Audit hard-failed. Neue Status-Farben nur via expliziten Token-Taxonomy-Cut. Doc: docs/a11y-and-contrast-tokens.md.
 Tail-Step-Schutz: Pakete mit approved questions werden NICHT geblockt + Tail-Jobs (repair/integrity/council/auto_publish) NICHT gecancelt — sondern deferred (retry+30min). Audit: action_type='tail_step_retryable_deferred'.
 SSOT Hidden/Hollow: v_hidden_hollow_ssot ausschließlich auf exam_questions. Phantom-Steps auf published blockiert via trg_guard_no_phantom_steps_on_published (Bypass nur via session_replication_role='replica').
 SQL: NIE COUNT() ohne Arg — immer COUNT(*) oder COUNT(expr). Admin-Views: REVOKE FROM PUBLIC,anon,authenticated + GRANT TO service_role; Zugriff nur via SECURITY DEFINER RPC mit has_role-Gate.
