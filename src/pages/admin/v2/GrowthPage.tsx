@@ -136,6 +136,7 @@ export default function GrowthPage() {
           <Suspense fallback={<Loading />}><GrowthDashboardOverview onTabSwitch={setTab} /></Suspense>
           <Suspense fallback={<Loading />}><PostPurchaseActivationCard /></Suspense>
           <Suspense fallback={<Loading />}><ActivationAssuranceCard /></Suspense>
+          <Suspense fallback={<Loading />}><ActivationNudgeDispatcherCard /></Suspense>
           <Suspense fallback={<Loading />}><FunnelAnalyticsCard /></Suspense>
           <Suspense fallback={<Loading />}><PruefungsreifeFunnelCard /></Suspense>
           <Suspense fallback={<Loading />}><CtaPerformanceCard /></Suspense>
