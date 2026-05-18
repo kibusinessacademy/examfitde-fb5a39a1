@@ -44,7 +44,7 @@ export function ExamQuestionDemo() {
           let cls = "border-border bg-surface hover:border-primary";
           if (showFeedback && isCorrect) cls = "border-success bg-success-bg-subtle";
           else if (showFeedback && isPicked && !isCorrect)
-            cls = "border-destructive bg-destructive/10";
+            cls = "border-destructive bg-destructive-bg-subtle";
           return (
             <button
               key={opt.id}

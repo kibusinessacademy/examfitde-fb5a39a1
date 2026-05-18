@@ -2,7 +2,7 @@ import type { ResultMeta } from "./types";
 
 // Token-Hygiene: kein `danger`-Token im Tailwind-Theme — nutze `destructive`.
 const TONE_CLASS: Record<ResultMeta["tone"], string> = {
-  danger: "bg-destructive/10 text-destructive border-destructive/30",
+  danger: "bg-destructive-bg-subtle text-destructive border-destructive-border",
   warning: "bg-warning-bg-subtle text-warning border-warning-border",
   info: "bg-info-bg-subtle text-info border-info-border",
   success: "bg-success-bg-subtle text-success border-success-border",

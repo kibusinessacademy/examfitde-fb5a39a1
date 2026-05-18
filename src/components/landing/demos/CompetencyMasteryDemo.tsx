@@ -55,7 +55,7 @@ const STATUS_META: Record<Status, { label: string; cls: string; Icon: typeof Che
   },
   not: {
     label: "Lücke",
-    cls: "bg-destructive/10 text-destructive border-destructive/30",
+    cls: "bg-destructive-bg-subtle text-destructive border-destructive-border",
     Icon: Circle,
   },
 };
