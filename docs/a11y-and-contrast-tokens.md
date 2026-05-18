@@ -3,6 +3,38 @@
 Single source of truth für Barrierefreiheit und semantische Farbverwendung in
 allen `src/components/**`, `src/pages/**`, `src/features/**`.
 
+## Status-Familie v2 (FROZEN — 2026-05-18)
+
+Kanonische, eingefrorene API für Status-Farben. Audit hard-failed bei Drift.
+
+**Erlaubte Tokens** (`color ∈ {error, success, warning, info}`):
+
+| Zweck | Tailwind |
+| --- | --- |
+| Subtle-Fläche | `bg-status-<color>-bg-subtle` |
+| Subtle-Border | `border-status-<color>-border` |
+| Text auf Subtle | `text-status-<color>-text` (oder `-fg` Alias) |
+| Solid-Fläche | `bg-status-<color>` |
+| Text auf Solid | `text-status-<color>-foreground` |
+| Solid-Text/Icon | `text-status-<color>` |
+
+**Verboten (hart, blockt CI):**
+
+- `bg-status-bg-subtle` oder `bg-status-bg-subtle-<color>` (inverted; neutral → `bg-surface-sunken`)
+- `text-status-fg-<color>` (inverted)
+- `(bg|border|text)-status-(danger|warn)` (Legacy-Alias entfernt)
+- `(bg|border|text)-status-(error|success|warning|info)/<N>` (Opacity statt Subtoken)
+
+**Erweiterung:** Neue Status-Farben (z.B. `neutral`, `pending`) erfordern
+expliziten Token-Taxonomy-Cut — keine ad-hoc-Klassen. Visuelle Aliase
+(neuer Status zeigt auf bestehenden Hue) sind erlaubt.
+
+**Quellen:**
+- Definition: `src/index.css` (Light + Dark HSL-Vars) + `tailwind.config.ts`
+- Audit: `scripts/guards/contrast-token-audit.mjs` (HARD_PATTERNS Block)
+- Detail-Memo: `.lovable/memory/design/status-family-v2-drift-cleanup.md`
+
+
 ## Grundregeln (POUR-aligned)
 
 1. **Keine harten Farbklassen** in Komponenten:
