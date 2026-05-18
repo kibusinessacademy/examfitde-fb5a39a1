@@ -37,9 +37,9 @@ const STATUS_ICON: Record<StepStatus, JSX.Element> = {
 };
 
 const OVERALL_BADGE: Record<SmokeResult['overall'], string> = {
-  green: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30',
-  yellow: 'bg-amber-500/15 text-amber-700 border-amber-500/30',
-  red: 'bg-destructive/15 text-destructive border-destructive/30',
+  green: 'bg-status-success-bg-subtle text-status-success-text border-status-success-border',
+  yellow: 'bg-status-warning-bg-subtle text-status-warning-text border-status-warning-border',
+  red: 'bg-status-error-bg-subtle text-status-error-text border-status-error-border',
 };
 
 interface RecentRun {
