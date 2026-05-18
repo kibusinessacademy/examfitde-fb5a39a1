@@ -1,8 +1,11 @@
 ---
-name: status-Familie v2 Drift-Cleanup
-description: Eigene status-{error,success,warning,info}-{DEFAULT,text,foreground,fg,subtle,bg-subtle,border} Token-API. Aliase danger/warn ENTFERNT, inverted bg-status-bg-subtle-X / text-status-fg-X bereinigt. Audit hard-failed auf alle Drift-Pattern.
+name: status-Familie v2 (FROZEN)
+description: Eingefrorene status-{error,success,warning,info}-{DEFAULT,text,foreground,fg,subtle,bg-subtle,border} Token-API. Stand 2026-05-18. Aliase danger/warn ENTFERNT, inverted Pattern bereinigt. Audit hard-fail. Erweiterung nur über expliziten Token-Taxonomy-Cut.
 type: design
 ---
+
+> **Status: FROZEN 2026-05-18** — 0 hard / 0 soft Audit. Keine Ad-hoc-Erweiterung. Neue Status-Farben nur via expliziten Cut. Doc-SSOT: `docs/a11y-and-contrast-tokens.md`.
+
 
 # status-Familie v2 — finale Taxonomy
 
