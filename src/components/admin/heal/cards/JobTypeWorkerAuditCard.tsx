@@ -122,7 +122,7 @@ export function JobTypeWorkerAuditCard() {
         )}
 
         {q.error && (
-          <div className="rounded-md border border-status-error/40 bg-status-error-subtle p-3 text-xs">
+          <div className="rounded-md border border-status-error-border bg-status-error-subtle p-3 text-xs">
             Fehler: {(q.error as Error).message}
           </div>
         )}

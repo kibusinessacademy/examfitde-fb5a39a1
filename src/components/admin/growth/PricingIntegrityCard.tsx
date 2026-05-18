@@ -50,7 +50,7 @@ const STATUS_STYLES = {
     Icon: AlertCircle,
     label: "Red",
     iconClass: "text-destructive",
-    badgeClass: "bg-status-error-subtle text-status-error-foreground border-status-error/30",
+    badgeClass: "bg-status-error-subtle text-status-error-foreground border-status-error-border",
   },
 } as const;
 

@@ -163,7 +163,7 @@ export function LxiPublishBlockMonitorCard() {
                 </Section>
 
                 {severity === "critical" && (
-                  <div className="flex items-start gap-2 rounded border border-destructive/40 bg-status-bg-subtle p-2 text-xs">
+                  <div className="flex items-start gap-2 rounded border border-destructive/40 bg-surface-sunken p-2 text-xs">
                     <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                     <span>
                       Critical-Schwelle überschritten. Prüfe Producer-Phantom-Publishes oder echte Content-Lücken.

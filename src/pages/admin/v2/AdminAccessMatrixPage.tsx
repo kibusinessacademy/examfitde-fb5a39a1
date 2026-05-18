@@ -144,7 +144,7 @@ export default function AdminAccessMatrixPage() {
                     onClick={() => setSelectedUser(u)}
                     className={`px-2.5 py-1.5 rounded-md border text-xs flex items-center gap-1.5 ${
                       selectedUser?.user_id === u.user_id
-                        ? 'border-border-focus bg-status-bg-subtle text-text-primary'
+                        ? 'border-border-focus bg-surface-sunken text-text-primary'
                         : 'border-border text-text-secondary hover:border-border-focus'
                     }`}
                   >

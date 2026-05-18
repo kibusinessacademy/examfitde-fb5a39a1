@@ -65,8 +65,8 @@ const SUBPAGES: Array<{
 ];
 
 function healthBg(h?: HealthColor) {
-  if (h === "red") return "bg-status-bg-subtle border-l-2 border-l-destructive";
-  if (h === "yellow") return "bg-status-bg-subtle border-l-2 border-l-warning";
+  if (h === "red") return "bg-surface-sunken border-l-2 border-l-destructive";
+  if (h === "yellow") return "bg-surface-sunken border-l-2 border-l-warning";
   if (h === "green") return "border-l-2 border-l-success";
   return "border-l-2 border-l-border";
 }
