@@ -225,7 +225,7 @@ export function PreHeartbeatKillForensicsCard() {
                 {q.data.quarantined_packages.map((p) => (
                   <div
                     key={p.package_id}
-                    className="flex items-center justify-between gap-2 p-2 rounded bg-status-bg-subtle border border-border-subtle"
+                    className="flex items-center justify-between gap-2 p-2 rounded bg-surface-sunken border border-border-subtle"
                   >
                     <div className="min-w-0">
                       <div className="text-sm truncate">{p.title ?? p.package_id}</div>

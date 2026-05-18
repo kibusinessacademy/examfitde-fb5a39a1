@@ -65,7 +65,7 @@ const SOURCES: Array<{ label: string; value: "all" | "blueprint" | "generic" }> 
 const SEVERITY_STYLE: Record<string, string> = {
   critical: "border-status-error-border bg-status-error-bg-subtle text-status-error-foreground",
   warning:  "border-status-warning-border bg-status-warning-bg-subtle text-status-warning-foreground",
-  info:     "border-status-info/40 bg-status-info-subtle text-status-info-foreground",
+  info:     "border-status-info-border bg-status-info-subtle text-status-info-foreground",
 };
 
 async function fetchFunnel(days: number, source: "all" | "blueprint" | "generic"): Promise<FunnelData> {

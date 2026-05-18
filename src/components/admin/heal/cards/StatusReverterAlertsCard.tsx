@@ -44,7 +44,7 @@ export function StatusReverterAlertsCard() {
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-status-fg-warning" />
+            <AlertTriangle className="h-4 w-4 text-status-warning-fg" />
             Status-Reverter (Pattern X6)
           </CardTitle>
           <CardDescription>
@@ -71,7 +71,7 @@ export function StatusReverterAlertsCard() {
                 <div className="flex flex-wrap gap-1">
                   <Badge variant="outline">{r.symptom_before?.status} → {r.symptom_after?.status}</Badge>
                   {r.symptom_after?.blocked_reason && (
-                    <Badge variant="outline" className="bg-status-bg-subtle-warning text-status-fg-warning">
+                    <Badge variant="outline" className="bg-status-warning-bg-subtle text-status-warning-fg">
                       {r.symptom_after.blocked_reason}
                     </Badge>
                   )}

@@ -268,7 +268,7 @@ export default function AdminPaidOrdersOpsPage() {
                             </Button>
                             {lastError?.orderId === r.order_id && (
                               <span
-                                className="text-[10px] text-status-danger max-w-[12rem] truncate"
+                                className="text-[10px] text-status-error max-w-[12rem] truncate"
                                 title={lastError.message}
                               >
                                 {lastError.message}

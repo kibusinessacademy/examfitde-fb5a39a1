@@ -24,8 +24,8 @@ type AuditRow = {
 
 function Bool({ v }: { v: boolean }) {
   return v
-    ? <Check className="h-3 w-3 text-status-fg-success inline" />
-    : <X className="h-3 w-3 text-status-fg-danger inline" />;
+    ? <Check className="h-3 w-3 text-status-success-fg inline" />
+    : <X className="h-3 w-3 text-status-error-fg inline" />;
 }
 
 export function HealFunctionAuditCard() {
@@ -75,7 +75,7 @@ export function HealFunctionAuditCard() {
                 {data?.map((r) => {
                   const violating = r.calls_enqueue && !r.uses_enqueue_source_tag;
                   return (
-                    <tr key={r.function_name} className={violating ? "bg-status-bg-subtle-warning" : ""}>
+                    <tr key={r.function_name} className={violating ? "bg-status-warning-bg-subtle" : ""}>
                       <td className="p-1 font-mono">{r.function_name}</td>
                       <td className="p-1 text-center"><Bool v={r.uses_enqueue_source_tag} /></td>
                       <td className="p-1 text-center"><Bool v={r.uses_drift_guard} /></td>
@@ -89,7 +89,7 @@ export function HealFunctionAuditCard() {
           </div>
         )}
         {violations.length > 0 && (
-          <p className="text-xs text-status-fg-warning mt-2">
+          <p className="text-xs text-status-warning-fg mt-2">
             ⚠ {violations.length} Funktionen rufen enqueue_job_if_absent ohne enqueue_source-Tag auf — Phase-2-Hard-Block ab 2026-05-09.
           </p>
         )}

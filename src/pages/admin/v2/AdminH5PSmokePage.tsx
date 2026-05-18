@@ -234,7 +234,7 @@ export default function AdminH5PSmokePage() {
                     </div>
                     {s.detail && <div className="text-xs text-text-muted break-all">{s.detail}</div>}
                     {s.data !== undefined && s.data !== null && (
-                      <pre className="mt-1 text-xs bg-status-bg-subtle border border-border rounded p-2 overflow-x-auto">
+                      <pre className="mt-1 text-xs bg-surface-sunken border border-border rounded p-2 overflow-x-auto">
                         {JSON.stringify(s.data, null, 2)}
                       </pre>
                     )}

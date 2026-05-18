@@ -25,10 +25,10 @@ interface PipelineRow {
 }
 
 const statusTone = (s: string): string => {
-  if (s === "done" || s === "completed" || s === "skipped") return "bg-status-bg-subtle-success text-success border-success/20";
-  if (s === "failed" || s === "blocked") return "bg-status-bg-subtle-danger text-danger border-danger/20";
-  if (s === "processing" || s === "running") return "bg-status-bg-subtle-info text-info border-info/20";
-  return "bg-status-bg-subtle-muted text-muted-foreground border-border";
+  if (s === "done" || s === "completed" || s === "skipped") return "bg-status-success-bg-subtle text-success border-success/20";
+  if (s === "failed" || s === "blocked") return "bg-status-error-bg-subtle text-danger border-danger/20";
+  if (s === "processing" || s === "running") return "bg-status-info-bg-subtle text-info border-info/20";
+  return "bg-surface-sunken text-muted-foreground border-border";
 };
 
 export function PackagePipelineLiveCard() {
@@ -81,7 +81,7 @@ export function PackagePipelineLiveCard() {
               </div>
               <div className="flex items-center gap-1 flex-wrap justify-end">
                 {r.in_quarantine && (
-                  <Badge className="bg-status-bg-subtle-danger text-danger border-danger/20 gap-1">
+                  <Badge className="bg-status-error-bg-subtle text-danger border-danger/20 gap-1">
                     <ShieldAlert className="h-3 w-3" />Quarantäne
                   </Badge>
                 )}
@@ -89,7 +89,7 @@ export function PackagePipelineLiveCard() {
                 {r.gate_class && <Badge variant="outline">gate: {r.gate_class}</Badge>}
                 <Badge variant="outline">{r.approved_questions} Q</Badge>
                 {r.failed_jobs_total > 0 && (
-                  <Badge className="bg-status-bg-subtle-warning text-warning border-warning/20 gap-1">
+                  <Badge className="bg-status-warning-bg-subtle text-warning border-warning/20 gap-1">
                     <AlertTriangle className="h-3 w-3" />{r.failed_jobs_total} failed
                   </Badge>
                 )}

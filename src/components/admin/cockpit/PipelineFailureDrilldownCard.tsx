@@ -115,7 +115,7 @@ export default function PipelineFailureDrilldownCard() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="flex items-center gap-2">
-          <AlertOctagon className="h-4 w-4 text-status-danger" />
+          <AlertOctagon className="h-4 w-4 text-status-error" />
           Pipeline Failure Drilldown
           <span className="text-xs text-text-muted font-normal">
             ({totals.total} fails / {windowMin}min)
@@ -250,7 +250,7 @@ export default function PipelineFailureDrilldownCard() {
                         <td className="p-1.5 text-right font-semibold text-text-primary">{a.requeued_count}</td>
                         <td className="p-1.5 text-right text-text-secondary">{before}</td>
                         <td className="p-1.5 text-right text-text-secondary">{after}</td>
-                        <td className={`p-1.5 text-right font-semibold ${delta < 0 ? "text-status-success" : delta > 0 ? "text-status-danger" : "text-text-muted"}`}>
+                        <td className={`p-1.5 text-right font-semibold ${delta < 0 ? "text-status-success" : delta > 0 ? "text-status-error" : "text-text-muted"}`}>
                           {delta > 0 ? "+" : ""}{delta}
                         </td>
                         <td className="p-1.5">

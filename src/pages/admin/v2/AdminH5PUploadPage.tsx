@@ -88,7 +88,7 @@ export default function AdminH5PUploadPage() {
             {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Lädt hoch…</> : <>Hochladen & entpacken</>}
           </Button>
           {lastUpload && (
-            <div className="rounded-md border border-border bg-status-bg-subtle p-3 text-sm flex items-start gap-2">
+            <div className="rounded-md border border-border bg-surface-sunken p-3 text-sm flex items-start gap-2">
               <CheckCircle2 className="h-4 w-4 text-text-secondary mt-0.5" />
               <div className="min-w-0">
                 <div className="font-medium text-text-primary">{lastUpload.title ?? 'H5P-Paket'}</div>

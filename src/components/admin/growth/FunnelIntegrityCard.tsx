@@ -64,7 +64,7 @@ const STATUS_STYLES: Record<Status, { Icon: typeof CheckCircle2; label: string; 
     Icon: AlertCircle,
     label: "Red",
     iconClass: "text-destructive",
-    badgeClass: "bg-status-danger-subtle text-status-danger-foreground border-status-danger/30",
+    badgeClass: "bg-status-error-subtle text-status-error-foreground border-status-error-border",
   },
 };
 
