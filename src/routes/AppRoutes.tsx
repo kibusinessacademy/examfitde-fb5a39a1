@@ -249,9 +249,14 @@ const AppRoutes = () => {
         <Route path="/lernplan/:slug" element={<LernplanPage />} />
         <Route path="/pruefungsreife-ergebnis/:attemptId" element={<QuizResultPage />} />
         
-        {/* Purchase Success (standalone) */}
+        {/* Purchase Success → Activation Cut 1a: /willkommen ist Primärziel */}
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
-        <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
+        <Route path="/willkommen" element={<WelcomePage />} />
+        {/* Legacy /checkout/success → /willkommen (Query-Params bleiben durch Navigate=true erhalten) */}
+        <Route
+          path="/checkout/success"
+          element={<Navigate to={`/willkommen${typeof window !== 'undefined' ? window.location.search : ''}`} replace />}
+        />
 
         {/* ExamFit@work Public Routes */}
         <Route path="/work" element={<WorkHomePage />} />
