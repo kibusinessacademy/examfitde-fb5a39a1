@@ -38,11 +38,11 @@ async function fetchPlatformIntegrity(): Promise<Row | null> {
 const STYLES: Record<Status, { Icon: typeof CheckCircle2; label: string; iconClass: string; badgeClass: string }> = {
   green: {
     Icon: CheckCircle2, label: "Green", iconClass: "text-success",
-    badgeClass: "bg-status-success-subtle text-status-success-foreground border-status-success/30",
+    badgeClass: "bg-status-success-bg-subtle text-status-success-foreground border-status-success-border",
   },
   yellow: {
     Icon: AlertTriangle, label: "Yellow", iconClass: "text-warning",
-    badgeClass: "bg-status-warning-subtle text-status-warning-foreground border-status-warning/30",
+    badgeClass: "bg-status-warning-bg-subtle text-status-warning-foreground border-status-warning-border",
   },
   red: {
     Icon: AlertCircle, label: "Red", iconClass: "text-destructive",
