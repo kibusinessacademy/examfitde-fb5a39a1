@@ -252,6 +252,7 @@ const AppRoutes = () => {
         {/* Purchase Success → Activation Cut 1a: /willkommen ist Primärziel */}
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
         <Route path="/willkommen" element={<WelcomePage />} />
+        <Route path="/willkommen/aha" element={<AhaPage />} />
         {/* Legacy /checkout/success → /willkommen (Query-Params bleiben durch Navigate=true erhalten) */}
         <Route
           path="/checkout/success"
