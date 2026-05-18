@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useTrackGrowthEvent } from "@/hooks/useTrackGrowthEvent";
 import {
   updateMasteryFromMiniCheck,
   computeReadiness,
