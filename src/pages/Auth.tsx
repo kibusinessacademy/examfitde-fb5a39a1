@@ -61,13 +61,16 @@ export default function Auth() {
         }).catch(() => { /* silent */ });
       }
 
+      const nextParam = searchParams.get('next');
       const redirectState = location.state as RedirectState | null;
       const from = redirectState?.from;
-      const target = from?.pathname
-        ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
-        : isAdmin
-          ? '/admin/command'
-          : '/';
+      const target = nextParam && nextParam.startsWith('/')
+        ? nextParam
+        : from?.pathname
+          ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
+          : isAdmin
+            ? '/admin/command'
+            : '/';
 
       navigate(target, { replace: true });
     }

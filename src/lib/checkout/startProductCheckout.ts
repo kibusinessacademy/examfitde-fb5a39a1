@@ -37,6 +37,19 @@ export async function startProductCheckout(
   const sourcePage =
     typeof window !== "undefined" ? window.location.pathname : null;
 
+  // Auth-Gate: ohne Session kein B2C-Checkout möglich (orders.buyer_user_id NOT NULL).
+  // Statt 401-Hardfail → freundlicher Redirect nach /auth mit Rücksprung auf die Paket-Seite.
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData?.session) {
+    if (typeof window !== "undefined") {
+      const next = encodeURIComponent(
+        `${window.location.pathname}${window.location.search}`,
+      );
+      window.location.href = `/auth?next=${next}&intent=checkout`;
+    }
+    return { ok: false, error: "Bitte melde dich an, um den Kauf abzuschließen." };
+  }
+
   const { data, error } = await supabase.functions.invoke("create-product-checkout", {
     body: {
       product_slug: productSlug,
