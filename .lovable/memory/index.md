@@ -22,6 +22,7 @@ Tracking-Mirror: TrackingEvents.landingView() schreibt DUAL — tracking_events 
 Mastery-Engine-Konstanten (τ, α, anchor, REPAIR/DRILL/REINFORCE) NUR aus mastery_engine_config via fn_get_mastery_config lesen — niemals hardcoded außer Fallback. Quiz/Exam/Tutor schreiben Mastery NUR via record_attempt_mastery_bulk oder update_mastery_from_attempt (single choke-point).
 complete_job (beide Overloads) committet NUR via WHERE status='processing' (CAS) — verhindert Reaper-vs-Completion-Kollision. Long-Running Worker nutzen DETERMINISTIC PULSE: await heartbeat.pulse('<stage>') an jeder Stage-Boundary (≤30s Gap), kein setInterval — Edge-Runtime suspendiert Timer in awaits. meta.heartbeat_log+last_stage geben Forensik. Stage-Liste im Contract-Test gespiegelt.
 Architecture-Freeze post Bridge 16: Keine neuen Intelligence-Bridges (17+). Jedes Ticket muss auf einen der 6 Commercialization-Tracks einzahlen (B2B / Habit / Activation / SEO / Mobile / Tutor-UX). Reihenfolge 6→5→2→1→3→4. Detail: mem://constraints/architecture-freeze-post-bridge-16-v1.
+External-SEO-Intelligence-Gate: Semrush-S2/S3 + GSC + Bing + Backlink-Authority + LLM-Citation sind NICHT authoritative solange examfit auf *.lovable.app läuft (Subdomain-Pool-Noise, AS=52 Inheritance). Unblock erst nach Custom-Domain + Per-Route HTML + GSC verified + 14d Semrush re-probe ≥1 organic keyword. Detail: mem://constraints/custom-domain-prerequisite-for-seo-intelligence-v1.
 
 
 ## Memories
