@@ -125,11 +125,7 @@ export default defineConfig(({ mode }) => ({
       }
     }),
     seoPrerenderPlugin(),
-    // spaFallback404Plugin disabled on Vercel: it overwrote dist/404.html with the
-    // SPA shell, which made Vercel serve every unmatched deep route (e.g. /diag,
-    // /aevo-pruefung) with status 404 instead of the rewrite to /index.html (200).
-    // Vercel's SPA fallback is handled via the rewrite rule in vercel.json.
-    // spaFallback404Plugin(),
+    removeDist404Plugin(),
   ].filter(Boolean),
   resolve: {
     alias: {
