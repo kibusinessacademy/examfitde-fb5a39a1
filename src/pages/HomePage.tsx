@@ -86,28 +86,28 @@ export default function HomePage() {
       <div className="min-h-screen">
         {/* ─── 1. Hero: Prüfungsreife-Positionierung ─── */}
         <section className="pt-8 pb-12 sm:py-16 md:py-24 px-3 sm:px-4 relative overflow-hidden">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-accent/5 blur-[120px] pointer-events-none" />
+          <div className="hidden sm:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-accent/5 blur-[120px] pointer-events-none" aria-hidden />
 
           <div className="container mx-auto text-center max-w-4xl relative z-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6 animate-fade-in">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-6">
               <ClipboardCheck className="h-4 w-4 text-accent" />
               <span className="text-sm text-muted-foreground">
                 Adaptives Prüfungssystem · IHK · HWK · Fortbildung
               </span>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 animate-fade-in leading-[1.1]">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-bold mb-5 leading-[1.1]">
               Finde in 4 Minuten heraus,{' '}
-              <HeroAccent>wie prüfungsreif du bist.</HeroAccent>
+              <HeroAccent glow={false}>wie prüfungsreif du bist.</HeroAccent>
             </h1>
 
-            <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-in leading-snug" style={{ animationDelay: '0.1s' }}>
+            <p className="text-base sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-snug">
               ExamFit analysiert deine Schwächen, erstellt deinen Lernplan und trainiert dich
               mit Lernkurs, Prüfungsfragen, KI-Tutor und mündlicher Simulation bis zur
               Abschlussprüfung.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link to="/pruefungsreife-check" className="contents">
                 <Button
                   size="lg"
