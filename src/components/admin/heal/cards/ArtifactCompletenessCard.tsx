@@ -146,7 +146,7 @@ export function ArtifactCompletenessCard() {
                     <Badge variant="outline" className="text-[10px] w-6 justify-center">P{g.priority}</Badge>
                     <Badge
                       className={`text-[10px] ${
-                        g.severity === "critical" ? "bg-destructive/15 text-destructive" :
+                        g.severity === "critical" ? "bg-destructive-bg-subtle text-destructive" :
                         g.severity === "warn" ? "bg-amber-500/15 text-amber-700" :
                         "bg-muted text-muted-foreground"
                       }`}

@@ -143,7 +143,7 @@ function TimelineItem({ item }: { item: Item }) {
           <Badge
             className={`text-[9px] ${
               item.status === "completed" || item.status === "ok" || item.status === "success" ? "bg-emerald-500/15 text-emerald-700" :
-              item.status === "failed" ? "bg-destructive/15 text-destructive" :
+              item.status === "failed" ? "bg-destructive-bg-subtle text-destructive" :
               item.status === "cancelled" || item.status === "skipped" ? "bg-muted text-muted-foreground" :
               "bg-amber-500/15 text-amber-700"
             }`}

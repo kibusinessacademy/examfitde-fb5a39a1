@@ -115,7 +115,7 @@ export function NotificationDeliveryHealthCard() {
         {err && <p className="text-sm text-destructive">{err}</p>}
 
         {escalation?.escalated && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm flex gap-2 items-start">
+          <div className="rounded-md border border-destructive-border bg-destructive-bg-subtle p-3 text-sm flex gap-2 items-start">
             <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
             <div className="space-y-1">
               <div className="font-medium text-destructive">

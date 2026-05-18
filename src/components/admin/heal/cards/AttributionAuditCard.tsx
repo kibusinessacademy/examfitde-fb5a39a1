@@ -108,7 +108,7 @@ export function AttributionAuditCard() {
                     ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                     : q.data.totals.attribution_pct >= 50
                     ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                    : "bg-destructive/15 text-destructive"
+                    : "bg-destructive-bg-subtle text-destructive"
                 }
               >
                 attribution {q.data.totals.attribution_pct}%
