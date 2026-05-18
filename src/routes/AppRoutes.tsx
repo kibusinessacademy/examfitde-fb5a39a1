@@ -217,6 +217,7 @@ const ExamHeatmapPage = lazyRetry(() => import('@/pages/ExamHeatmap'));
 const ShopPage = lazyRetry(() => import('@/pages/ShopPage'));
 const PurchaseSuccessPage = lazyRetry(() => import('@/pages/PurchaseSuccessPage'));
 const WelcomePage = lazyRetry(() => import('@/pages/checkout/WelcomePage'));
+const AhaPage = lazyRetry(() => import('@/pages/checkout/AhaPage'));
 
 // Handbook Pages
 const HandbookPage = lazyRetry(() => import('@/pages/HandbookPage'));
@@ -251,6 +252,7 @@ const AppRoutes = () => {
         {/* Purchase Success → Activation Cut 1a: /willkommen ist Primärziel */}
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
         <Route path="/willkommen" element={<WelcomePage />} />
+        <Route path="/willkommen/aha" element={<AhaPage />} />
         {/* Legacy /checkout/success → /willkommen (Query-Params bleiben durch Navigate=true erhalten) */}
         <Route
           path="/checkout/success"

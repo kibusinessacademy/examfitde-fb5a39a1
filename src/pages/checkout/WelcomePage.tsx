@@ -9,13 +9,23 @@ import { useTrackGrowthEvent } from "@/hooks/useTrackGrowthEvent";
 import { TrackingEvents } from "@/lib/tracking/track";
 
 /**
- * Post-Purchase Activation Landing — Cut 1a
+ * Post-Purchase Activation Landing — Cut 1b
  *
- * Ziel: „Erster Lernmoment in <60 Sekunden". Statt generischem Dashboard
- * landet der Käufer hier mit klarer Primärhandlung (diagnostischer MiniCheck /
- * Prüfungsmodus / 3-Min Quick-Win). Aktiviert telemetrisch den Activation-Funnel
- * (post_purchase_landing_view → activation_started → first_learning_action).
+ * Cut 1a hat Sichtbarkeit (Käufer landet, Funnel beginnt) gemessen.
+ * Cut 1b fokussiert echte Aha-Momente: Primärweg → Diagnose → Aha.
+ * - Grant/Kontext serverseitig via learner_get_welcome_context()
+ * - CTA „Diagnose starten" emittiert minicheck_started + activation_started
+ * - Sekundärwege bleiben sichtbar, aber visuell zurückgenommen
  */
+type WelcomeCtx = {
+  ok: boolean;
+  reason?: string;
+  grant?: { id: string; curriculum_id: string; package_id: string | null; granted_at: string };
+  package?: { id: string | null; key: string | null; title: string | null; track: string | null };
+  curriculum?: { id: string; title: string; slug: string };
+  next_step?: { kind: string; route: string };
+};
+
 export default function WelcomePage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -23,24 +33,11 @@ export default function WelcomePage() {
   const { track } = useTrackGrowthEvent();
   const orderId = searchParams.get("order_id");
 
-  const [grantCurriculumId, setGrantCurriculumId] = useState<string | null>(null);
-  const [grantPackageId, setGrantPackageId] = useState<string | null>(null);
+  const [ctx, setCtx] = useState<WelcomeCtx | null>(null);
   const [waiting, setWaiting] = useState(true);
   const trackedView = useRef(false);
 
-  // 1) Mark landing-view + checkout_completed once
-  useEffect(() => {
-    if (trackedView.current || !user) return;
-    trackedView.current = true;
-    if (orderId) TrackingEvents.checkoutCompleted("", orderId);
-    track("post_purchase_landing_view" as any, {
-      packageId: grantPackageId,
-      curriculumId: grantCurriculumId,
-      metadata: { order_id: orderId },
-    });
-  }, [user, orderId, grantPackageId, grantCurriculumId, track]);
-
-  // 2) Resolve newest active grant (handles webhook delay with short polling)
+  // Resolve grant context serverseitig (mit Polling für Webhook-Latenz)
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -48,55 +45,80 @@ export default function WelcomePage() {
 
     const tick = async () => {
       attempts += 1;
-      const { data } = await supabase
-        .from("learner_course_grants")
-        .select("curriculum_id, metadata")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .order("granted_at", { ascending: false })
-        .limit(1);
-
+      const { data } = await supabase.rpc("learner_get_welcome_context" as any, {
+        _order_id: orderId ?? null,
+      });
       if (cancelled) return;
-      const row = data?.[0];
-      if (row?.curriculum_id) {
-        setGrantCurriculumId(row.curriculum_id);
-        const pkgId = (row.metadata as any)?.package_id ?? null;
-        setGrantPackageId(pkgId);
+      const result = data as WelcomeCtx | null;
+      if (result?.ok) {
+        setCtx(result);
         setWaiting(false);
         return;
       }
       if (attempts < 8) setTimeout(tick, 1500);
-      else setWaiting(false);
+      else {
+        setCtx(result ?? { ok: false, reason: "no_active_grant" });
+        setWaiting(false);
+      }
     };
 
     tick();
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, orderId]);
+
+  // Welcome-Seen + Legacy-Tracking exakt einmal (sobald Kontext da)
+  useEffect(() => {
+    if (trackedView.current || !user || !ctx?.ok) return;
+    trackedView.current = true;
+    if (orderId) TrackingEvents.checkoutCompleted("", orderId);
+    const pkgId = ctx.package?.id ?? null;
+    const currId = ctx.curriculum?.id ?? null;
+    // legacy event aus Cut 1a beibehalten
+    track("post_purchase_landing_view" as any, {
+      packageId: pkgId,
+      curriculumId: currId,
+      metadata: { order_id: orderId },
+    });
+    // Cut 1b: spezifischer Funnel-Event
+    track("welcome_seen" as any, {
+      packageId: pkgId,
+      curriculumId: currId,
+      metadata: { order_id: orderId, track: ctx.package?.track ?? null },
+    });
+  }, [user, ctx, orderId, track]);
+
+  const primary = useMemo(() => {
+    const currId = ctx?.curriculum?.id;
+    return {
+      label: "Diagnose starten (3 Min.)",
+      to: ctx?.next_step?.route ?? (currId
+        ? `/exam-trainer?curriculum=${currId}&mode=diagnostic&from=welcome`
+        : "/dashboard"),
+    };
+  }, [ctx]);
 
   const startAction = (
     kind: "diagnostic_minicheck" | "exam_mode" | "quick_win",
     target: string,
   ) => {
+    const pkgId = ctx?.package?.id ?? null;
+    const currId = ctx?.curriculum?.id ?? null;
     track("activation_started" as any, {
-      packageId: grantPackageId,
-      curriculumId: grantCurriculumId,
+      packageId: pkgId,
+      curriculumId: currId,
       metadata: { order_id: orderId, action: kind },
     });
+    if (kind === "diagnostic_minicheck") {
+      track("minicheck_started" as any, {
+        packageId: pkgId,
+        curriculumId: currId,
+        metadata: { source: "welcome" },
+      });
+    }
     navigate(target);
   };
-
-  const primary = useMemo(
-    () => ({
-      label: "Diagnose starten (3 Min.)",
-      to: grantCurriculumId
-        ? `/exam-trainer?curriculum=${grantCurriculumId}&mode=diagnostic`
-        : "/dashboard",
-      kind: "diagnostic_minicheck" as const,
-    }),
-    [grantCurriculumId],
-  );
 
   if (authLoading) {
     return (
@@ -107,7 +129,6 @@ export default function WelcomePage() {
   }
 
   if (!user) {
-    // Edge case: Stripe success_url ohne Session — Auth-Gate mit Resume.
     const redirect = `/willkommen${orderId ? `?order_id=${orderId}` : ""}`;
     navigate(`/auth?redirect=${encodeURIComponent(redirect)}`, { replace: true });
     return null;
@@ -148,8 +169,9 @@ export default function WelcomePage() {
             Willkommen — los geht's!
           </h1>
           <p className="text-text-secondary leading-relaxed">
-            Dein Zugang ist aktiv. Starte jetzt deine erste Prüfungsaufgabe und sieh
-            in 3 Minuten, wo du stehst.
+            {ctx?.package?.title
+              ? <>Dein Zugang zu <span className="font-semibold text-text-primary">{ctx.package.title}</span> ist aktiv. Starte jetzt die 3-Minuten-Diagnose — danach erklärt dir dein Coach in 30 Sekunden, wo du anfangen solltest.</>
+              : <>Dein Zugang ist aktiv. Starte jetzt deine 3-Minuten-Diagnose — danach weißt du genau, wo du anfangen solltest.</>}
           </p>
         </div>
 
@@ -166,7 +188,7 @@ export default function WelcomePage() {
               icon={<Brain className="h-5 w-5" />}
               title="Diagnose-MiniCheck"
               hint="3 Minuten · Wo stehst du heute?"
-              onClick={() => startAction(primary.kind, primary.to)}
+              onClick={() => startAction("diagnostic_minicheck", primary.to)}
               primary
             />
             <ActionRow
@@ -176,8 +198,8 @@ export default function WelcomePage() {
               onClick={() =>
                 startAction(
                   "exam_mode",
-                  grantCurriculumId
-                    ? `/exam-trainer?curriculum=${grantCurriculumId}`
+                  ctx?.curriculum?.id
+                    ? `/exam-trainer?curriculum=${ctx.curriculum.id}`
                     : "/exam-trainer",
                 )
               }
@@ -196,7 +218,7 @@ export default function WelcomePage() {
             variant="petrol"
             size="xl"
             className="w-full group"
-            onClick={() => startAction(primary.kind, primary.to)}
+            onClick={() => startAction("diagnostic_minicheck", primary.to)}
             disabled={waiting}
           >
             {primary.label}
@@ -221,17 +243,9 @@ export default function WelcomePage() {
 }
 
 function ActionRow({
-  icon,
-  title,
-  hint,
-  onClick,
-  primary,
+  icon, title, hint, onClick, primary,
 }: {
-  icon: React.ReactNode;
-  title: string;
-  hint: string;
-  onClick: () => void;
-  primary?: boolean;
+  icon: React.ReactNode; title: string; hint: string; onClick: () => void; primary?: boolean;
 }) {
   return (
     <button
@@ -239,9 +253,7 @@ function ActionRow({
       onClick={onClick}
       className={
         "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors " +
-        (primary
-          ? "bg-mint-500/10 hover:bg-mint-500/15"
-          : "hover:bg-surface-muted/60")
+        (primary ? "bg-mint-500/10 hover:bg-mint-500/15" : "hover:bg-surface-muted/60")
       }
     >
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-petrol-900/5 text-petrol-900">
