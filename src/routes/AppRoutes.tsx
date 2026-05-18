@@ -216,7 +216,7 @@ const ExamHeatmapPage = lazyRetry(() => import('@/pages/ExamHeatmap'));
 // Shop Pages
 const ShopPage = lazyRetry(() => import('@/pages/ShopPage'));
 const PurchaseSuccessPage = lazyRetry(() => import('@/pages/PurchaseSuccessPage'));
-const CheckoutSuccessPage = lazyRetry(() => import('@/pages/checkout/CheckoutSuccessPage'));
+const WelcomePage = lazyRetry(() => import('@/pages/checkout/WelcomePage'));
 
 // Handbook Pages
 const HandbookPage = lazyRetry(() => import('@/pages/HandbookPage'));
@@ -248,9 +248,14 @@ const AppRoutes = () => {
         <Route path="/lernplan/:slug" element={<LernplanPage />} />
         <Route path="/pruefungsreife-ergebnis/:attemptId" element={<QuizResultPage />} />
         
-        {/* Purchase Success (standalone) */}
+        {/* Purchase Success → Activation Cut 1a: /willkommen ist Primärziel */}
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
-        <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
+        <Route path="/willkommen" element={<WelcomePage />} />
+        {/* Legacy /checkout/success → /willkommen (Query-Params bleiben durch Navigate=true erhalten) */}
+        <Route
+          path="/checkout/success"
+          element={<Navigate to={`/willkommen${typeof window !== 'undefined' ? window.location.search : ''}`} replace />}
+        />
 
         {/* ExamFit@work Public Routes */}
         <Route path="/work" element={<WorkHomePage />} />
