@@ -12,23 +12,24 @@ jobs:
     timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
       TEST_USER_JWT: ${{ secrets.TEST_USER_JWT }}
       ADMIN_TEST_JWT: ${{ secrets.ADMIN_TEST_JWT }}
       DEFAULT_AUDIT_PACKAGE_ID: ${{ secrets.DEFAULT_AUDIT_PACKAGE_ID }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets
         env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || secrets.SUPABASE_URL }}
         with:
-          required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
+          required: SUPABASE_URL
 
       - name: Verify Node.js 24
         run: |
@@ -43,9 +44,10 @@ jobs:
         shell: bash
         run: |
           missing=0
+          missing_learner=0
           [ -z "${SUPABASE_URL:-}" ]              && { echo "❌ Missing SUPABASE_URL (or VITE_SUPABASE_URL)"; missing=1; }
-          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "❌ Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
-          [ -z "${TEST_USER_JWT:-}" ]  && echo "::warning::TEST_USER_JWT missing — JWT-based abuse checks will be skipped"
+          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && echo "::warning::SUPABASE_SERVICE_ROLE_KEY missing — security_events verification will be skipped"
+          [ -z "${TEST_USER_JWT:-}" ]  && { echo "::warning::TEST_USER_JWT missing — abuse simulation skipped"; missing_learner=1; }
           [ -z "${ADMIN_TEST_JWT:-}" ] && echo "::warning::ADMIN_TEST_JWT missing — admin abuse checks will be skipped"
 
           strict="false"
@@ -61,8 +63,13 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::warning::Abuse Simulation skipped — required Supabase secrets missing."
           else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "✅ Required secrets present"
+            if [ "$missing_learner" -eq 1 ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "::warning::Abuse Simulation skipped — TEST_USER_JWT is not configured."
+            else
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              echo "✅ Required secrets present"
+            fi
           fi
 
       - name: Skip notice
