@@ -16,6 +16,7 @@ type CompetencyScore = {
 export function useMiniCheckMasterySync() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { track } = useTrackGrowthEvent();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastReadiness, setLastReadiness] = useState<ReadinessResult | null>(null);
 
@@ -29,7 +30,6 @@ export function useMiniCheckMasterySync() {
 
       setIsSyncing(true);
       try {
-        // Update mastery for each competency
         for (const item of params.competencyScores) {
           await updateMasteryFromMiniCheck({
             userId: user.id,
@@ -39,7 +39,6 @@ export function useMiniCheckMasterySync() {
           });
         }
 
-        // Recompute readiness
         const readiness = await computeReadiness({
           userId: user.id,
           curriculumId: params.curriculumId,
@@ -47,7 +46,6 @@ export function useMiniCheckMasterySync() {
 
         setLastReadiness(readiness);
 
-        // Invalidate related queries
         queryClient.invalidateQueries({ queryKey: ["mastery-progress"] });
         queryClient.invalidateQueries({ queryKey: ["weakness-map"] });
         queryClient.invalidateQueries({ queryKey: ["readiness"] });
@@ -55,12 +53,24 @@ export function useMiniCheckMasterySync() {
         queryClient.invalidateQueries({ queryKey: ["readiness-score"] });
         queryClient.invalidateQueries({ queryKey: ["top-gaps"] });
 
+        // Activation Cut 1b — Funnel-Event: MiniCheck abgeschlossen
+        try {
+          track("minicheck_completed" as any, {
+            curriculumId: params.curriculumId,
+            metadata: {
+              competencies: params.competencyScores.length,
+              readiness_score: readiness?.readiness_score ?? null,
+              risk_level: readiness?.risk_level ?? null,
+            },
+          });
+        } catch { /* noop */ }
+
         return readiness;
       } finally {
         setIsSyncing(false);
       }
     },
-    [user, queryClient]
+    [user, queryClient, track]
   );
 
   return {
