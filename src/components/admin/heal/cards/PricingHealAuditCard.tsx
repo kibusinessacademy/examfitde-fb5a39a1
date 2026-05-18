@@ -19,9 +19,9 @@ import { supabase } from "@/integrations/supabase/client";
 const JOB_STATUS_TONE: Record<string, string> = {
   pending: "bg-status-bg-subtle text-status-info border-status-info/30",
   queued: "bg-status-bg-subtle text-status-info border-status-info/30",
-  processing: "bg-status-bg-subtle text-status-warning border-status-warning/30",
-  running: "bg-status-bg-subtle text-status-warning border-status-warning/30",
-  completed: "bg-status-bg-subtle text-status-success border-status-success/30",
+  processing: "bg-status-warning-bg-subtle text-status-warning border-status-warning-border",
+  running: "bg-status-warning-bg-subtle text-status-warning border-status-warning-border",
+  completed: "bg-status-success-bg-subtle text-status-success border-status-success-border",
   failed: "bg-status-bg-subtle text-status-danger border-status-danger/30",
   cancelled: "bg-surface-subtle text-text-muted border-border-subtle",
 };
@@ -91,7 +91,7 @@ function PackageDetailDialog({ packageId, onClose }: { packageId: string | null;
               <div>
                 <span className="text-text-muted">Stripe-Preis aktiv:</span>{" "}
                 {pkg.has_active_stripe_price
-                  ? <Badge className="bg-status-bg-subtle text-status-success border-status-success/30">JA</Badge>
+                  ? <Badge className="bg-status-success-bg-subtle text-status-success border-status-success-border">JA</Badge>
                   : <Badge className="bg-status-bg-subtle text-status-danger border-status-danger/30">NEIN</Badge>}
               </div>
             </div>
@@ -188,8 +188,8 @@ type RunRow = {
 };
 
 const STATUS_TONE: Record<string, string> = {
-  success: "bg-status-bg-subtle text-status-success border-status-success/30",
-  partial: "bg-status-bg-subtle text-status-warning border-status-warning/30",
+  success: "bg-status-success-bg-subtle text-status-success border-status-success-border",
+  partial: "bg-status-warning-bg-subtle text-status-warning border-status-warning-border",
   skipped: "bg-surface-subtle text-text-muted border-border-subtle",
   unknown: "bg-surface-subtle text-text-muted border-border-subtle",
 };
