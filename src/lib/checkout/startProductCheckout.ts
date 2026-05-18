@@ -37,16 +37,22 @@ export async function startProductCheckout(
   const sourcePage =
     typeof window !== "undefined" ? window.location.pathname : null;
 
-  // Auth-Gate: ohne Session kein B2C-Checkout möglich (orders.buyer_user_id NOT NULL).
-  // Statt 401-Hardfail → freundlicher Redirect nach /auth mit Rücksprung auf die Paket-Seite.
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData?.session) {
+  // Auth-Gate: ohne gültige Session kein B2C-Checkout (orders.buyer_user_id NOT NULL).
+  // getUser() validiert den JWT serverseitig — getSession() würde abgelaufene/stale
+  // localStorage-Einträge als truthy zurückgeben und der Edge-Call würde mit
+  // "User not authenticated" als 401 fehlschlagen (siehe edge-logs 2026-05-18).
+  const redirectToAuth = () => {
     if (typeof window !== "undefined") {
       const next = encodeURIComponent(
         `${window.location.pathname}${window.location.search}`,
       );
       window.location.href = `/auth?next=${next}&intent=checkout`;
     }
+  };
+
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !userData?.user) {
+    redirectToAuth();
     return { ok: false, error: "Bitte melde dich an, um den Kauf abzuschließen." };
   }
 
@@ -62,6 +68,13 @@ export async function startProductCheckout(
   });
 
   if (error) {
+    // Safety-Net: falls Edge-Function trotzdem 401 liefert (Token race / refresh-failure),
+    // statt rotem Toast → Re-Auth-Redirect.
+    const msg = (error.message || "").toLowerCase();
+    if (msg.includes("not authenticated") || msg.includes("401") || msg.includes("non-2xx")) {
+      redirectToAuth();
+      return { ok: false, error: "Bitte melde dich erneut an, um den Kauf abzuschließen." };
+    }
     return { ok: false, error: error.message };
   }
 
