@@ -74,7 +74,7 @@
   ],
   "rewrites": [
     {
-      "source": "/:path((?!api/|assets/|sitemaps/|.*\\..*).*)",
+      "source": "/((?!api/|assets/|sitemaps/).*)",
       "destination": "/index.html"
     }
   ]
