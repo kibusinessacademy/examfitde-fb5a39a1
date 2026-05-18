@@ -111,7 +111,9 @@ function AppChrome() {
       {showNativeTabBar ? <div className="h-20" /> : <div className="h-16 md:hidden" />}
       <AccessDebugPanel />
       <CookieConsentBanner />
-      <SpeedInsights />
+      {import.meta.env.PROD && typeof window !== "undefined" && /(^|\.)examfit\.de$|\.vercel\.app$/.test(window.location.hostname) && (
+        <SpeedInsights />
+      )}
     </>
   );
 }
