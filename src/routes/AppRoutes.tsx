@@ -216,7 +216,6 @@ const ExamHeatmapPage = lazyRetry(() => import('@/pages/ExamHeatmap'));
 // Shop Pages
 const ShopPage = lazyRetry(() => import('@/pages/ShopPage'));
 const PurchaseSuccessPage = lazyRetry(() => import('@/pages/PurchaseSuccessPage'));
-const CheckoutSuccessPage = lazyRetry(() => import('@/pages/checkout/CheckoutSuccessPage'));
 const WelcomePage = lazyRetry(() => import('@/pages/checkout/WelcomePage'));
 
 // Handbook Pages
