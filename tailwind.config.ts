@@ -63,6 +63,39 @@ export default {
           "bg-subtle": "hsl(var(--info-bg-subtle))",
           "border": "hsl(var(--info-border))",
         },
+        // ── Status family v1 (alias-only; siehe index.css) ──
+        // Eigene Tailwind-API, visuell identisch zu destructive/success/warning.
+        // Pflicht: KEINE Opacity-Suffixe (/40, /60, …) — nutze immer die
+        // benannten Subtokens (border, bg-subtle, text, fg).
+        status: {
+          error: {
+            DEFAULT: "hsl(var(--status-error))",
+            text: "hsl(var(--status-error-text))",
+            foreground: "hsl(var(--status-error-foreground))",
+            fg: "hsl(var(--status-error-fg))",
+            subtle: "hsl(var(--status-error-subtle))",
+            "bg-subtle": "hsl(var(--status-error-bg-subtle))",
+            border: "hsl(var(--status-error-border))",
+          },
+          success: {
+            DEFAULT: "hsl(var(--status-success))",
+            text: "hsl(var(--status-success-text))",
+            foreground: "hsl(var(--status-success-foreground))",
+            fg: "hsl(var(--status-success-fg))",
+            subtle: "hsl(var(--status-success-subtle))",
+            "bg-subtle": "hsl(var(--status-success-bg-subtle))",
+            border: "hsl(var(--status-success-border))",
+          },
+          warning: {
+            DEFAULT: "hsl(var(--status-warning))",
+            text: "hsl(var(--status-warning-text))",
+            foreground: "hsl(var(--status-warning-foreground))",
+            fg: "hsl(var(--status-warning-fg))",
+            subtle: "hsl(var(--status-warning-subtle))",
+            "bg-subtle": "hsl(var(--status-warning-bg-subtle))",
+            border: "hsl(var(--status-warning-border))",
+          },
+        },
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
