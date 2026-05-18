@@ -25,6 +25,7 @@ const FunnelAnalyticsCard = lazy(() => import('@/components/admin/growth/FunnelA
 const PruefungsreifeFunnelCard = lazy(() => import('@/components/admin/growth/PruefungsreifeFunnelCard'));
 const PostPurchaseActivationCard = lazy(() => import('@/components/admin/growth/PostPurchaseActivationCard').then(m => ({ default: m.PostPurchaseActivationCard })));
 const ActivationAssuranceCard = lazy(() => import('@/components/admin/growth/ActivationAssuranceCard').then(m => ({ default: m.ActivationAssuranceCard })));
+const ActivationNudgeDispatcherCard = lazy(() => import('@/components/admin/growth/ActivationNudgeDispatcherCard').then(m => ({ default: m.ActivationNudgeDispatcherCard })));
 const PlatformIntegrityCard = lazy(() => import('@/components/admin/growth/PlatformIntegrityCard'));
 const KeywordStrategyManager = lazy(() => import('@/components/admin/growth/KeywordStrategyManager'));
 const ContentBriefManager = lazy(() => import('@/components/admin/growth/ContentBriefManager'));
