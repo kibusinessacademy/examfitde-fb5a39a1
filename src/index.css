@@ -263,6 +263,14 @@
     --status-warning-bg-subtle: 38 60% 14%;
     --status-warning-border: 38 50% 30%;
 
+    --status-info: 189 94% 43%;
+    --status-info-text: 189 60% 70%;
+    --status-info-foreground: 222 47% 11%;
+    --status-info-fg: 189 60% 70%;
+    --status-info-subtle: 189 60% 14%;
+    --status-info-bg-subtle: 189 60% 14%;
+    --status-info-border: 189 50% 28%;
+
     --border: 181 50% 20%;
     --input: 181 50% 20%;
     --ring: 168 64% 55%;
