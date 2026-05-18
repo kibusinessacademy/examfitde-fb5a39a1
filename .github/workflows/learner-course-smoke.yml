@@ -27,7 +27,7 @@ jobs:
       LEARNER_SMOKE_FULL: ${{ github.event_name == 'schedule' && '1' || '0' }}
       LEARNER_SMOKE_SAMPLE: '8'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v1
         with: { bun-version: latest }
       - name: Validate required secrets

@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Block hardcoded EXAM_FIRST defaults repo-wide
         run: |

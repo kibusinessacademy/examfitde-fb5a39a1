@@ -23,7 +23,7 @@ jobs:
       E2E_TARGET: preview
       PREVIEW_URL: ${{ secrets.PREVIEW_URL || 'https://examfitde.lovable.app' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v1
         with: { bun-version: latest }
       - run: bun install --frozen-lockfile
