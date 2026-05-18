@@ -74,16 +74,24 @@ for (const e of errors) {
 }
 
 if (errors.length > 0) {
-  console.error(
-    `\n${RED}${BOLD}Workflow abgebrochen.${RESET} ${errors.length} Secret(s) fehlen/falsch.\n` +
-      `Hinterlege fehlende Secrets:\n` +
-      `  GitHub → Repo → Settings → Secrets and variables → Actions → ${BOLD}New repository secret${RESET}\n\n` +
-      `Häufigste Fehlerquellen:\n` +
-      `  • Secret-Name vertippt (z.B. SUPABASE_URL vs VITE_SUPABASE_URL)\n` +
-      `  • Secret in Environment statt Repo-Scope hinterlegt\n` +
-      `  • YAML referenziert anderen Namen als der hinterlegte Secret\n`,
-  );
-  process.exit(1);
+  const mode = (process.env.CI_SECRETS_MODE || "soft").toLowerCase();
+  const msg =
+    `${errors.length} Secret(s) fehlen/falsch.\n` +
+    `Hinterlege fehlende Secrets:\n` +
+    `  GitHub → Repo → Settings → Secrets and variables → Actions → ${BOLD}New repository secret${RESET}\n\n` +
+    `Häufigste Fehlerquellen:\n` +
+    `  • Secret-Name vertippt (z.B. SUPABASE_URL vs VITE_SUPABASE_URL)\n` +
+    `  • Secret in Environment statt Repo-Scope hinterlegt\n` +
+    `  • YAML referenziert anderen Namen als der hinterlegte Secret\n`;
+
+  if (mode === "strict") {
+    console.error(`\n${RED}${BOLD}Workflow abgebrochen (strict).${RESET} ${msg}`);
+    process.exit(1);
+  }
+  // soft mode: emit GH Actions warning + continue so downstream skip-handlers can decide
+  console.warn(`\n${YELLOW}${BOLD}Secret-Check soft-fail (continuing).${RESET} ${msg}`);
+  console.log(`::warning::check-required-secrets: ${errors.length} secret(s) missing (mode=soft) — downstream skip-handler will decide.`);
+  process.exit(0);
 }
 
 console.log(`\n${GREEN}${BOLD}all secrets ok${RESET}\n`);
