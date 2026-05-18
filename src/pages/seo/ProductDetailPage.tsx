@@ -119,6 +119,26 @@ function BundleDetailPageComponent() {
     // bei Erfolg führt startProductCheckout selbst den Stripe-Redirect aus
   }, [slug, pkgCtx, product?.slug]);
 
+  // Post-Login Auto-Resume: ?intent=checkout (gesetzt vom Auth-Gate in startProductCheckout)
+  // triggert nach erfolgreichem Login automatisch den Stripe-Checkout. One-shot via Strip-Param.
+  const { user, loading: authLoading } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoResumeFiredRef = useRef(false);
+  useEffect(() => {
+    if (autoResumeFiredRef.current) return;
+    if (authLoading) return;
+    if (!user) return;
+    if (searchParams.get('intent') !== 'checkout') return;
+    if (!product?.slug && !slug) return;
+    autoResumeFiredRef.current = true;
+    // intent aus URL entfernen, BEVOR der Redirect läuft (Back-Button-Safe)
+    const next = new URLSearchParams(searchParams);
+    next.delete('intent');
+    setSearchParams(next, { replace: true });
+    void handleCheckoutStart('post_login_resume');
+  }, [user, authLoading, searchParams, setSearchParams, product?.slug, slug, handleCheckoutStart]);
+
+
   const seo = useMemo(() => beruf ? SEO_TEMPLATES.bundle(beruf.title) : null, [beruf]);
   const price = PRODUCT_PRICES.bundle;
   const priceDisplay = PRICING.defaultPrice;
