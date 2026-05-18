@@ -488,3 +488,6 @@ verify_jwt = true
 
 [functions.owner-digest-track]
 verify_jwt = false
+
+[functions.auth-email-hook]
+verify_jwt = false
