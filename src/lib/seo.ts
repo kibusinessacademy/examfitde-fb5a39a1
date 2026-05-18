@@ -480,7 +480,22 @@ export const PRODUCT_PRICE_DISPLAY = '24,90 €';
 
 // URL structure helpers — Bundle-only.
 // Optional product-Parameter wird ignoriert/normalisiert auf '/bundle/:slug'.
-export function getBerufUrl(slug: string, product?: 'lernkurs' | 'pruefungstrainer' | 'bundle') {
+// Canonical slug: lowercase a-z0-9 with dashes, must start with a letter, min length 2.
+// Guards against data-/parser-drift (e.g. numeric ID fragments like "0-9468").
+const CANONICAL_SLUG_RE = /^[a-z][a-z0-9-]{1,}$/;
+
+export function isValidBerufSlug(slug: unknown): slug is string {
+  return typeof slug === 'string' && CANONICAL_SLUG_RE.test(slug);
+}
+
+export function getBerufUrl(slug: string | null | undefined, product?: 'lernkurs' | 'pruefungstrainer' | 'bundle') {
+  if (!isValidBerufSlug(slug)) {
+    if (import.meta.env?.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn('[getBerufUrl] invalid slug, falling back to /berufe:', slug);
+    }
+    return '/berufe';
+  }
   if (!product) return `/berufe/${slug}`;
   // Single-product strategy: alle Produkt-URLs führen zum Bundle.
   return `/bundle/${slug}`;
