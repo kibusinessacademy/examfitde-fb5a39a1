@@ -7,32 +7,30 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
 /**
- * SPA Fallback Plugin (Cloudflare Pages)
+ * Remove dist/404.html Plugin (Vercel)
  * --------------------------------------------------------------
- * Cloudflare Pages serves dist/404.html for any path without a matching
- * static file, ignoring `_redirects` splat rewrites in some edge cases.
- * By overwriting dist/404.html with a copy of the SPA shell (dist/index.html),
- * unknown paths hydrate React Router and render the correct route.
+ * Vercel serves dist/404.html (when present) with HTTP 404 for ANY
+ * unmatched route BEFORE applying the SPA rewrite in vercel.json.
+ * That kills SEO for deep links (e.g. /diag, /aevo-pruefung) even
+ * though the body is the SPA shell.
  *
- * Trade-off: HTTP status remains 404 (CF Pages quirk), but the page is fully
- * functional. Prerendered routes (dist/<path>/index.html) are served verbatim
- * with status 200 and are not affected.
+ * By actively deleting dist/404.html after build, Vercel falls through
+ * to the rewrite rule `/((?!api/|assets/|sitemaps/).*) → /index.html`
+ * and returns HTTP 200 with the SPA shell. React Router then renders
+ * the NotFound component client-side.
  */
-function spaFallback404Plugin(): Plugin {
+function removeDist404Plugin(): Plugin {
   return {
-    name: "examfit-spa-fallback-404",
+    name: "examfit-remove-dist-404",
     apply: "build",
     enforce: "post",
     closeBundle() {
       const dist = path.resolve(process.cwd(), "dist");
-      const src = path.join(dist, "index.html");
-      const dest = path.join(dist, "404.html");
-      if (!fs.existsSync(src)) {
-        console.warn("[spa-fallback-404] dist/index.html missing — skipped");
-        return;
+      const target = path.join(dist, "404.html");
+      if (fs.existsSync(target)) {
+        fs.unlinkSync(target);
+        console.log("[remove-dist-404] dist/404.html deleted (Vercel SPA-fallback fix)");
       }
-      fs.copyFileSync(src, dest);
-      console.log("[spa-fallback-404] dist/404.html ← dist/index.html (SPA shell)");
     },
   };
 }
