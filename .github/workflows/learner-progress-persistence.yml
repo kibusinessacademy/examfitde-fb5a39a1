@@ -21,11 +21,13 @@ permissions: read-all
 jobs:
   progress:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     timeout-minutes: 20
     env:
       BASE_URL: ${{ secrets.STAGING_URL || 'https://examfitde.lovable.app' }}
-      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || secrets.SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_ANON_KEY }}
       E2E_QA_ALLACCESS_EMAIL: ${{ secrets.E2E_QA_ALLACCESS_EMAIL }}
       E2E_QA_ALLACCESS_PASSWORD: ${{ secrets.E2E_QA_ALLACCESS_PASSWORD }}
       E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
@@ -37,14 +39,14 @@ jobs:
       E2E_QA_COURSE_ID: ${{ secrets.E2E_QA_COURSE_ID }}
       E2E_QA_LESSON_ID: ${{ secrets.E2E_QA_LESSON_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v1
         with: { bun-version: latest }
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets
         env:
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || secrets.SUPABASE_URL }}
         with:
           required: VITE_SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL
       - name: Step 1 — Course readiness DB-gate
