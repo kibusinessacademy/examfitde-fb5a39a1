@@ -33,17 +33,33 @@ const HARD_PATTERNS = [
   { id: "text-black", re: /\btext-black\b/g, msg: "Use text-text-primary token" },
   { id: "bg-white", re: /\bbg-white\b/g, msg: "Use bg-surface or bg-background token" },
   { id: "bg-black", re: /\bbg-black\b/g, msg: "Use bg-background or bg-surface-sunken token" },
+  // ── status-Familie v2 hard guards (post-drift-cleanup) ──
+  {
+    id: "status-inverted-bg",
+    re: /\bbg-status-bg-subtle(-[a-z]+)?\b/g,
+    msg: "Inverted name. Use bg-status-<color>-bg-subtle (or bg-surface-sunken for neutral)",
+  },
+  {
+    id: "status-inverted-fg",
+    re: /\btext-status-fg-(error|success|warning|info|danger|warn)\b/g,
+    msg: "Inverted name. Use text-status-<color>-fg",
+  },
+  {
+    id: "status-legacy-alias",
+    re: /\b(?:bg|border|text)-status-(?:danger|warn)(?:-[a-z-]+)?\b/g,
+    msg: "Legacy alias. Use status-error (was danger) or status-warning (was warn)",
+  },
+  {
+    id: "status-family-opacity",
+    re: /\b(?:bg|border|text)-status-(?:error|success|warning|info)\/\d+\b/g,
+    msg: "Use named status-<color>-{bg-subtle|border|text|fg} tokens instead of /<opacity>",
+  },
 ];
 const SOFT_PATTERNS = [
   {
     id: "status-opacity",
     re: /\bbg-(success|warning|destructive|info|error)\/(?:5|10|15|20|25)\b/g,
     msg: "Prefer status-bg-subtle tokens over /<opacity> for status surfaces",
-  },
-  {
-    id: "status-family-opacity",
-    re: /\b(?:bg|border|text)-status-(?:error|success|warning)\/\d+\b/g,
-    msg: "Use named status-<color>-{bg-subtle|border|text|fg} tokens instead of /<opacity>",
   },
 ];
 const IGNORE = [/\.test\.(t|j)sx?$/, /\.spec\.(t|j)sx?$/, /__tests__/, /\.stories\./];
