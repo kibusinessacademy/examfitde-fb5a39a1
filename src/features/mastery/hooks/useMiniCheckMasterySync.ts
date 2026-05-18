@@ -65,6 +65,18 @@ export function useMiniCheckMasterySync() {
           });
         } catch { /* noop */ }
 
+        // Cut 1b Handoff: wenn der Lauf aus /willkommen kam → direkt zur Aha-Seite.
+        if (typeof window !== "undefined") {
+          try {
+            const sp = new URLSearchParams(window.location.search);
+            if (sp.get("from") === "welcome") {
+              window.location.assign(
+                `/willkommen/aha?curriculum=${encodeURIComponent(params.curriculumId)}`,
+              );
+            }
+          } catch { /* noop */ }
+        }
+
         return readiness;
       } finally {
         setIsSyncing(false);
