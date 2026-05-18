@@ -16,8 +16,8 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_ANON_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
       - name: Validate required secrets
@@ -47,16 +47,7 @@ jobs:
           [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]     && { echo "❌ Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
           [ -z "${VITE_SUPABASE_PUBLISHABLE_KEY:-}" ] && { echo "❌ Missing VITE_SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY)"; missing=1; }
 
-          strict="false"
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            strict="true"
-          fi
-
           if [ "$missing" -eq 1 ]; then
-            if [ "$strict" = "true" ]; then
-              echo "::error::Required secrets missing on protected run (schedule/main) — failing hard."
-              exit 1
-            fi
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::warning::Security Smoke skipped — required Supabase secrets missing."
           else

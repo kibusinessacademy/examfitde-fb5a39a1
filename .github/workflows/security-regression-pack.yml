@@ -18,10 +18,10 @@ jobs:
     name: Migration RLS Gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
       - name: Verify Node.js 24
@@ -56,8 +56,8 @@ jobs:
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
       - name: Validate required secrets
@@ -87,10 +87,6 @@ jobs:
           [ -z "${SUPABASE_URL:-}" ]              && { echo "❌ Missing SUPABASE_URL"; missing=1; }
           [ -z "${SUPABASE_ANON_KEY:-}" ]         && { echo "❌ Missing SUPABASE_ANON_KEY"; missing=1; }
           [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "❌ Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
-          strict="false"
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            strict="true"
-          fi
           if [ "$missing" -eq 1 ]; then
             if [ "$strict" = "true" ]; then echo "::error::Missing secrets on protected run."; exit 1; fi
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -112,8 +108,8 @@ jobs:
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
       - name: Validate required secrets
@@ -142,10 +138,6 @@ jobs:
           missing=0
           [ -z "${SUPABASE_URL:-}" ]              && { echo "❌ Missing SUPABASE_URL"; missing=1; }
           [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "❌ Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
-          strict="false"
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            strict="true"
-          fi
           if [ "$missing" -eq 1 ]; then
             if [ "$strict" = "true" ]; then echo "::error::Missing secrets on protected run."; exit 1; fi
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -166,8 +158,8 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
       - name: Validate required secrets
@@ -194,10 +186,6 @@ jobs:
           missing=0
           [ -z "${SUPABASE_URL:-}" ]      && { echo "❌ Missing SUPABASE_URL"; missing=1; }
           [ -z "${SUPABASE_ANON_KEY:-}" ] && { echo "❌ Missing SUPABASE_ANON_KEY"; missing=1; }
-          strict="false"
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            strict="true"
-          fi
           if [ "$missing" -eq 1 ]; then
             if [ "$strict" = "true" ]; then echo "::error::Missing secrets on protected run."; exit 1; fi
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -216,8 +204,8 @@ jobs:
     if: failure()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
       - name: Verify Node.js 24

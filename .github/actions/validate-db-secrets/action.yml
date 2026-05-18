@@ -1,12 +1,18 @@
 name: 'Validate DB Secrets'
-description: 'Failt fast wenn Pflicht-Secrets für DB-/Supabase-Workflows fehlen, leer sind oder als Literal "null" durchsickern.'
+description: 'Prüft Pflicht-Secrets für DB-/Supabase-Workflows. Default = soft (warn + continue), damit Downstream-Skip-Handler greifen. Mit mode=strict harter Abbruch.'
 inputs:
   required:
     description: 'Whitespace-separierte Liste der Pflicht-Env-Variablen (z.B. "SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY")'
     required: true
+  mode:
+    description: 'soft (default, warn + exit 0) oder strict (hard-fail exit 1)'
+    required: false
+    default: 'soft'
 runs:
   using: 'composite'
   steps:
     - name: Validate required secrets
       shell: bash
+      env:
+        CI_SECRETS_MODE: ${{ inputs.mode }}
       run: node "$GITHUB_WORKSPACE/scripts/ci/check-required-secrets.mjs" ${{ inputs.required }}

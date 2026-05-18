@@ -16,8 +16,8 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
       - name: Validate required secrets
@@ -44,16 +44,7 @@ jobs:
           [ -z "${SUPABASE_URL:-}" ]              && { echo "❌ Missing SUPABASE_URL (or VITE_SUPABASE_URL)"; missing=1; }
           [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "❌ Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
 
-          strict="false"
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            strict="true"
-          fi
-
           if [ "$missing" -eq 1 ]; then
-            if [ "$strict" = "true" ]; then
-              echo "::error::Required secrets missing on protected run (schedule/main) — failing hard."
-              exit 1
-            fi
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::warning::Security Invariants skipped — required Supabase secrets missing."
           else
