@@ -95,6 +95,15 @@ export default {
             "bg-subtle": "hsl(var(--status-warning-bg-subtle))",
             border: "hsl(var(--status-warning-border))",
           },
+          info: {
+            DEFAULT: "hsl(var(--status-info))",
+            text: "hsl(var(--status-info-text))",
+            foreground: "hsl(var(--status-info-foreground))",
+            fg: "hsl(var(--status-info-fg))",
+            subtle: "hsl(var(--status-info-subtle))",
+            "bg-subtle": "hsl(var(--status-info-bg-subtle))",
+            border: "hsl(var(--status-info-border))",
+          },
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
