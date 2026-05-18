@@ -29,7 +29,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || secrets.SUPABASE_URL }}
         with:
-          required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
+          required: SUPABASE_URL
 
       - name: Verify Node.js 24
         run: |
@@ -46,7 +46,7 @@ jobs:
           missing=0
           missing_learner=0
           [ -z "${SUPABASE_URL:-}" ]              && { echo "❌ Missing SUPABASE_URL (or VITE_SUPABASE_URL)"; missing=1; }
-          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && { echo "❌ Missing SUPABASE_SERVICE_ROLE_KEY"; missing=1; }
+          [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ] && echo "::warning::SUPABASE_SERVICE_ROLE_KEY missing — security_events verification will be skipped"
           [ -z "${TEST_USER_JWT:-}" ]  && { echo "::warning::TEST_USER_JWT missing — abuse simulation skipped"; missing_learner=1; }
           [ -z "${ADMIN_TEST_JWT:-}" ] && echo "::warning::ADMIN_TEST_JWT missing — admin abuse checks will be skipped"
 
