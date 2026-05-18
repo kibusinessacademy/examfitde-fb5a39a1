@@ -472,7 +472,7 @@ export default function PruefungsreifeFunnelCard() {
                   className={`rounded-lg border p-3 text-xs flex gap-2 ${
                     isHigh
                       ? "border-status-warning/40 bg-status-warning-subtle text-status-warning-foreground"
-                      : "border-success/40 bg-success/10 text-text-primary"
+                      : "border-success-border bg-success-bg-subtle text-text-primary"
                   }`}
                 >
                   {isHigh ? <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" /> : <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />}

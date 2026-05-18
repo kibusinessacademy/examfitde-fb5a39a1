@@ -438,7 +438,7 @@ function PatternChip({
     <div
       className={`rounded border px-2 py-1 flex justify-between ${
         tone === "crit"
-          ? "border-destructive/40 bg-destructive/5"
+          ? "border-destructive-border bg-destructive-bg-subtle"
           : tone === "warn"
             ? "border-amber-500/40 bg-amber-500/5"
             : "border-border bg-muted/40"
