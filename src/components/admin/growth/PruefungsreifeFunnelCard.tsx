@@ -63,8 +63,8 @@ const SOURCES: Array<{ label: string; value: "all" | "blueprint" | "generic" }> 
 ];
 
 const SEVERITY_STYLE: Record<string, string> = {
-  critical: "border-status-error/40 bg-status-error-subtle text-status-error-foreground",
-  warning:  "border-status-warning/40 bg-status-warning-subtle text-status-warning-foreground",
+  critical: "border-status-error-border bg-status-error-bg-subtle text-status-error-foreground",
+  warning:  "border-status-warning-border bg-status-warning-bg-subtle text-status-warning-foreground",
   info:     "border-status-info/40 bg-status-info-subtle text-status-info-foreground",
 };
 
@@ -257,7 +257,7 @@ export default function PruefungsreifeFunnelCard() {
 
       <CardContent className="space-y-5">
         {error && (
-          <div className="rounded-lg border border-status-error/40 bg-status-error-subtle p-3 text-sm">
+          <div className="rounded-lg border border-status-error-border bg-status-error-bg-subtle p-3 text-sm">
             <AlertTriangle className="inline h-4 w-4 mr-1" />
             {(error as Error).message}
           </div>
@@ -301,7 +301,7 @@ export default function PruefungsreifeFunnelCard() {
                 </Badge>
               )}
               {(data.question_source_invalid || isInvalidUrlSource) && (
-                <Badge variant="outline" className="text-[10px] border-status-warning/50 text-status-warning-foreground" data-testid="source-invalid-badge">
+                <Badge variant="outline" className="text-[10px] border-status-warning-border text-status-warning-foreground" data-testid="source-invalid-badge">
                   Ungültiger Filterwert ignoriert
                 </Badge>
               )}
@@ -366,7 +366,7 @@ export default function PruefungsreifeFunnelCard() {
                 const fallbackBadge =
                   fallbackPct === null ? null
                   : fallbackPct === 0 ? "border-success/40 text-success"
-                  : fallbackPct > 40 ? "border-status-warning/40 text-status-warning-foreground"
+                  : fallbackPct > 40 ? "border-status-warning-border text-status-warning-foreground"
                   : "border-border text-text-tertiary";
                 return (
                   <div key={s.key} className="space-y-1">
@@ -410,7 +410,7 @@ export default function PruefungsreifeFunnelCard() {
                             title={`strict: ${s.real_events}`}
                           />
                           <div
-                            className="h-full bg-status-warning/60 transition-[width] duration-500"
+                            className="h-full bg-status-warning transition-[width] duration-500"
                             style={{ width: `${widthPct * (s.fallback_events! / total)}%` }}
                             title={`fallback: ${s.fallback_events}`}
                           />
@@ -471,7 +471,7 @@ export default function PruefungsreifeFunnelCard() {
                 <div
                   className={`rounded-lg border p-3 text-xs flex gap-2 ${
                     isHigh
-                      ? "border-status-warning/40 bg-status-warning-subtle text-status-warning-foreground"
+                      ? "border-status-warning-border bg-status-warning-bg-subtle text-status-warning-foreground"
                       : "border-success-border bg-success-bg-subtle text-text-primary"
                   }`}
                 >

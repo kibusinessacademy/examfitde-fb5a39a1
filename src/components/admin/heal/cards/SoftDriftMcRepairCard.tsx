@@ -256,7 +256,7 @@ export function SoftDriftMcRepairCard() {
         )}
 
         {lastApply && (
-          <div className="rounded-md border border-status-success/40 bg-status-success-subtle p-3 text-xs">
+          <div className="rounded-md border border-status-success-border bg-status-success-bg-subtle p-3 text-xs">
             <strong>Letzte Apply:</strong>{" "}
             {lastApply.filter((r) => r.action === "enqueued").length} Jobs enqueued.{" "}
             Rollback möglich, solange Jobs noch <code>pending</code>.

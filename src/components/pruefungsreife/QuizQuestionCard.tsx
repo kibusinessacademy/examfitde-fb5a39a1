@@ -76,7 +76,7 @@ export function QuizQuestionCard({ question, onAnswer, onBack, canGoBack }: Prop
                 : isCorrect
                   ? "border-success-border bg-success-bg-subtle"
                   : isPicked
-                    ? "border-status-error/60 bg-status-error-subtle"
+                    ? "border-status-error-border bg-status-error-bg-subtle"
                     : "border-border bg-surface opacity-60";
               return (
                 <button

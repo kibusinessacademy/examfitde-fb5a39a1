@@ -89,6 +89,33 @@
     --info-bg-subtle: 189 80% 94%;
     --info-border: 189 70% 78%;
 
+    /* ── Status family v1 (alias-only; visually = destructive/success/warning) ──
+       Eigene semantische API für Admin/Growth/Recharts. KEINE neuen Hues.
+       Falls künftig eigene Status-Hue gewünscht: hier zentral umschalten. */
+    --status-error: 0 72% 51%;
+    --status-error-text: 0 72% 51%;
+    --status-error-foreground: 0 0% 100%;
+    --status-error-fg: 0 72% 51%;
+    --status-error-subtle: 0 80% 96%;
+    --status-error-bg-subtle: 0 80% 96%;
+    --status-error-border: 0 70% 85%;
+
+    --status-success: 142 76% 36%;
+    --status-success-text: 142 76% 36%;
+    --status-success-foreground: 0 0% 100%;
+    --status-success-fg: 142 76% 36%;
+    --status-success-subtle: 142 60% 94%;
+    --status-success-bg-subtle: 142 60% 94%;
+    --status-success-border: 142 50% 78%;
+
+    --status-warning: 38 92% 50%;
+    --status-warning-text: 38 70% 35%;     /* WCAG: warning DEFAULT auf hellem subtle hat zu wenig Kontrast → für text-status-warning-text dunklere Variante */
+    --status-warning-foreground: 222 47% 11%;
+    --status-warning-fg: 38 70% 35%;
+    --status-warning-subtle: 38 92% 94%;
+    --status-warning-bg-subtle: 38 92% 94%;
+    --status-warning-border: 38 80% 75%;
+
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 168 64% 45%;
@@ -202,6 +229,31 @@
     --info-foreground: 222 47% 11%;
     --info-bg-subtle: 189 60% 14%;
     --info-border: 189 50% 28%;
+
+    /* ── Status family v1 (dark) — alias auf destructive/success/warning ── */
+    --status-error: 0 72% 51%;
+    --status-error-text: 0 80% 75%;        /* heller auf dunklem subtle für Kontrast */
+    --status-error-foreground: 0 0% 100%;
+    --status-error-fg: 0 80% 75%;
+    --status-error-subtle: 0 50% 16%;
+    --status-error-bg-subtle: 0 50% 16%;
+    --status-error-border: 0 45% 32%;
+
+    --status-success: 142 71% 45%;
+    --status-success-text: 142 60% 70%;
+    --status-success-foreground: 222 47% 11%;
+    --status-success-fg: 142 60% 70%;
+    --status-success-subtle: 142 50% 14%;
+    --status-success-bg-subtle: 142 50% 14%;
+    --status-success-border: 142 40% 28%;
+
+    --status-warning: 38 92% 50%;
+    --status-warning-text: 38 92% 70%;
+    --status-warning-foreground: 222 47% 11%;
+    --status-warning-fg: 38 92% 70%;
+    --status-warning-subtle: 38 60% 14%;
+    --status-warning-bg-subtle: 38 60% 14%;
+    --status-warning-border: 38 50% 30%;
 
     --border: 181 50% 20%;
     --input: 181 50% 20%;
