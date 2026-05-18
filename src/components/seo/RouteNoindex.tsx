@@ -1,15 +1,16 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import {
+  isSeoAuthorityHost,
+  buildCanonicalUrl,
+} from '@/lib/seo/authorityHost';
 
 /**
- * Pattern für Routen, die NIE im Index landen dürfen.
- * - Auth/Account/Checkout/Dashboard sind privat oder nutzerspezifisch.
- * - robots.txt blockt klassische Crawler; dieser Hook setzt zusätzlich
- *   meta name="robots" content="noindex, nofollow" für JS-fähige Crawler
- *   (Google, Bing, Perplexity-mit-JS).
- *
- * Hosting-Hinweis: X-Robots-Tag in public/_headers liefert nur dort, wo
- * Hosting `_headers` respektiert (Vercel/Netlify/CF Pages — nicht Lovable).
+ * Pattern für Routen, die NIE im Index landen dürfen (auch nicht auf examfit.de).
+ * Auth/Account/Checkout/Dashboard sind privat oder nutzerspezifisch.
+ * robots.txt blockt klassische Crawler; dieser Hook setzt zusätzlich
+ * meta name="robots" content="noindex, nofollow" für JS-fähige Crawler
+ * (Google, Bing, Perplexity-mit-JS).
  */
 const NOINDEX_PATTERNS: RegExp[] = [
   /^\/auth(\/|$)/,
@@ -40,42 +41,73 @@ export function isNoindexPath(pathname: string): boolean {
 }
 
 /**
- * Mountet auf jeder Route. Wenn der Pfad geschützt ist:
- * - setzt meta robots = noindex, nofollow
- * - entfernt potentiell drift-anfälligen Canonical (würde auf / zeigen)
- * Sonst: stellt index, follow wieder her (Default aus index.html).
+ * Globaler SEO-Guard. Mountet auf jeder Route.
+ *
+ * Zwei-Achsen-Logik (SSOT mem://constraints/hosting-and-seo-authority-topology-v1):
+ * 1) HOST: Wenn der Host nicht `examfit.de` / `www.examfit.de` ist
+ *    → IMMER noindex + canonical → apex. Greift für lovable.app,
+ *      vercel.app, id-preview--*, localhost, jede sonstige Preview-/Legacy-URL.
+ * 2) PATH: Auch auf Authority-Host sind geschützte Pfade noindex.
+ *
+ * Canonical regelt sich strikt über buildCanonicalUrl (apex + Query-Whitelist).
  */
 export function RouteNoindex() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
 
   useEffect(() => {
-    const noindex = isNoindexPath(pathname);
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const authorityHost = isSeoAuthorityHost(hostname);
+    const protectedPath = isNoindexPath(pathname);
+    const noindex = !authorityHost || protectedPath;
 
-    let meta = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.setAttribute('name', 'robots');
-      document.head.appendChild(meta);
+    // robots meta sicherstellen
+    let robots = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+    if (!robots) {
+      robots = document.createElement('meta');
+      robots.setAttribute('name', 'robots');
+      document.head.appendChild(robots);
     }
 
     if (noindex) {
-      meta.setAttribute(
-        'content',
-        'noindex, nofollow, noarchive, nosnippet'
-      );
-      // Canonical entfernen, damit Google nicht /dashboard → / dedupliziert
-      // und versehentlich / als Duplicate aus dem Index drückt.
-      const canon = document.querySelector('link[rel="canonical"]');
-      if (canon) canon.remove();
-      const hreflangs = document.querySelectorAll('link[rel="alternate"][hreflang]');
-      hreflangs.forEach((el) => el.remove());
+      robots.setAttribute('content', 'noindex, nofollow, noarchive, nosnippet');
     } else {
-      meta.setAttribute(
+      robots.setAttribute(
         'content',
         'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
       );
     }
-  }, [pathname]);
+
+    // Canonical-Handling:
+    // - Auf Authority-Host + indexierbarem Pfad: canonical = buildCanonicalUrl(path)
+    //   (lassen wir hier stehen, damit per-route SEOHead-Komponenten ergänzen können,
+    //   aber wir setzen einen konsistenten Default).
+    // - Auf protected paths (auch auf Authority-Host): canonical entfernen,
+    //   damit Google /dashboard nicht zu / dedupliziert.
+    // - Auf Non-Authority-Host: canonical IMMER auf apex umbiegen, damit
+    //   Preview-Hosts examfit.de als Original signalisieren.
+    const existingCanon = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    const hreflangs = document.querySelectorAll('link[rel="alternate"][hreflang]');
+
+    if (protectedPath) {
+      if (existingCanon) existingCanon.remove();
+      hreflangs.forEach((el) => el.remove());
+    } else {
+      // public, indexierbarer Pfad → canonical-Sicherheitsgurt auf apex
+      const desired = buildCanonicalUrl(pathname, search);
+      if (existingCanon) {
+        if (existingCanon.href !== desired) existingCanon.href = desired;
+      } else {
+        const link = document.createElement('link');
+        link.setAttribute('rel', 'canonical');
+        link.setAttribute('href', desired);
+        document.head.appendChild(link);
+      }
+      // Auf Non-Authority-Host: hreflangs entfernen, sie würden auf Preview-Host zeigen
+      if (!authorityHost) {
+        hreflangs.forEach((el) => el.remove());
+      }
+    }
+  }, [pathname, search]);
 
   return null;
 }
