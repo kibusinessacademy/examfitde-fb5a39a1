@@ -40,6 +40,11 @@ const SOFT_PATTERNS = [
     re: /\bbg-(success|warning|destructive|info|error)\/(?:5|10|15|20|25)\b/g,
     msg: "Prefer status-bg-subtle tokens over /<opacity> for status surfaces",
   },
+  {
+    id: "status-family-opacity",
+    re: /\b(?:bg|border|text)-status-(?:error|success|warning)\/\d+\b/g,
+    msg: "Use named status-<color>-{bg-subtle|border|text|fg} tokens instead of /<opacity>",
+  },
 ];
 const IGNORE = [/\.test\.(t|j)sx?$/, /\.spec\.(t|j)sx?$/, /__tests__/, /\.stories\./];
 
