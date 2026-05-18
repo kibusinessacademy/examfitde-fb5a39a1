@@ -74,7 +74,7 @@ export function QuizQuestionCard({ question, onAnswer, onBack, canGoBack }: Prop
               const stateClass = !showResult
                 ? "border-border bg-surface hover:border-primary hover:bg-primary/5"
                 : isCorrect
-                  ? "border-success/60 bg-success/10"
+                  ? "border-success-border bg-success-bg-subtle"
                   : isPicked
                     ? "border-status-error/60 bg-status-error-subtle"
                     : "border-border bg-surface opacity-60";
