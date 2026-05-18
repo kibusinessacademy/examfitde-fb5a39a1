@@ -47,9 +47,9 @@ type Suggestion = {
 };
 
 const SUGGESTION_META: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; tone: string }> = {
-  AUTO_PROMOTE: { label: "Auto-Promote", icon: Rocket, tone: "bg-status-bg-subtle-success text-status-fg-success" },
-  SKIP_TRACK_DRIFT: { label: "Phantom-Steps überspringen", icon: SkipForward, tone: "bg-status-bg-subtle-warning text-status-fg-warning" },
-  WAIT_GATE: { label: "Auf Enrichment-Gate warten", icon: Hourglass, tone: "bg-status-bg-subtle-info text-status-fg-info" },
+  AUTO_PROMOTE: { label: "Auto-Promote", icon: Rocket, tone: "bg-status-success-bg-subtle text-status-success-fg" },
+  SKIP_TRACK_DRIFT: { label: "Phantom-Steps überspringen", icon: SkipForward, tone: "bg-status-warning-bg-subtle text-status-warning-fg" },
+  WAIT_GATE: { label: "Auf Enrichment-Gate warten", icon: Hourglass, tone: "bg-status-info-bg-subtle text-status-info-fg" },
   WAIT: { label: "Warten (aktive Jobs)", icon: Hourglass, tone: "bg-surface-subtle text-text-muted" },
   NONE: { label: "Keine Aktion", icon: Hourglass, tone: "bg-surface-subtle text-text-muted" },
 };
@@ -130,7 +130,7 @@ export function QueuedStallSuggestionCard() {
                         <Badge variant="outline" className="text-xs">✓ {c.done_steps}</Badge>
                         <Badge variant="outline" className="text-xs">offen {c.open_steps}</Badge>
                         {c.phantom_steps > 0 && (
-                          <Badge variant="outline" className="text-xs bg-status-bg-subtle-warning text-status-fg-warning">
+                          <Badge variant="outline" className="text-xs bg-status-warning-bg-subtle text-status-warning-fg">
                             phantom {c.phantom_steps}
                           </Badge>
                         )}

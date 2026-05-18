@@ -32,10 +32,10 @@ const Layer = ({ name, before, after }: { name: string; before: any; after: any 
     <div className="border rounded p-2 bg-muted/30">
       <div className="text-xs font-semibold mb-1">{name}</div>
       <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
-        <pre className="whitespace-pre-wrap break-all bg-status-bg-subtle-danger/40 p-1 rounded">
+        <pre className="whitespace-pre-wrap break-all bg-status-error-bg-subtle/40 p-1 rounded">
           {JSON.stringify(before, null, 1)}
         </pre>
-        <pre className="whitespace-pre-wrap break-all bg-status-bg-subtle-success/40 p-1 rounded">
+        <pre className="whitespace-pre-wrap break-all bg-status-success-bg-subtle/40 p-1 rounded">
           {JSON.stringify(after, null, 1)}
         </pre>
       </div>

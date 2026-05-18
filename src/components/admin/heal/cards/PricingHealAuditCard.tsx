@@ -22,7 +22,7 @@ const JOB_STATUS_TONE: Record<string, string> = {
   processing: "bg-status-warning-bg-subtle text-status-warning border-status-warning-border",
   running: "bg-status-warning-bg-subtle text-status-warning border-status-warning-border",
   completed: "bg-status-success-bg-subtle text-status-success border-status-success-border",
-  failed: "bg-status-bg-subtle text-status-danger border-status-danger/30",
+  failed: "bg-status-bg-subtle text-status-error border-status-error/30",
   cancelled: "bg-surface-subtle text-text-muted border-border-subtle",
 };
 
@@ -92,7 +92,7 @@ function PackageDetailDialog({ packageId, onClose }: { packageId: string | null;
                 <span className="text-text-muted">Stripe-Preis aktiv:</span>{" "}
                 {pkg.has_active_stripe_price
                   ? <Badge className="bg-status-success-bg-subtle text-status-success border-status-success-border">JA</Badge>
-                  : <Badge className="bg-status-bg-subtle text-status-danger border-status-danger/30">NEIN</Badge>}
+                  : <Badge className="bg-status-bg-subtle text-status-error border-status-error/30">NEIN</Badge>}
               </div>
             </div>
             <div>
@@ -166,7 +166,7 @@ function PackageDetailDialog({ packageId, onClose }: { packageId: string | null;
                   </table>
                 )}
               {q.isError && (
-                <p className="text-[11px] text-status-danger mt-1">
+                <p className="text-[11px] text-status-error mt-1">
                   Fehler beim Live-Refresh — Backoff aktiv ({q.errorUpdateCount}/6).
                 </p>
               )}

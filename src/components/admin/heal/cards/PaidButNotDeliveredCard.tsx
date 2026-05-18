@@ -33,11 +33,11 @@ interface Row {
 
 const statusVariant = (status: string | null): { label: string; tone: string } => {
   switch (status) {
-    case "confirmed": return { label: "confirmed", tone: "bg-status-bg-subtle-success text-status-fg-success" };
-    case "blocked":   return { label: "blocked",   tone: "bg-status-bg-subtle-danger text-status-fg-danger" };
-    case "failed":    return { label: "failed",    tone: "bg-status-bg-subtle-danger text-status-fg-danger" };
-    case "in_progress": return { label: "in_progress", tone: "bg-status-bg-subtle-warning text-status-fg-warning" };
-    case "pending":   return { label: "pending",   tone: "bg-status-bg-subtle-warning text-status-fg-warning" };
+    case "confirmed": return { label: "confirmed", tone: "bg-status-success-bg-subtle text-status-success-fg" };
+    case "blocked":   return { label: "blocked",   tone: "bg-status-error-bg-subtle text-status-error-fg" };
+    case "failed":    return { label: "failed",    tone: "bg-status-error-bg-subtle text-status-error-fg" };
+    case "in_progress": return { label: "in_progress", tone: "bg-status-warning-bg-subtle text-status-warning-fg" };
+    case "pending":   return { label: "pending",   tone: "bg-status-warning-bg-subtle text-status-warning-fg" };
     default:          return { label: status ?? "unknown", tone: "bg-surface-muted text-text-muted" };
   }
 };
@@ -76,7 +76,7 @@ export function PaidButNotDeliveredCard() {
     <Card className="p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-status-fg-warning" />
+          <AlertTriangle className="h-4 w-4 text-status-warning-fg" />
           <h3 className="text-sm font-semibold text-text">Paid but not delivered</h3>
           <Badge variant="outline" className="text-xs">SLA 2min</Badge>
         </div>
@@ -97,7 +97,7 @@ export function PaidButNotDeliveredCard() {
       {isLoading ? (
         <Skeleton className="h-32 w-full" />
       ) : rows.length === 0 ? (
-        <div className="flex items-center gap-2 text-sm text-status-fg-success">
+        <div className="flex items-center gap-2 text-sm text-status-success-fg">
           <CheckCircle2 className="h-4 w-4" />
           Keine offenen Delivery-Cases. Alle bezahlten Orders bestätigt.
         </div>
@@ -131,7 +131,7 @@ export function PaidButNotDeliveredCard() {
                     <td className="py-2 pr-3 text-text-muted">
                       {(r.delivery_blocking_reasons ?? []).join(", ") || "—"}
                     </td>
-                    <td className={`py-2 pr-3 text-right tabular-nums ${isBreach ? "text-status-fg-danger font-semibold" : "text-text-muted"}`}>
+                    <td className={`py-2 pr-3 text-right tabular-nums ${isBreach ? "text-status-error-fg font-semibold" : "text-text-muted"}`}>
                       {age}m
                     </td>
                     <td className="py-2 text-right">

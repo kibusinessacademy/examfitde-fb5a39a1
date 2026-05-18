@@ -26,26 +26,26 @@ interface DiffRow {
 }
 
 const STATE_TONE: Record<string, string> = {
-  PROCESSING_WITHOUT_HEARTBEAT: "bg-status-bg-subtle-error text-status-fg-error",
-  PROCESSING_WITH_HEARTBEAT: "bg-status-bg-subtle-info text-status-fg-info",
-  PENDING_DEFERRED: "bg-status-bg-subtle-warning text-status-fg-warning",
-  PENDING_CLAIMABLE: "bg-status-bg-subtle-warning text-status-fg-warning",
-  FAILED: "bg-status-bg-subtle-error text-status-fg-error",
-  DONE: "bg-status-bg-subtle-success text-status-fg-success",
+  PROCESSING_WITHOUT_HEARTBEAT: "bg-status-error-bg-subtle text-status-error-fg",
+  PROCESSING_WITH_HEARTBEAT: "bg-status-info-bg-subtle text-status-info-fg",
+  PENDING_DEFERRED: "bg-status-warning-bg-subtle text-status-warning-fg",
+  PENDING_CLAIMABLE: "bg-status-warning-bg-subtle text-status-warning-fg",
+  FAILED: "bg-status-error-bg-subtle text-status-error-fg",
+  DONE: "bg-status-success-bg-subtle text-status-success-fg",
   CANCELLED: "bg-surface-muted text-text-muted",
 };
 
 function deltaBadge(delta: number) {
   if (delta > 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-status-fg-error font-medium">
+      <span className="inline-flex items-center gap-1 text-status-error-fg font-medium">
         <ArrowUp className="h-3 w-3" /> +{delta}
       </span>
     );
   }
   if (delta < 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-status-fg-success font-medium">
+      <span className="inline-flex items-center gap-1 text-status-success-fg font-medium">
         <ArrowDown className="h-3 w-3" /> {delta}
       </span>
     );

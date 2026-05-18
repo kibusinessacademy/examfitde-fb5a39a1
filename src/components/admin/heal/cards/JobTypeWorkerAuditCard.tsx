@@ -32,8 +32,8 @@ const STATUS_BADGE: Record<Row["worker_status"], string> = {
   IDLE_7D: "bg-status-warning-subtle text-status-warning",
   IDLE_30D: "bg-status-warning-subtle text-status-warning",
   NEVER_SEEN: "bg-muted text-text-muted",
-  FAILING_ONLY: "bg-status-danger",
-  FAILING_DEGRADED: "bg-status-danger-subtle text-status-danger",
+  FAILING_ONLY: "bg-status-error",
+  FAILING_DEGRADED: "bg-status-error-subtle text-status-error",
 };
 
 export function JobTypeWorkerAuditCard() {
@@ -122,7 +122,7 @@ export function JobTypeWorkerAuditCard() {
         )}
 
         {q.error && (
-          <div className="rounded-md border border-status-danger/40 bg-status-danger-subtle p-3 text-xs">
+          <div className="rounded-md border border-status-error/40 bg-status-error-subtle p-3 text-xs">
             Fehler: {(q.error as Error).message}
           </div>
         )}
@@ -168,7 +168,7 @@ export function JobTypeWorkerAuditCard() {
                   <div className="col-span-1 text-right tabular-nums text-status-success">
                     {r.done_7d}
                   </div>
-                  <div className="col-span-1 text-right tabular-nums text-status-danger">
+                  <div className="col-span-1 text-right tabular-nums text-status-error">
                     {r.failed_7d}
                   </div>
                   <div className="col-span-1 text-right tabular-nums">{r.open_now}</div>

@@ -568,13 +568,13 @@ export default function SyntheticCohortPage() {
 function ScorePill({ value }: { value: number | null | undefined }) {
   if (value == null) return <span className="text-text-tertiary">—</span>;
   const tone =
-    value >= 80 ? "text-status-success" : value >= 60 ? "text-status-warn" : "text-status-danger";
+    value >= 80 ? "text-status-success" : value >= 60 ? "text-status-error" : "text-status-error";
   return <span className={tone}>{value.toFixed(0)}</span>;
 }
 
 function SeverityBadge({ severity }: { severity: "info" | "warn" | "critical" }) {
   if (severity === "critical") return <Badge variant="destructive">critical</Badge>;
   if (severity === "warn")
-    return <Badge variant="outline" className="border-status-warn text-status-warn">warn</Badge>;
+    return <Badge variant="outline" className="border-status-error text-status-error">warn</Badge>;
   return <Badge variant="secondary">info</Badge>;
 }

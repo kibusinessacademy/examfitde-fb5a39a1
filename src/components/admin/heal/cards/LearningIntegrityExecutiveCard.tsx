@@ -48,7 +48,7 @@ function StatusDot({ status }: { status: "green" | "yellow" | "red" }) {
       ? "bg-status-success-subtle text-status-success-foreground"
       : status === "yellow"
       ? "bg-status-warning-subtle text-status-warning-foreground"
-      : "bg-status-danger-subtle text-status-danger-foreground";
+      : "bg-status-error-subtle text-status-error-foreground";
   return <Badge className={`${tone} border-0 uppercase`}>{status}</Badge>;
 }
 
@@ -165,7 +165,7 @@ function Stat({
       : tone === "warning"
       ? "text-status-warning-foreground"
       : tone === "danger"
-      ? "text-status-danger-foreground"
+      ? "text-status-error-foreground"
       : "text-text-strong";
   return (
     <div className="rounded-md border border-border-subtle p-3">

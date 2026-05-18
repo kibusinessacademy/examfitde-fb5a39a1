@@ -20,12 +20,12 @@ type Funnel = {
 const STATES = ["NOT_STARTED", "ONBOARDING", "ACTIVATED", "ENGAGED", "AT_RISK", "DORMANT"] as const;
 
 const STATE_TONE: Record<string, string> = {
-  NOT_STARTED: "bg-status-bg-subtle-info text-status-fg-info",
-  ONBOARDING: "bg-status-bg-subtle-info text-status-fg-info",
-  ACTIVATED: "bg-status-bg-subtle-success text-status-fg-success",
-  ENGAGED: "bg-status-bg-subtle-success text-status-fg-success",
-  AT_RISK: "bg-status-bg-subtle-warning text-status-fg-warning",
-  DORMANT: "bg-status-bg-subtle-danger text-status-fg-danger",
+  NOT_STARTED: "bg-status-info-bg-subtle text-status-info-fg",
+  ONBOARDING: "bg-status-info-bg-subtle text-status-info-fg",
+  ACTIVATED: "bg-status-success-bg-subtle text-status-success-fg",
+  ENGAGED: "bg-status-success-bg-subtle text-status-success-fg",
+  AT_RISK: "bg-status-warning-bg-subtle text-status-warning-fg",
+  DORMANT: "bg-status-error-bg-subtle text-status-error-fg",
 };
 
 export function ActivationFunnelCard() {
