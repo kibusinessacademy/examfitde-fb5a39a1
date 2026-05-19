@@ -148,12 +148,37 @@ const PANELS = [
   },
 ];
 
+const LIVE_PINGS = [
+  "+1 Punkt · Kostenrechnung",
+  "Quelle aktualisiert · § 286 BGB",
+  "Kompetenz auf 'mastered'",
+  "Neue Empfehlung bereit",
+  "Score refresht · +2",
+];
+
 export function PremiumHero() {
   const [idx, setIdx] = useState(0);
+  const [ping, setPing] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setIdx((i) => (i + 1) % PANELS.length), 4200);
     return () => clearInterval(t);
+  }, []);
+
+  // Rare "live moment" — every ~13–17s, briefly show a tiny system update
+  useEffect(() => {
+    let timeout: number;
+    const schedule = () => {
+      const delay = 13000 + Math.random() * 4000;
+      timeout = window.setTimeout(() => {
+        const msg = LIVE_PINGS[Math.floor(Math.random() * LIVE_PINGS.length)];
+        setPing(msg);
+        window.setTimeout(() => setPing(null), 2400);
+        schedule();
+      }, delay);
+    };
+    schedule();
+    return () => clearTimeout(timeout);
   }, []);
 
   const Active = PANELS[idx];
@@ -341,6 +366,26 @@ export function PremiumHero() {
                 </div>
               </div>
               {Active.body}
+
+              {/* Rare live update — wirkt wie ein echtes System, das gerade reagiert */}
+              <AnimatePresence>
+                {ping && (
+                  <motion.div
+                    key={ping}
+                    initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute -top-2 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(46,211,183,0.14)] border border-[var(--lp-border-emerald)] backdrop-blur text-[10px] text-[var(--lp-aqua)] shadow-lg"
+                  >
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--lp-aqua)] opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--lp-aqua)]" />
+                    </span>
+                    {ping}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           </AnimatePresence>
         </div>
