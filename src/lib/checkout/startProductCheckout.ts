@@ -56,7 +56,18 @@ export async function startProductCheckout(
     return { ok: false, error: "Bitte melde dich an, um den Kauf abzuschließen." };
   }
 
+  // Session-Token explizit lesen — supabase.functions.invoke hängt den JWT in
+  // bestimmten Webview-/Refresh-Konstellationen nicht zuverlässig an. Ohne JWT
+  // sieht die Edge-Function nur den publishable-Key und antwortet 401.
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) {
+    redirectToAuth();
+    return { ok: false, error: "Sitzung abgelaufen. Bitte erneut anmelden." };
+  }
+
   const { data, error } = await supabase.functions.invoke("create-product-checkout", {
+    headers: { Authorization: `Bearer ${accessToken}` },
     body: {
       product_slug: productSlug,
       anonymous_id: getAnonymousId(),
