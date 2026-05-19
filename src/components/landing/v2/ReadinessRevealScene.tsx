@@ -320,37 +320,59 @@ export function ReadinessRevealScene() {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="space-y-1.5"
+                  transition={{ duration: 0.5 }}
+                  className="space-y-2"
                 >
-                  <div className="text-[11px] uppercase tracking-wider text-[var(--lp-text-3)] mb-1">
+                  <div className="text-[11px] uppercase tracking-wider text-[var(--lp-text-3)]">
                     Identifizierte Risiken
                   </div>
                   {[
-                    { l: "Wirtschaftslehre", r: "crit" as const },
-                    { l: "Personal & Recht", r: "high" as const },
-                  ].map((r) => (
-                    <div
+                    {
+                      l: "Wirtschaftslehre",
+                      r: "crit" as const,
+                      c: "Typische Ursache für Punktverlust — viele Prüflinge scheitern hier",
+                    },
+                    {
+                      l: "Personal & Recht",
+                      r: "high" as const,
+                      c: "Erhöhtes Risiko im Fachgespräch",
+                    },
+                  ].map((r, i) => (
+                    <motion.div
                       key={r.l}
-                      className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-md bg-white/[0.03] border border-[var(--lp-border)]"
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.25 + i * 0.2 }}
+                      className="px-2.5 py-1.5 rounded-md bg-white/[0.03] border border-[var(--lp-border)]"
                     >
-                      <span className="text-[var(--lp-text)]">{r.l}</span>
-                      <span
-                        className="text-[10px]"
-                        style={{
-                          color:
-                            r.r === "crit"
-                              ? "var(--lp-danger)"
-                              : "var(--lp-warn)",
-                        }}
-                      >
-                        {RISK_LABEL[r.r]}
-                      </span>
-                    </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--lp-text)]">{r.l}</span>
+                        <span
+                          className="text-[10px]"
+                          style={{
+                            color:
+                              r.r === "crit"
+                                ? "var(--lp-danger)"
+                                : "var(--lp-warn)",
+                          }}
+                        >
+                          {RISK_LABEL[r.r]}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-[var(--lp-text-3)] mt-0.5 italic">
+                        → {r.c}
+                      </div>
+                    </motion.div>
                   ))}
-                  <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--lp-aqua)]">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.75 }}
+                    className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--lp-aqua)]"
+                  >
                     <ShieldCheck className="w-3.5 h-3.5" />
                     Lernpfad automatisch generiert
-                  </div>
+                  </motion.div>
                 </motion.div>
               ) : (
                 <div className="text-[11px] text-[var(--lp-text-3)] h-20 flex items-center justify-center">
