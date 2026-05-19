@@ -438,6 +438,26 @@ export function ReadinessRevealScene() {
               aria-hidden
             />
           )}
+
+          {/* Risiko-Flash — kurzer roter Pulse beim Erkennen der Konsequenz (Phase 4) */}
+          <AnimatePresence>
+            {stage === 4 && (
+              <motion.div
+                key="risk-flash"
+                className="absolute inset-0 pointer-events-none rounded-[inherit]"
+                style={{
+                  background:
+                    "radial-gradient(60% 50% at 50% 50%, rgba(239,77,107,0.18), transparent 70%)",
+                  boxShadow: "inset 0 0 0 1px rgba(239,77,107,0.35)",
+                }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 1, 0.6] }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.7, ease: "easeOut" }}
+                aria-hidden
+              />
+            )}
+          </AnimatePresence>
         </div>
 
         <p className="text-center text-xs text-[var(--lp-text-3)] mt-5">
