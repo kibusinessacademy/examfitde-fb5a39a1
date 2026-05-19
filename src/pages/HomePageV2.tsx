@@ -7,6 +7,7 @@ import { StickyCTA } from "@/components/marketing/StickyCTA";
 import "@/components/landing/v2/lp-v2-theme.css";
 import { PremiumHero } from "@/components/landing/v2/PremiumHero";
 import { StoryScrollSection } from "@/components/landing/v2/StoryScrollSection";
+import { ReadinessRevealScene } from "@/components/landing/v2/ReadinessRevealScene";
 import { WhyNotChatGPTSection } from "@/components/landing/v2/WhyNotChatGPTSection";
 import { BentoDemoGrid } from "@/components/landing/v2/BentoDemoGrid";
 import { NotAnotherCourseSection } from "@/components/landing/v2/NotAnotherCourseSection";
@@ -57,6 +58,7 @@ export default function HomePageV2() {
       <div className="lp-v2 min-h-screen">
         <PremiumHero />
         <StoryScrollSection />
+        <ReadinessRevealScene />
         <WhyNotChatGPTSection />
         <BentoDemoGrid />
         <NotAnotherCourseSection />

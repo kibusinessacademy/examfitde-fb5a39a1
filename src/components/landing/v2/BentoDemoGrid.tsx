@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import {
   Gauge,
@@ -72,6 +72,282 @@ function CountUp({ to, suffix = "", duration = 1.4 }: { to: number; suffix?: str
   );
 }
 
+/* ───────────────────────── Interactive Heatmap ───────────────────────── */
+
+const HEATMAP_CELLS = [
+  { name: "Kostenrechnung", v: 86, err: "Deckungsbeitrag-Berechnung sicher", risk: "low" },
+  { name: "Buchführung", v: 64, err: "Konten-Zuordnung mit Abweichungen", risk: "med" },
+  { name: "Steuerrecht", v: 78, err: "USt ok, ESt teilweise unsicher", risk: "low" },
+  { name: "Personalwesen", v: 41, err: "Lohnabrechnung kritisch", risk: "high" },
+  { name: "Wirtschaftslehre", v: 28, err: "Marktformen häufig falsch", risk: "crit" },
+  { name: "Marketing", v: 72, err: "Marketing-Mix solide", risk: "low" },
+  { name: "Logistik", v: 55, err: "Lagerkennzahlen unsicher", risk: "med" },
+  { name: "Controlling", v: 81, err: "Kennzahlen stark", risk: "low" },
+  { name: "Recht (Vertrag)", v: 90, err: "Vertragsrecht prüfungsreif", risk: "low" },
+  { name: "Recht (Arbeits)", v: 38, err: "Kündigungsfristen unsicher", risk: "high" },
+  { name: "Finanzierung", v: 62, err: "Kreditarten ok", risk: "med" },
+  { name: "Investition", v: 70, err: "Statisch ok, dynamisch wackelt", risk: "med" },
+  { name: "Beschaffung", v: 33, err: "ABC-Analyse häufige Fehler", risk: "high" },
+  { name: "Produktion", v: 88, err: "Fertigungsverfahren sicher", risk: "low" },
+  { name: "Qualität", v: 52, err: "QM-Normen lückenhaft", risk: "med" },
+  { name: "Datenschutz", v: 24, err: "DSGVO § kaum verfügbar", risk: "crit" },
+] as const;
+
+const RISK_LABEL: Record<string, string> = {
+  low: "starke Kompetenz",
+  med: "stabil — Wiederholung empfohlen",
+  high: "erhöhtes Prüfungsrisiko",
+  crit: "kritische Kompetenzlücke",
+};
+const RISK_COLOR: Record<string, string> = {
+  low: "var(--lp-success)",
+  med: "var(--lp-aqua)",
+  high: "var(--lp-warn)",
+  crit: "var(--lp-danger)",
+};
+function cellBg(v: number) {
+  return v > 75
+    ? "rgba(74,222,128,0.65)"
+    : v > 50
+    ? "rgba(89,240,208,0.55)"
+    : v > 35
+    ? "rgba(245,183,84,0.6)"
+    : "rgba(239,77,107,0.6)";
+}
+
+function InteractiveHeatmap() {
+  const [active, setActive] = useState<number | null>(null);
+  const c = active !== null ? HEATMAP_CELLS[active] : null;
+  return (
+    <div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {HEATMAP_CELLS.map((cell, i) => (
+          <motion.button
+            key={cell.name}
+            type="button"
+            onMouseEnter={() => setActive(i)}
+            onMouseLeave={() => setActive(null)}
+            onFocus={() => setActive(i)}
+            onBlur={() => setActive(null)}
+            onClick={() => setActive(active === i ? null : i)}
+            className="aspect-square rounded-md focus:outline-none"
+            style={{
+              background: cellBg(cell.v),
+              boxShadow:
+                active === i
+                  ? "0 0 0 2px rgba(89,240,208,0.8), 0 0 18px rgba(89,240,208,0.5)"
+                  : "none",
+            }}
+            initial={{ opacity: 0, scale: 0.6 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: i * 0.02 }}
+            aria-label={`${cell.name} — ${cell.v}%`}
+          />
+        ))}
+      </div>
+      <div className="mt-3 min-h-[58px]">
+        <AnimatePresence mode="wait">
+          {c ? (
+            <motion.div
+              key={c.name}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
+              className="rounded-md bg-white/[0.03] border border-[var(--lp-border)] px-2.5 py-2"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-[var(--lp-text)] font-medium">{c.name}</span>
+                <span className="text-[10px] tabular-nums text-[var(--lp-text-2)]">
+                  {c.v}%
+                </span>
+              </div>
+              <div
+                className="text-[10px]"
+                style={{ color: RISK_COLOR[c.risk] }}
+              >
+                {RISK_LABEL[c.risk]}
+              </div>
+              <div className="text-[10px] text-[var(--lp-text-3)] mt-0.5">
+                {c.err}
+              </div>
+            </motion.div>
+          ) : (
+            <div className="text-[11px] text-[var(--lp-text-3)]">
+              16 Kompetenzen · hover für Diagnose
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Streaming Tutor ───────────────────────── */
+
+const TUTOR_TEXT =
+  "Die Skontofrist beginnt mit dem Rechnungsdatum, nicht dem Lieferdatum. Maßgeblich ist § 286 BGB i.V.m. den Zahlungsbedingungen — relevant für Lernfeld 5 deiner Prüfung.";
+
+function StreamingTutor() {
+  const [shown, setShown] = useState(0);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    setShown(0);
+    setDone(false);
+    const id = window.setInterval(() => {
+      setShown((n) => {
+        if (n >= TUTOR_TEXT.length) {
+          clearInterval(id);
+          setDone(true);
+          return n;
+        }
+        return n + 1;
+      });
+    }, 22);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <>
+      <div className="rounded-lg border border-[var(--lp-border)] bg-black/20 p-3 text-sm leading-relaxed text-[var(--lp-text)] min-h-[110px]">
+        <div className="text-[10px] uppercase tracking-wider text-[var(--lp-text-3)] mb-1.5">
+          Frage: Skonto — wann beginnt die Frist?
+        </div>
+        {TUTOR_TEXT.slice(0, shown)}
+        <span
+          className="inline-block w-[2px] h-[1em] align-text-bottom ml-0.5 bg-[var(--lp-aqua)]"
+          style={{ animation: "lp-blink 1s steps(2) infinite" }}
+        />
+        <AnimatePresence>
+          {done && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-2 flex flex-wrap gap-1.5"
+            >
+              <div className="text-[10px] uppercase tracking-wider text-[var(--lp-text-3)] w-full mb-0.5">
+                Quellen
+              </div>
+              {["§ 286 BGB", "Rahmenplan §4.1", "Kurs L5-K1", "Trainer Q-1142"].map((s) => (
+                <span
+                  key={s}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(46,211,183,0.1)] text-[var(--lp-aqua)] border border-[var(--lp-border-emerald)]"
+                >
+                  {s}
+                </span>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      {done && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-2 flex flex-wrap gap-1.5"
+        >
+          {["Beispielaufgabe", "Verwandte Frage", "In Rahmenplan zeigen"].map((c) => (
+            <span
+              key={c}
+              className="text-[10px] px-2 py-1 rounded-full bg-white/[0.04] border border-[var(--lp-border)] text-[var(--lp-text-2)]"
+            >
+              {c}
+            </span>
+          ))}
+        </motion.div>
+      )}
+      <div className="mt-2 text-[11px] text-[var(--lp-text-3)]">
+        Antwortet nur aus Kurs + Rahmenplan. Niemals frei erfunden.
+      </div>
+    </>
+  );
+}
+
+/* ───────────────────────── Oral Sim with Drama ───────────────────────── */
+
+const ORAL_STATUS = [
+  "Antwort wird transkribiert…",
+  "Prüfer denkt nach…",
+  "Fachlichkeit wird bewertet…",
+  "Struktur-Analyse läuft…",
+];
+
+function OralSimulation() {
+  const [secs, setSecs] = useState(134);
+  const [si, setSi] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => setSecs((s) => s + 1), 1000);
+    const s = window.setInterval(() => setSi((i) => (i + 1) % ORAL_STATUS.length), 2400);
+    return () => {
+      clearInterval(t);
+      clearInterval(s);
+    };
+  }, []);
+  const mm = String(Math.floor(secs / 60)).padStart(2, "0");
+  const ss = String(secs % 60).padStart(2, "0");
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <div className="flex gap-0.5 flex-1">
+          {Array.from({ length: 40 }).map((_, i) => (
+            <motion.span
+              key={i}
+              className="w-0.5 rounded-full bg-[var(--lp-aqua)]"
+              animate={{ height: [4, 6 + (i % 7) * 4, 4] }}
+              transition={{
+                duration: 0.9,
+                repeat: Infinity,
+                delay: i * 0.03,
+              }}
+            />
+          ))}
+        </div>
+        <Timer className="w-4 h-4 text-[var(--lp-text-2)]" />
+        <span className="text-xs tabular-nums text-[var(--lp-text-2)]">
+          {mm}:{ss}
+        </span>
+      </div>
+      <div className="mt-2 h-4 overflow-hidden text-[11px]">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={si}
+            initial={{ y: 12, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -12, opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            className="text-[var(--lp-text-3)]"
+          >
+            {ORAL_STATUS[si]}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      <div className="grid grid-cols-3 gap-2 mt-3">
+        {[
+          { l: "Fach", v: 88 },
+          { l: "Struktur", v: 72 },
+          { l: "Praxis", v: 81 },
+        ].map((s) => (
+          <div
+            key={s.l}
+            className="rounded-lg border border-[var(--lp-border)] bg-white/[0.02] p-2.5 text-center"
+          >
+            <div className="lp-display text-2xl font-bold text-[var(--lp-text)] tabular-nums">
+              {s.v}
+            </div>
+            <div className="text-[10px] text-[var(--lp-text-3)] uppercase tracking-wider">
+              {s.l}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ───────────────────────── Grid ───────────────────────── */
+
 export function BentoDemoGrid() {
   return (
     <section id="demos" className="relative py-20 sm:py-28 scroll-mt-16">
@@ -88,7 +364,7 @@ export function BentoDemoGrid() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 auto-rows-[minmax(220px,auto)] gap-4">
-          {/* Tile 1 — Readiness Score (HERO TILE — dominant) */}
+          {/* Tile 1 — Readiness Score (HERO TILE) */}
           <Tile
             className="sm:col-span-2 lg:col-span-2 lg:row-span-2"
             icon={Gauge}
@@ -128,35 +404,13 @@ export function BentoDemoGrid() {
             </div>
           </Tile>
 
-          {/* Tile 2 — Competencies */}
-          <Tile icon={Radar} label="Tile 02 · Schwächen" title="Kompetenz-Heatmap.">
-            <div className="grid grid-cols-4 gap-1.5">
-              {Array.from({ length: 16 }).map((_, i) => {
-                const v = [85, 60, 30, 70, 45, 90, 25, 55, 75, 40, 65, 80, 35, 50, 95, 20][i];
-                const c =
-                  v > 75
-                    ? "rgba(74,222,128,0.7)"
-                    : v > 50
-                    ? "rgba(89,240,208,0.6)"
-                    : v > 30
-                    ? "rgba(245,183,84,0.6)"
-                    : "rgba(239,77,107,0.55)";
-                return (
-                  <motion.div
-                    key={i}
-                    className="aspect-square rounded-md"
-                    style={{ background: c }}
-                    initial={{ opacity: 0, scale: 0.6 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.03 }}
-                  />
-                );
-              })}
-            </div>
-            <div className="mt-3 text-xs text-[var(--lp-text-2)]">
-              16 Kompetenzen · 4 Schwerpunkte identifiziert
-            </div>
+          {/* Tile 2 — Interactive Heatmap */}
+          <Tile
+            icon={Radar}
+            label="Tile 02 · Diagnose"
+            title="Kompetenz-Heatmap — interaktiv."
+          >
+            <InteractiveHeatmap />
           </Tile>
 
           {/* Tile 3 — Keine Zufallsfragen */}
@@ -192,76 +446,27 @@ export function BentoDemoGrid() {
             </div>
           </Tile>
 
-          {/* Tile 4 — KI-Tutor (wide) */}
+          {/* Tile 4 — KI-Tutor streaming */}
           <Tile
             className="sm:col-span-2 lg:col-span-2"
             icon={Brain}
             label="Tile 04 · KI-Tutor"
             title="Strict-RAG. Mit Quellen. Ohne Halluzination."
           >
-            <div className="rounded-lg border border-[var(--lp-border)] bg-black/20 p-3 text-sm leading-relaxed text-[var(--lp-text)]">
-              <span className="text-[var(--lp-aqua)] mr-1">▍</span>
-              Die Skontofrist beginnt mit dem Rechnungsdatum, nicht dem Lieferdatum…
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {["§ 286 BGB", "Rahmenplan §4.1", "Kurs L3-K1", "Trainer Q-1142"].map((s) => (
-                  <span
-                    key={s}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(46,211,183,0.1)] text-[var(--lp-aqua)] border border-[var(--lp-border-emerald)]"
-                  >
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="mt-2 text-[11px] text-[var(--lp-text-3)]">
-              Antwortet nur aus Kurs + Rahmenplan. Niemals frei erfunden.
-            </div>
+            <StreamingTutor />
           </Tile>
 
-          {/* Tile 5 — Oral Sim (wide) */}
+          {/* Tile 5 — Oral Sim with drama */}
           <Tile
             className="sm:col-span-2 lg:col-span-2"
             icon={Mic}
             label="Tile 05 · Mündlich"
             title="Wie ein echter Prüfer."
           >
-            <div className="flex items-center gap-3">
-              <div className="flex gap-0.5 flex-1">
-                {Array.from({ length: 40 }).map((_, i) => (
-                  <motion.span
-                    key={i}
-                    className="w-0.5 rounded-full bg-[var(--lp-aqua)]"
-                    animate={{ height: [4, 6 + (i % 7) * 4, 4] }}
-                    transition={{
-                      duration: 0.9,
-                      repeat: Infinity,
-                      delay: i * 0.03,
-                    }}
-                  />
-                ))}
-              </div>
-              <Timer className="w-4 h-4 text-[var(--lp-text-2)]" />
-              <span className="text-xs tabular-nums text-[var(--lp-text-2)]">03:42</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 mt-4">
-              {[
-                { l: "Fach", v: 88 },
-                { l: "Struktur", v: 72 },
-                { l: "Praxis", v: 81 },
-              ].map((s) => (
-                <div key={s.l} className="rounded-lg border border-[var(--lp-border)] bg-white/[0.02] p-2.5 text-center">
-                  <div className="lp-display text-2xl font-bold text-[var(--lp-text)] tabular-nums">
-                    {s.v}
-                  </div>
-                  <div className="text-[10px] text-[var(--lp-text-3)] uppercase tracking-wider">
-                    {s.l}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <OralSimulation />
           </Tile>
 
-          {/* Tile 6 — Progress */}
+          {/* Tile 6 — Streak */}
           <Tile icon={TrendingUp} label="Tile 06 · Lernfortschritt" title="Tägliche Streak.">
             <div className="grid grid-cols-7 gap-1.5">
               {[1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1].map((d, i) => (
@@ -283,7 +488,7 @@ export function BentoDemoGrid() {
             </div>
           </Tile>
 
-          {/* Tile 7 — Exam Simulation */}
+          {/* Tile 7 — Simulation */}
           <Tile icon={Sparkles} label="Tile 07 · Simulation" title="Volle Prüfung. Echte Zeit.">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-[var(--lp-text-2)]">Frage 38 / 60</span>
