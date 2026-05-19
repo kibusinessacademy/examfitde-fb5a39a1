@@ -22,10 +22,15 @@ jobs:
     steps:
       - name: Call admin-deploy-smoke-check
         env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://ubdvvvsiryenhrfmqsvw.supabase.co' }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -euo pipefail
+          if [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::warning::Skipping deploy smoke check: SUPABASE_SERVICE_ROLE_KEY missing"
+            exit 0
+          fi
+
           SMOKE_URL="${SUPABASE_URL}/functions/v1/admin-deploy-smoke-check"
           echo "📡 Calling smoke check at ${SMOKE_URL}…"
 
