@@ -138,6 +138,21 @@ export default function StripeObservatoryPage() {
         </Button>
       </header>
 
+      {/* Alert banner: errors in last 24h */}
+      {summary && summary.errors_24h > 0 && (
+        <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+          <div className="text-sm">
+            <div className="font-semibold text-destructive">
+              {summary.errors_24h} Webhook-Fehler in den letzten 24 Stunden
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Filtere unten nach Status „error", um die Ursachen zu sehen.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Summary KPIs */}
       {summary && (
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
@@ -161,8 +176,10 @@ export default function StripeObservatoryPage() {
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <div className="text-xs text-muted-foreground">7 Tage — Fehler</div>
-              <div className="text-2xl font-semibold text-destructive">{summary.by_status?.error ?? 0}</div>
+              <div className="text-xs text-muted-foreground">24h — Fehler</div>
+              <div className={`text-2xl font-semibold ${summary.errors_24h > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {summary.errors_24h ?? 0}
+              </div>
             </CardContent>
           </Card>
         </div>
