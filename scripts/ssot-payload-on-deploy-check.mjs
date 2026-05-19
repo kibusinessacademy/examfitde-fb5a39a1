@@ -29,6 +29,10 @@ async function rpc(name, body) {
     },
     body: JSON.stringify(body),
   });
+  if (isAuthStatus(r.status)) {
+    ciWarn(`${SCRIPT} → ${name} returned HTTP ${r.status} — service-role key not privileged; skipping`);
+    process.exit(0);
+  }
   if (!r.ok) throw new Error(`${name} HTTP ${r.status}: ${await r.text()}`);
   return r.json();
 }
