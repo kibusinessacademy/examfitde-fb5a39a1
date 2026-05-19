@@ -273,10 +273,26 @@ export function ReadinessRevealScene() {
                 </div>
               </div>
 
-              {stage >= 4 ? (
+              {stage === 4 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="space-y-1.5"
+                >
+                  <div className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-[rgba(239,77,107,0.12)] text-[var(--lp-danger)] border border-[rgba(239,77,107,0.35)] animate-pulse">
+                    <AlertTriangle className="w-3 h-3" />
+                    Erhöhtes Prüfungsrisiko
+                  </div>
+                  <div className="text-[11px] text-[var(--lp-text-3)]">
+                    2 kritische Lücken erkannt
+                  </div>
+                </motion.div>
+              )}
+              {stage >= 5 && (
                 <motion.div
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
                   className="space-y-1.5"
                 >
                   <div className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full bg-[rgba(245,183,84,0.10)] text-[var(--lp-warn)] border border-[rgba(245,183,84,0.3)]">
@@ -287,7 +303,8 @@ export function ReadinessRevealScene() {
                     Empfehlung: 21 Tage gezieltes Training → Ziel-Score 84
                   </div>
                 </motion.div>
-              ) : (
+              )}
+              {stage < 4 && (
                 <div className="text-[11px] text-[var(--lp-text-3)] h-9 flex items-center">
                   {stage >= 3 ? "Wahrscheinlichkeit wird berechnet…" : "Wird berechnet…"}
                 </div>
