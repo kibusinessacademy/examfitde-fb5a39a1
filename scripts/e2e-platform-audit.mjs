@@ -9,17 +9,18 @@
  * - Views return data
  */
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+import { resolveSupabaseEnv } from "./_lib/supabase-skip.mjs";
+
 const JSON_OUT = process.argv.includes("--json");
 const FULL = process.argv.includes("--full");
 
-if (!SUPABASE_URL || !KEY) {
-  const r = { pass_count: 0, warn_count: 0, fail_count: 1, failures: [{ key: "env", message: "SUPABASE_URL / KEY not set" }], warnings: [], results: [] };
-  if (JSON_OUT) console.log(JSON.stringify(r));
-  else console.error("❌ SUPABASE_URL / KEY not set");
-  process.exit(1);
+const env = resolveSupabaseEnv({ requireServiceKey: false, scriptName: "e2e-platform-audit" });
+if (env.skip) {
+  if (JSON_OUT) console.log(JSON.stringify({ pass_count: 0, warn_count: 1, fail_count: 0, failures: [], warnings: [{ key: "env", message: env.reason }], results: [] }));
+  process.exit(0);
 }
+const SUPABASE_URL = env.url;
+const KEY = env.key;
 
 async function query(endpoint) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
