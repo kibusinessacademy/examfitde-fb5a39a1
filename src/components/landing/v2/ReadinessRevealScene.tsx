@@ -151,7 +151,12 @@ export function ReadinessRevealScene() {
                 {stage === 1 && `Prüfe Kompetenzen ${checked}/${COMPETENCIES.length}…`}
                 {stage === 2 && "Erstelle Heatmap…"}
                 {stage === 3 && "Berechne Bestehenswahrscheinlichkeit…"}
-                {stage >= 4 && "Analyse abgeschlossen"}
+                {stage === 4 && (
+                  <span className="text-[var(--lp-danger)]">
+                    ⚠ Erhöhtes Prüfungsrisiko erkannt
+                  </span>
+                )}
+                {stage >= 5 && "Lernpfad bereit · Analyse abgeschlossen"}
               </span>
             </div>
             <div className="hidden sm:flex items-center gap-1 text-[10px] uppercase tracking-wider text-[var(--lp-text-3)]">
