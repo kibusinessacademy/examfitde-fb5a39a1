@@ -181,6 +181,12 @@
   box-shadow: 0 0 12px rgba(239, 77, 107, 0.4);
 }
 
+/* Blinking cursor for streaming text */
+@keyframes lp-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .lp-v2 * {
