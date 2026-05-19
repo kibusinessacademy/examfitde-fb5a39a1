@@ -53,8 +53,13 @@ export function WhyNotChatGPTSection() {
             Warum nicht einfach{" "}
             <span className="lp-gradient-text">ChatGPT?</span>
           </h2>
-          <p className="lp-body mt-4 text-base sm:text-lg text-[var(--lp-text-2)]">
-            Weil ChatGPT keine IHK-Prüfung kennt. Und kein Kurs sagt dir, wo du gerade stehst.
+          <p className="lp-display mt-5 text-lg sm:text-2xl font-medium text-[var(--lp-text)] leading-snug">
+            ChatGPT weiß viel.{" "}
+            <span className="lp-gradient-text">ExamFit weiß, was in deiner Prüfung drankommt.</span>
+          </p>
+          <p className="lp-body mt-3 text-sm sm:text-base text-[var(--lp-text-2)]">
+            Eine allgemeine KI beantwortet Fragen. Ein Prüfungssystem bereitet dich auf eine
+            konkrete IHK-Prüfung vor — mit Score, Lernpfad und mündlicher Simulation.
           </p>
         </div>
 
