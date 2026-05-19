@@ -38,16 +38,11 @@ const log = (ok, name, detail) => {
   if (!ok) failed++;
 };
 
-const isAuthConfigError = (error) => {
-  const msg = `${error?.message || ""} ${error?.code || ""}`.toLowerCase();
-  return msg.includes("forbidden") || msg.includes("unauthorized") || msg.includes("jwt") || msg.includes("p0001");
-};
+const isAuthConfigError = _isAuthConfigError;
 
 function skipAuth(name, error) {
   authSkipped = true;
-  const msg = `${name} skipped: backend auth/service-role secret is missing or not privileged enough`;
-  if (process.env.GITHUB_ACTIONS === "true") console.log(`::warning::${msg}`);
-  console.warn(`⏭️  ${msg}`, error ? `\n   ${JSON.stringify(error).slice(0, 400)}` : "");
+  ciWarn(`${SCRIPT} → ${name} skipped: backend auth/service-role secret missing or not privileged${error ? ` — ${JSON.stringify(error).slice(0, 200)}` : ""}`);
 }
 
 // Phase 1: Dry-Run Wahrheit
