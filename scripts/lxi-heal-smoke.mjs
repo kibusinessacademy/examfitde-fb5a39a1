@@ -13,6 +13,7 @@
  *      verifiziert lxi_heal_attempts-Eintrag, rollt sofort zurück und prüft restored_status.
  *
  * Nutzt service_role-Key (in CI). Lokaler Aufruf: SUPABASE_SERVICE_ROLE_KEY=… node scripts/lxi-heal-smoke.mjs
+ * Fehlt der Key in CI, wird sauber übersprungen statt der Workflow rot zu markieren.
  */
 import { createClient } from "@supabase/supabase-js";
 
@@ -21,8 +22,10 @@ const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const LIVE = process.env.LXI_SMOKE_LIVE === "1";
 
 if (!URL || !KEY) {
-  console.error("❌ SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY required");
-  process.exit(2);
+  const msg = "LXI heal smoke skipped: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing";
+  if (process.env.GITHUB_ACTIONS === "true") console.log(`::warning::${msg}`);
+  console.warn(`⏭️  ${msg}`);
+  process.exit(0);
 }
 
 const sb = createClient(URL, KEY, { auth: { persistSession: false } });
