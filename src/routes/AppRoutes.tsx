@@ -189,6 +189,7 @@ const AdminLearningEventsPage = lazyRetry(() => import('@/pages/admin/v2/AdminLe
 const AdminAccessMatrixPage = lazyRetry(() => import('@/pages/admin/v2/AdminAccessMatrixPage'));
 const AdminPaidOrdersOpsPage = lazyRetry(() => import('@/pages/admin/v2/AdminPaidOrdersOpsPage'));
 const AdminTrafficFunnelPage = lazyRetry(() => import('@/pages/admin/v2/AdminTrafficFunnelPage'));
+const StripeObservatoryPage = lazyRetry(() => import('@/pages/admin/v2/StripeObservatoryPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
