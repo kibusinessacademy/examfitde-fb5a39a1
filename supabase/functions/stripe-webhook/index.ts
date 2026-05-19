@@ -443,6 +443,30 @@ Deno.serve(async (req) => {
     }
 
 
+    // ========== Known event-type allowlist — unknown types short-circuit as 'skipped' ==========
+    const KNOWN_EVENT_TYPES = new Set([
+      "checkout.session.completed",
+      "checkout.session.expired",
+      "checkout.session.async_payment_failed",
+      "payment_intent.payment_failed",
+      "charge.refunded",
+      "refund.updated",
+      "charge.dispute.created",
+      "invoice.paid",
+      "invoice.payment_failed",
+      "customer.subscription.updated",
+      "customer.subscription.deleted",
+    ]);
+    if (!KNOWN_EVENT_TYPES.has(event.type)) {
+      logStep("Event type not handled — marking skipped", { event_type: event.type, event_id: event.id });
+      try {
+        await adminClient.from("stripe_event_log")
+          .update({ process_status: 'skipped', processed_at: new Date().toISOString(), handler_notes: { reason: 'unhandled_event_type' } })
+          .eq('stripe_event_id', event.id);
+      } catch (_e) { /* non-blocking */ }
+      return new Response(JSON.stringify({ received: true, skipped: true, reason: 'unhandled_event_type' }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+
     // ========== checkout.session.completed (ExamFit Store) ==========
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
