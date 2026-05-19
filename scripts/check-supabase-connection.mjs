@@ -51,15 +51,21 @@ if (fail > 0) {
   process.exit(1);
 }
 
-// 3. REST Endpoint
+// 3. REST Endpoint — Probe auf öffentlich lesbare Spalte (RLS-tolerant)
 console.log(`\n${B}2. REST API${X}`);
 try {
-  const r = await fetch(`${URL}/rest/v1/`, {
+  const r = await fetch(`${URL}/rest/v1/course_packages?select=id&limit=1`, {
     headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },
   });
-  if (r.ok || r.status === 404) ok(`REST erreichbar (HTTP ${r.status})`);
-  else if (r.status === 401) bad(`REST 401 — Publishable Key ungültig`);
-  else bad(`REST unerwarteter Status ${r.status}`);
+  // 200 = lesbar; 401/403 = Key ok, RLS blockt (auch ok für Connection-Check); 404 = Tabelle fehlt
+  if (r.ok) ok(`REST erreichbar + Read ok (HTTP ${r.status})`);
+  else if (r.status === 401 || r.status === 403) ok(`REST erreichbar, RLS aktiv (HTTP ${r.status}) — Key gültig`);
+  else if (r.status === 404) bad(`REST 404 — Tabelle course_packages nicht gefunden`);
+  else {
+    const body = await r.text().catch(() => "");
+    if (body.includes("Invalid API key") || body.includes("JWT")) bad(`REST ${r.status} — Publishable Key ungültig`);
+    else bad(`REST unerwarteter Status ${r.status}: ${body.slice(0, 120)}`);
+  }
 } catch (e) {
   bad(`REST nicht erreichbar: ${e.message}`);
 }
