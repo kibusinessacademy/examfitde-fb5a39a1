@@ -75,22 +75,22 @@ function CountUp({ to, suffix = "", duration = 1.4 }: { to: number; suffix?: str
 /* ───────────────────────── Interactive Heatmap ───────────────────────── */
 
 const HEATMAP_CELLS = [
-  { name: "Kostenrechnung", v: 86, err: "Deckungsbeitrag-Berechnung sicher", risk: "low" },
-  { name: "Buchführung", v: 64, err: "Konten-Zuordnung mit Abweichungen", risk: "med" },
-  { name: "Steuerrecht", v: 78, err: "USt ok, ESt teilweise unsicher", risk: "low" },
-  { name: "Personalwesen", v: 41, err: "Lohnabrechnung kritisch", risk: "high" },
-  { name: "Wirtschaftslehre", v: 28, err: "Marktformen häufig falsch", risk: "crit" },
-  { name: "Marketing", v: 72, err: "Marketing-Mix solide", risk: "low" },
-  { name: "Logistik", v: 55, err: "Lagerkennzahlen unsicher", risk: "med" },
-  { name: "Controlling", v: 81, err: "Kennzahlen stark", risk: "low" },
-  { name: "Recht (Vertrag)", v: 90, err: "Vertragsrecht prüfungsreif", risk: "low" },
-  { name: "Recht (Arbeits)", v: 38, err: "Kündigungsfristen unsicher", risk: "high" },
-  { name: "Finanzierung", v: 62, err: "Kreditarten ok", risk: "med" },
-  { name: "Investition", v: 70, err: "Statisch ok, dynamisch wackelt", risk: "med" },
-  { name: "Beschaffung", v: 33, err: "ABC-Analyse häufige Fehler", risk: "high" },
-  { name: "Produktion", v: 88, err: "Fertigungsverfahren sicher", risk: "low" },
-  { name: "Qualität", v: 52, err: "QM-Normen lückenhaft", risk: "med" },
-  { name: "Datenschutz", v: 24, err: "DSGVO § kaum verfügbar", risk: "crit" },
+  { name: "Kostenrechnung", v: 86, err: "Deckungsbeitrag-Berechnung sicher", consequence: "Stabil im offenen Teil", risk: "low" },
+  { name: "Buchführung", v: 64, err: "Konten-Zuordnung mit Abweichungen", consequence: "Wiederholung sichert 6–8 Punkte", risk: "med" },
+  { name: "Steuerrecht", v: 78, err: "USt sicher, ESt teilweise unsicher", consequence: "Solide Basis für offene Aufgaben", risk: "low" },
+  { name: "Personalwesen", v: 41, err: "Lohnabrechnung kritisch", consequence: "Typische Ursache für Punktverlust im offenen Teil", risk: "high" },
+  { name: "Wirtschaftslehre", v: 28, err: "Marktformen häufig falsch zugeordnet", consequence: "Hohe Fehlerwahrscheinlichkeit — viele Prüflinge scheitern hier", risk: "crit" },
+  { name: "Marketing", v: 72, err: "Marketing-Mix solide", consequence: "Prüfungsreif — keine Maßnahme nötig", risk: "low" },
+  { name: "Logistik", v: 55, err: "Lagerkennzahlen unsicher", consequence: "Relevant für Berechnungsaufgaben", risk: "med" },
+  { name: "Controlling", v: 81, err: "Kennzahlen stark", consequence: "Prüfungsreif", risk: "low" },
+  { name: "Recht (Vertrag)", v: 90, err: "Vertragsrecht prüfungsreif", consequence: "Sicherer Punktbringer", risk: "low" },
+  { name: "Recht (Arbeits)", v: 38, err: "Kündigungsfristen unsicher", consequence: "Relevant für Fachgespräch — hohes Risiko", risk: "high" },
+  { name: "Finanzierung", v: 62, err: "Kreditarten ok", consequence: "Stabil — Wiederholung empfohlen", risk: "med" },
+  { name: "Investition", v: 70, err: "Statisch ok, dynamisch wackelt", consequence: "Punktverlust möglich bei Kapitalwertmethode", risk: "med" },
+  { name: "Beschaffung", v: 33, err: "ABC-Analyse mit häufigen Fehlern", consequence: "Typische Ursache für Punktverlust bei Bewertungsaufgaben", risk: "high" },
+  { name: "Produktion", v: 88, err: "Fertigungsverfahren sicher", consequence: "Prüfungsreif", risk: "low" },
+  { name: "Qualität", v: 52, err: "QM-Normen lückenhaft", consequence: "Wiederholung sichert Teilpunkte", risk: "med" },
+  { name: "Datenschutz", v: 24, err: "DSGVO §§ kaum verfügbar", consequence: "Kritische Lücke — Fachgespräch-Risiko", risk: "crit" },
 ] as const;
 
 const RISK_LABEL: Record<string, string> = {
