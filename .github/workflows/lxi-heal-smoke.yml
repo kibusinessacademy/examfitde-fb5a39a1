@@ -22,7 +22,7 @@ jobs:
         uses: ./.github/actions/validate-db-secrets
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://ubdvvvsiryenhrfmqsvw.supabase.co' }}
         with:
           required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
       - name: Verify Node.js 24
@@ -36,7 +36,7 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - name: Run LXI heal smoke
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://ubdvvvsiryenhrfmqsvw.supabase.co' }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           LXI_SMOKE_LIVE: "0" # CI never mutates production
         run: node scripts/lxi-heal-smoke.mjs
