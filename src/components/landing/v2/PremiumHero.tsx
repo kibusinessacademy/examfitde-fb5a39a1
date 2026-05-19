@@ -148,12 +148,37 @@ const PANELS = [
   },
 ];
 
+const LIVE_PINGS = [
+  "+1 Punkt · Kostenrechnung",
+  "Quelle aktualisiert · § 286 BGB",
+  "Kompetenz auf 'mastered'",
+  "Neue Empfehlung bereit",
+  "Score refresht · +2",
+];
+
 export function PremiumHero() {
   const [idx, setIdx] = useState(0);
+  const [ping, setPing] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setIdx((i) => (i + 1) % PANELS.length), 4200);
     return () => clearInterval(t);
+  }, []);
+
+  // Rare "live moment" — every ~13–17s, briefly show a tiny system update
+  useEffect(() => {
+    let timeout: number;
+    const schedule = () => {
+      const delay = 13000 + Math.random() * 4000;
+      timeout = window.setTimeout(() => {
+        const msg = LIVE_PINGS[Math.floor(Math.random() * LIVE_PINGS.length)];
+        setPing(msg);
+        window.setTimeout(() => setPing(null), 2400);
+        schedule();
+      }, delay);
+    };
+    schedule();
+    return () => clearTimeout(timeout);
   }, []);
 
   const Active = PANELS[idx];
