@@ -159,30 +159,36 @@ export function BentoDemoGrid() {
             </div>
           </Tile>
 
-          {/* Tile 3 — MiniCheck */}
-          <Tile icon={Sparkles} label="Tile 03 · MiniCheck" title="3-Minuten-Sprint.">
+          {/* Tile 3 — Keine Zufallsfragen */}
+          <Tile icon={Sparkles} label="Tile 03 · Targeting" title="Keine Zufallsfragen.">
             <div className="space-y-2">
               {[
-                { q: "Skonto-Berechnung", ok: true },
-                { q: "AfA linear vs degressiv", ok: true },
-                { q: "USt §13b UStG", ok: false },
+                { q: "USt §13b UStG", tag: "schwächste Kompetenz", ok: false },
+                { q: "Skonto-Berechnung", tag: "Wiederholung in 3 Tagen", ok: true },
+                { q: "AfA degressiv 2024", tag: "neu im Rahmenplan", ok: true },
               ].map((r) => (
                 <div
                   key={r.q}
-                  className="flex items-center justify-between rounded-md border border-[var(--lp-border)] px-3 py-2 bg-white/[0.02]"
+                  className="rounded-md border border-[var(--lp-border)] px-3 py-2 bg-white/[0.02]"
                 >
-                  <span className="text-xs text-[var(--lp-text)]">{r.q}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded ${
-                      r.ok
-                        ? "bg-[rgba(74,222,128,0.12)] text-[var(--lp-success)]"
-                        : "bg-[rgba(239,77,107,0.12)] text-[var(--lp-danger)]"
-                    }`}
-                  >
-                    {r.ok ? "✓ richtig" : "✗ Lernlücke"}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[var(--lp-text)]">{r.q}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        r.ok
+                          ? "bg-[rgba(46,211,183,0.10)] text-[var(--lp-aqua)]"
+                          : "bg-[rgba(239,77,107,0.12)] text-[var(--lp-danger)]"
+                      }`}
+                    >
+                      {r.ok ? "geplant" : "jetzt"}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-[var(--lp-text-3)] mt-0.5">{r.tag}</div>
                 </div>
               ))}
+            </div>
+            <div className="mt-3 text-[11px] text-[var(--lp-text-3)]">
+              Jede Aufgabe trainiert gezielt deine schwächste Kompetenz.
             </div>
           </Tile>
 
