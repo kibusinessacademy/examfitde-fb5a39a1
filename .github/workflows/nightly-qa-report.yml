@@ -81,8 +81,8 @@ jobs:
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets
         env:
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_3Z80G1ZZqFaK-wzNpNmaZA__1Tc6r8G' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://ubdvvvsiryenhrfmqsvw.supabase.co' }}
         with:
           required: SUPABASE_ANON_KEY SUPABASE_URL
       - name: Verify Node.js 24
@@ -101,8 +101,8 @@ jobs:
           BASE_URL: ${{ vars.E2E_BASE_URL || 'https://examfitde.lovable.app' }}
           E2E_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
           E2E_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://ubdvvvsiryenhrfmqsvw.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_3Z80G1ZZqFaK-wzNpNmaZA__1Tc6r8G' }}
         run: npx playwright test tests/e2e/sanity.admin-preview.spec.ts --project=sanity
           || true
 
@@ -112,8 +112,8 @@ jobs:
           CURRICULUM_ID: ${{ secrets.NIGHTLY_CURRICULUM_ID || '' }}
           E2E_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
           E2E_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://ubdvvvsiryenhrfmqsvw.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_3Z80G1ZZqFaK-wzNpNmaZA__1Tc6r8G' }}
         run: npx playwright test tests/e2e/sanity.learner-golden-path.spec.ts
           --project=sanity || true
 
