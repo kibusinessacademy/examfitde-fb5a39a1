@@ -370,7 +370,9 @@ Deno.serve(async (req) => {
         event_type: event.type,
         livemode: event.livemode ?? false,
         payload: event,
+        process_status: 'received',
       }, { onConflict: "stripe_event_id" });
+      _trackedEventId = event.id;
       logStep("Stripe event logged to stripe_event_log");
     } catch (e: any) {
       logStep("WARN: Could not log to stripe_event_log", { error: String(e) });
