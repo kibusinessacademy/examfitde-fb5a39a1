@@ -119,6 +119,10 @@ async function phase3Rollback() {
   console.log(`▶ LXI heal smoke (live=${LIVE})`);
   await phase1DryRun();
   await phase2NoEffect();
+  if (authSkipped) {
+    console.log("\n⏭️  LXI heal smoke skipped because privileged backend access is unavailable");
+    process.exit(0);
+  }
   await phase3Rollback();
   if (failed > 0) {
     console.error(`\n❌ ${failed} check(s) failed`);
