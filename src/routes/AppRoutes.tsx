@@ -42,6 +42,7 @@ const HomePageV1Legacy = lazyRetry(() => import('@/pages/HomePage'));
 // /app — Account/Verwaltungsbereich (separat von /dashboard Lern-Hub)
 const AppLayout = lazyRetry(() => import('@/pages/app/AppLayout'));
 const AppOverviewPage = lazyRetry(() => import('@/pages/app/AppOverviewPage'));
+const AppStartPage = lazyRetry(() => import('@/pages/app/AppStartPage'));
 const AppCoursesPage = lazyRetry(() => import('@/pages/app/AppCoursesPage'));
 const AppInvoicesPage = lazyRetry(() => import('@/pages/app/AppInvoicesPage'));
 const AppDownloadsPage = lazyRetry(() => import('@/pages/app/AppDownloadsPage'));
@@ -260,6 +261,9 @@ const AppRoutes = () => {
           path="/checkout/success"
           element={<Navigate to={`/willkommen${typeof window !== 'undefined' ? window.location.search : ''}`} replace />}
         />
+
+        {/* Continuity of Belief — Landingpage → Produkt-Übergang (Phase 4) */}
+        <Route path="/app/start" element={<AppStartPage />} />
 
         {/* ExamFit@work Public Routes */}
         <Route path="/work" element={<WorkHomePage />} />
