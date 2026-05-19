@@ -286,11 +286,12 @@ function OralSimulation() {
       setSecs(124);
       timers.push(window.setTimeout(() => setPhase("settle"), 8500));
       timers.push(window.setTimeout(() => setPhase("reveal"), 9500));
-      timers.push(window.setTimeout(() => setRevealed(1), 9800));
-      timers.push(window.setTimeout(() => setRevealed(2), 10800));
-      timers.push(window.setTimeout(() => setRevealed(3), 11800));
-      timers.push(window.setTimeout(() => setPhase("verdict"), 13000));
-      timers.push(window.setTimeout(cycle, 16000));
+      // Uneven micro-pauses zwischen Scores — wirkt deliberativ, nicht synchron animiert
+      timers.push(window.setTimeout(() => setRevealed(1), 9750));   // Fach (schnell)
+      timers.push(window.setTimeout(() => setRevealed(2), 10950));  // Struktur (Pause)
+      timers.push(window.setTimeout(() => setRevealed(3), 12450));  // Praxis (längere Pause)
+      timers.push(window.setTimeout(() => setPhase("verdict"), 13400));
+      timers.push(window.setTimeout(cycle, 16400));
     };
     cycle();
     return () => timers.forEach(clearTimeout);
