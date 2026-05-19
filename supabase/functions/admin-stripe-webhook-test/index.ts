@@ -219,7 +219,12 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[admin-stripe-webhook-test] EXCEPTION", msg, stack);
+    // Return 200 with ok=false so the UI can render the error inline
+    // instead of supabase.functions.invoke throwing "non-2xx".
+    return new Response(JSON.stringify({ ok: false, error: msg, stack: stack?.slice(0, 1200) }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
