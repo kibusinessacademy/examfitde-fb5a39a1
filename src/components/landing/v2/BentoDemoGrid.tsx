@@ -256,26 +256,66 @@ function StreamingTutor() {
 
 /* ───────────────────────── Oral Sim with Drama ───────────────────────── */
 
-const ORAL_STATUS = [
-  "Antwort wird transkribiert…",
-  "Prüfer denkt nach…",
-  "Fachlichkeit wird bewertet…",
-  "Struktur-Analyse läuft…",
-];
+const ORAL_SCORES = [
+  { l: "Fach", v: 88 },
+  { l: "Struktur", v: 72 },
+  { l: "Praxis", v: 81 },
+] as const;
 
+/**
+ * Choreo (zyklisch, ~16s):
+ *  0–8.5s  SPEAKING  — Waveform aktiv, Timer läuft, Status-Carousel
+ *  8.5–9.5 SETTLE    — Waveform fällt, Timer stoppt, "Prüfer analysiert Antwort…"
+ *  9.5–13  REVEAL    — Scores erscheinen nacheinander (Fach → Struktur → Praxis)
+ *  13–16   VERDICT   — Gesamt-Badge sichtbar
+ *  loop
+ */
 function OralSimulation() {
-  const [secs, setSecs] = useState(134);
-  const [si, setSi] = useState(0);
+  const [phase, setPhase] = useState<"speaking" | "settle" | "reveal" | "verdict">(
+    "speaking",
+  );
+  const [secs, setSecs] = useState(124);
+  const [revealed, setRevealed] = useState(0); // 0..3
+
+  // Phase driver
   useEffect(() => {
-    const t = window.setInterval(() => setSecs((s) => s + 1), 1000);
-    const s = window.setInterval(() => setSi((i) => (i + 1) % ORAL_STATUS.length), 2400);
-    return () => {
-      clearInterval(t);
-      clearInterval(s);
+    const timers: number[] = [];
+    const cycle = () => {
+      setPhase("speaking");
+      setRevealed(0);
+      setSecs(124);
+      timers.push(window.setTimeout(() => setPhase("settle"), 8500));
+      timers.push(window.setTimeout(() => setPhase("reveal"), 9500));
+      timers.push(window.setTimeout(() => setRevealed(1), 9800));
+      timers.push(window.setTimeout(() => setRevealed(2), 10800));
+      timers.push(window.setTimeout(() => setRevealed(3), 11800));
+      timers.push(window.setTimeout(() => setPhase("verdict"), 13000));
+      timers.push(window.setTimeout(cycle, 16000));
     };
+    cycle();
+    return () => timers.forEach(clearTimeout);
   }, []);
+
+  // Timer ticks only while speaking
+  useEffect(() => {
+    if (phase !== "speaking") return;
+    const t = window.setInterval(() => setSecs((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
+
   const mm = String(Math.floor(secs / 60)).padStart(2, "0");
   const ss = String(secs % 60).padStart(2, "0");
+  const speaking = phase === "speaking";
+
+  const statusText =
+    phase === "speaking"
+      ? "IHK-Fachgespräch · Antwort wird transkribiert…"
+      : phase === "settle"
+      ? "Prüfer analysiert Antwort…"
+      : phase === "reveal"
+      ? "Bewertung wird aufgebaut…"
+      : "Bewertung abgeschlossen";
+
   return (
     <>
       <div className="flex items-center gap-3">
@@ -284,52 +324,89 @@ function OralSimulation() {
             <motion.span
               key={i}
               className="w-0.5 rounded-full bg-[var(--lp-aqua)]"
-              animate={{ height: [4, 6 + (i % 7) * 4, 4] }}
-              transition={{
-                duration: 0.9,
-                repeat: Infinity,
-                delay: i * 0.03,
-              }}
+              animate={
+                speaking
+                  ? { height: [4, 6 + (i % 7) * 4, 4], opacity: 1 }
+                  : { height: 4, opacity: 0.35 }
+              }
+              transition={
+                speaking
+                  ? { duration: 0.9, repeat: Infinity, delay: i * 0.03 }
+                  : { duration: 0.5 }
+              }
             />
           ))}
         </div>
         <Timer className="w-4 h-4 text-[var(--lp-text-2)]" />
-        <span className="text-xs tabular-nums text-[var(--lp-text-2)]">
+        <span
+          className={`text-xs tabular-nums transition-colors ${
+            speaking ? "text-[var(--lp-text-2)]" : "text-[var(--lp-text-3)]"
+          }`}
+        >
           {mm}:{ss}
         </span>
       </div>
+
       <div className="mt-2 h-4 overflow-hidden text-[11px]">
         <AnimatePresence mode="wait">
           <motion.div
-            key={si}
-            initial={{ y: 12, opacity: 0 }}
+            key={statusText}
+            initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -12, opacity: 0 }}
-            transition={{ duration: 0.35 }}
-            className="text-[var(--lp-text-3)]"
+            exit={{ y: -10, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className={
+              phase === "settle"
+                ? "text-[var(--lp-aqua)]"
+                : "text-[var(--lp-text-3)]"
+            }
           >
-            {ORAL_STATUS[si]}
+            {statusText}
           </motion.div>
         </AnimatePresence>
       </div>
+
       <div className="grid grid-cols-3 gap-2 mt-3">
-        {[
-          { l: "Fach", v: 88 },
-          { l: "Struktur", v: 72 },
-          { l: "Praxis", v: 81 },
-        ].map((s) => (
-          <div
-            key={s.l}
-            className="rounded-lg border border-[var(--lp-border)] bg-white/[0.02] p-2.5 text-center"
-          >
-            <div className="lp-display text-2xl font-bold text-[var(--lp-text)] tabular-nums">
-              {s.v}
-            </div>
-            <div className="text-[10px] text-[var(--lp-text-3)] uppercase tracking-wider">
-              {s.l}
-            </div>
-          </div>
-        ))}
+        {ORAL_SCORES.map((s, i) => {
+          const shown = revealed > i;
+          return (
+            <motion.div
+              key={s.l}
+              className="rounded-lg border border-[var(--lp-border)] bg-white/[0.02] p-2.5 text-center"
+              animate={{
+                borderColor: shown ? "var(--lp-border-emerald)" : "var(--lp-border)",
+              }}
+              transition={{ duration: 0.4 }}
+            >
+              <div className="lp-display text-2xl font-bold tabular-nums text-[var(--lp-text)] h-8 flex items-center justify-center">
+                <AnimatePresence mode="wait">
+                  {shown ? (
+                    <motion.span
+                      key="v"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      {s.v}
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="dot"
+                      className="text-[var(--lp-text-3)] text-base"
+                      animate={{ opacity: [0.3, 0.7, 0.3] }}
+                      transition={{ duration: 1.2, repeat: Infinity }}
+                    >
+                      ···
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+              <div className="text-[10px] text-[var(--lp-text-3)] uppercase tracking-wider">
+                {s.l}
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </>
   );
