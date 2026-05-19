@@ -256,11 +256,15 @@ function StreamingTutor() {
 
 /* ───────────────────────── Oral Sim with Drama ───────────────────────── */
 
-const ORAL_SCORES = [
-  { l: "Fach", v: 88 },
-  { l: "Struktur", v: 72 },
-  { l: "Praxis", v: 81 },
-] as const;
+/** Mikro-Varianz pro Session — fühlt sich weniger scripted an.
+ *  Werte bleiben innerhalb plausibler Bewertungsbänder. */
+const ORAL_SCORE_VARIANTS: ReadonlyArray<ReadonlyArray<{ l: string; v: number }>> = [
+  [{ l: "Fach", v: 88 }, { l: "Struktur", v: 72 }, { l: "Praxis", v: 81 }],
+  [{ l: "Fach", v: 84 }, { l: "Struktur", v: 76 }, { l: "Praxis", v: 79 }],
+  [{ l: "Fach", v: 91 }, { l: "Struktur", v: 69 }, { l: "Praxis", v: 83 }],
+  [{ l: "Fach", v: 86 }, { l: "Struktur", v: 74 }, { l: "Praxis", v: 77 }],
+];
+const ORAL_SCORES = ORAL_SCORE_VARIANTS[Math.floor(Math.random() * ORAL_SCORE_VARIANTS.length)];
 
 /**
  * Choreo (zyklisch, ~16s):
