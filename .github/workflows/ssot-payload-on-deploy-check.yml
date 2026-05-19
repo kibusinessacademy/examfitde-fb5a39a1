@@ -24,7 +24,7 @@ jobs:
         uses: ./.github/actions/validate-db-secrets
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://ubdvvvsiryenhrfmqsvw.supabase.co' }}
         with:
           required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
       - name: Verify Node.js 24
@@ -40,7 +40,7 @@ jobs:
         run: sleep 60
       - name: Run SSOT payload verification
         env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://ubdvvvsiryenhrfmqsvw.supabase.co' }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SSOT_WINDOW_MIN: "10"
         run: node scripts/ssot-payload-on-deploy-check.mjs
