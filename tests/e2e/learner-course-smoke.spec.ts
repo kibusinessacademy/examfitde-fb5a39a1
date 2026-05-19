@@ -53,7 +53,11 @@ function pickSample<T>(arr: T[], n: number): T[] {
 }
 
 test.describe(`Learner smoke (${sampled.length}/${allReady.length} courses, full=${FULL})`, () => {
-  test.skip(sampled.length === 0, "no public learner-course readiness data available");
+  if (sampled.length === 0) {
+    test("skipped: no public learner-course readiness data available", async () => {
+      test.skip(true, "no public learner-course readiness data available");
+    });
+  }
 
   for (const course of sampled) {
     test(`course renders: ${course.title}`, async ({ page }) => {
