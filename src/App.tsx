@@ -21,6 +21,7 @@ import { useHeatmapTracking } from "@/features/analytics/useHeatmapTracking";
 import { useGtmPageView } from "@/hooks/useGtmPageView";
 import { useNotificationAttribution } from "@/hooks/useNotificationAttribution";
 import { CookieConsentBanner } from "@/components/consent/CookieConsentBanner";
+import { ClarityTracker } from "@/components/analytics/ClarityTracker";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const queryClient = new QueryClient({
@@ -111,6 +112,7 @@ function AppChrome() {
       {showNativeTabBar ? <div className="h-20" /> : <div className="h-16 md:hidden" />}
       <AccessDebugPanel />
       <CookieConsentBanner />
+      <ClarityTracker />
       {import.meta.env.PROD && typeof window !== "undefined" && /(^|\.)examfit\.de$|\.vercel\.app$/.test(window.location.hostname) && (
         <SpeedInsights />
       )}
