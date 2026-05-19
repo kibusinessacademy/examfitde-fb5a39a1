@@ -39,6 +39,7 @@ interface Summary {
   total: number;
   last_24h: number;
   last_7d: number;
+  errors_24h: number;
   by_status: Record<string, number>;
   by_type: Array<{ event_type: string; count: number; errors: number }>;
   recent_errors: Array<{ stripe_event_id: string; event_type: string; error_message: string; received_at: string }>;
@@ -49,7 +50,9 @@ const TEST_EVENTS = [
   { value: "checkout.session.expired", label: "checkout.session.expired" },
   { value: "payment_intent.payment_failed", label: "payment_intent.payment_failed" },
   { value: "charge.refunded", label: "charge.refunded" },
+  { value: "unknown.event.type", label: "unknown.event.type (Smoke)" },
 ];
+
 
 function StatusBadge({ status }: { status: EventRow["process_status"] }) {
   if (status === "ok") return <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600"><CheckCircle2 className="h-3 w-3 mr-1" />ok</Badge>;
@@ -135,6 +138,21 @@ export default function StripeObservatoryPage() {
         </Button>
       </header>
 
+      {/* Alert banner: errors in last 24h */}
+      {summary && summary.errors_24h > 0 && (
+        <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+          <div className="text-sm">
+            <div className="font-semibold text-destructive">
+              {summary.errors_24h} Webhook-Fehler in den letzten 24 Stunden
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Filtere unten nach Status „error", um die Ursachen zu sehen.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Summary KPIs */}
       {summary && (
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
@@ -158,8 +176,10 @@ export default function StripeObservatoryPage() {
           </Card>
           <Card>
             <CardContent className="pt-4">
-              <div className="text-xs text-muted-foreground">7 Tage — Fehler</div>
-              <div className="text-2xl font-semibold text-destructive">{summary.by_status?.error ?? 0}</div>
+              <div className="text-xs text-muted-foreground">24h — Fehler</div>
+              <div className={`text-2xl font-semibold ${summary.errors_24h > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {summary.errors_24h ?? 0}
+              </div>
             </CardContent>
           </Card>
         </div>

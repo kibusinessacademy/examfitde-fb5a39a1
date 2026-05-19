@@ -24,7 +24,9 @@ const ALLOWED_EVENTS = new Set([
   "checkout.session.expired",
   "payment_intent.payment_failed",
   "charge.refunded",
+  "unknown.event.type", // smoke: handler should accept signature + log as received without side-effects
 ]);
+
 
 function syntheticPayload(eventType: string) {
   const id = `evt_test_${Math.random().toString(36).slice(2, 14)}`;
@@ -107,8 +109,15 @@ function syntheticPayload(eventType: string) {
       },
     };
   }
+  if (eventType === "unknown.event.type") {
+    return {
+      ...base,
+      data: { object: { id: `obj_test_${Math.random().toString(36).slice(2, 14)}`, object: "unknown", metadata: { source: "admin-trigger-test" } } },
+    };
+  }
   return base;
 }
+
 
 function signPayload(body: string, secret: string): string {
   const ts = Math.floor(Date.now() / 1000);

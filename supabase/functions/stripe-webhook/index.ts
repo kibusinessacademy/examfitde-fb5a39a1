@@ -9,6 +9,45 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(JSON.stringify(payload));
 };
 
+/**
+ * Stripe-Event-Payload-Redaktion (PII / Payment-Daten maskieren) bevor in
+ * stripe_event_log gespeichert wird. SSOT für „kein Klartext im Audit".
+ *
+ * Maskiert rekursiv: email, name, address-Felder, phone, ip_address,
+ * card-Details (number/last4/fingerprint), banking-Felder.
+ * Behält strukturelle Felder (id, status, amount, currency, metadata.keys)
+ * für Debugging.
+ */
+const PII_KEYS = new Set([
+  'email', 'customer_email', 'receipt_email', 'name', 'customer_name',
+  'phone', 'phone_number', 'ip_address', 'client_ip',
+  'line1', 'line2', 'address_line1', 'address_line2',
+  'address_zip', 'postal_code', 'city', 'address_city', 'state', 'address_state',
+  'number', 'last4', 'fingerprint', 'iin', 'bank_name',
+  'routing_number', 'account_number', 'sort_code', 'iban', 'bic',
+  'tax_id', 'tax_id_value', 'vat_number',
+]);
+function maskString(v: unknown): string {
+  if (typeof v !== 'string' || v.length === 0) return '***';
+  if (v.length <= 2) return '**';
+  return v[0] + '***' + v[v.length - 1];
+}
+function redactStripeEventPayload(input: any, depth = 0): any {
+  if (depth > 12 || input === null || input === undefined) return input;
+  if (Array.isArray(input)) return input.map((x) => redactStripeEventPayload(x, depth + 1));
+  if (typeof input !== 'object') return input;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(input)) {
+    if (PII_KEYS.has(k)) {
+      out[k] = v === null ? null : (typeof v === 'object' ? '[redacted-object]' : maskString(v));
+    } else {
+      out[k] = redactStripeEventPayload(v, depth + 1);
+    }
+  }
+  return out;
+}
+
+
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let result = '';
@@ -363,22 +402,35 @@ Deno.serve(async (req) => {
 
     logStep("Event verified", { event_type: event.type, event_id: event.id, livemode: event.livemode, signature_source: signatureSource });
 
-    // Council 8: Log raw Stripe event for finance reconciliation (idempotent)
+    // ========== IDEMPOTENCY (early dedup, before any DB side-effects) ==========
+    // 1) stripe_event_log already terminal? → 200 dedup, do not reset to 'received'
+    const { data: existingLog } = await adminClient
+      .from("stripe_event_log")
+      .select("process_status")
+      .eq("stripe_event_id", event.id)
+      .maybeSingle();
+    if (existingLog && ['ok', 'error', 'skipped'].includes(existingLog.process_status)) {
+      logStep("Event already finalized (dedup via stripe_event_log)", { eventId: event.id, prior_status: existingLog.process_status });
+      return new Response(JSON.stringify({ received: true, dedup: true, prior_status: existingLog.process_status }), { status: 200 });
+    }
+
+    // 2) Council 8: Log raw Stripe event for finance reconciliation — PII-redacted payload
     try {
+      const redactedPayload = redactStripeEventPayload(event);
       await adminClient.from("stripe_event_log").upsert({
         stripe_event_id: event.id,
         event_type: event.type,
         livemode: event.livemode ?? false,
-        payload: event,
+        payload: redactedPayload,
         process_status: 'received',
       }, { onConflict: "stripe_event_id" });
       _trackedEventId = event.id;
-      logStep("Stripe event logged to stripe_event_log");
+      logStep("Stripe event logged to stripe_event_log (redacted)");
     } catch (e: any) {
       logStep("WARN: Could not log to stripe_event_log", { error: String(e) });
     }
 
-    // ========== DEDUP CHECK ==========
+    // 3) Legacy dedup on ledger_entries (handler-level)
     const { data: existingLedger } = await adminClient
       .from('ledger_entries')
       .select('id')
@@ -386,9 +438,10 @@ Deno.serve(async (req) => {
       .limit(1);
 
     if (existingLedger && existingLedger.length > 0) {
-      logStep("Event already processed (dedup)", { eventId: event.id });
+      logStep("Event already processed (dedup via ledger_entries)", { eventId: event.id });
       return new Response(JSON.stringify({ received: true, dedup: true }), { status: 200 });
     }
+
 
     // ========== checkout.session.completed (ExamFit Store) ==========
     if (event.type === "checkout.session.completed") {
