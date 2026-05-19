@@ -172,6 +172,11 @@ function InteractiveHeatmap() {
               <div className="text-[10px] text-[var(--lp-text-3)] mt-0.5">
                 {c.err}
               </div>
+              {(c.risk === "high" || c.risk === "crit") && (
+                <div className="text-[10px] text-[var(--lp-text-2)] mt-1 pt-1 border-t border-[var(--lp-border)] italic">
+                  → {c.consequence}
+                </div>
+              )}
             </motion.div>
           ) : (
             <div className="text-[11px] text-[var(--lp-text-3)]">
