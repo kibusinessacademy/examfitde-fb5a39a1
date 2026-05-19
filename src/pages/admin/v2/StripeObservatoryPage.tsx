@@ -39,6 +39,7 @@ interface Summary {
   total: number;
   last_24h: number;
   last_7d: number;
+  errors_24h: number;
   by_status: Record<string, number>;
   by_type: Array<{ event_type: string; count: number; errors: number }>;
   recent_errors: Array<{ stripe_event_id: string; event_type: string; error_message: string; received_at: string }>;
@@ -49,7 +50,9 @@ const TEST_EVENTS = [
   { value: "checkout.session.expired", label: "checkout.session.expired" },
   { value: "payment_intent.payment_failed", label: "payment_intent.payment_failed" },
   { value: "charge.refunded", label: "charge.refunded" },
+  { value: "unknown.event.type", label: "unknown.event.type (Smoke)" },
 ];
+
 
 function StatusBadge({ status }: { status: EventRow["process_status"] }) {
   if (status === "ok") return <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600"><CheckCircle2 className="h-3 w-3 mr-1" />ok</Badge>;
