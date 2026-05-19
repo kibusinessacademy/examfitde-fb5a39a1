@@ -247,22 +247,6 @@ function StreamingTutor() {
           )}
         </AnimatePresence>
       </div>
-      {done && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-2 flex flex-wrap gap-1.5"
-        >
-          {["Beispielaufgabe", "Verwandte Frage", "In Rahmenplan zeigen"].map((c) => (
-            <span
-              key={c}
-              className="text-[10px] px-2 py-1 rounded-full bg-white/[0.04] border border-[var(--lp-border)] text-[var(--lp-text-2)]"
-            >
-              {c}
-            </span>
-          ))}
-        </motion.div>
-      )}
       <div className="mt-2 text-[11px] text-[var(--lp-text-3)]">
         Antwortet nur aus Kurs + Rahmenplan. Niemals frei erfunden.
       </div>
