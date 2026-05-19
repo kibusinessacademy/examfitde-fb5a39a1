@@ -1,0 +1,173 @@
+/* Premium Landing V2 — scoped dark AI-SaaS theme.
+   All variables apply ONLY inside `.lp-v2` so the rest of the app
+   (admin, learner, product pages) keeps its petrol/mint identity.
+*/
+
+.lp-v2 {
+  /* surfaces */
+  --lp-bg: #06111F;
+  --lp-elev: #0C1B2A;
+  --lp-card: #102537;
+  --lp-card-2: #14304a;
+
+  /* accents */
+  --lp-emerald: #2ED3B7;
+  --lp-aqua: #59F0D0;
+  --lp-mint: #73ffb8;
+  --lp-violet: #a78bfa;
+
+  /* status */
+  --lp-success: #4ade80;
+  --lp-warn: #f5b754;
+  --lp-danger: #ef4d6b;
+
+  /* text */
+  --lp-text: #F5F7FA;
+  --lp-text-2: #A8B3C2;
+  --lp-text-3: #6e7c91;
+
+  /* borders */
+  --lp-border: rgba(255, 255, 255, 0.08);
+  --lp-border-strong: rgba(255, 255, 255, 0.16);
+  --lp-border-emerald: rgba(46, 211, 183, 0.35);
+
+  /* effects */
+  --lp-glow-emerald: 0 0 0 1px rgba(46, 211, 183, 0.35),
+    0 12px 40px -10px rgba(46, 211, 183, 0.45);
+  --lp-shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 60px -28px rgba(0, 0, 0, 0.7);
+
+  background: var(--lp-bg);
+  color: var(--lp-text);
+  font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
+}
+
+.lp-v2 .lp-display {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+.lp-v2 .lp-body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+/* Reusable atoms */
+.lp-v2 .lp-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.005)),
+    var(--lp-card);
+  border: 1px solid var(--lp-border);
+  border-radius: 18px;
+  box-shadow: var(--lp-shadow-card);
+}
+.lp-v2 .lp-glass {
+  background: rgba(16, 37, 55, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--lp-border);
+}
+.lp-v2 .lp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(46, 211, 183, 0.08);
+  border: 1px solid var(--lp-border-emerald);
+  color: var(--lp-aqua);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.lp-v2 .lp-gradient-text {
+  background: linear-gradient(120deg, #59F0D0 0%, #2ED3B7 45%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  display: inline-block;
+  padding-bottom: 0.06em;
+  line-height: 1.1;
+}
+.lp-v2 .lp-cta-primary {
+  background: linear-gradient(135deg, #2ED3B7, #59F0D0);
+  color: #042b27;
+  font-weight: 600;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 12px 40px -10px rgba(89, 240, 208, 0.55);
+  transition: transform 0.2s ease, box-shadow 0.25s ease;
+}
+.lp-v2 .lp-cta-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset,
+    0 18px 50px -12px rgba(89, 240, 208, 0.7);
+}
+.lp-v2 .lp-cta-ghost {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--lp-text);
+  border: 1px solid var(--lp-border-strong);
+  border-radius: 14px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.lp-v2 .lp-cta-ghost:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+/* Background ambience */
+.lp-v2 .lp-hero-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 50% at 20% 10%, rgba(46, 211, 183, 0.22), transparent 60%),
+    radial-gradient(50% 40% at 85% 30%, rgba(167, 139, 250, 0.18), transparent 60%),
+    radial-gradient(40% 30% at 50% 100%, rgba(89, 240, 208, 0.12), transparent 60%);
+}
+.lp-v2 .lp-grid-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at center, black 35%, transparent 75%);
+}
+
+/* Animated gradient border for premium tiles */
+.lp-v2 .lp-tile {
+  position: relative;
+  background: var(--lp-card);
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--lp-border);
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+.lp-v2 .lp-tile:hover {
+  transform: translateY(-3px);
+  border-color: var(--lp-border-emerald);
+}
+.lp-v2 .lp-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    600px circle at var(--mx, 50%) var(--my, 0%),
+    rgba(89, 240, 208, 0.08),
+    transparent 40%
+  );
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.lp-v2 .lp-tile:hover::before {
+  opacity: 1;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .lp-v2 * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
