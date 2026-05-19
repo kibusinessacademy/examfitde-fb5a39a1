@@ -89,6 +89,82 @@ async function emitCheckoutCompleteEvent(
 }
 
 /**
+ * SSOT: Emits a failed/cancelled checkout funnel event so /admin/observatory
+ * can see exactly where revenue is lost. Best-effort — never throws.
+ */
+async function emitCheckoutFailureEvent(
+  adminClient: any,
+  args: {
+    event_type: 'checkout_cancelled' | 'payment_failed';
+    session?: Stripe.Checkout.Session | null;
+    payment_intent?: Stripe.PaymentIntent | null;
+    failure_reason?: string | null;
+    failure_code?: string | null;
+  },
+) {
+  try {
+    const meta = (args.session?.metadata ?? args.payment_intent?.metadata ?? {}) as Record<string, string>;
+    let packageId: string | null = meta.package_id || meta.packageId || null;
+    let persona: string | null = (meta.persona || meta.persona_type || null) as string | null;
+    let productId: string | null = meta.product_id || meta.productId || null;
+    let curriculumId: string | null = meta.curriculum_id || meta.curriculumId || null;
+    const orderId: string | null = meta.order_id || meta.orderId || null;
+
+    // Resolve package_id from product_id → curriculum → published package (best effort)
+    if (!packageId && productId) {
+      const { data: prod } = await adminClient
+        .from('products')
+        .select('curriculum_id')
+        .eq('id', productId)
+        .maybeSingle();
+      curriculumId = curriculumId ?? prod?.curriculum_id ?? null;
+    }
+    if (!packageId && curriculumId) {
+      const { data: pkg } = await adminClient
+        .from('course_packages')
+        .select('id, persona_profile')
+        .eq('curriculum_id', curriculumId)
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      packageId = pkg?.id ?? null;
+      if (!persona && pkg?.persona_profile) {
+        persona = String(pkg.persona_profile).toLowerCase().split('_')[0];
+      }
+    }
+
+    const sessionId = args.session?.id ?? null;
+    const piId = args.payment_intent?.id
+      ?? (typeof args.session?.payment_intent === 'string' ? args.session.payment_intent : args.session?.payment_intent?.id)
+      ?? null;
+
+    await adminClient.from('conversion_events').insert({
+      user_id: null,
+      contact_id: null,
+      curriculum_id: curriculumId,
+      event_type: args.event_type,
+      page_path: '/checkout/failure',
+      metadata: {
+        source_page: '/checkout/failure',
+        package_id: packageId,
+        persona,
+        product_id: productId,
+        order_id: orderId,
+        stripe_session_id: sessionId,
+        stripe_payment_intent_id: piId,
+        failure_reason: args.failure_reason ?? null,
+        failure_code: args.failure_code ?? null,
+        amount_total: args.session?.amount_total ?? args.payment_intent?.amount ?? null,
+        currency: args.session?.currency ?? args.payment_intent?.currency ?? null,
+      },
+    });
+  } catch (e) {
+    console.warn('[stripe-webhook] emitCheckoutFailureEvent failed', e);
+  }
+}
+
+/**
  * SSOT B2C order writer — replaces direct entitlement inserts.
  * Inserts orders (status='paid') + order_items. The DB trigger
  * trg_orders_paid_grant fires process_order_paid_fulfillment which
@@ -1313,6 +1389,23 @@ Deno.serve(async (req) => {
       logStep("Payment failed", {
         paymentIntentId: paymentIntent.id,
         error: paymentIntent.last_payment_error?.message
+      });
+      await emitCheckoutFailureEvent(adminClient, {
+        event_type: 'payment_failed',
+        payment_intent: paymentIntent,
+        failure_reason: paymentIntent.last_payment_error?.message ?? null,
+        failure_code: paymentIntent.last_payment_error?.code ?? null,
+      });
+    }
+
+    if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      logStep("Checkout cancelled/expired", { sessionId: session.id, eventType: event.type });
+      await emitCheckoutFailureEvent(adminClient, {
+        event_type: event.type === "checkout.session.async_payment_failed" ? 'payment_failed' : 'checkout_cancelled',
+        session,
+        failure_reason: event.type === "checkout.session.expired" ? 'session_expired' : 'async_payment_failed',
+        failure_code: event.type,
       });
     }
 
