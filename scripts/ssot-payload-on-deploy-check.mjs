@@ -8,14 +8,13 @@
  * Required env for live verification: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
  * Fehlt der Service-Role-Key in CI, wird sauber übersprungen statt rot zu failen.
  */
-const URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!URL || !KEY) {
-  const msg = 'SSOT payload verification skipped: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing';
-  if (process.env.GITHUB_ACTIONS === 'true') console.log(`::warning::${msg}`);
-  console.warn(`⏭️  ${msg}`);
-  process.exit(0);
-}
+import { resolveSupabaseEnv, isAuthStatus, ciWarn } from './_lib/supabase-skip.mjs';
+
+const SCRIPT = 'ssot-payload-on-deploy-check';
+const env = resolveSupabaseEnv({ requireServiceKey: true, scriptName: SCRIPT });
+if (env.skip) process.exit(0);
+const URL = env.url;
+const KEY = env.serviceKey;
 
 const WINDOW_MIN = parseInt(process.env.SSOT_WINDOW_MIN || '10', 10);
 const STRICT = process.env.SSOT_STRICT === '1';
@@ -30,6 +29,10 @@ async function rpc(name, body) {
     },
     body: JSON.stringify(body),
   });
+  if (isAuthStatus(r.status)) {
+    ciWarn(`${SCRIPT} → ${name} returned HTTP ${r.status} — service-role key not privileged; skipping`);
+    process.exit(0);
+  }
   if (!r.ok) throw new Error(`${name} HTTP ${r.status}: ${await r.text()}`);
   return r.json();
 }

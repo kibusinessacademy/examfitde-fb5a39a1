@@ -16,17 +16,18 @@
  * Fehlt der Key in CI, wird sauber übersprungen statt der Workflow rot zu markieren.
  */
 import { createClient } from "@supabase/supabase-js";
+import {
+  resolveSupabaseEnv,
+  isAuthConfigError as _isAuthConfigError,
+  ciWarn,
+} from "./_lib/supabase-skip.mjs";
 
-const URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SCRIPT = "lxi-heal-smoke";
+const env = resolveSupabaseEnv({ requireServiceKey: true, scriptName: SCRIPT });
+if (env.skip) process.exit(0);
+const URL = env.url;
+const KEY = env.serviceKey;
 const LIVE = process.env.LXI_SMOKE_LIVE === "1";
-
-if (!URL || !KEY) {
-  const msg = "LXI heal smoke skipped: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing";
-  if (process.env.GITHUB_ACTIONS === "true") console.log(`::warning::${msg}`);
-  console.warn(`⏭️  ${msg}`);
-  process.exit(0);
-}
 
 const sb = createClient(URL, KEY, { auth: { persistSession: false } });
 
@@ -37,16 +38,11 @@ const log = (ok, name, detail) => {
   if (!ok) failed++;
 };
 
-const isAuthConfigError = (error) => {
-  const msg = `${error?.message || ""} ${error?.code || ""}`.toLowerCase();
-  return msg.includes("forbidden") || msg.includes("unauthorized") || msg.includes("jwt") || msg.includes("p0001");
-};
+const isAuthConfigError = _isAuthConfigError;
 
 function skipAuth(name, error) {
   authSkipped = true;
-  const msg = `${name} skipped: backend auth/service-role secret is missing or not privileged enough`;
-  if (process.env.GITHUB_ACTIONS === "true") console.log(`::warning::${msg}`);
-  console.warn(`⏭️  ${msg}`, error ? `\n   ${JSON.stringify(error).slice(0, 400)}` : "");
+  ciWarn(`${SCRIPT} → ${name} skipped: backend auth/service-role secret missing or not privileged${error ? ` — ${JSON.stringify(error).slice(0, 200)}` : ""}`);
 }
 
 // Phase 1: Dry-Run Wahrheit

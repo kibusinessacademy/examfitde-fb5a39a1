@@ -5,13 +5,12 @@
  * Prevents deployment if critical functions are missing.
  */
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+import { resolveSupabaseEnv } from "../_lib/supabase-skip.mjs";
 
-if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.warn('⚠️  Missing env — skipping RPC availability check');
-  process.exit(0);
-}
+const env = resolveSupabaseEnv({ requireServiceKey: true, scriptName: "critical-rpc-check" });
+if (env.skip) process.exit(0);
+const SUPABASE_URL = env.url;
+const SERVICE_KEY = env.serviceKey;
 
 // Critical RPCs that must exist for the platform to function
 const CRITICAL_RPCS = [
