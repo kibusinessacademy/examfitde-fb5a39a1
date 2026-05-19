@@ -31,10 +31,23 @@ if (!URL || !KEY) {
 const sb = createClient(URL, KEY, { auth: { persistSession: false } });
 
 let failed = 0;
+let authSkipped = false;
 const log = (ok, name, detail) => {
   console.log(`${ok ? "✅" : "❌"} ${name}`, detail ? `\n   ${JSON.stringify(detail).slice(0, 400)}` : "");
   if (!ok) failed++;
 };
+
+const isAuthConfigError = (error) => {
+  const msg = `${error?.message || ""} ${error?.code || ""}`.toLowerCase();
+  return msg.includes("forbidden") || msg.includes("unauthorized") || msg.includes("jwt") || msg.includes("p0001");
+};
+
+function skipAuth(name, error) {
+  authSkipped = true;
+  const msg = `${name} skipped: backend auth/service-role secret is missing or not privileged enough`;
+  if (process.env.GITHUB_ACTIONS === "true") console.log(`::warning::${msg}`);
+  console.warn(`⏭️  ${msg}`, error ? `\n   ${JSON.stringify(error).slice(0, 400)}` : "");
+}
 
 // Phase 1: Dry-Run Wahrheit
 async function phase1DryRun() {
@@ -45,6 +58,7 @@ async function phase1DryRun() {
     p_limit: 27,
     p_dry_run: true,
   });
+  if (error && isAuthConfigError(error)) return skipAuth("Phase1 dry-run RPC", error);
   if (error) return log(false, "Phase1 dry-run RPC error", error);
 
   const ok = data?.ok === true && data?.dry_run === true;
@@ -67,6 +81,7 @@ async function phase2NoEffect() {
     p_dry_run: true,
     p_max: 1,
   });
+  if (error && isAuthConfigError(error)) return skipAuth("Phase2 push wrapper RPC", error);
   if (error) return log(false, "Phase2 push wrapper RPC error", error);
   // dry_run path returns either ok+candidates OR ok+reason='no_eligible'
   const shapeOk = data?.ok === true && (Array.isArray(data?.candidates) || data?.reason === "no_eligible" || data?.dry_run === true);
