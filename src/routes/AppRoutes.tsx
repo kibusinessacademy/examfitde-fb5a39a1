@@ -274,6 +274,9 @@ const AppRoutes = () => {
         <Route path="/app/lernpfad" element={<AppLernpfadPage />} />
         {/* Phase 5.4 — Tutor-Surface: Bewusstsein des Systems */}
         <Route path="/app/tutor" element={<AppTutorPage />} />
+        {/* Phase 5.5 — Kompetenzseiten: diagnostische Räume, keine Lerninhaltseiten */}
+        <Route path="/app/kompetenz/:competencyId" element={<AppKompetenzPage />} />
+        <Route path="/app/kompetenz" element={<AppKompetenzPage />} />
 
 
 
