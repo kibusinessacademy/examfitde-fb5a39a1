@@ -1,4 +1,4 @@
-import { motion, useInView } from "framer-motion";
+import { motion, useInView, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { Activity, AlertTriangle, ShieldCheck, Sparkles, Target } from "lucide-react";
 
