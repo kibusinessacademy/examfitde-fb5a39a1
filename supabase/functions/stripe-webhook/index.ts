@@ -312,6 +312,9 @@ Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 
+  // Hoisted for status-tracking from the outer catch block
+  let _trackedEventId: string | null = null;
+
   try {
     logStep("Webhook received");
 
@@ -367,7 +370,9 @@ Deno.serve(async (req) => {
         event_type: event.type,
         livemode: event.livemode ?? false,
         payload: event,
+        process_status: 'received',
       }, { onConflict: "stripe_event_id" });
+      _trackedEventId = event.id;
       logStep("Stripe event logged to stripe_event_log");
     } catch (e: any) {
       logStep("WARN: Could not log to stripe_event_log", { error: String(e) });
@@ -1776,6 +1781,13 @@ Deno.serve(async (req) => {
       logStep("Org license canceled", { subscriptionId: sub.id });
     }
 
+    // Mark event as successfully processed (best-effort)
+    try {
+      await adminClient.from("stripe_event_log")
+        .update({ process_status: 'ok', processed_at: new Date().toISOString() })
+        .eq('stripe_event_id', event.id);
+    } catch (_e) { /* non-blocking */ }
+
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
@@ -1784,6 +1796,21 @@ Deno.serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR: Unhandled exception", { message: errorMessage });
+    // Mark event as failed (best-effort) — only if we tracked an event id earlier
+    if (_trackedEventId) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const errClient = createClient(supabaseUrl, supabaseServiceKey);
+        await errClient.from("stripe_event_log")
+          .update({
+            process_status: 'error',
+            error_message: errorMessage.slice(0, 2000),
+            processed_at: new Date().toISOString(),
+          })
+          .eq('stripe_event_id', _trackedEventId);
+      } catch (_e) { /* non-blocking */ }
+    }
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { "Content-Type": "application/json" } }

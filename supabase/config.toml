@@ -48,6 +48,9 @@ verify_jwt = false
 [functions.stripe-webhook-smoke]
 verify_jwt = false
 
+[functions.admin-stripe-webhook-test]
+verify_jwt = true
+
 [functions.get-exam-questions]
 verify_jwt = false
 
