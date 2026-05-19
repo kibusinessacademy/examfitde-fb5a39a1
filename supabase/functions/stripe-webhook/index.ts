@@ -1796,19 +1796,21 @@ Deno.serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR: Unhandled exception", { message: errorMessage });
-    // Mark event as failed (best-effort) — only if we got far enough to know event.id
-    try {
-      const evId = (typeof event !== 'undefined' && (event as any)?.id) ? (event as any).id : null;
-      if (evId) {
-        await adminClient.from("stripe_event_log")
+    // Mark event as failed (best-effort) — only if we tracked an event id earlier
+    if (_trackedEventId) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const errClient = createClient(supabaseUrl, supabaseServiceKey);
+        await errClient.from("stripe_event_log")
           .update({
             process_status: 'error',
             error_message: errorMessage.slice(0, 2000),
             processed_at: new Date().toISOString(),
           })
-          .eq('stripe_event_id', evId);
-      }
-    } catch (_e) { /* non-blocking */ }
+          .eq('stripe_event_id', _trackedEventId);
+      } catch (_e) { /* non-blocking */ }
+    }
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { "Content-Type": "application/json" } }
