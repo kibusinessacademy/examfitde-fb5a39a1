@@ -447,8 +447,8 @@ export function ReadinessRevealScene() {
                 className="absolute inset-0 pointer-events-none rounded-[inherit]"
                 style={{
                   background:
-                    "radial-gradient(60% 50% at 50% 50%, rgba(239,77,107,0.18), transparent 70%)",
-                  boxShadow: "inset 0 0 0 1px rgba(239,77,107,0.35)",
+                    "radial-gradient(60% 50% at 50% 50%, rgba(239,77,107,0.13), transparent 72%)",
+                  boxShadow: "inset 0 0 0 1px rgba(239,77,107,0.28)",
                 }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: [0, 1, 0.6] }}
