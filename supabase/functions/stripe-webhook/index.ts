@@ -312,6 +312,9 @@ Deno.serve(async (req) => {
   const corsResponse = handleCorsPreflightRequest(req);
   if (corsResponse) return corsResponse;
 
+  // Hoisted for status-tracking from the outer catch block
+  let _trackedEventId: string | null = null;
+
   try {
     logStep("Webhook received");
 
