@@ -22,8 +22,8 @@ jobs:
     timeout-minutes: 30
     env:
       BASE_URL: ${{ secrets.STAGING_URL || 'https://examfitde.lovable.app' }}
-      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://ubdvvvsiryenhrfmqsvw.supabase.co' }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_3Z80G1ZZqFaK-wzNpNmaZA__1Tc6r8G' }}
       LEARNER_SMOKE_FULL: ${{ github.event_name == 'schedule' && '1' || '0' }}
       LEARNER_SMOKE_SAMPLE: '8'
     steps:
@@ -33,8 +33,8 @@ jobs:
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets
         env:
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_3Z80G1ZZqFaK-wzNpNmaZA__1Tc6r8G' }}
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL || 'https://ubdvvvsiryenhrfmqsvw.supabase.co' }}
         with:
           required: VITE_SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_URL
       - run: bun install --frozen-lockfile
