@@ -11,9 +11,15 @@ import { useEffect } from "react";
  * - Lädt nur einmal pro Session.
  * - Lädt nicht auf Preview-/Lovable-Hosts (nur examfit.de + www).
  */
+// Clarity Project IDs sind öffentlich (im HTML jedes Trackers sichtbar) —
+// daher als Default hardcoded. Override via Build-Secret weiterhin möglich.
+const CLARITY_PROJECT_ID_DEFAULT = "wtos5ydd1l";
+
 export function ClarityTracker() {
   useEffect(() => {
-    const projectId = import.meta.env.VITE_CLARITY_PROJECT_ID as string | undefined;
+    const projectId =
+      (import.meta.env.VITE_CLARITY_PROJECT_ID as string | undefined) ||
+      CLARITY_PROJECT_ID_DEFAULT;
     if (!projectId) return;
 
     if (typeof window === "undefined") return;
