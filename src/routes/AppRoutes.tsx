@@ -37,6 +37,7 @@ const NotFound = lazyRetry(() => import('@/pages/NotFound'));
 const InstallPage = lazyRetry(() => import('@/pages/InstallPage'));
 const RenewPage = lazyRetry(() => import('@/pages/org/RenewPage'));
 const DiagPage = lazyRetry(() => import('@/pages/DiagPage'));
+const HomePageV1Legacy = lazyRetry(() => import('@/pages/HomePage'));
 
 // /app — Account/Verwaltungsbereich (separat von /dashboard Lern-Hub)
 const AppLayout = lazyRetry(() => import('@/pages/app/AppLayout'));
@@ -419,6 +420,7 @@ const AppRoutes = () => {
         {/* Main Layout Routes */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<AuthHomeRoute />} />
+          <Route path="/v1" element={<HomePageV1Legacy />} />
           {/* Funnel: Prüfungsreife-Check needs the marketing header for brand-trust + back-nav (Audit P0) */}
           <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />
           <Route path="/shop" element={<ShopPage />} />
