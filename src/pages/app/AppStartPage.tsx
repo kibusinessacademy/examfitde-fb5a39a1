@@ -9,15 +9,20 @@ import {
   ChevronRight,
   Brain,
   ShieldCheck,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  RefreshCw,
+  Quote,
 } from "lucide-react";
 import "@/components/landing/v2/lp-v2-theme.css";
 
 /**
- * /app/start — Continuity of Belief (Phase 4)
+ * /app/start — Continuity of Belief (Phase 4) + System-OS (Phase 5)
  *
  * Übergang Landingpage → Produkt. Kein Dashboard, keine Kachelwüste.
- * Diagnostische Fortsetzung der Reveal-Szene: Score lebt weiter,
- * ein priorisierter Schritt, ruhige Liveness. Mobile-first.
+ * Phase 5 erweitert: System-Memory, adaptive Recalculation, Tutor-Continuity,
+ * Risiko-als-Zustand, Prüfersprache. Mobile-first, ruhig, prüfungsnah.
  */
 export default function AppStartPage() {
   return (
@@ -25,9 +30,11 @@ export default function AppStartPage() {
       <div className="relative mx-auto flex min-h-screen w-full max-w-[680px] flex-col px-5 pb-24 pt-8 sm:px-8 sm:pt-12">
         <BackgroundAura />
         <SystemHeader />
+        <SystemMemoryStrip />
         <DiagnosisHeadline />
         <ReadinessScore />
         <PriorityCompetency />
+        <CompetencyTrendList />
         <TutorWhisper />
         <SecondaryStripe />
       </div>
@@ -36,7 +43,7 @@ export default function AppStartPage() {
 }
 
 /* -------------------------------------------------------------------- */
-/* Background — single quiet aura, no motion noise                       */
+/* Background                                                            */
 /* -------------------------------------------------------------------- */
 function BackgroundAura() {
   return (
@@ -59,11 +66,30 @@ function BackgroundAura() {
 }
 
 /* -------------------------------------------------------------------- */
-/* System Header — micro signal, keine Marketing-Sprache                */
+/* System Header — Recalc-Heartbeat (adaptive)                           */
 /* -------------------------------------------------------------------- */
 function SystemHeader() {
+  const [minutesAgo, setMinutesAgo] = useState(2);
+  const [recalcing, setRecalcing] = useState(false);
+
+  useEffect(() => {
+    // Sehr selten: Recalculation-Heartbeat (alle ~22s) — kein Spam
+    const tick = setInterval(() => {
+      setRecalcing(true);
+      setTimeout(() => {
+        setRecalcing(false);
+        setMinutesAgo(0);
+      }, 1400);
+    }, 22000);
+    const drift = setInterval(() => setMinutesAgo((m) => m + 1), 60000);
+    return () => {
+      clearInterval(tick);
+      clearInterval(drift);
+    };
+  }, []);
+
   return (
-    <header className="mb-8 flex items-center justify-between">
+    <header className="mb-6 flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span
           className="inline-block h-1.5 w-1.5 rounded-full"
@@ -73,15 +99,85 @@ function SystemHeader() {
           ExamFit · System aktiv
         </span>
       </div>
-      <span className="text-[11px] text-[var(--lp-text-3)] tabular-nums">
-        Analyse · v2.4
-      </span>
+      <AnimatePresence mode="wait">
+        {recalcing ? (
+          <motion.span
+            key="recalc"
+            initial={{ opacity: 0, y: -2 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="flex items-center gap-1.5 text-[11px] text-[var(--lp-aqua)] tabular-nums"
+          >
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            Analyse aktualisiert…
+          </motion.span>
+        ) : (
+          <motion.span
+            key="drift"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="text-[11px] text-[var(--lp-text-3)] tabular-nums"
+          >
+            Analyse · vor {minutesAgo === 0 ? "wenigen Sek" : `${minutesAgo} Min`}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
 
 /* -------------------------------------------------------------------- */
-/* Diagnose-Headline — Fortsetzung statt Begrüßung                      */
+/* System Memory Strip — „Das System erinnert sich"                      */
+/* -------------------------------------------------------------------- */
+function SystemMemoryStrip() {
+  const memos = [
+    { label: "LF 5", state: "weiterhin kritisch", tone: "warn" as const },
+    { label: "Fachgespräch", state: "seit 3 Tagen stabilisiert", tone: "ok" as const },
+    { label: "Bewertungsaufgaben", state: "bleiben fehleranfällig", tone: "warn" as const },
+    { label: "Risiko", state: "leicht gesunken", tone: "ok" as const },
+    { label: "Antwortgeschwindigkeit", state: "verbessert", tone: "ok" as const },
+  ];
+  return (
+    <section className="mb-8 -mx-5 sm:-mx-8">
+      <div
+        className="flex gap-2 overflow-x-auto px-5 pb-1 sm:px-8 [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {memos.map((m, i) => (
+          <motion.div
+            key={m.label}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: i * 0.06 }}
+            className="shrink-0 rounded-full border px-3 py-1.5 text-[11px]"
+            style={{
+              borderColor: m.tone === "warn"
+                ? "rgba(245,183,84,0.22)"
+                : "rgba(46,211,183,0.22)",
+              background: m.tone === "warn"
+                ? "rgba(245,183,84,0.05)"
+                : "rgba(46,211,183,0.05)",
+            }}
+          >
+            <span className="text-[var(--lp-text-2)]">{m.label}</span>
+            <span className="mx-1.5 text-[var(--lp-text-3)]">·</span>
+            <span
+              style={{
+                color: m.tone === "warn" ? "var(--lp-warn)" : "var(--lp-aqua)",
+              }}
+            >
+              {m.state}
+            </span>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* -------------------------------------------------------------------- */
+/* Diagnose-Headline                                                     */
 /* -------------------------------------------------------------------- */
 function DiagnosisHeadline() {
   return (
@@ -94,7 +190,7 @@ function DiagnosisHeadline() {
         style={{ background: "rgba(46,211,183,0.06)" }}
       >
         <Activity className="h-3 w-3" />
-        Analyse abgeschlossen
+        Analyse fortgeführt
       </motion.div>
       <motion.h1
         initial={{ opacity: 0, y: 10 }}
@@ -120,61 +216,45 @@ function DiagnosisHeadline() {
         transition={{ duration: 0.7, delay: 0.35 }}
         className="mt-3 text-[15px] leading-relaxed text-[var(--lp-text-2)] sm:text-base"
       >
-        Die meisten Punktverluste entstehen bei{" "}
+        Typischer Punktverlust entsteht bei{" "}
         <span className="text-[var(--lp-text)]">Bewertungsaufgaben</span> und in
-        der <span className="text-[var(--lp-text)]">Struktur des Fachgesprächs</span>.
-        Das System hat einen 21-Tage-Pfad vorbereitet.
+        der <span className="text-[var(--lp-text)]">Argumentationsstruktur des Fachgesprächs</span>.
+        Das System hat einen 21-Tage-Pfad rekalkuliert.
       </motion.p>
     </section>
   );
 }
 
 /* -------------------------------------------------------------------- */
-/* Readiness Score — zentraler Systemzustand, lebt weiter               */
+/* Readiness Score — adaptive Recalc                                     */
 /* -------------------------------------------------------------------- */
 function ReadinessScore() {
-  const target = 57; // anschluss an Reveal-Szene
   const [val, setVal] = useState(0);
-  const [pulse, setPulse] = useState(false);
+  const [target, setTarget] = useState(57);
+  const [delta, setDelta] = useState<number | null>(null);
 
   useEffect(() => {
-    // Sanftes Hochzählen — keine perfekte Easing-Linie
     const steps = [12, 24, 33, 41, 48, 53, 56, 57];
-    steps.forEach((v, i) =>
-      setTimeout(() => setVal(v), 350 + i * 110),
-    );
+    steps.forEach((v, i) => setTimeout(() => setVal(v), 350 + i * 110));
   }, []);
 
   useEffect(() => {
-    // Selten: subtiler Live-Pulse alle 11–14s
-    const tick = () => {
-      setPulse(true);
-      setTimeout(() => setPulse(false), 700);
-    };
-    const id = setInterval(tick, 12500);
-    return () => clearInterval(id);
+    // Subtile Recalc alle ~22s: ±1, einmalig sichtbar
+    const tick = setInterval(() => {
+      const d = Math.random() > 0.5 ? 1 : -1;
+      setTarget((t) => {
+        const next = Math.max(54, Math.min(62, t + d));
+        setVal(next);
+        setDelta(next - t);
+        setTimeout(() => setDelta(null), 2600);
+        return next;
+      });
+    }, 22000);
+    return () => clearInterval(tick);
   }, []);
 
   return (
     <section className="lp-card relative mb-6 overflow-hidden p-5 sm:p-6">
-      <AnimatePresence>
-        {pulse && (
-          <motion.div
-            key="pulse"
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            style={{
-              background:
-                "radial-gradient(60% 80% at 20% 50%, rgba(46,211,183,0.08), transparent 70%)",
-            }}
-          />
-        )}
-      </AnimatePresence>
-
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--lp-text-3)]">
@@ -185,26 +265,29 @@ function ReadinessScore() {
               {val}
             </span>
             <span className="text-base text-[var(--lp-text-3)]">/100</span>
+            <AnimatePresence>
+              {delta !== null && (
+                <motion.span
+                  key={`delta-${target}`}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="ml-1 text-[11px] tabular-nums"
+                  style={{
+                    color: delta > 0 ? "var(--lp-aqua)" : "var(--lp-warn)",
+                  }}
+                >
+                  {delta > 0 ? "+" : ""}
+                  {delta}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </div>
           <div className="mt-1 text-[13px] text-[var(--lp-text-2)]">
             Knappes Bestehen wahrscheinlich
           </div>
         </div>
-        <div
-          className="flex flex-col items-end gap-2 rounded-xl border px-3 py-2"
-          style={{
-            borderColor: "rgba(245,183,84,0.28)",
-            background: "rgba(245,183,84,0.06)",
-          }}
-        >
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--lp-warn)]">
-            <AlertTriangle className="h-3 w-3" />
-            Risikobereich
-          </div>
-          <span className="text-[11px] text-[var(--lp-text-3)] tabular-nums">
-            −14 Pkt erwartet
-          </span>
-        </div>
+        <RiskState />
       </div>
 
       <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/[0.04]">
@@ -214,7 +297,6 @@ function ReadinessScore() {
             background:
               "linear-gradient(90deg, #f5b754 0%, #2ED3B7 60%, #59F0D0 100%)",
           }}
-          initial={{ width: 0 }}
           animate={{ width: `${val}%` }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         />
@@ -228,25 +310,45 @@ function ReadinessScore() {
   );
 }
 
+/* Persistent risk-as-state badge (subtle, not alarmist) */
+function RiskState() {
+  return (
+    <div
+      className="flex flex-col items-end gap-1.5 rounded-xl border px-3 py-2"
+      style={{
+        borderColor: "rgba(245,183,84,0.24)",
+        background: "rgba(245,183,84,0.04)",
+      }}
+    >
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--lp-warn)]">
+        <AlertTriangle className="h-3 w-3" />
+        Erhöhtes Risiko
+      </div>
+      <span className="text-[10px] text-[var(--lp-text-3)] tabular-nums">
+        −14 Pkt erwartet
+      </span>
+      <span className="text-[10px] text-[var(--lp-text-3)]">stabil seit 2 Tagen</span>
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------- */
-/* Priority Competency — eine Haupthandlung                              */
+/* Priority Competency — eine Haupthandlung + Prüfersprache              */
 /* -------------------------------------------------------------------- */
 function PriorityCompetency() {
   return (
     <section className="mb-6">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--lp-text-3)]">
-          Höchste Priorität
+          Höchste Priorität · vom System gewählt
         </span>
-        <span className="text-[11px] text-[var(--lp-text-3)]">
-          1 von 8 Kompetenzen
-        </span>
+        <span className="text-[11px] text-[var(--lp-text-3)]">1 / 8</span>
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.5 }}
+        transition={{ duration: 0.6, delay: 0.4 }}
         className="lp-card relative overflow-hidden p-5 sm:p-6"
         style={{
           borderColor: "var(--lp-border-emerald)",
@@ -271,27 +373,42 @@ function PriorityCompetency() {
               border: "1px solid rgba(239,77,107,0.25)",
             }}
           >
-            Hoch
+            Kritisch
           </span>
         </div>
 
-        <ul className="mb-5 space-y-2 text-[13px] text-[var(--lp-text-2)]">
+        <ul className="mb-4 space-y-2 text-[13px] text-[var(--lp-text-2)]">
           <Tag>Relevant für schriftlich & mündlich</Tag>
-          <Tag>Aktueller Punktverlust ≈ 9 Pkt</Tag>
-          <Tag>Empfohlene Trainingsdauer · 22 Min</Tag>
+          <Tag>Typischer Punktverlust ≈ 9 Pkt</Tag>
+          <Tag>Bewertungskriterium · Argumentationsstruktur</Tag>
         </ul>
+
+        {/* Examiner micro-quote */}
+        <div
+          className="mb-5 flex gap-2.5 rounded-lg p-3"
+          style={{
+            background: "rgba(255,255,255,0.025)",
+            border: "1px solid var(--lp-border)",
+          }}
+        >
+          <Quote className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[var(--lp-text-3)]" />
+          <p className="text-[12px] leading-relaxed italic text-[var(--lp-text-2)]">
+            „Hier würde ein Prüfer nach der{" "}
+            <span className="not-italic text-[var(--lp-text)]">Begründung</span>{" "}
+            fragen — nicht nach der Lösung."
+          </p>
+        </div>
 
         <Link
           to="/exam-trainer?mode=competency&priority=1&from=app-start"
           className="group flex w-full items-center justify-between rounded-xl px-5 py-4 text-[15px] font-medium transition-transform active:scale-[0.99]"
           style={{
-            background:
-              "linear-gradient(180deg, var(--lp-emerald), #1fb89e)",
+            background: "linear-gradient(180deg, var(--lp-emerald), #1fb89e)",
             color: "#04221C",
             boxShadow: "0 12px 30px -12px rgba(46,211,183,0.55)",
           }}
         >
-          <span>Diese Kompetenz jetzt trainieren</span>
+          <span>Diese Kompetenz jetzt trainieren · 22 Min</span>
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </motion.div>
@@ -312,7 +429,89 @@ function Tag({ children }: { children: React.ReactNode }) {
 }
 
 /* -------------------------------------------------------------------- */
-/* Tutor Whisper — diagnostischer Lernbegleiter, kein Chatbot           */
+/* Competency Trend List — System-Memory pro Kompetenz                   */
+/* -------------------------------------------------------------------- */
+type TrendDir = "up" | "down" | "flat";
+function CompetencyTrendList() {
+  const items: Array<{
+    label: string;
+    state: string;
+    dir: TrendDir;
+    score: number;
+  }> = [
+    { label: "Fachgespräch · Struktur", state: "mündlich stabil", dir: "up", score: 71 },
+    { label: "Transferaufgaben", state: "schriftlich instabil", dir: "down", score: 48 },
+    { label: "Fachbegriffe · Rechnungswesen", state: "leicht verbessert", dir: "up", score: 64 },
+    { label: "Bewertungsaufgaben", state: "häufige Fehlerquelle", dir: "flat", score: 41 },
+  ];
+
+  return (
+    <section className="mb-6">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--lp-text-3)]">
+          Kompetenzentwicklung · letzte 7 Tage
+        </span>
+      </div>
+      <ul className="overflow-hidden rounded-2xl border border-[var(--lp-border)] bg-[var(--lp-elev)]/60">
+        {items.map((it, i) => (
+          <motion.li
+            key={it.label}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.5 + i * 0.05 }}
+            className="flex items-center gap-3 border-b border-white/[0.05] px-4 py-3 last:border-b-0"
+          >
+            <TrendIcon dir={it.dir} />
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] text-[var(--lp-text)]">{it.label}</div>
+              <div className="text-[11px] text-[var(--lp-text-3)]">{it.state}</div>
+            </div>
+            <span
+              className="text-[12px] tabular-nums"
+              style={{
+                color:
+                  it.dir === "up"
+                    ? "var(--lp-aqua)"
+                    : it.dir === "down"
+                      ? "var(--lp-warn)"
+                      : "var(--lp-text-3)",
+              }}
+            >
+              {it.score}
+            </span>
+          </motion.li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TrendIcon({ dir }: { dir: TrendDir }) {
+  const Icon = dir === "up" ? TrendingUp : dir === "down" ? TrendingDown : Minus;
+  const color =
+    dir === "up"
+      ? "var(--lp-aqua)"
+      : dir === "down"
+        ? "var(--lp-warn)"
+        : "var(--lp-text-3)";
+  const bg =
+    dir === "up"
+      ? "rgba(46,211,183,0.08)"
+      : dir === "down"
+        ? "rgba(245,183,84,0.08)"
+        : "rgba(255,255,255,0.03)";
+  return (
+    <div
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+      style={{ background: bg, border: "1px solid var(--lp-border)" }}
+    >
+      <Icon className="h-3.5 w-3.5" style={{ color }} />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------- */
+/* Tutor Whisper — Session-Memory                                        */
 /* -------------------------------------------------------------------- */
 function TutorWhisper() {
   return (
@@ -333,14 +532,27 @@ function TutorWhisper() {
           <Brain className="h-4 w-4" style={{ color: "var(--lp-violet)" }} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] uppercase tracking-wider text-[var(--lp-text-3)]">
-            AI-Tutor · liest LF 5 · Rahmenplan
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] uppercase tracking-wider text-[var(--lp-text-3)]">
+              AI-Tutor · liest LF 5 · Rahmenplan
+            </span>
+            <span className="h-1 w-1 rounded-full bg-[var(--lp-text-3)]" />
+            <span className="text-[11px] text-[var(--lp-text-3)]">3 Sessions analysiert</span>
           </div>
-          <p className="mt-1 text-[14px] leading-relaxed text-[var(--lp-text-2)]">
-            Deine Schwäche liegt nicht im Wissen, sondern in der{" "}
-            <span className="text-[var(--lp-text)]">Begründungs-Struktur</span>{" "}
-            bei offenen Aufgaben. Drei Mikro-Sessions reichen, um das zu drehen.
+          <p className="mt-1.5 text-[14px] leading-relaxed text-[var(--lp-text-2)]">
+            Die Argumentationsstruktur war diesmal{" "}
+            <span className="text-[var(--lp-text)]">stabiler</span> — Fachbegriffe
+            sitzen, aber der Punktverlust liegt weiterhin bei{" "}
+            <span className="text-[var(--lp-text)]">Transferaufgaben</span>. Drei
+            Mikro-Sessions reichen, um das zu drehen.
           </p>
+          <button
+            type="button"
+            className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-[var(--lp-aqua)] hover:text-[var(--lp-mint)] transition-colors"
+          >
+            Analyse vertiefen
+            <ArrowRight className="h-3 w-3" />
+          </button>
         </div>
       </motion.div>
     </section>
@@ -348,7 +560,7 @@ function TutorWhisper() {
 }
 
 /* -------------------------------------------------------------------- */
-/* Secondary Stripe — optionale Exploration, dezent                     */
+/* Secondary Stripe                                                      */
 /* -------------------------------------------------------------------- */
 function SecondaryStripe() {
   const items = [
@@ -356,13 +568,13 @@ function SecondaryStripe() {
       to: "/exam-trainer?mode=oral&from=app-start",
       icon: ShieldCheck,
       label: "Fachgespräch simulieren",
-      hint: "8 Min",
+      hint: "8 Min · Prüferreaktion realistisch",
     },
     {
       to: "/dashboard?view=heatmap",
       icon: Sparkles,
       label: "Vollständige Heatmap öffnen",
-      hint: "8 Lernfelder",
+      hint: "8 Lernfelder · System-Memory",
     },
   ];
   return (
