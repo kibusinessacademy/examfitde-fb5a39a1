@@ -43,6 +43,7 @@ const HomePageV1Legacy = lazyRetry(() => import('@/pages/HomePage'));
 const AppLayout = lazyRetry(() => import('@/pages/app/AppLayout'));
 const AppOverviewPage = lazyRetry(() => import('@/pages/app/AppOverviewPage'));
 const AppStartPage = lazyRetry(() => import('@/pages/app/AppStartPage'));
+const AppOralPage = lazyRetry(() => import('@/pages/app/AppOralPage'));
 const AppCoursesPage = lazyRetry(() => import('@/pages/app/AppCoursesPage'));
 const AppInvoicesPage = lazyRetry(() => import('@/pages/app/AppInvoicesPage'));
 const AppDownloadsPage = lazyRetry(() => import('@/pages/app/AppDownloadsPage'));
@@ -264,6 +265,8 @@ const AppRoutes = () => {
 
         {/* Continuity of Belief — Landingpage → Produkt-Übergang (Phase 4) */}
         <Route path="/app/start" element={<AppStartPage />} />
+        {/* Phase 5.2 — Diagnostische Fachgesprächs-Simulation */}
+        <Route path="/app/oral" element={<AppOralPage />} />
 
         {/* ExamFit@work Public Routes */}
         <Route path="/work" element={<WorkHomePage />} />
