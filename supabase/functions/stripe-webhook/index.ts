@@ -1390,6 +1390,23 @@ Deno.serve(async (req) => {
         paymentIntentId: paymentIntent.id,
         error: paymentIntent.last_payment_error?.message
       });
+      await emitCheckoutFailureEvent(adminClient, {
+        event_type: 'payment_failed',
+        payment_intent: paymentIntent,
+        failure_reason: paymentIntent.last_payment_error?.message ?? null,
+        failure_code: paymentIntent.last_payment_error?.code ?? null,
+      });
+    }
+
+    if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      logStep("Checkout cancelled/expired", { sessionId: session.id, eventType: event.type });
+      await emitCheckoutFailureEvent(adminClient, {
+        event_type: event.type === "checkout.session.async_payment_failed" ? 'payment_failed' : 'checkout_cancelled',
+        session,
+        failure_reason: event.type === "checkout.session.expired" ? 'session_expired' : 'async_payment_failed',
+        failure_code: event.type,
+      });
     }
 
     // ========== ExamFit@work checkout.session.completed (brand=ExamFit@work or legacy) ==========
