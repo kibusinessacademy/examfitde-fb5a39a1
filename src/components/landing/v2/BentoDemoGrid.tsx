@@ -74,7 +74,7 @@ function CountUp({ to, suffix = "", duration = 1.4 }: { to: number; suffix?: str
 
 export function BentoDemoGrid() {
   return (
-    <section className="relative py-20 sm:py-28">
+    <section id="demos" className="relative py-20 sm:py-28 scroll-mt-16">
       <div className="container mx-auto max-w-6xl px-4">
         <div className="text-center mb-12 sm:mb-16 max-w-2xl mx-auto">
           <span className="lp-chip">Erlebe das System</span>
@@ -88,12 +88,12 @@ export function BentoDemoGrid() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 auto-rows-[minmax(220px,auto)] gap-4">
-          {/* Tile 1 — Readiness Score (wide) */}
+          {/* Tile 1 — Readiness Score (HERO TILE — dominant) */}
           <Tile
             className="sm:col-span-2 lg:col-span-2 lg:row-span-2"
             icon={Gauge}
-            label="Tile 01 · Score"
-            title="Live-Prüfungsreife in einer Zahl."
+            label="Tile 01 · Bestehenswahrscheinlichkeit"
+            title="Dein Prüfungs-Score — wie ein Credit-Score."
           >
             <div className="flex items-end gap-5 mt-2">
               <div className="text-6xl sm:text-7xl font-bold lp-gradient-text leading-none">
@@ -159,30 +159,36 @@ export function BentoDemoGrid() {
             </div>
           </Tile>
 
-          {/* Tile 3 — MiniCheck */}
-          <Tile icon={Sparkles} label="Tile 03 · MiniCheck" title="3-Minuten-Sprint.">
+          {/* Tile 3 — Keine Zufallsfragen */}
+          <Tile icon={Sparkles} label="Tile 03 · Targeting" title="Keine Zufallsfragen.">
             <div className="space-y-2">
               {[
-                { q: "Skonto-Berechnung", ok: true },
-                { q: "AfA linear vs degressiv", ok: true },
-                { q: "USt §13b UStG", ok: false },
+                { q: "USt §13b UStG", tag: "schwächste Kompetenz", ok: false },
+                { q: "Skonto-Berechnung", tag: "Wiederholung in 3 Tagen", ok: true },
+                { q: "AfA degressiv 2024", tag: "neu im Rahmenplan", ok: true },
               ].map((r) => (
                 <div
                   key={r.q}
-                  className="flex items-center justify-between rounded-md border border-[var(--lp-border)] px-3 py-2 bg-white/[0.02]"
+                  className="rounded-md border border-[var(--lp-border)] px-3 py-2 bg-white/[0.02]"
                 >
-                  <span className="text-xs text-[var(--lp-text)]">{r.q}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded ${
-                      r.ok
-                        ? "bg-[rgba(74,222,128,0.12)] text-[var(--lp-success)]"
-                        : "bg-[rgba(239,77,107,0.12)] text-[var(--lp-danger)]"
-                    }`}
-                  >
-                    {r.ok ? "✓ richtig" : "✗ Lernlücke"}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[var(--lp-text)]">{r.q}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        r.ok
+                          ? "bg-[rgba(46,211,183,0.10)] text-[var(--lp-aqua)]"
+                          : "bg-[rgba(239,77,107,0.12)] text-[var(--lp-danger)]"
+                      }`}
+                    >
+                      {r.ok ? "geplant" : "jetzt"}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-[var(--lp-text-3)] mt-0.5">{r.tag}</div>
                 </div>
               ))}
+            </div>
+            <div className="mt-3 text-[11px] text-[var(--lp-text-3)]">
+              Jede Aufgabe trainiert gezielt deine schwächste Kompetenz.
             </div>
           </Tile>
 

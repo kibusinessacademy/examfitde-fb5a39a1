@@ -163,6 +163,24 @@
   opacity: 1;
 }
 
+/* Strike-through with gradient pen */
+.lp-v2 .lp-strike {
+  position: relative;
+  color: var(--lp-text-3);
+}
+.lp-v2 .lp-strike::after {
+  content: '';
+  position: absolute;
+  left: -2%;
+  right: -2%;
+  top: 55%;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ef4d6b, #f5b754);
+  transform: rotate(-2deg);
+  box-shadow: 0 0 12px rgba(239, 77, 107, 0.4);
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .lp-v2 * {

@@ -7,7 +7,9 @@ import { StickyCTA } from "@/components/marketing/StickyCTA";
 import "@/components/landing/v2/lp-v2-theme.css";
 import { PremiumHero } from "@/components/landing/v2/PremiumHero";
 import { StoryScrollSection } from "@/components/landing/v2/StoryScrollSection";
+import { WhyNotChatGPTSection } from "@/components/landing/v2/WhyNotChatGPTSection";
 import { BentoDemoGrid } from "@/components/landing/v2/BentoDemoGrid";
+import { NotAnotherCourseSection } from "@/components/landing/v2/NotAnotherCourseSection";
 import { TrustPillars } from "@/components/landing/v2/TrustPillars";
 import { BerufeShowcase } from "@/components/landing/v2/BerufeShowcase";
 import { FAQSection, FAQ_ITEMS } from "@/components/landing/v2/FAQSection";
@@ -55,7 +57,9 @@ export default function HomePageV2() {
       <div className="lp-v2 min-h-screen">
         <PremiumHero />
         <StoryScrollSection />
+        <WhyNotChatGPTSection />
         <BentoDemoGrid />
+        <NotAnotherCourseSection />
         <TrustPillars />
         <BerufeShowcase />
         <FAQSection />

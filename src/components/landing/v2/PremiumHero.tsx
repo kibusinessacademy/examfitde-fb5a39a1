@@ -1,49 +1,49 @@
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
-import { ClipboardCheck, ArrowRight, Sparkles, Brain, Mic, Target, BarChart3 } from "lucide-react";
+import { ClipboardCheck, ArrowRight, Sparkles, Brain, Mic, Target, BarChart3, PlayCircle } from "lucide-react";
 import { trackConversion } from "@/lib/seo-tracking";
 
 /**
- * Premium split-hero with auto-rotating floating product preview.
- * Left: headline + dual CTA + trust strip.
- * Right: stacked glass panels that cycle through the 5 core modules
- * (Readiness · Competencies · Exam Question · AI-Tutor · Oral Sim).
+ * Premium split-hero — C+A combination:
+ *  - Headline = emotional Hook (4 Minuten Prüfungsreife)
+ *  - Subline  = technologischer Moat (Strict-RAG + schriftl./mündl.)
+ *
+ * Right-side panels: micro-parallax + breathing + light hierarchy
+ * (active panel glows strong, ghosts are dimmer than before).
  */
 const PANELS = [
   {
     id: "score",
     icon: BarChart3,
-    title: "Prüfungsreife-Score",
-    value: 72,
+    title: "Bestehenswahrscheinlichkeit",
     body: (
       <div className="space-y-3">
         <div className="flex items-end justify-between">
           <div>
             <div className="text-[11px] uppercase tracking-wider text-[var(--lp-text-3)]">
-              Score
+              Prüfungsreife-Score
             </div>
             <div className="text-4xl font-bold text-[var(--lp-text)] tabular-nums">
               72<span className="text-base text-[var(--lp-text-2)]">/100</span>
             </div>
           </div>
           <span className="text-[11px] px-2 py-1 rounded-md bg-[rgba(74,222,128,0.12)] text-[var(--lp-success)] border border-[rgba(74,222,128,0.25)]">
-            +8 diese Woche
+            Bestehen wahrscheinlich
           </span>
         </div>
         <div className="h-2 rounded-full bg-white/5 overflow-hidden">
           <motion.div
             className="h-full rounded-full"
-            style={{
-              background: "linear-gradient(90deg, #2ED3B7, #59F0D0)",
-            }}
+            style={{ background: "linear-gradient(90deg, #2ED3B7, #59F0D0)" }}
             initial={{ width: 0 }}
             animate={{ width: "72%" }}
             transition={{ duration: 1.1, ease: "easeOut" }}
           />
         </div>
-        <div className="text-xs text-[var(--lp-text-2)]">
-          Prognose: <span className="text-[var(--lp-aqua)]">Bestehen wahrscheinlich</span>
+        <div className="flex items-center justify-between text-[11px] text-[var(--lp-text-3)]">
+          <span>2 kritische Lücken</span>
+          <span className="text-[var(--lp-aqua)]">+8 Punkte / Woche</span>
         </div>
       </div>
     ),
@@ -86,7 +86,7 @@ const PANELS = [
     body: (
       <div className="space-y-2.5">
         <div className="text-xs text-[var(--lp-text-2)] leading-relaxed">
-          „Warum ist die degressive Abschreibung 2024 wieder erlaubt?“
+          „Warum ist die degressive Abschreibung 2024 wieder erlaubt?"
         </div>
         <div className="rounded-lg border border-[var(--lp-border)] bg-black/20 p-3 text-xs leading-relaxed text-[var(--lp-text)]">
           <span className="text-[var(--lp-aqua)]">▍</span> Das Wachstumschancengesetz reaktiviert
@@ -117,18 +117,14 @@ const PANELS = [
             <span className="absolute inset-0 rounded-full border-2 border-[var(--lp-aqua)] animate-ping opacity-40" />
           </div>
           <div className="flex-1">
-            <div className="text-xs text-[var(--lp-text-2)]">Antwort wird bewertet…</div>
+            <div className="text-xs text-[var(--lp-text-2)]">IHK-Fachgespräch · Antwort wird bewertet…</div>
             <div className="flex gap-0.5 mt-1.5">
               {Array.from({ length: 22 }).map((_, i) => (
                 <motion.span
                   key={i}
                   className="w-0.5 rounded-full bg-[var(--lp-aqua)]"
                   animate={{ height: [4, 12 + (i % 5) * 3, 4] }}
-                  transition={{
-                    duration: 0.9,
-                    repeat: Infinity,
-                    delay: i * 0.04,
-                  }}
+                  transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.04 }}
                 />
               ))}
             </div>
@@ -141,10 +137,7 @@ const PANELS = [
             { l: "Struktur", v: 72 },
             { l: "Praxis", v: 81 },
           ].map((s) => (
-            <div
-              key={s.l}
-              className="rounded-md border border-[var(--lp-border)] py-1.5 bg-white/[0.02]"
-            >
+            <div key={s.l} className="rounded-md border border-[var(--lp-border)] py-1.5 bg-white/[0.02]">
               <div className="text-xs text-[var(--lp-text)] font-semibold tabular-nums">{s.v}</div>
               <div className="text-[10px] text-[var(--lp-text-3)]">{s.l}</div>
             </div>
@@ -159,7 +152,7 @@ export function PremiumHero() {
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
-    const t = setInterval(() => setIdx((i) => (i + 1) % PANELS.length), 3800);
+    const t = setInterval(() => setIdx((i) => (i + 1) % PANELS.length), 4200);
     return () => clearInterval(t);
   }, []);
 
@@ -180,17 +173,17 @@ export function PremiumHero() {
             transition={{ duration: 0.5 }}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Das erste intelligente Prüfungstrainingssystem
+            Die erste KI-Prüfungsplattform mit Strict-RAG
           </motion.span>
 
           <motion.h1
-            className="lp-display mt-5 text-4xl sm:text-5xl lg:text-[64px] font-bold leading-[1.05]"
+            className="lp-display mt-5 text-[34px] sm:text-5xl lg:text-[64px] font-bold leading-[1.04]"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
           >
-            Bestehe deine Prüfung{" "}
-            <span className="lp-gradient-text">nicht zufällig.</span>
+            Finde in 4 Minuten heraus,{" "}
+            <span className="lp-gradient-text">wie prüfungsreif du wirklich bist.</span>
           </motion.h1>
 
           <motion.p
@@ -199,16 +192,36 @@ export function PremiumHero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
           >
-            ExamFit analysiert in 4 Minuten deine Schwächen, baut deinen Lernpfad und
-            trainiert dich mit echten Prüfungssimulationen — schriftlich und mündlich —
-            bis zur Abschlussprüfung.
+            Die einzige KI-Prüfungsplattform, die <strong className="text-[var(--lp-text)] font-semibold">nur aus deinem Rahmenplan und Kursinhalt</strong> antwortet — mit schriftlicher & mündlicher Prüfungssimulation nach IHK-Logik.
           </motion.p>
+
+          {/* Proof pills */}
+          <motion.ul
+            className="mt-5 flex flex-wrap gap-2"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.22 }}
+          >
+            {[
+              "Kein Abo",
+              "Schriftlich + mündlich",
+              "Antworten mit Quellen",
+              "Keine Zufallsfragen",
+            ].map((p) => (
+              <li
+                key={p}
+                className="text-[11px] sm:text-xs px-2.5 py-1 rounded-full border border-[var(--lp-border-strong)] bg-white/[0.04] text-[var(--lp-text-2)]"
+              >
+                {p}
+              </li>
+            ))}
+          </motion.ul>
 
           <motion.div
             className="mt-7 flex flex-col sm:flex-row gap-3"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.25 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
           >
             <Link to="/pruefungsreife-check" className="contents">
               <button
@@ -227,7 +240,7 @@ export function PremiumHero() {
                 <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-0.5" />
               </button>
             </Link>
-            <Link to="/shop" className="contents">
+            <a href="#demos" className="contents">
               <button
                 className="lp-cta-ghost h-14 px-6 inline-flex items-center justify-center text-base"
                 data-cta-location="hero_v2_secondary"
@@ -235,64 +248,84 @@ export function PremiumHero() {
                   trackConversion({
                     event: "cta_click",
                     source: "hero_v2",
-                    label: "bundle_view",
+                    label: "live_demo_scroll",
                   })
                 }
               >
-                Komplettpaket ansehen
+                <PlayCircle className="w-5 h-5 mr-2" />
+                Live-Demo ansehen
               </button>
-            </Link>
+            </a>
           </motion.div>
 
-          <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[var(--lp-text-2)]">
-            <span>✓ 4 Minuten · 100 % kostenlos</span>
-            <span>✓ Kein Abo · 12 Monate Zugang</span>
-            <span>✓ Nach IHK-Rahmenplan</span>
+          <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[var(--lp-text-3)]">
+            <span>✓ 4 Minuten</span>
+            <span>✓ Keine Anmeldung</span>
+            <span>✓ DSGVO-konform</span>
           </div>
         </div>
 
-        {/* RIGHT — stacked floating panels */}
+        {/* RIGHT — stacked floating panels with parallax + breathing */}
         <div className="relative h-[420px] sm:h-[460px] lg:h-[520px]">
-          {/* Soft halo */}
-          <div
+          {/* Soft halo follows active panel */}
+          <motion.div
             className="absolute inset-0 rounded-[28px]"
             style={{
               background:
-                "radial-gradient(60% 60% at 50% 50%, rgba(89,240,208,0.18), transparent 70%)",
+                "radial-gradient(60% 60% at 50% 50%, rgba(89,240,208,0.22), transparent 70%)",
             }}
-            aria-hidden
-          />
-
-          {/* Backdrop ghost cards */}
-          <motion.div
-            className="absolute right-6 top-2 w-[78%] h-32 rounded-2xl lp-glass opacity-60"
-            animate={{ y: [0, -4, 0] }}
+            animate={{ opacity: [0.7, 1, 0.7] }}
             transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
             aria-hidden
           />
+
+          {/* Backdrop ghost cards — micro-parallax with different periods + dimmer */}
           <motion.div
-            className="absolute left-0 bottom-6 w-[60%] h-28 rounded-2xl lp-glass opacity-50"
-            animate={{ y: [0, 5, 0] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute right-6 top-2 w-[78%] h-32 rounded-2xl lp-glass"
+            animate={{ y: [0, -6, 0], x: [0, 2, 0] }}
+            transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
+            style={{ opacity: 0.32 }}
+            aria-hidden
+          />
+          <motion.div
+            className="absolute left-0 bottom-6 w-[60%] h-28 rounded-2xl lp-glass"
+            animate={{ y: [0, 8, 0], x: [0, -3, 0] }}
+            transition={{ duration: 7.8, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+            style={{ opacity: 0.28 }}
+            aria-hidden
+          />
+          <motion.div
+            className="absolute right-2 bottom-0 w-[40%] h-20 rounded-2xl lp-glass"
+            animate={{ y: [0, -4, 0] }}
+            transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 1.6 }}
+            style={{ opacity: 0.22 }}
             aria-hidden
           />
 
-          {/* Active panel */}
+          {/* Active panel — breathes softly */}
           <AnimatePresence mode="wait">
             <motion.div
               key={Active.id}
               className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92%] sm:w-[88%] lp-card p-5 sm:p-6"
               style={{
                 boxShadow:
-                  "0 30px 80px -30px rgba(0,0,0,0.7), 0 0 0 1px rgba(89,240,208,0.18) inset",
+                  "0 30px 80px -30px rgba(0,0,0,0.75), 0 0 0 1px rgba(89,240,208,0.28) inset, 0 0 60px -10px rgba(89,240,208,0.25)",
               }}
               initial={{ opacity: 0, y: 18, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
+              animate={{
+                opacity: 1,
+                y: [0, -3, 0],
+                scale: [1, 1.005, 1],
+              }}
               exit={{ opacity: 0, y: -10, scale: 0.98 }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              transition={{
+                opacity: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+                y: { duration: 4.2, repeat: Infinity, ease: "easeInOut" },
+                scale: { duration: 4.2, repeat: Infinity, ease: "easeInOut" },
+              }}
             >
               <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-[rgba(46,211,183,0.15)] flex items-center justify-center border border-[var(--lp-border-emerald)]">
+                <div className="w-8 h-8 rounded-lg bg-[rgba(46,211,183,0.18)] flex items-center justify-center border border-[var(--lp-border-emerald)]">
                   <Active.icon className="w-4 h-4 text-[var(--lp-aqua)]" />
                 </div>
                 <div className="text-sm font-medium text-[var(--lp-text)]">{Active.title}</div>

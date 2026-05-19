@@ -16,19 +16,17 @@ export function FinalCTASection() {
       />
       <div className="relative container mx-auto max-w-3xl px-4 text-center">
         <motion.h2
-          className="lp-display text-3xl sm:text-5xl font-bold leading-tight"
+          className="lp-display text-[30px] sm:text-5xl font-bold leading-[1.06]"
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
         >
-          Du weißt nicht, wo du stehst.{" "}
-          <span className="lp-gradient-text">In 4 Minuten schon.</span>
+          Finde heraus,{" "}
+          <span className="lp-gradient-text">ob du bestehen würdest.</span>
         </motion.h2>
         <p className="lp-body mt-5 text-base sm:text-lg text-[var(--lp-text-2)]">
-          Kein Account nötig. Kein Risiko. Kein Verkaufsgespräch.
-          <br className="hidden sm:block" />
-          Nur ein ehrlicher Blick darauf, wie prüfungsreif du wirklich bist.
+          Eine durchgefallene Prüfung kostet dich Monate. Dieser Check kostet dich 4 Minuten.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Link to="/pruefungsreife-check" className="contents">
@@ -44,7 +42,7 @@ export function FinalCTASection() {
               }
             >
               <ClipboardCheck className="w-5 h-5 mr-2" />
-              Kostenlos Prüfungsreife testen
+              Starte deine Prüfungsanalyse
               <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-0.5" />
             </button>
           </Link>
