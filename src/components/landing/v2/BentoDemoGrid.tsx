@@ -74,7 +74,7 @@ function CountUp({ to, suffix = "", duration = 1.4 }: { to: number; suffix?: str
 
 export function BentoDemoGrid() {
   return (
-    <section className="relative py-20 sm:py-28">
+    <section id="demos" className="relative py-20 sm:py-28 scroll-mt-16">
       <div className="container mx-auto max-w-6xl px-4">
         <div className="text-center mb-12 sm:mb-16 max-w-2xl mx-auto">
           <span className="lp-chip">Erlebe das System</span>
@@ -88,12 +88,12 @@ export function BentoDemoGrid() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 auto-rows-[minmax(220px,auto)] gap-4">
-          {/* Tile 1 — Readiness Score (wide) */}
+          {/* Tile 1 — Readiness Score (HERO TILE — dominant) */}
           <Tile
             className="sm:col-span-2 lg:col-span-2 lg:row-span-2"
             icon={Gauge}
-            label="Tile 01 · Score"
-            title="Live-Prüfungsreife in einer Zahl."
+            label="Tile 01 · Bestehenswahrscheinlichkeit"
+            title="Dein Prüfungs-Score — wie ein Credit-Score."
           >
             <div className="flex items-end gap-5 mt-2">
               <div className="text-6xl sm:text-7xl font-bold lp-gradient-text leading-none">
