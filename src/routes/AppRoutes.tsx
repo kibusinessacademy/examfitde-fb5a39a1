@@ -45,6 +45,7 @@ const AppOverviewPage = lazyRetry(() => import('@/pages/app/AppOverviewPage'));
 const AppStartPage = lazyRetry(() => import('@/pages/app/AppStartPage'));
 const AppOralPage = lazyRetry(() => import('@/pages/app/AppOralPage'));
 const AppLernpfadPage = lazyRetry(() => import('@/pages/app/AppLernpfadPage'));
+const AppTutorPage = lazyRetry(() => import('@/pages/app/AppTutorPage'));
 const AppCoursesPage = lazyRetry(() => import('@/pages/app/AppCoursesPage'));
 const AppInvoicesPage = lazyRetry(() => import('@/pages/app/AppInvoicesPage'));
 const AppDownloadsPage = lazyRetry(() => import('@/pages/app/AppDownloadsPage'));
@@ -270,6 +271,10 @@ const AppRoutes = () => {
         <Route path="/app/oral" element={<AppOralPage />} />
         {/* Phase 5.3 — Risiko-orientierte Prüfungsstrategie */}
         <Route path="/app/lernpfad" element={<AppLernpfadPage />} />
+        {/* Phase 5.4 — Tutor-Surface: Bewusstsein des Systems */}
+        <Route path="/app/tutor" element={<AppTutorPage />} />
+
+
 
         {/* ExamFit@work Public Routes */}
         <Route path="/work" element={<WorkHomePage />} />
