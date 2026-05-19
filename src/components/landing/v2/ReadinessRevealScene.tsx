@@ -349,7 +349,7 @@ export function ReadinessRevealScene() {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5 }}
+                  transition={{ duration: 0.4 }}
                   className="space-y-2"
                 >
                   <div className="text-[11px] uppercase tracking-wider text-[var(--lp-text-3)]">
@@ -370,9 +370,20 @@ export function ReadinessRevealScene() {
                     <motion.div
                       key={r.l}
                       initial={{ opacity: 0, x: -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.25 + i * 0.2 }}
-                      className="px-2.5 py-1.5 rounded-md bg-white/[0.03] border border-[var(--lp-border)]"
+                      animate={{
+                        opacity: 1,
+                        x: 0,
+                        borderColor:
+                          stage === 4
+                            ? "rgba(239,77,107,0.55)"
+                            : "var(--lp-border)",
+                        backgroundColor:
+                          stage === 4
+                            ? "rgba(239,77,107,0.08)"
+                            : "rgba(255,255,255,0.03)",
+                      }}
+                      transition={{ delay: 0.15 + i * 0.18, duration: 0.4 }}
+                      className="px-2.5 py-1.5 rounded-md border"
                     >
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-[var(--lp-text)]">{r.l}</span>
@@ -393,15 +404,17 @@ export function ReadinessRevealScene() {
                       </div>
                     </motion.div>
                   ))}
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.75 }}
-                    className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--lp-aqua)]"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    Lernpfad automatisch generiert
-                  </motion.div>
+                  {stage >= 5 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                      className="flex items-center gap-1.5 mt-2 px-2.5 py-1.5 rounded-md bg-[rgba(46,211,183,0.10)] border border-[var(--lp-border-emerald)] text-[11px] text-[var(--lp-aqua)]"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Empfohlener Lernpfad bereit · 21 Tage
+                    </motion.div>
+                  )}
                 </motion.div>
               ) : (
                 <div className="text-[11px] text-[var(--lp-text-3)] h-20 flex items-center justify-center">
