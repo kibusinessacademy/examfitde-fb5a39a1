@@ -271,6 +271,10 @@ const AppRoutes = () => {
         <Route path="/app/oral" element={<AppOralPage />} />
         {/* Phase 5.3 — Risiko-orientierte Prüfungsstrategie */}
         <Route path="/app/lernpfad" element={<AppLernpfadPage />} />
+        {/* Phase 5.4 — Tutor-Surface: Bewusstsein des Systems */}
+        <Route path="/app/tutor" element={<AppTutorPage />} />
+
+
 
         {/* ExamFit@work Public Routes */}
         <Route path="/work" element={<WorkHomePage />} />
