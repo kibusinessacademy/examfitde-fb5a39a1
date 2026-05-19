@@ -39,21 +39,27 @@ const RISK_LABEL: Record<string, string> = {
   crit: "kritische Kompetenzlücke",
 };
 
-function useCountUp(target: number, run: boolean, duration = 2200) {
-  const [n, setN] = useState(0);
+/** Non-linear score reveal — keyframes mit echten Pausen, fühlt sich „berechnet" an. */
+function useStaggeredCount(run: boolean) {
+  const [n, setN] = useState<number | null>(null);
   useEffect(() => {
     if (!run) return;
-    let raf = 0;
-    const start = performance.now();
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / duration);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setN(Math.round(target * eased));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, run, duration]);
+    // 0 → 34 (fast) → 48 (slow) → pause → 63 (slow) → pause → 67 (final)
+    const steps: Array<[number, number]> = [
+      [0, 0],
+      [350, 21],
+      [650, 34],
+      [1050, 42],
+      [1400, 48],
+      [1750, 48], // pause
+      [2150, 58],
+      [2450, 63],
+      [2800, 63], // pause
+      [3100, 67],
+    ];
+    const timers = steps.map(([t, v]) => window.setTimeout(() => setN(v), t));
+    return () => timers.forEach(clearTimeout);
+  }, [run]);
   return n;
 }
 
@@ -63,23 +69,39 @@ export function ReadinessRevealScene() {
   const [stage, setStage] = useState(0); // 0..4
   const [checked, setChecked] = useState(0);
 
-  // Stage driver
+  /* Non-lineare Choreo — 4 Phasen über ~5.2s
+     Phase 1 (0–800ms)   schnelle Scans — technisch
+     Phase 2 (800–2500)  Heatmap baut auf — diagnostisch (langsamer)
+     Phase 3 (2500–4200) Score zählt mit Pausen — Spannung
+     Phase 4 (4200–5500) Lernpfad + Risiken — Erlösung
+  */
   useEffect(() => {
     if (!inView) return;
     const timers: number[] = [];
-    timers.push(window.setTimeout(() => setStage(1), 350));
-    // Stage 1 → checklist ticks through
-    COMPETENCIES.forEach((_, i) => {
-      timers.push(window.setTimeout(() => setChecked(i + 1), 350 + i * 180));
+
+    // Phase 1 — fast scans (erste 4 Kompetenzen schnell)
+    timers.push(window.setTimeout(() => setStage(1), 200));
+    [0, 1, 2, 3].forEach((i) => {
+      timers.push(window.setTimeout(() => setChecked(i + 1), 250 + i * 110));
     });
-    timers.push(window.setTimeout(() => setStage(2), 350 + COMPETENCIES.length * 180));
-    timers.push(window.setTimeout(() => setStage(3), 350 + COMPETENCIES.length * 180 + 700));
-    timers.push(window.setTimeout(() => setStage(4), 350 + COMPETENCIES.length * 180 + 700 + 2400));
+
+    // Phase 2 — diagnostisch, langsamer (kritische Kompetenzen brauchen länger)
+    [4, 5, 6, 7].forEach((i, k) => {
+      timers.push(window.setTimeout(() => setChecked(i + 1), 800 + k * 260));
+    });
+    timers.push(window.setTimeout(() => setStage(2), 1100)); // Heatmap startet während noch geprüft wird
+
+    // Phase 3 — Spannung
+    timers.push(window.setTimeout(() => setStage(3), 2500));
+
+    // Phase 4 — Erlösung (nach Score-Landung bei 67 ≈ 5.6s)
+    timers.push(window.setTimeout(() => setStage(4), 5800));
+
     return () => timers.forEach(clearTimeout);
   }, [inView]);
 
   const scoreRun = stage >= 3;
-  const score = useCountUp(67, scoreRun, 2200);
+  const scoreVal = useStaggeredCount(scoreRun);
 
   return (
     <section className="relative py-20 sm:py-28 overflow-hidden" ref={ref}>
@@ -231,7 +253,7 @@ export function ReadinessRevealScene() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <div className="lp-display text-5xl sm:text-6xl font-bold tabular-nums text-[var(--lp-text)]">
-                    {scoreRun ? score : "—"}
+                    {scoreVal !== null ? scoreVal : "—"}
                   </div>
                   <div className="text-[10px] uppercase tracking-wider text-[var(--lp-text-3)] mt-1">
                     von 100
@@ -298,37 +320,59 @@ export function ReadinessRevealScene() {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="space-y-1.5"
+                  transition={{ duration: 0.5 }}
+                  className="space-y-2"
                 >
-                  <div className="text-[11px] uppercase tracking-wider text-[var(--lp-text-3)] mb-1">
+                  <div className="text-[11px] uppercase tracking-wider text-[var(--lp-text-3)]">
                     Identifizierte Risiken
                   </div>
                   {[
-                    { l: "Wirtschaftslehre", r: "crit" as const },
-                    { l: "Personal & Recht", r: "high" as const },
-                  ].map((r) => (
-                    <div
+                    {
+                      l: "Wirtschaftslehre",
+                      r: "crit" as const,
+                      c: "Typische Ursache für Punktverlust — viele Prüflinge scheitern hier",
+                    },
+                    {
+                      l: "Personal & Recht",
+                      r: "high" as const,
+                      c: "Erhöhtes Risiko im Fachgespräch",
+                    },
+                  ].map((r, i) => (
+                    <motion.div
                       key={r.l}
-                      className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-md bg-white/[0.03] border border-[var(--lp-border)]"
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.25 + i * 0.2 }}
+                      className="px-2.5 py-1.5 rounded-md bg-white/[0.03] border border-[var(--lp-border)]"
                     >
-                      <span className="text-[var(--lp-text)]">{r.l}</span>
-                      <span
-                        className="text-[10px]"
-                        style={{
-                          color:
-                            r.r === "crit"
-                              ? "var(--lp-danger)"
-                              : "var(--lp-warn)",
-                        }}
-                      >
-                        {RISK_LABEL[r.r]}
-                      </span>
-                    </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--lp-text)]">{r.l}</span>
+                        <span
+                          className="text-[10px]"
+                          style={{
+                            color:
+                              r.r === "crit"
+                                ? "var(--lp-danger)"
+                                : "var(--lp-warn)",
+                          }}
+                        >
+                          {RISK_LABEL[r.r]}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-[var(--lp-text-3)] mt-0.5 italic">
+                        → {r.c}
+                      </div>
+                    </motion.div>
                   ))}
-                  <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--lp-aqua)]">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.75 }}
+                    className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--lp-aqua)]"
+                  >
                     <ShieldCheck className="w-3.5 h-3.5" />
                     Lernpfad automatisch generiert
-                  </div>
+                  </motion.div>
                 </motion.div>
               ) : (
                 <div className="text-[11px] text-[var(--lp-text-3)] h-20 flex items-center justify-center">

@@ -54,8 +54,8 @@ export function WhyNotChatGPTSection() {
             <span className="lp-gradient-text">ChatGPT?</span>
           </h2>
           <p className="lp-display mt-5 text-lg sm:text-2xl font-medium text-[var(--lp-text)] leading-snug">
-            ChatGPT weiß viel.{" "}
-            <span className="lp-gradient-text">ExamFit weiß, was in deiner Prüfung drankommt.</span>
+            ChatGPT kennt Antworten.{" "}
+            <span className="lp-gradient-text">ExamFit kennt deine Prüfung.</span>
           </p>
           <p className="lp-body mt-3 text-sm sm:text-base text-[var(--lp-text-2)]">
             Eine allgemeine KI beantwortet Fragen. Ein Prüfungssystem bereitet dich auf eine

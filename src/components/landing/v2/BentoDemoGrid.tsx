@@ -75,22 +75,22 @@ function CountUp({ to, suffix = "", duration = 1.4 }: { to: number; suffix?: str
 /* ───────────────────────── Interactive Heatmap ───────────────────────── */
 
 const HEATMAP_CELLS = [
-  { name: "Kostenrechnung", v: 86, err: "Deckungsbeitrag-Berechnung sicher", risk: "low" },
-  { name: "Buchführung", v: 64, err: "Konten-Zuordnung mit Abweichungen", risk: "med" },
-  { name: "Steuerrecht", v: 78, err: "USt ok, ESt teilweise unsicher", risk: "low" },
-  { name: "Personalwesen", v: 41, err: "Lohnabrechnung kritisch", risk: "high" },
-  { name: "Wirtschaftslehre", v: 28, err: "Marktformen häufig falsch", risk: "crit" },
-  { name: "Marketing", v: 72, err: "Marketing-Mix solide", risk: "low" },
-  { name: "Logistik", v: 55, err: "Lagerkennzahlen unsicher", risk: "med" },
-  { name: "Controlling", v: 81, err: "Kennzahlen stark", risk: "low" },
-  { name: "Recht (Vertrag)", v: 90, err: "Vertragsrecht prüfungsreif", risk: "low" },
-  { name: "Recht (Arbeits)", v: 38, err: "Kündigungsfristen unsicher", risk: "high" },
-  { name: "Finanzierung", v: 62, err: "Kreditarten ok", risk: "med" },
-  { name: "Investition", v: 70, err: "Statisch ok, dynamisch wackelt", risk: "med" },
-  { name: "Beschaffung", v: 33, err: "ABC-Analyse häufige Fehler", risk: "high" },
-  { name: "Produktion", v: 88, err: "Fertigungsverfahren sicher", risk: "low" },
-  { name: "Qualität", v: 52, err: "QM-Normen lückenhaft", risk: "med" },
-  { name: "Datenschutz", v: 24, err: "DSGVO § kaum verfügbar", risk: "crit" },
+  { name: "Kostenrechnung", v: 86, err: "Deckungsbeitrag-Berechnung sicher", consequence: "Stabil im offenen Teil", risk: "low" },
+  { name: "Buchführung", v: 64, err: "Konten-Zuordnung mit Abweichungen", consequence: "Wiederholung sichert 6–8 Punkte", risk: "med" },
+  { name: "Steuerrecht", v: 78, err: "USt sicher, ESt teilweise unsicher", consequence: "Solide Basis für offene Aufgaben", risk: "low" },
+  { name: "Personalwesen", v: 41, err: "Lohnabrechnung kritisch", consequence: "Typische Ursache für Punktverlust im offenen Teil", risk: "high" },
+  { name: "Wirtschaftslehre", v: 28, err: "Marktformen häufig falsch zugeordnet", consequence: "Hohe Fehlerwahrscheinlichkeit — viele Prüflinge scheitern hier", risk: "crit" },
+  { name: "Marketing", v: 72, err: "Marketing-Mix solide", consequence: "Prüfungsreif — keine Maßnahme nötig", risk: "low" },
+  { name: "Logistik", v: 55, err: "Lagerkennzahlen unsicher", consequence: "Relevant für Berechnungsaufgaben", risk: "med" },
+  { name: "Controlling", v: 81, err: "Kennzahlen stark", consequence: "Prüfungsreif", risk: "low" },
+  { name: "Recht (Vertrag)", v: 90, err: "Vertragsrecht prüfungsreif", consequence: "Sicherer Punktbringer", risk: "low" },
+  { name: "Recht (Arbeits)", v: 38, err: "Kündigungsfristen unsicher", consequence: "Relevant für Fachgespräch — hohes Risiko", risk: "high" },
+  { name: "Finanzierung", v: 62, err: "Kreditarten ok", consequence: "Stabil — Wiederholung empfohlen", risk: "med" },
+  { name: "Investition", v: 70, err: "Statisch ok, dynamisch wackelt", consequence: "Punktverlust möglich bei Kapitalwertmethode", risk: "med" },
+  { name: "Beschaffung", v: 33, err: "ABC-Analyse mit häufigen Fehlern", consequence: "Typische Ursache für Punktverlust bei Bewertungsaufgaben", risk: "high" },
+  { name: "Produktion", v: 88, err: "Fertigungsverfahren sicher", consequence: "Prüfungsreif", risk: "low" },
+  { name: "Qualität", v: 52, err: "QM-Normen lückenhaft", consequence: "Wiederholung sichert Teilpunkte", risk: "med" },
+  { name: "Datenschutz", v: 24, err: "DSGVO §§ kaum verfügbar", consequence: "Kritische Lücke — Fachgespräch-Risiko", risk: "crit" },
 ] as const;
 
 const RISK_LABEL: Record<string, string> = {
@@ -172,6 +172,11 @@ function InteractiveHeatmap() {
               <div className="text-[10px] text-[var(--lp-text-3)] mt-0.5">
                 {c.err}
               </div>
+              {(c.risk === "high" || c.risk === "crit") && (
+                <div className="text-[10px] text-[var(--lp-text-2)] mt-1 pt-1 border-t border-[var(--lp-border)] italic">
+                  → {c.consequence}
+                </div>
+              )}
             </motion.div>
           ) : (
             <div className="text-[11px] text-[var(--lp-text-3)]">
@@ -242,22 +247,6 @@ function StreamingTutor() {
           )}
         </AnimatePresence>
       </div>
-      {done && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-2 flex flex-wrap gap-1.5"
-        >
-          {["Beispielaufgabe", "Verwandte Frage", "In Rahmenplan zeigen"].map((c) => (
-            <span
-              key={c}
-              className="text-[10px] px-2 py-1 rounded-full bg-white/[0.04] border border-[var(--lp-border)] text-[var(--lp-text-2)]"
-            >
-              {c}
-            </span>
-          ))}
-        </motion.div>
-      )}
       <div className="mt-2 text-[11px] text-[var(--lp-text-3)]">
         Antwortet nur aus Kurs + Rahmenplan. Niemals frei erfunden.
       </div>
@@ -267,26 +256,66 @@ function StreamingTutor() {
 
 /* ───────────────────────── Oral Sim with Drama ───────────────────────── */
 
-const ORAL_STATUS = [
-  "Antwort wird transkribiert…",
-  "Prüfer denkt nach…",
-  "Fachlichkeit wird bewertet…",
-  "Struktur-Analyse läuft…",
-];
+const ORAL_SCORES = [
+  { l: "Fach", v: 88 },
+  { l: "Struktur", v: 72 },
+  { l: "Praxis", v: 81 },
+] as const;
 
+/**
+ * Choreo (zyklisch, ~16s):
+ *  0–8.5s  SPEAKING  — Waveform aktiv, Timer läuft, Status-Carousel
+ *  8.5–9.5 SETTLE    — Waveform fällt, Timer stoppt, "Prüfer analysiert Antwort…"
+ *  9.5–13  REVEAL    — Scores erscheinen nacheinander (Fach → Struktur → Praxis)
+ *  13–16   VERDICT   — Gesamt-Badge sichtbar
+ *  loop
+ */
 function OralSimulation() {
-  const [secs, setSecs] = useState(134);
-  const [si, setSi] = useState(0);
+  const [phase, setPhase] = useState<"speaking" | "settle" | "reveal" | "verdict">(
+    "speaking",
+  );
+  const [secs, setSecs] = useState(124);
+  const [revealed, setRevealed] = useState(0); // 0..3
+
+  // Phase driver
   useEffect(() => {
-    const t = window.setInterval(() => setSecs((s) => s + 1), 1000);
-    const s = window.setInterval(() => setSi((i) => (i + 1) % ORAL_STATUS.length), 2400);
-    return () => {
-      clearInterval(t);
-      clearInterval(s);
+    const timers: number[] = [];
+    const cycle = () => {
+      setPhase("speaking");
+      setRevealed(0);
+      setSecs(124);
+      timers.push(window.setTimeout(() => setPhase("settle"), 8500));
+      timers.push(window.setTimeout(() => setPhase("reveal"), 9500));
+      timers.push(window.setTimeout(() => setRevealed(1), 9800));
+      timers.push(window.setTimeout(() => setRevealed(2), 10800));
+      timers.push(window.setTimeout(() => setRevealed(3), 11800));
+      timers.push(window.setTimeout(() => setPhase("verdict"), 13000));
+      timers.push(window.setTimeout(cycle, 16000));
     };
+    cycle();
+    return () => timers.forEach(clearTimeout);
   }, []);
+
+  // Timer ticks only while speaking
+  useEffect(() => {
+    if (phase !== "speaking") return;
+    const t = window.setInterval(() => setSecs((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [phase]);
+
   const mm = String(Math.floor(secs / 60)).padStart(2, "0");
   const ss = String(secs % 60).padStart(2, "0");
+  const speaking = phase === "speaking";
+
+  const statusText =
+    phase === "speaking"
+      ? "IHK-Fachgespräch · Antwort wird transkribiert…"
+      : phase === "settle"
+      ? "Prüfer analysiert Antwort…"
+      : phase === "reveal"
+      ? "Bewertung wird aufgebaut…"
+      : "Bewertung abgeschlossen";
+
   return (
     <>
       <div className="flex items-center gap-3">
@@ -295,52 +324,89 @@ function OralSimulation() {
             <motion.span
               key={i}
               className="w-0.5 rounded-full bg-[var(--lp-aqua)]"
-              animate={{ height: [4, 6 + (i % 7) * 4, 4] }}
-              transition={{
-                duration: 0.9,
-                repeat: Infinity,
-                delay: i * 0.03,
-              }}
+              animate={
+                speaking
+                  ? { height: [4, 6 + (i % 7) * 4, 4], opacity: 1 }
+                  : { height: 4, opacity: 0.35 }
+              }
+              transition={
+                speaking
+                  ? { duration: 0.9, repeat: Infinity, delay: i * 0.03 }
+                  : { duration: 0.5 }
+              }
             />
           ))}
         </div>
         <Timer className="w-4 h-4 text-[var(--lp-text-2)]" />
-        <span className="text-xs tabular-nums text-[var(--lp-text-2)]">
+        <span
+          className={`text-xs tabular-nums transition-colors ${
+            speaking ? "text-[var(--lp-text-2)]" : "text-[var(--lp-text-3)]"
+          }`}
+        >
           {mm}:{ss}
         </span>
       </div>
+
       <div className="mt-2 h-4 overflow-hidden text-[11px]">
         <AnimatePresence mode="wait">
           <motion.div
-            key={si}
-            initial={{ y: 12, opacity: 0 }}
+            key={statusText}
+            initial={{ y: 10, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -12, opacity: 0 }}
-            transition={{ duration: 0.35 }}
-            className="text-[var(--lp-text-3)]"
+            exit={{ y: -10, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className={
+              phase === "settle"
+                ? "text-[var(--lp-aqua)]"
+                : "text-[var(--lp-text-3)]"
+            }
           >
-            {ORAL_STATUS[si]}
+            {statusText}
           </motion.div>
         </AnimatePresence>
       </div>
+
       <div className="grid grid-cols-3 gap-2 mt-3">
-        {[
-          { l: "Fach", v: 88 },
-          { l: "Struktur", v: 72 },
-          { l: "Praxis", v: 81 },
-        ].map((s) => (
-          <div
-            key={s.l}
-            className="rounded-lg border border-[var(--lp-border)] bg-white/[0.02] p-2.5 text-center"
-          >
-            <div className="lp-display text-2xl font-bold text-[var(--lp-text)] tabular-nums">
-              {s.v}
-            </div>
-            <div className="text-[10px] text-[var(--lp-text-3)] uppercase tracking-wider">
-              {s.l}
-            </div>
-          </div>
-        ))}
+        {ORAL_SCORES.map((s, i) => {
+          const shown = revealed > i;
+          return (
+            <motion.div
+              key={s.l}
+              className="rounded-lg border border-[var(--lp-border)] bg-white/[0.02] p-2.5 text-center"
+              animate={{
+                borderColor: shown ? "var(--lp-border-emerald)" : "var(--lp-border)",
+              }}
+              transition={{ duration: 0.4 }}
+            >
+              <div className="lp-display text-2xl font-bold tabular-nums text-[var(--lp-text)] h-8 flex items-center justify-center">
+                <AnimatePresence mode="wait">
+                  {shown ? (
+                    <motion.span
+                      key="v"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25 }}
+                    >
+                      {s.v}
+                    </motion.span>
+                  ) : (
+                    <motion.span
+                      key="dot"
+                      className="text-[var(--lp-text-3)] text-base"
+                      animate={{ opacity: [0.3, 0.7, 0.3] }}
+                      transition={{ duration: 1.2, repeat: Infinity }}
+                    >
+                      ···
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+              <div className="text-[10px] text-[var(--lp-text-3)] uppercase tracking-wider">
+                {s.l}
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </>
   );
