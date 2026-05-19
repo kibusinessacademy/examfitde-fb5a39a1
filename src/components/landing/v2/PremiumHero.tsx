@@ -366,6 +366,26 @@ export function PremiumHero() {
                 </div>
               </div>
               {Active.body}
+
+              {/* Rare live update — wirkt wie ein echtes System, das gerade reagiert */}
+              <AnimatePresence>
+                {ping && (
+                  <motion.div
+                    key={ping}
+                    initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.96 }}
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute -top-2 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[rgba(46,211,183,0.14)] border border-[var(--lp-border-emerald)] backdrop-blur text-[10px] text-[var(--lp-aqua)] shadow-lg"
+                  >
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--lp-aqua)] opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[var(--lp-aqua)]" />
+                    </span>
+                    {ping}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           </AnimatePresence>
         </div>
