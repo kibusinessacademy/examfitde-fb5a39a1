@@ -94,8 +94,8 @@ export function ReadinessRevealScene() {
     // Phase 3 — Spannung
     timers.push(window.setTimeout(() => setStage(3), 2500));
 
-    // Phase 4 — Erlösung
-    timers.push(window.setTimeout(() => setStage(4), 4400));
+    // Phase 4 — Erlösung (nach Score-Landung bei 67 ≈ 5.6s)
+    timers.push(window.setTimeout(() => setStage(4), 5800));
 
     return () => timers.forEach(clearTimeout);
   }, [inView]);
