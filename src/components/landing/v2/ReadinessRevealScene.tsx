@@ -253,7 +253,7 @@ export function ReadinessRevealScene() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <div className="lp-display text-5xl sm:text-6xl font-bold tabular-nums text-[var(--lp-text)]">
-                    {scoreRun ? score : "—"}
+                    {scoreVal !== null ? scoreVal : "—"}
                   </div>
                   <div className="text-[10px] uppercase tracking-wider text-[var(--lp-text-3)] mt-1">
                     von 100
