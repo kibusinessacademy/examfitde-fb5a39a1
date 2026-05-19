@@ -39,23 +39,26 @@ const RISK_LABEL: Record<string, string> = {
   crit: "kritische Kompetenzlücke",
 };
 
-/** Non-linear score reveal — keyframes mit echten Pausen, fühlt sich „berechnet" an. */
+/** Non-linear score reveal — Mikro-Asymmetrie: ungerade Pausen + kleine Korrekturen. */
 function useStaggeredCount(run: boolean) {
   const [n, setN] = useState<number | null>(null);
   useEffect(() => {
     if (!run) return;
-    // 0 → 34 (fast) → 48 (slow) → pause → 63 (slow) → pause → 67 (final)
+    // Bewusst unregelmäßig — kleine Korrekturen (49→48) wirken wie echte Berechnung, nicht wie Animation.
     const steps: Array<[number, number]> = [
       [0, 0],
-      [350, 21],
-      [650, 34],
-      [1050, 42],
-      [1400, 48],
-      [1750, 48], // pause
-      [2150, 58],
-      [2450, 63],
-      [2800, 63], // pause
-      [3100, 67],
+      [320, 18],
+      [580, 31],
+      [870, 39],
+      [1180, 49],
+      [1430, 48], // Mikro-Korrektur — System "zieht nach"
+      [1820, 48], // Denkpause
+      [2240, 57],
+      [2520, 62],
+      [2790, 63],
+      [3120, 63], // zweite Pause
+      [3380, 66],
+      [3540, 67],
     ];
     const timers = steps.map(([t, v]) => window.setTimeout(() => setN(v), t));
     return () => timers.forEach(clearTimeout);
@@ -66,36 +69,40 @@ function useStaggeredCount(run: boolean) {
 export function ReadinessRevealScene() {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-25% 0px -25% 0px" });
-  const [stage, setStage] = useState(0); // 0..4
+  const [stage, setStage] = useState(0); // 0..5 (5 = rescue revealed)
   const [checked, setChecked] = useState(0);
 
-  /* Non-lineare Choreo — 4 Phasen über ~5.2s
-     Phase 1 (0–800ms)   schnelle Scans — technisch
-     Phase 2 (800–2500)  Heatmap baut auf — diagnostisch (langsamer)
-     Phase 3 (2500–4200) Score zählt mit Pausen — Spannung
-     Phase 4 (4200–5500) Lernpfad + Risiken — Erlösung
+  /* Choreo — 5 Phasen über ~7.0s
+     Phase 1 (0–800ms)    schnelle Scans — technisch
+     Phase 2 (800–2500)   Heatmap baut auf — diagnostisch (ungerade Abstände)
+     Phase 3 (2500–5800)  Score zählt mit Mikro-Asymmetrie — Spannung
+     Phase 4 (5800–6500)  Risiko-Flash (rot kurz) — Konsequenz / "Oh sh*t"
+     Phase 5 (6500+)      Rettung: Lernpfad generiert — Erlösung
   */
   useEffect(() => {
     if (!inView) return;
     const timers: number[] = [];
 
-    // Phase 1 — fast scans (erste 4 Kompetenzen schnell)
     timers.push(window.setTimeout(() => setStage(1), 200));
-    [0, 1, 2, 3].forEach((i) => {
-      timers.push(window.setTimeout(() => setChecked(i + 1), 250 + i * 110));
+    // Erste 4 Kompetenzen — leicht unregelmäßiges Tempo (nicht alle 110ms)
+    [110, 230, 340, 480].forEach((t, i) => {
+      timers.push(window.setTimeout(() => setChecked(i + 1), 250 + t));
     });
 
-    // Phase 2 — diagnostisch, langsamer (kritische Kompetenzen brauchen länger)
-    [4, 5, 6, 7].forEach((i, k) => {
-      timers.push(window.setTimeout(() => setChecked(i + 1), 800 + k * 260));
+    // Phase 2 — diagnostisch, ungerade (kritische dauern länger)
+    [820, 1130, 1480, 1770].forEach((t, i) => {
+      timers.push(window.setTimeout(() => setChecked(i + 5), t));
     });
-    timers.push(window.setTimeout(() => setStage(2), 1100)); // Heatmap startet während noch geprüft wird
+    timers.push(window.setTimeout(() => setStage(2), 1100));
 
-    // Phase 3 — Spannung
+    // Phase 3 — Score-Spannung
     timers.push(window.setTimeout(() => setStage(3), 2500));
 
-    // Phase 4 — Erlösung (nach Score-Landung bei 67 ≈ 5.6s)
-    timers.push(window.setTimeout(() => setStage(4), 5800));
+    // Phase 4 — kurzer Risiko-Flash NACH Score-Landung
+    timers.push(window.setTimeout(() => setStage(4), 6000));
+
+    // Phase 5 — Rettung: Lernpfad bereit (psychologisch: nicht Angst, sondern Lösung)
+    timers.push(window.setTimeout(() => setStage(5), 6700));
 
     return () => timers.forEach(clearTimeout);
   }, [inView]);
