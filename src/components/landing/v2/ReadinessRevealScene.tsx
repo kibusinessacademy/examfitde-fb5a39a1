@@ -39,21 +39,27 @@ const RISK_LABEL: Record<string, string> = {
   crit: "kritische Kompetenzlücke",
 };
 
-function useCountUp(target: number, run: boolean, duration = 2200) {
-  const [n, setN] = useState(0);
+/** Non-linear score reveal — keyframes mit echten Pausen, fühlt sich „berechnet" an. */
+function useStaggeredCount(run: boolean) {
+  const [n, setN] = useState<number | null>(null);
   useEffect(() => {
     if (!run) return;
-    let raf = 0;
-    const start = performance.now();
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / duration);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setN(Math.round(target * eased));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, run, duration]);
+    // 0 → 34 (fast) → 48 (slow) → pause → 63 (slow) → pause → 67 (final)
+    const steps: Array<[number, number]> = [
+      [0, 0],
+      [350, 21],
+      [650, 34],
+      [1050, 42],
+      [1400, 48],
+      [1750, 48], // pause
+      [2150, 58],
+      [2450, 63],
+      [2800, 63], // pause
+      [3100, 67],
+    ];
+    const timers = steps.map(([t, v]) => window.setTimeout(() => setN(v), t));
+    return () => timers.forEach(clearTimeout);
+  }, [run]);
   return n;
 }
 
@@ -63,23 +69,39 @@ export function ReadinessRevealScene() {
   const [stage, setStage] = useState(0); // 0..4
   const [checked, setChecked] = useState(0);
 
-  // Stage driver
+  /* Non-lineare Choreo — 4 Phasen über ~5.2s
+     Phase 1 (0–800ms)   schnelle Scans — technisch
+     Phase 2 (800–2500)  Heatmap baut auf — diagnostisch (langsamer)
+     Phase 3 (2500–4200) Score zählt mit Pausen — Spannung
+     Phase 4 (4200–5500) Lernpfad + Risiken — Erlösung
+  */
   useEffect(() => {
     if (!inView) return;
     const timers: number[] = [];
-    timers.push(window.setTimeout(() => setStage(1), 350));
-    // Stage 1 → checklist ticks through
-    COMPETENCIES.forEach((_, i) => {
-      timers.push(window.setTimeout(() => setChecked(i + 1), 350 + i * 180));
+
+    // Phase 1 — fast scans (erste 4 Kompetenzen schnell)
+    timers.push(window.setTimeout(() => setStage(1), 200));
+    [0, 1, 2, 3].forEach((i) => {
+      timers.push(window.setTimeout(() => setChecked(i + 1), 250 + i * 110));
     });
-    timers.push(window.setTimeout(() => setStage(2), 350 + COMPETENCIES.length * 180));
-    timers.push(window.setTimeout(() => setStage(3), 350 + COMPETENCIES.length * 180 + 700));
-    timers.push(window.setTimeout(() => setStage(4), 350 + COMPETENCIES.length * 180 + 700 + 2400));
+
+    // Phase 2 — diagnostisch, langsamer (kritische Kompetenzen brauchen länger)
+    [4, 5, 6, 7].forEach((i, k) => {
+      timers.push(window.setTimeout(() => setChecked(i + 1), 800 + k * 260));
+    });
+    timers.push(window.setTimeout(() => setStage(2), 1100)); // Heatmap startet während noch geprüft wird
+
+    // Phase 3 — Spannung
+    timers.push(window.setTimeout(() => setStage(3), 2500));
+
+    // Phase 4 — Erlösung
+    timers.push(window.setTimeout(() => setStage(4), 4400));
+
     return () => timers.forEach(clearTimeout);
   }, [inView]);
 
   const scoreRun = stage >= 3;
-  const score = useCountUp(67, scoreRun, 2200);
+  const scoreVal = useStaggeredCount(scoreRun);
 
   return (
     <section className="relative py-20 sm:py-28 overflow-hidden" ref={ref}>
