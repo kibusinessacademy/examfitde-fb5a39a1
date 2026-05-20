@@ -72,26 +72,66 @@ export default function GrowthPage() {
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1 rounded-xl">
-          <TabsTrigger value="dashboard" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><BarChart3 className="h-3 w-3" /> Dashboard</TabsTrigger>
-          <TabsTrigger value="growth" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Rocket className="h-3 w-3" /> Growth Loop</TabsTrigger>
-          <TabsTrigger value="keywords" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Search className="h-3 w-3" /> Keywords</TabsTrigger>
-          <TabsTrigger value="briefs" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Target className="h-3 w-3" /> Briefs</TabsTrigger>
-          <TabsTrigger value="blog" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><FileText className="h-3 w-3" /> Blog</TabsTrigger>
-          <TabsTrigger value="pages" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Globe className="h-3 w-3" /> Seiten</TabsTrigger>
-          <TabsTrigger value="links" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Link2 className="h-3 w-3" /> Links</TabsTrigger>
-          <TabsTrigger value="audit" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Zap className="h-3 w-3" /> Audit</TabsTrigger>
-          <TabsTrigger value="refresh" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><RefreshCw className="h-3 w-3" /> Refresh</TabsTrigger>
-          <TabsTrigger value="discovery" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Radar className="h-3 w-3" /> Discovery</TabsTrigger>
-          <TabsTrigger value="seo" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Settings className="h-3 w-3" /> SEO</TabsTrigger>
-          <TabsTrigger value="redirects" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Link2 className="h-3 w-3" /> Redirects</TabsTrigger>
-          <TabsTrigger value="assets" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Image className="h-3 w-3" /> Assets</TabsTrigger>
-          <TabsTrigger value="social" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Share2 className="h-3 w-3" /> Social</TabsTrigger>
-          <TabsTrigger value="pricing" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Euro className="h-3 w-3" /> Preise</TabsTrigger>
-          <TabsTrigger value="promo" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Tag className="h-3 w-3" /> Promo</TabsTrigger>
-          <TabsTrigger value="songs" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Music className="h-3 w-3" /> Songs</TabsTrigger>
-          <TabsTrigger value="humor" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><Laugh className="h-3 w-3" /> Humor QC</TabsTrigger>
-          <TabsTrigger value="intel" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg data-[state=active]:text-primary"><Activity className="h-3 w-3" /> Marketing-Intel</TabsTrigger>
-          <TabsTrigger value="fanout" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg"><ScrollText className="h-3 w-3" /> Post-Publish Fanout</TabsTrigger>
+          <TabsTrigger value="dashboard" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <BarChart3 className="h-3 w-3" /> Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="growth" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Rocket className="h-3 w-3" /> Growth Loop
+          </TabsTrigger>
+          <TabsTrigger value="keywords" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Search className="h-3 w-3" /> Keywords
+          </TabsTrigger>
+          <TabsTrigger value="briefs" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Target className="h-3 w-3" /> Briefs
+          </TabsTrigger>
+          <TabsTrigger value="blog" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <FileText className="h-3 w-3" /> Blog
+          </TabsTrigger>
+          <TabsTrigger value="pages" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Globe className="h-3 w-3" /> Seiten
+          </TabsTrigger>
+          <TabsTrigger value="links" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Link2 className="h-3 w-3" /> Links
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Zap className="h-3 w-3" /> Audit
+          </TabsTrigger>
+          <TabsTrigger value="refresh" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <RefreshCw className="h-3 w-3" /> Refresh
+          </TabsTrigger>
+          <TabsTrigger value="discovery" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Radar className="h-3 w-3" /> Discovery
+          </TabsTrigger>
+          <TabsTrigger value="seo" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Settings className="h-3 w-3" /> SEO
+          </TabsTrigger>
+          <TabsTrigger value="redirects" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Link2 className="h-3 w-3" /> Redirects
+          </TabsTrigger>
+          <TabsTrigger value="assets" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Image className="h-3 w-3" /> Assets
+          </TabsTrigger>
+          <TabsTrigger value="social" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Share2 className="h-3 w-3" /> Social
+          </TabsTrigger>
+          <TabsTrigger value="pricing" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Euro className="h-3 w-3" /> Preise
+          </TabsTrigger>
+          <TabsTrigger value="promo" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Tag className="h-3 w-3" /> Promo
+          </TabsTrigger>
+          <TabsTrigger value="songs" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Music className="h-3 w-3" /> Songs
+          </TabsTrigger>
+          <TabsTrigger value="humor" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <Laugh className="h-3 w-3" /> Humor QC
+          </TabsTrigger>
+          <TabsTrigger value="intel" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg data-[state=active]:text-primary">
+            <Activity className="h-3 w-3" /> Marketing-Intel
+          </TabsTrigger>
+          <TabsTrigger value="fanout" className="text-xs py-1.5 gap-1 data-[state=active]:bg-background rounded-lg">
+            <ScrollText className="h-3 w-3" /> Post-Publish Fanout
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-4 space-y-4">
