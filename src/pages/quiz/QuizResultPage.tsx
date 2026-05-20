@@ -33,6 +33,7 @@ import { Loader2, AlertCircle, ArrowRight, Quote, Activity } from "lucide-react"
 import { SEOHead } from "@/components/seo/SEOHead";
 import { SITE_URL } from "@/lib/seo";
 import "@/components/landing/v2/lp-v2-theme.css";
+import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 
 type MasteryLevel = "low" | "mid" | "high";
 type RecommendedMode = "learn" | "train" | "simulate";
@@ -277,6 +278,8 @@ export default function QuizResultPage() {
     return { label: "Zustand stabil seit letzter Analyse", delta, tone: "flat" as const };
   }, [finalScore, previousScore]);
 
+  const system = useSystemConsciousness();
+  const wroteSystemRef = useMemo(() => ({ current: false }), [attemptId]);
   useEffect(() => {
     if (!attemptId || isLoading || error) return;
     track("quiz_result_viewed", {
@@ -294,6 +297,33 @@ export default function QuizResultPage() {
         trend_delta: trend.delta,
       },
     });
+
+    // Cross-Surface-Sync: Ergebnis schreibt globalen Prüfungszustand
+    if (!wroteSystemRef.current) {
+      wroteSystemRef.current = true;
+      const blended = Math.round(system.readiness * 0.4 + finalScore * 0.6);
+      system.setReadiness(blended);
+      system.updateRisk("transfer_argumentation", {
+        label:
+          profile.riskTone === "ok"
+            ? "Transferargumentation belastbarer"
+            : profile.riskTone === "watch"
+            ? "Transferargumentation unter Belastung schwankend"
+            : "Transferargumentation strukturell instabil",
+        tone:
+          profile.riskTone === "ok"
+            ? "stable"
+            : profile.riskTone === "watch"
+            ? "watch"
+            : "critical",
+      });
+      system.remember(
+        `Prüfungsreife-Analyse · ${profile.stateHeadline} (${finalScore}%)`,
+        "Prüfungsreife-Analyse",
+        profile.riskTone === "ok" ? "stable" : profile.riskTone === "watch" ? "watch" : "critical",
+      );
+      system.recalc("Prüfungszustand aktualisiert");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attemptId, packageId, isLoading, error]);
 

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useSystemConsciousness, type RiskKey } from "@/lib/system/SystemConsciousness";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
@@ -37,6 +38,27 @@ import "@/components/landing/v2/lp-v2-theme.css";
 export default function AppKompetenzPage() {
   const { competencyId } = useParams();
   const data = useMemo(() => deriveCompetency(competencyId), [competencyId]);
+  const system = useSystemConsciousness();
+  const wroteRef = useRef<string | null>(null);
+
+  // Cross-Surface-Sync: Kompetenz-Beobachtung in globalen Zustand spiegeln
+  useEffect(() => {
+    if (wroteRef.current === data.id) return;
+    wroteRef.current = data.id;
+    const riskKey: RiskKey = data.id === "lf5" ? "lf5_bewertung" : "transfer_argumentation";
+    system.updateRisk(riskKey, {
+      label: data.riskHeadline,
+      tone: data.riskTone,
+    });
+    system.remember(
+      `${data.name} · ${data.stateLabel}`,
+      "Tutor",
+      data.riskTone,
+    );
+    system.recalc("Kompetenz erneut bewertet");
+  }, [data, system]);
+
+
 
   return (
     <main className="lp-v2 min-h-screen w-full">
