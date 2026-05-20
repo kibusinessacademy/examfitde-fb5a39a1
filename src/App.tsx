@@ -108,6 +108,7 @@ function AppChrome() {
       <OfflineIndicator />
       <Toaster />
       <Sonner />
+      <SystemConsciousnessOverlay />
       <AppRoutes />
       {showNativeTabBar ? <NativeTabBar /> : <MobileWebBottomNav />}
       <InstallPrompt />
