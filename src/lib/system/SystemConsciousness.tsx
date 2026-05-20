@@ -51,7 +51,19 @@ interface SystemConsciousnessState {
   risks: Record<RiskKey, RiskState>;
   memory: MemoryEntry[]; // jüngste zuerst, cap 20
   lastRecalc: RecalcEvent | null;
+  signals: BehavioralSignals; // Phase 6 — Verhaltens-Signale unter Prüfungsbedingungen
 }
+
+/** Phase 6 — Verhaltens-Signale (0..1), exponentiell gewichtet. */
+export interface BehavioralSignals {
+  timePressure: number;        // wie stark der Nutzer unter Zeit gerät
+  hesitation: number;          // Zögern bei Antwortwahl
+  structureStability: number;  // wie stabil Antwortstruktur unter Belastung bleibt
+  confidence: number;          // Ausdruck-/Wahlsicherheit
+  updatedAt: number;
+}
+
+export type SignalKey = Exclude<keyof BehavioralSignals, "updatedAt">;
 
 interface SystemConsciousnessApi extends SystemConsciousnessState {
   setReadiness: (n: number) => void;
@@ -59,7 +71,17 @@ interface SystemConsciousnessApi extends SystemConsciousnessState {
   remember: (text: string, source: MemoryEntry["source"], tone?: MemoryEntry["tone"]) => void;
   recalc: (message: string) => void;
   topRisks: (n?: number) => RiskState[];
+  /** Phase 6 — Verhaltens-Signale aufzeichnen (exponentielle Glättung). */
+  recordSignal: (key: SignalKey, value: number, weight?: number) => void;
 }
+
+const DEFAULT_SIGNALS: BehavioralSignals = {
+  timePressure: 0.35,
+  hesitation: 0.3,
+  structureStability: 0.6,
+  confidence: 0.55,
+  updatedAt: Date.now(),
+};
 
 const DEFAULT_RISKS: Record<RiskKey, RiskState> = {
   transfer_argumentation: { key: "transfer_argumentation", label: "Transferargumentation instabil", tone: "critical", since: Date.now() - 8 * 86400000 },
@@ -83,6 +105,7 @@ const DEFAULT_STATE: SystemConsciousnessState = {
   risks: DEFAULT_RISKS,
   memory: DEFAULT_MEMORY,
   lastRecalc: null,
+  signals: DEFAULT_SIGNALS,
 };
 
 const STORAGE_KEY = "ef_sysconsciousness_v1";
@@ -98,6 +121,7 @@ function hydrate(): SystemConsciousnessState {
       risks: { ...DEFAULT_STATE.risks, ...(parsed.risks ?? {}) },
       memory: Array.isArray(parsed.memory) && parsed.memory.length > 0 ? parsed.memory.slice(0, 20) : DEFAULT_STATE.memory,
       lastRecalc: parsed.lastRecalc ?? null,
+      signals: { ...DEFAULT_SIGNALS, ...(parsed.signals ?? {}) },
     };
   } catch {
     return DEFAULT_STATE;
@@ -188,9 +212,24 @@ export function SystemConsciousnessProvider({ children }: { children: ReactNode 
     [state.risks],
   );
 
+  // Phase 6 — Behavioral Signal Recording mit exponentieller Glättung.
+  // weight=0.3 = ruhig (Default), höhere weights = schnellere Reaktion.
+  const recordSignal = useCallback<SystemConsciousnessApi["recordSignal"]>((key, value, weight = 0.3) => {
+    const v = Math.max(0, Math.min(1, value));
+    const w = Math.max(0, Math.min(1, weight));
+    setState((s) => {
+      const prev = s.signals[key];
+      const blended = prev * (1 - w) + v * w;
+      return {
+        ...s,
+        signals: { ...s.signals, [key]: Number(blended.toFixed(3)), updatedAt: Date.now() },
+      };
+    });
+  }, []);
+
   const api = useMemo<SystemConsciousnessApi>(
-    () => ({ ...state, setReadiness, updateRisk, remember, recalc, topRisks }),
-    [state, setReadiness, updateRisk, remember, recalc, topRisks],
+    () => ({ ...state, setReadiness, updateRisk, remember, recalc, topRisks, recordSignal }),
+    [state, setReadiness, updateRisk, remember, recalc, topRisks, recordSignal],
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
@@ -207,6 +246,7 @@ export function useSystemConsciousness(): SystemConsciousnessApi {
       remember: () => {},
       recalc: () => {},
       topRisks: (n = 3) => Object.values(DEFAULT_STATE.risks).slice(0, n),
+      recordSignal: () => {},
     };
   }
   return ctx;

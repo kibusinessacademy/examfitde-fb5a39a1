@@ -239,6 +239,18 @@ export default function AppMiniCheckPage() {
         tone: "watch",
       });
     }
+    // Phase 6 — Verhaltens-Signale aus dem Pick + Bearbeitungszeit ableiten
+    const timePressure = Math.min(1, Math.max(0, (elapsed - 25) / 45));
+    const hesitation = Math.min(1, Math.max(0, (elapsed - 10) / 35));
+    const confidence =
+      pick.quality === "strong" ? 0.85 : pick.quality === "partial" ? 0.55 : 0.3;
+    const structure =
+      pick.quality === "strong" ? 0.8 : pick.quality === "partial" ? 0.55 : 0.35;
+    system.recordSignal("timePressure", timePressure, 0.35);
+    system.recordSignal("hesitation", hesitation, 0.35);
+    system.recordSignal("confidence", confidence, 0.4);
+    system.recordSignal("structureStability", structure, 0.4);
+
     system.remember(
       `MiniCheck · ${PROMPT.competency}: ${stateAfter.label}`,
       "MiniCheck",
@@ -246,8 +258,14 @@ export default function AppMiniCheckPage() {
     );
     const delta = pick.quality === "strong" ? 2 : pick.quality === "partial" ? 0 : -1;
     system.setReadiness(system.readiness + delta);
-    system.recalc("Prüfungszustand aktualisiert");
-  }, [stage, pick, stateAfter, system]);
+    system.recalc(
+      pick.quality === "weak" && timePressure > 0.5
+        ? "Zeitdruck-Risiko erhöht"
+        : pick.quality === "strong"
+        ? "Transferstabilität neu bewertet"
+        : "Prüfungszustand aktualisiert"
+    );
+  }, [stage, pick, stateAfter, elapsed, system]);
 
   function handlePick(o: DiagPrompt["options"][number]) {
     if (pick) return;
@@ -256,6 +274,7 @@ export default function AppMiniCheckPage() {
     // Deliberative Analysephase — bewusst nicht instant
     setTimeout(() => setStage("reflect"), 2200);
   }
+
 
   return (
     <div

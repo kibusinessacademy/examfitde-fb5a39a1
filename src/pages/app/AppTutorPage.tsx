@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import "@/components/landing/v2/lp-v2-theme.css";
 import { useSystemConsciousness, daysSince } from "@/lib/system/SystemConsciousness";
+import { useExamPsychology } from "@/lib/system/ExamPsychology";
 
 /**
  * /app/tutor — Phase 5.4: Tutor-Surface
@@ -306,6 +307,16 @@ function dotColor(t: Obs["tone"]) {
 /* Risk Interpretation — nicht erklären, sondern bewerten              */
 /* ------------------------------------------------------------------ */
 function RiskInterpretation() {
+  const { patterns, examiner, priority } = useExamPsychology();
+  const headline = patterns[0]?.observation
+    ?? "Der wiederkehrende Punktverlust deutet auf ein strukturelles Transferproblem.";
+  const lines = examiner.length > 0
+    ? examiner.map((e) => e.text)
+    : [
+        "Antworten bleiben fachlich, kippen aber in Aufzählung.",
+        "Rückfragen treffen meist die Begründungsebene.",
+        "Punktverlust korreliert mit Aufgaben > 90 Sek. Bearbeitungszeit.",
+      ];
   return (
     <section
       className="mb-6 rounded-[18px] p-5"
@@ -324,38 +335,45 @@ function RiskInterpretation() {
           className="text-[10.5px] uppercase tracking-[0.2em]"
           style={{ color: "rgba(232,180,180,0.78)" }}
         >
-          Interpretation
+          Interpretation · Examiner-Lens
         </span>
       </div>
       <p
         className="lp-display mb-3 text-[18px] leading-[1.4]"
         style={{ color: "rgba(245,232,232,0.95)" }}
       >
-        Der wiederkehrende Punktverlust deutet auf ein strukturelles
-        Transferproblem — nicht auf fehlendes Wissen.
+        {headline}
       </p>
       <ul
         className="space-y-1.5 text-[13px]"
         style={{ color: "rgba(220,210,210,0.75)" }}
       >
-        <li className="flex items-start gap-2">
-          <span className="mt-1.5 inline-block h-1 w-1 rounded-full bg-white/40" />
-          <span>Antworten bleiben fachlich, kippen aber in Aufzählung.</span>
-        </li>
-        <li className="flex items-start gap-2">
-          <span className="mt-1.5 inline-block h-1 w-1 rounded-full bg-white/40" />
-          <span>Rückfragen treffen meist die Begründungsebene.</span>
-        </li>
-        <li className="flex items-start gap-2">
-          <span className="mt-1.5 inline-block h-1 w-1 rounded-full bg-white/40" />
-          <span>
-            Punktverlust korreliert mit Aufgaben &gt; 90 Sek. Bearbeitungszeit.
-          </span>
-        </li>
+        {lines.map((line) => (
+          <li key={line} className="flex items-start gap-2">
+            <span className="mt-1.5 inline-block h-1 w-1 rounded-full bg-white/40" />
+            <span>{line}</span>
+          </li>
+        ))}
       </ul>
+      {patterns[0]?.cause && (
+        <p
+          className="mt-4 border-t border-white/5 pt-3 text-[12px] leading-relaxed"
+          style={{ color: "rgba(220,210,210,0.55)" }}
+        >
+          <span className="uppercase tracking-[0.18em] text-[10px]">Ursache · </span>
+          {patterns[0].cause}
+        </p>
+      )}
+      <p
+        className="mt-3 text-[12px]"
+        style={{ color: "rgba(232,196,124,0.85)" }}
+      >
+        Strategische Priorität · {priority.focus} · {priority.expectedImpact}
+      </p>
     </section>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Prioritized Focus — nicht Optionen, sondern Priorisierung           */

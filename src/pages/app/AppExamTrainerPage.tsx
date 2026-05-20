@@ -105,7 +105,7 @@ const SectionTitle = ({ icon: Icon, eyebrow, title }: { icon: any; eyebrow: stri
 );
 
 export default function AppExamTrainerPage() {
-  const { recalc, remember, updateRisk, setReadiness, readiness } = useSystemConsciousness();
+  const { recalc, remember, updateRisk, setReadiness, readiness, recordSignal } = useSystemConsciousness();
   const [phase, setPhase] = useState<Phase>("pre");
   const [idx, setIdx] = useState(0);
   const [elapsed, setElapsed] = useState(0); // sec since exam start
@@ -140,8 +140,11 @@ export default function AppExamTrainerPage() {
       ];
       setPressureSignal(pool[(elapsed / 25) % pool.length]);
       setStability((v) => Math.max(40, v - Math.round(current.timePressureWeight * 3)));
+      // Phase 6 — kontinuierlicher Zeitdruck-Signal-Buildup
+      const pressure = Math.min(1, elapsed / 90 * current.timePressureWeight);
+      recordSignal("timePressure", pressure, 0.25);
     }
-  }, [elapsed, phase, current.timePressureWeight]);
+  }, [elapsed, phase, current.timePressureWeight, recordSignal]);
 
   const examinerToneNote = useMemo(() => {
     if (tone === "critical") return "Ein Prüfer würde hier vermutlich nachhaken.";
@@ -190,6 +193,22 @@ export default function AppExamTrainerPage() {
       });
       setReadiness(Math.round(readiness * 0.7 + next * 0.3));
       remember(verdict, "Exam-Trainer", globalTone);
+      // Phase 6 — Behavioral Signals aus Antwortqualität + Bearbeitungsdauer
+      recordSignal(
+        "structureStability",
+        quality === "strong" ? 0.8 : quality === "partial" ? 0.55 : 0.3,
+        0.4,
+      );
+      recordSignal(
+        "confidence",
+        quality === "strong" ? 0.8 : quality === "partial" ? 0.5 : 0.3,
+        0.4,
+      );
+      recordSignal(
+        "hesitation",
+        Math.min(1, Math.max(0, (elapsed - 30) / 60)),
+        0.3,
+      );
 
       if (idx + 1 < EXAM.length) {
         setIdx((i) => i + 1);
