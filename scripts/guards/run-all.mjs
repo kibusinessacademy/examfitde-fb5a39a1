@@ -27,6 +27,7 @@ const guards = [
   "trigger-function-parity-guard.mjs",
   "sql-discipline-guard.mjs",
   "guard-package-status-demotes.mjs",
+  "semantic-search-feedback-guard.mjs",
 ];
 
 function run(entry) {
@@ -39,8 +40,8 @@ function run(entry) {
 
 try {
   for (const g of guards) run(g);
-  console.log("\n✅ All ExamFit guards passed.");
+  console.log("All ExamFit guards passed.");
 } catch (e) {
-  console.error("\n❌ ExamFit guard failed.");
+  console.error("ExamFit guard failed.");
   process.exit(1);
 }
