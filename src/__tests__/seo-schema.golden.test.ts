@@ -22,6 +22,7 @@ import {
   buildKompetenzSatelliteSchema,
   composeSchemaGraph,
   serializeSchema,
+  type JsonLdObject,
   type SchemaBuilderContext,
 } from "@/lib/seo/schema";
 import { generateBerufFaqs } from "@/lib/llm-grounding";
@@ -69,7 +70,7 @@ describe("P3 Schema — atomic builders", () => {
       { name: "Wissen", url: "https://examfitde.lovable.app/wissen" },
     ]);
     expect(bc["@type"]).toBe("BreadcrumbList");
-    const items = bc.itemListElement as ReadonlyArray<{ position: number }>;
+    const items = bc.itemListElement as unknown as ReadonlyArray<{ position: number }>;
     expect(items.map((i) => i.position)).toEqual([1, 2]);
   });
 
@@ -77,10 +78,9 @@ describe("P3 Schema — atomic builders", () => {
     const a = { "@context": "https://schema.org" as const, "@type": "WebPage", "@id": "z" };
     const b = { "@context": "https://schema.org" as const, "@type": "Course", "@id": "a" };
     const graph = composeSchemaGraph([a, b]);
-    const nodes = graph["@graph"] as ReadonlyArray<{ "@id": string }>;
+    const nodes = graph["@graph"] as unknown as ReadonlyArray<{ "@id": string; "@context"?: string }>;
     expect(nodes.map((n) => n["@id"])).toEqual(["a", "z"]);
-    // inner @context stripped
-    expect((nodes[0] as Record<string, unknown>)["@context"]).toBeUndefined();
+    expect(nodes[0]["@context"]).toBeUndefined();
   });
 });
 
