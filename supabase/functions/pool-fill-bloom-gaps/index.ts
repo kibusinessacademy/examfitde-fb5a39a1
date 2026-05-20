@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-import { callAIJSON } from "../_shared/ai-client.ts";
+// C7 cleanup (2026-05-20): callAIJSON import removed — function uses Lovable AI Gateway
+// directly (LOVABLE_API_KEY) per Patch D.2. The import was dead and tripped Phase 2
+// gateway-bypass guards. NO direct GOOGLE_AI_API_KEY usage remains.
 import { getModelChainAsync } from "../_shared/model-routing.ts";
 import { resolveProfession } from "../_shared/profession-resolver.ts";
 import { enqueueJob } from "../_shared/enqueue.ts";
