@@ -1,10 +1,5 @@
 /**
  * Phase 8.4 — Runtime Examiner Legacy / Drift Guard.
- *
- * Laufzeit-Assertions, die sicherstellen, dass Surfaces ausschließlich
- * aus der zentralen Examiner-SSOT lesen. Wird in Dev-Mode in
- * `useExaminerConsciousness` aufgerufen und als Audit-Telemetrie
- * (`examiner_surface_drift`) emittiert.
  */
 import type { ExaminerConsciousness } from "./ExaminerConsciousness";
 
@@ -36,29 +31,18 @@ export function readDriftAudit(): readonly DriftAuditEvent[] {
   return _audit.slice();
 }
 
-/** Sicherstellen, dass ein Surface keine eigene Verdict-Quelle hat. */
 export function assertSingleExaminerSource(surface: string, sources: number): void {
   if (sources !== 1) {
-    recordDrift({
-      type: "examiner_legacy_logic_detected",
-      surface,
-      details: { reason: "multiple_examiner_sources", count: sources },
-    });
+    recordDrift({ type: "examiner_legacy_logic_detected", surface, details: { reason: "multiple_examiner_sources", count: sources } });
   }
 }
 
-/** Sicherstellen, dass das lokale Surface kein eigenes Verdict bildet. */
 export function assertNoLocalVerdict(surface: string, hasLocalVerdict: boolean): void {
   if (hasLocalVerdict) {
-    recordDrift({
-      type: "examiner_legacy_logic_detected",
-      surface,
-      details: { reason: "local_verdict_present" },
-    });
+    recordDrift({ type: "examiner_legacy_logic_detected", surface, details: { reason: "local_verdict_present" } });
   }
 }
 
-/** Vergleich zweier Examiner-Snapshots auf Surface-Drift. */
 export function assertNoSurfaceRiskDrift(
   surfaceA: string,
   surfaceB: string,
@@ -66,17 +50,13 @@ export function assertNoSurfaceRiskDrift(
   b: ExaminerConsciousness,
 ): boolean {
   const drifts: string[] = [];
-  if (a.authority.status !== b.authority.status) drifts.push("authority.status");
-  if (a.deliberation.verdict !== b.deliberation.verdict) drifts.push("deliberation.verdict");
+  if (a.authority.state !== b.authority.state) drifts.push("authority.state");
+  if (a.deliberation.readiness_state !== b.deliberation.readiness_state) drifts.push("deliberation.readiness_state");
   if (Math.round(a.readiness) !== Math.round(b.readiness)) drifts.push("readiness");
   if (a.topRisks.length !== b.topRisks.length) drifts.push("topRisks.length");
   if (a.trend.direction !== b.trend.direction) drifts.push("trend.direction");
   if (drifts.length > 0) {
-    recordDrift({
-      type: "examiner_surface_drift",
-      surface: `${surfaceA}<>${surfaceB}`,
-      details: { drifts },
-    });
+    recordDrift({ type: "examiner_surface_drift", surface: `${surfaceA}<>${surfaceB}`, details: { drifts } });
     return false;
   }
   return true;

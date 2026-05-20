@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function ReadinessTimeline({ trend, stability }: Props) {
-  const points = trend.history?.slice(-12) ?? [];
+  const points = (trend.series ?? []).slice(-12).map((p) => p.smoothed);
   const max = 100;
   return (
     <section aria-labelledby="readiness-timeline-h">
@@ -18,7 +18,7 @@ export function ReadinessTimeline({ trend, stability }: Props) {
           Prüfungsreife im Verlauf
         </h3>
         <span className="text-xs text-text-tertiary">
-          Stabilität: {stability.level} · Tendenz: {trend.direction}
+          Stabilität: {stability.reading} · Tendenz: {trend.direction}
         </span>
       </header>
       <div className="flex items-end gap-1 h-16 border-b border-border-subtle">

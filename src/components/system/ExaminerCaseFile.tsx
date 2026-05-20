@@ -32,8 +32,8 @@ export function ExaminerCaseFile({ className }: Props) {
       </CardHeader>
       <CardContent className="p-5 space-y-6">
         <ExaminerSummaryPanel
-          verdict={ex.deliberation.verdict}
-          authorityStatus={ex.authority.status}
+          verdict={ex.deliberation.readiness_state}
+          authorityStatus={ex.authority.state}
           confidence={ex.deliberation.confidence}
           readiness={ex.readiness}
         />

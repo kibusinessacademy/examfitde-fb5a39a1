@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function EvidenceHistoryTimeline({ chains }: Props) {
-  const items = chains.flatMap((c) => c.items.map((i) => ({ ...i, chain: c.id })));
+  const items = chains.flatMap((c) => c.evidence.map((e) => ({ ...e, claim: c.claim })));
   if (items.length === 0) {
     return (
       <section>
@@ -25,13 +25,13 @@ export function EvidenceHistoryTimeline({ chains }: Props) {
       <ol className="space-y-1.5">
         {items.slice(0, 8).map((it, i) => (
           <li
-            key={`${it.chain}-${i}`}
+            key={`${it.id}-${i}`}
             className="flex items-start gap-2 text-xs text-text-secondary border-l-2 border-border-subtle pl-3"
           >
             <span className="font-mono text-[10px] text-text-tertiary mt-0.5 shrink-0">
               {it.severity}
             </span>
-            <span className="min-w-0">{it.statement}</span>
+            <span className="min-w-0">{it.observation}</span>
           </li>
         ))}
       </ol>

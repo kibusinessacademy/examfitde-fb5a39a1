@@ -1,14 +1,6 @@
 /**
  * Phase 8.6 — Examiner Forensics & Replay Engine.
- *
- * Deterministische Wiedergabe einer Prüfer-Entscheidung anhand eines
- * eingefrorenen `ExaminerDecisionRecord`. Reine Funktionen, keine
- * Side-Effects, keine UI.
- *
- * Garantiert:
- *   - same input => same output
- *   - stable evidence sorting
- *   - stable confidence rounding
+ * Deterministische Wiedergabe und Widerspruchs-Erkennung.
  */
 import type { ExaminerDecisionRecord } from "./ExaminerDecisionLog";
 import type { EvidenceChain } from "./ExaminerEvidence";
@@ -20,35 +12,29 @@ export interface ReplayResult {
   normalized: ExaminerDecisionRecord;
 }
 
-/** Replay einer Entscheidung — liefert das normalisierte (gefrorene) Record. */
 export function replayExaminerDecision(record: ExaminerDecisionRecord): ReplayResult {
   const normalized = freezeRecord(record);
   const drifts: string[] = [];
   if (normalized.confidence !== record.confidence) drifts.push("confidence");
-  if (normalized.verdict !== record.verdict) drifts.push("verdict");
+  if (normalized.verdict_headline !== record.verdict_headline) drifts.push("verdict_headline");
   return { ok: drifts.length === 0, drifts, normalized };
 }
 
-/** Vergleicht zwei Entscheidungs-Outputs auf Determinismus-Drift. */
 export function compareDecisionOutputs(
   a: ExaminerDecisionRecord,
   b: ExaminerDecisionRecord,
 ): { ok: boolean; drifts: string[] } {
   const drifts: string[] = [];
-  if (a.verdict !== b.verdict) drifts.push("verdict");
+  if (a.verdict_headline !== b.verdict_headline) drifts.push("verdict_headline");
+  if (a.readiness_state !== b.readiness_state) drifts.push("readiness_state");
   if (round2(a.confidence) !== round2(b.confidence)) drifts.push("confidence");
   if (a.readiness !== b.readiness) drifts.push("readiness");
-  if (a.evidence.length !== b.evidence.length) drifts.push("evidence.length");
+  if (a.evidence_ids.length !== b.evidence_ids.length) drifts.push("evidence.length");
   return { ok: drifts.length === 0, drifts };
 }
 
-/** Findet logische Widersprüche in einer Examiner-Entscheidung. */
 export interface Contradiction {
-  kind:
-    | "unsupported_verdict"
-    | "orphan_evidence"
-    | "impossible_confidence"
-    | "conflicting_risks";
+  kind: "unsupported_verdict" | "orphan_evidence" | "impossible_confidence" | "conflicting_risks";
   details: string;
 }
 
@@ -59,19 +45,19 @@ export function detectContradictions(args: {
 }): Contradiction[] {
   const out: Contradiction[] = [];
   const { decision, deliberation, evidence } = args;
-  if (decision.verdict === "ready_for_exam" && deliberation.blockers.length > 0) {
-    out.push({ kind: "unsupported_verdict", details: `ready trotz ${deliberation.blockers.length} Blockern` });
+  if (decision.readiness_state === "ready_for_exam" && deliberation.blocking_risks.length > 0) {
+    out.push({ kind: "unsupported_verdict", details: `ready trotz ${deliberation.blocking_risks.length} Blockern` });
   }
   if (decision.confidence < 0 || decision.confidence > 1) {
     out.push({ kind: "impossible_confidence", details: `c=${decision.confidence}` });
   }
   for (const chain of evidence) {
-    if (chain.items.length === 0) {
-      out.push({ kind: "orphan_evidence", details: `chain ${chain.id} ohne items` });
+    if (chain.evidence.length === 0) {
+      out.push({ kind: "orphan_evidence", details: `chain "${chain.claim}" ohne Belege` });
     }
   }
-  const criticals = evidence.flatMap((c) => c.items).filter((i) => i.severity === "critical").length;
-  if (criticals > 0 && decision.verdict === "ready_for_exam") {
+  const criticals = evidence.flatMap((c) => c.evidence).filter((i) => i.severity === "critical").length;
+  if (criticals > 0 && decision.readiness_state === "ready_for_exam") {
     out.push({ kind: "conflicting_risks", details: `${criticals} critical evidence vs ready` });
   }
   return out;
@@ -85,6 +71,6 @@ function freezeRecord(r: ExaminerDecisionRecord): ExaminerDecisionRecord {
   return {
     ...r,
     confidence: round2(r.confidence),
-    evidence: [...r.evidence].sort((a, b) => String(a.id).localeCompare(String(b.id))),
+    evidence_ids: [...r.evidence_ids].sort((a, b) => a.localeCompare(b)),
   };
 }
