@@ -47,6 +47,7 @@ const AppOralPage = lazyRetry(() => import('@/pages/app/AppOralPage'));
 const AppLernpfadPage = lazyRetry(() => import('@/pages/app/AppLernpfadPage'));
 const AppTutorPage = lazyRetry(() => import('@/pages/app/AppTutorPage'));
 const AppKompetenzPage = lazyRetry(() => import('@/pages/app/AppKompetenzPage'));
+const AppMiniCheckPage = lazyRetry(() => import('@/pages/app/AppMiniCheckPage'));
 const AppCoursesPage = lazyRetry(() => import('@/pages/app/AppCoursesPage'));
 const AppInvoicesPage = lazyRetry(() => import('@/pages/app/AppInvoicesPage'));
 const AppDownloadsPage = lazyRetry(() => import('@/pages/app/AppDownloadsPage'));
@@ -277,6 +278,9 @@ const AppRoutes = () => {
         {/* Phase 5.5 — Kompetenzseiten: diagnostische Räume, keine Lerninhaltseiten */}
         <Route path="/app/kompetenz/:competencyId" element={<AppKompetenzPage />} />
         <Route path="/app/kompetenz" element={<AppKompetenzPage />} />
+        {/* Phase 5.6 — MiniChecks: diagnostische Prüfungsimpulse */}
+        <Route path="/app/minicheck/:competencyId" element={<AppMiniCheckPage />} />
+        <Route path="/app/minicheck" element={<AppMiniCheckPage />} />
 
 
 
