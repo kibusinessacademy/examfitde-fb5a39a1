@@ -470,7 +470,7 @@ export default function PricingSectionHighConvert() {
                 }}
                 asChild
               >
-                <Link to="/pruefungscheck">Prüfungsreife kostenlos testen</Link>
+                <Link to="/pruefungscheck">Prüfungsanalyse starten</Link>
               </Button>
             </div>
           </motion.div>
