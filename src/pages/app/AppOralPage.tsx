@@ -194,7 +194,20 @@ function SimulationStage() {
 
     const next = Math.round(system.readiness * 0.7 + sessionStability * 100 * 0.3);
     system.setReadiness(next);
-    system.recalc("Prüfungszustand aktualisiert");
+
+    // Phase 6 — Verhaltens-Signale aus der Oral-Session
+    system.recordSignal("structureStability", inWindow ? 0.75 : 0.45, 0.4);
+    system.recordSignal("confidence", inWindow ? 0.7 : 0.4, 0.35);
+    system.recordSignal(
+      "timePressure",
+      elapsed < 40 ? 0.7 : elapsed > 90 ? 0.6 : 0.3,
+      0.3,
+    );
+    system.recordSignal("hesitation", elapsed < 30 ? 0.7 : 0.3, 0.3);
+
+    system.recalc(
+      inWindow ? "Mündliche Belastbarkeit verbessert" : "Transferstabilität neu bewertet",
+    );
   }, [phase, elapsed, system]);
 
   const reset = () => {
