@@ -20,6 +20,7 @@ import "@/components/landing/v2/lp-v2-theme.css";
 import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 import { useExamPsychology } from "@/lib/system/ExamPsychology";
 import { DramaturgyChip } from "@/components/system/DramaturgyChip";
+import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
 
 /**
  * /app/lernpfad — Phase 5.3: Risiko-orientierte Prüfungsstrategie
