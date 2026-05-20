@@ -140,8 +140,11 @@ export default function AppExamTrainerPage() {
       ];
       setPressureSignal(pool[(elapsed / 25) % pool.length]);
       setStability((v) => Math.max(40, v - Math.round(current.timePressureWeight * 3)));
+      // Phase 6 — kontinuierlicher Zeitdruck-Signal-Buildup
+      const pressure = Math.min(1, elapsed / 90 * current.timePressureWeight);
+      recordSignal("timePressure", pressure, 0.25);
     }
-  }, [elapsed, phase, current.timePressureWeight]);
+  }, [elapsed, phase, current.timePressureWeight, recordSignal]);
 
   const examinerToneNote = useMemo(() => {
     if (tone === "critical") return "Ein Prüfer würde hier vermutlich nachhaken.";
