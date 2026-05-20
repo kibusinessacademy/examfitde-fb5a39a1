@@ -10,8 +10,23 @@
 
 import { generateFaqs } from "@/lib/llm-grounding";
 import type { KnowledgeGraph } from "@/lib/semantic/KnowledgeGraph";
-import { relatedCompetencies, relatedExamScenarios } from "@/lib/semantic/resolvers";
-import type { Beruf, Kompetenz, Pruefung, SemanticEntity } from "@/lib/semantic/types";
+import { relatedExamScenarios } from "@/lib/semantic/resolvers";
+import type { Beruf, Kompetenz, Lernfeld, Pruefung, SemanticEntity } from "@/lib/semantic/types";
+
+/** Gather kompetenzen of a Beruf via its lernfelder (P1 traversal). */
+function competenciesOfBeruf(graph: KnowledgeGraph, beruf: Beruf): ReadonlyArray<Kompetenz> {
+  const out = new Map<string, Kompetenz>();
+  const lfs = graph
+    .resolveTargets(graph.outgoingEdges(beruf.id, "beruf_has_lernfeld"))
+    .filter((e): e is Lernfeld => e.kind === "lernfeld");
+  for (const lf of lfs) {
+    const ks = graph
+      .resolveTargets(graph.outgoingEdges(lf.id, "lernfeld_has_kompetenz"))
+      .filter((e): e is Kompetenz => e.kind === "kompetenz");
+    for (const k of ks) if (!out.has(k.id)) out.set(k.id, k);
+  }
+  return [...out.values()].sort((a, b) => a.key.localeCompare(b.key));
+}
 
 import {
   buildBreadcrumbList,
