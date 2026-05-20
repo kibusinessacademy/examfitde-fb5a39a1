@@ -152,6 +152,42 @@ Deno.serve(async (req) => {
       .eq("id", jobId);
   }
 
+  // ── C1 ENTRY DEDUP (2026-05-20): Reschedule-Lock ──
+  // Prevent multiple parent jobs from running in parallel for the same package.
+  // If another lf_repair parent is already parked/processing, self-cancel.
+  {
+    const { data: siblings } = await sb.from("job_queue")
+      .select("id, status, meta, created_at")
+      .eq("package_id", packageId)
+      .eq("job_type", "package_repair_exam_pool_lf_coverage")
+      .in("status", ["pending", "processing", "queued", "running"])
+      .order("created_at", { ascending: true });
+    const others = (siblings ?? []).filter((s: { id: string }) => s.id !== jobId);
+    if (others.length > 0 && jobId) {
+      const olderActive = others.find((s: { created_at: string }) =>
+        new Date(s.created_at).getTime() < Date.now() - 5_000,
+      );
+      if (olderActive) {
+        await sb.from("job_queue").update({
+          status: "cancelled",
+          completed_at: new Date().toISOString(),
+          last_error_code: "LF_REPAIR_RESCHEDULE_LOCK",
+          last_error: `older parent ${(olderActive as { id: string }).id.slice(0,8)} already active for this package`,
+          meta: { phase: "self_cancel_reschedule_lock", older_parent_id: (olderActive as { id: string }).id },
+        }).eq("id", jobId);
+        await sb.from("auto_heal_log").insert({
+          action_type: "lf_repair_reschedule_lock_self_cancel",
+          target_type: "job",
+          target_id: jobId,
+          result_status: "cancelled",
+          metadata: { package_id: packageId, older_parent_id: (olderActive as { id: string }).id, sibling_count: others.length },
+        });
+        return json({ status: "cancelled", reason: "LF_REPAIR_RESCHEDULE_LOCK", older_parent_id: (olderActive as { id: string }).id }, 200);
+      }
+    }
+  }
+
+
   // ── RECONCILER: parent re-entered after parking ──
   // If meta.phase === 'parked_awaiting_children', do NOT re-dispatch — reconcile children.
   if (jobId) {
