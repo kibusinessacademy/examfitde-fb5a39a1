@@ -23,7 +23,7 @@ import { SemanticCrossLinks } from "@/components/seo/SemanticCrossLinks";
 const BASE_URL = "https://examfitde.lovable.app";
 const PROVIDER = { name: "ExamFit", url: BASE_URL } as const;
 
-const KIND_LABEL: Record<RoutedEntityKind, string> = {
+const KIND_LABEL: Readonly<Record<RoutedEntityKind, string>> = {
   beruf: "Beruf",
   kompetenz: "Kompetenz",
   pruefung: "Prüfung",
