@@ -285,6 +285,9 @@ const AppRoutes = () => {
         <Route path="/app/minicheck" element={<AppMiniCheckPage />} />
         {/* Phase 5.7 — Exam-Trainer: simulierte Prüfungssituation */}
         <Route path="/app/exam-trainer" element={<AppExamTrainerPage />} />
+        {/* Phase 5.9 — Öffentliche diagnostische Erstbewertung (Prüfungscheck) */}
+        <Route path="/pruefungscheck" element={<PruefungscheckPage />} />
+        <Route path="/pruefungscheck/:slug" element={<PruefungscheckPage />} />
 
 
 
