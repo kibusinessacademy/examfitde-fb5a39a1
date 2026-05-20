@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, Brain, Cpu, Gauge, Radar, ShieldAlert, Sparkles, Timer, Waves } from "lucide-react";
+import { Activity, Brain, Cpu, Gauge, MessageCircle, Radar, ShieldAlert, Sparkles, Timer, Waves } from "lucide-react";
 import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
+import {
+  useExamDramaturgy,
+  shouldRecalcDramaturgy,
+  dramaturgyRecalcMessage,
+  type DramaturgyPhase,
+} from "@/lib/system/ExamDramaturgy";
+import { DramaturgyInline } from "@/components/system/DramaturgyChip";
 
 /**
  * Phase 5.7 — Exam-Trainer als simulierte Prüfungssituation.
