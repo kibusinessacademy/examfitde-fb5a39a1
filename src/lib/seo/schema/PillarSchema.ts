@@ -57,7 +57,7 @@ export function buildBerufPillarSchema(
   beruf: Beruf,
   opts: PillarSchemaOptions,
 ): JsonLdObject {
-  const comps = relatedCompetencies(graph, beruf.id);
+  const comps = competenciesOfBeruf(graph, beruf);
   const scenarios = relatedExamScenarios(graph, beruf.id);
   const faqs = generateFaqs(graph, beruf);
 
