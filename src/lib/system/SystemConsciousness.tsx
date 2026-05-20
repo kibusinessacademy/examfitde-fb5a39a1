@@ -71,7 +71,17 @@ interface SystemConsciousnessApi extends SystemConsciousnessState {
   remember: (text: string, source: MemoryEntry["source"], tone?: MemoryEntry["tone"]) => void;
   recalc: (message: string) => void;
   topRisks: (n?: number) => RiskState[];
+  /** Phase 6 — Verhaltens-Signale aufzeichnen (exponentielle Glättung). */
+  recordSignal: (key: SignalKey, value: number, weight?: number) => void;
 }
+
+const DEFAULT_SIGNALS: BehavioralSignals = {
+  timePressure: 0.35,
+  hesitation: 0.3,
+  structureStability: 0.6,
+  confidence: 0.55,
+  updatedAt: Date.now(),
+};
 
 const DEFAULT_RISKS: Record<RiskKey, RiskState> = {
   transfer_argumentation: { key: "transfer_argumentation", label: "Transferargumentation instabil", tone: "critical", since: Date.now() - 8 * 86400000 },
