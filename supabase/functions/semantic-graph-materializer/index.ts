@@ -44,8 +44,9 @@ async function loadSources() {
   // Berufe ← published certifications joined via course_packages
   const { data: certs, error: e1 } = await supabase
     .from("certifications")
-    .select("id,name,slug,industry")
-    .limit(1000);
+    .select("id,title,slug,provider")
+    .eq("active", true)
+    .limit(2000);
   if (e1) throw e1;
 
   // Curriculum bridge (certification → curriculum)
@@ -78,7 +79,7 @@ function build(certs: any[], curricula: any[], lfs: any[], comps: any[]): { enti
   const certEntityId = new Map<string, string>();
   for (const c of certs) {
     if (!c.id) continue;
-    const key = c.slug ? slug(c.slug) : slug(c.name ?? c.id);
+    const key = c.slug ? slug(c.slug) : slug(c.title ?? c.id);
     if (!key) continue;
     const eid = `beruf:${c.id}`;
     certEntityId.set(c.id, eid);
@@ -86,8 +87,8 @@ function build(certs: any[], curricula: any[], lfs: any[], comps: any[]): { enti
       entity_id: eid,
       kind: "beruf",
       key,
-      name: c.name ?? key,
-      meta: { certification_id: c.id, industry: c.industry ?? null },
+      name: c.title ?? key,
+      meta: { certification_id: c.id, provider: c.provider ?? null },
     });
   }
 
