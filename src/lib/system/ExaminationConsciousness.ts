@@ -25,6 +25,7 @@ import { useSimulationPlan, type SimulationPlan } from "./SimulationEngine";
 import { useExaminerMemory, type ExaminerMemoryView } from "./ExaminerMemory";
 import { useSelfEfficacy, type SelfEfficacyView } from "./SelfEfficacy";
 import { usePredictiveReadiness, type PredictiveReadinessView } from "./PredictiveReadiness";
+import { useExaminerBiography, type ExaminerBiographyView } from "./ExaminerBiography";
 
 export interface ExaminationConsciousness {
   // Perception
@@ -45,6 +46,8 @@ export interface ExaminationConsciousness {
   forecast: PredictiveReadinessView;
   // Self-Efficacy
   efficacy: SelfEfficacyView;
+  // Phase 7 — Humanisierte Prüferintelligenz
+  biography: ExaminerBiographyView;
   // Single coherent verdict — what a single examiner would say right now.
   verdict: {
     headline: string;
@@ -100,6 +103,7 @@ export function useExaminationConsciousness(elapsedRatio = 0): ExaminationConsci
   const examinerMemory = useExaminerMemory();
   const efficacy = useSelfEfficacy();
   const forecast = usePredictiveReadiness();
+  const biography = useExaminerBiography();
 
   return useMemo<ExaminationConsciousness>(() => {
     const verdict = buildVerdict({ fatigue, recovery, psychology, forecast });
@@ -116,7 +120,8 @@ export function useExaminationConsciousness(elapsedRatio = 0): ExaminationConsci
       simulation,
       forecast,
       efficacy,
+      biography,
       verdict,
     };
-  }, [sys, psychology, examinerMemory, personality, transfer, dramaturgy, fatigue, recovery, simulation, efficacy, forecast]);
+  }, [sys, psychology, examinerMemory, personality, transfer, dramaturgy, fatigue, recovery, simulation, efficacy, forecast, biography]);
 }

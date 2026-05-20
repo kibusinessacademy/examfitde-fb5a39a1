@@ -21,6 +21,7 @@ import { useSystemConsciousness, daysSince } from "@/lib/system/SystemConsciousn
 import { useExamPsychology } from "@/lib/system/ExamPsychology";
 import { DramaturgyChip } from "@/components/system/DramaturgyChip";
 import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
+import { ExaminerBiographyCard } from "@/components/system/ExaminerBiographyCard";
 
 /**
  * /app/tutor — Phase 5.4: Tutor-Surface
@@ -43,6 +44,7 @@ export default function AppTutorPage() {
         <ObservationStream />
         <div className="mb-3"><DramaturgyChip /></div>
         <div className="mb-3"><ExaminerLensCard /></div>
+        <div className="mb-3"><ExaminerBiographyCard /></div>
         <RiskInterpretation />
         <PrioritizedFocus />
         <ExaminerLens />
