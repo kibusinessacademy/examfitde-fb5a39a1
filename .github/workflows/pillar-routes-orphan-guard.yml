@@ -1,0 +1,22 @@
+name: Pillar Routes Orphan Guard
+on:
+  pull_request:
+    paths:
+      - 'src/routes/**'
+      - 'src/pages/wissen/**'
+      - 'src/components/seo/**'
+      - 'src/lib/semantic/**'
+      - 'src/lib/llm-grounding/**'
+      - 'src/lib/seo/schema/**'
+      - 'scripts/guards/pillar-routes-orphan-guard.mjs'
+      - '.github/workflows/pillar-routes-orphan-guard.yml'
+  workflow_dispatch:
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: node scripts/guards/pillar-routes-orphan-guard.mjs

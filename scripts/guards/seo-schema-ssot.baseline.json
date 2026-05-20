@@ -1,7 +1,8 @@
 {
-  "_doc": "Legacy JSON-LD producers waived during P3 rollout. NEW files must NOT be added here.",
+  "_doc": "Legacy JSON-LD producers waived during P3 rollout. JsonLdHead is the P4 SSOT renderer (serializes objects produced by @/lib/seo/schema only). NEW files must NOT be added here.",
   "waived": [
     "src/components/seo/Breadcrumbs.tsx",
+    "src/components/seo/JsonLdHead.tsx",
     "src/components/seo/SEOHead.tsx",
     "src/content/seoRoutes.ts",
     "src/pages/seo/EnterpriseDemoPage.tsx",

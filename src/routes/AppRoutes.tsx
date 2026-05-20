@@ -82,6 +82,9 @@ const PruefungsfehlerPage = lazyRetry(() => import('@/pages/seo/PruefungsfehlerP
 const BestehensRechnerPage = lazyRetry(() => import('@/pages/seo/BestehensRechnerPage'));
 const WissenArticlePage = lazyRetry(() => import('@/pages/seo/WissenArticlePage'));
 const WissenAllePage = lazyRetry(() => import('@/pages/seo/WissenAllePage'));
+const WissenBerufPage = lazyRetry(() => import('@/pages/wissen/WissenBerufPage'));
+const WissenKompetenzPage = lazyRetry(() => import('@/pages/wissen/WissenKompetenzPage'));
+const WissenPruefungPage = lazyRetry(() => import('@/pages/wissen/WissenPruefungPage'));
 const SearchPage = lazyRetry(() => import('@/pages/seo/SearchPage'));
 const CertificationCategoryPage = lazyRetry(() => import('@/pages/seo/CertificationCategoryPage'));
 const CertificationSEOPage = lazyRetry(() => import('@/pages/seo/CertificationSEOPage'));
@@ -442,6 +445,9 @@ const AppRoutes = () => {
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/datenschutz" element={<DatenschutzPage />} />
           <Route path="/impressum" element={<ImpressumPage />} />
+          <Route path="/wissen/beruf/:key" element={<WissenBerufPage />} />
+          <Route path="/wissen/kompetenz/:key" element={<WissenKompetenzPage />} />
+          <Route path="/wissen/pruefung/:key" element={<WissenPruefungPage />} />
           <Route path="/wissen/:slug" element={<WissenArticlePage />} />
           <Route path="/blog" element={<BlogIndexPage />} />
           <Route path="/blog/:slug" element={<BlogArticlePage />} />
