@@ -63,7 +63,7 @@ export function BerufHero({ beruf, kammer, description, bundleHref, quizHref, on
             onClick={onPrimaryCta}
           >
             <Link to={quizHref}>
-              Kostenlos Prüfungsreife testen
+              Prüfungsanalyse starten
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
