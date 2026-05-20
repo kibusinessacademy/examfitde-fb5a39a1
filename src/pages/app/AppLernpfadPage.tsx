@@ -17,6 +17,7 @@ import {
   Minus,
 } from "lucide-react";
 import "@/components/landing/v2/lp-v2-theme.css";
+import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 
 /**
  * /app/lernpfad — Phase 5.3: Risiko-orientierte Prüfungsstrategie
