@@ -193,6 +193,22 @@ export default function AppExamTrainerPage() {
       });
       setReadiness(Math.round(readiness * 0.7 + next * 0.3));
       remember(verdict, "Exam-Trainer", globalTone);
+      // Phase 6 — Behavioral Signals aus Antwortqualität + Bearbeitungsdauer
+      recordSignal(
+        "structureStability",
+        quality === "strong" ? 0.8 : quality === "partial" ? 0.55 : 0.3,
+        0.4,
+      );
+      recordSignal(
+        "confidence",
+        quality === "strong" ? 0.8 : quality === "partial" ? 0.5 : 0.3,
+        0.4,
+      );
+      recordSignal(
+        "hesitation",
+        Math.min(1, Math.max(0, (elapsed - 30) / 60)),
+        0.3,
+      );
 
       if (idx + 1 < EXAM.length) {
         setIdx((i) => i + 1);
