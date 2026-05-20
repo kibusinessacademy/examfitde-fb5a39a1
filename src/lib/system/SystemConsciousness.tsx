@@ -246,6 +246,7 @@ export function useSystemConsciousness(): SystemConsciousnessApi {
       remember: () => {},
       recalc: () => {},
       topRisks: (n = 3) => Object.values(DEFAULT_STATE.risks).slice(0, n),
+      recordSignal: () => {},
     };
   }
   return ctx;
