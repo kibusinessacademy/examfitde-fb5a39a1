@@ -165,4 +165,4 @@ describe("P3 Schema — Contract", () => {
   });
 });
 
-import type { JsonLdObject } from "@/lib/seo/schema";
+
