@@ -18,6 +18,7 @@ import {
   daysSince,
   type RiskTone,
 } from "@/lib/system/SystemConsciousness";
+import { DramaturgyInline } from "@/components/system/DramaturgyChip";
 
 
 /**
