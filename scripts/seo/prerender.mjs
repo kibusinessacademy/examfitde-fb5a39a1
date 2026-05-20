@@ -521,14 +521,16 @@ export async function runSeoPrerender() {
   let dynamicRoutes = [];
   let intentRoutes = [];
   let pillarRoutes = [];
+  let wissenRoutes = [];
   try {
     const mod = await import(
       pathToFileURL(path.resolve(process.cwd(), "scripts/seo/load-dynamic-routes.mjs")).href
     );
-    const { blog, products, intents, pillars } = await mod.loadDynamicRoutes();
+    const { blog, products, intents, pillars, wissen } = await mod.loadDynamicRoutes();
     dynamicRoutes = [...blog, ...products];
     intentRoutes = intents || [];
     pillarRoutes = pillars || [];
+    wissenRoutes = wissen || [];
   } catch (e) {
     console.warn("[seo-prerender] dynamic route loader failed:", e.message);
   }
@@ -549,8 +551,11 @@ export async function runSeoPrerender() {
     writeRouteHtml(route, baseHtml);
   }
 
-  // Steps 5-6: sitemap covers SSOT + dynamic blog/product + intent + pillar routes
-  buildSitemaps([...ssotRoutes, ...dynamicRoutes, ...intentRoutes, ...pillarRoutes]);
+  // Steps 5-6: sitemap covers SSOT + dynamic blog/product + intent + pillar +
+  // wissen (P5 semantic graph, sitemap-only on Lovable Hosting).
+  buildSitemaps([
+    ...ssotRoutes, ...dynamicRoutes, ...intentRoutes, ...pillarRoutes, ...wissenRoutes,
+  ]);
 
   // Step 7: validate generated HTML on disk
   postValidateHtml([...live, ...intentRoutes, ...pillarRoutes]);
@@ -558,7 +563,7 @@ export async function runSeoPrerender() {
   const blogCount = dynamicRoutes.filter((r) => r.kind === "blog").length;
   const productCount = dynamicRoutes.filter((r) => r.kind === "product").length;
   console.log(
-    `[seo-prerender] Wrote ${live.length} SSOT + ${intentRoutes.length} intent + ${pillarRoutes.length} pillar route HTMLs; sitemap also includes ${blogCount} blog + ${productCount} product URLs`
+    `[seo-prerender] Wrote ${live.length} SSOT + ${intentRoutes.length} intent + ${pillarRoutes.length} pillar route HTMLs; sitemap also includes ${blogCount} blog + ${productCount} product + ${wissenRoutes.length} wissen URLs`
   );
 }
 

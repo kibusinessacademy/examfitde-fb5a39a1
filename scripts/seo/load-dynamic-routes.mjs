@@ -645,15 +645,69 @@ export async function loadPillarRoutes() {
   return routes;
 }
 
+/**
+ * P5 — Semantic Knowledge Graph: wissen/* sitemap-only routes.
+ * Sourced from semantic_graph_get_published RPC. Following
+ * mem://architektur/seo/sitemap-only-mode-for-db-routes-v1 these routes
+ * are added to the sitemap but NOT prerendered to per-route HTML (Lovable
+ * Hosting hard SPA fallback). Vercel/Netlify will pick them up automatically.
+ */
+export async function loadWissenRoutes() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.warn("[seo-dynamic] SUPABASE_URL / KEY missing — skipping wissen routes");
+    return [];
+  }
+  let payload = null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/semantic_graph_get_published`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+    if (!res.ok) {
+      console.warn("[seo-dynamic] wissen rpc HTTP", res.status);
+      return [];
+    }
+    payload = await res.json();
+  } catch (e) {
+    console.warn("[seo-dynamic] wissen fetch failed:", e.message);
+    return [];
+  }
+  const entities = Array.isArray(payload?.entities) ? payload.entities : [];
+  const lastmod = (payload?.snapshot_at || new Date().toISOString()).slice(0, 10);
+  const KIND_TO_SEG = { beruf: "beruf", kompetenz: "kompetenz", pruefung: "pruefung" };
+  const routes = [];
+  for (const e of entities) {
+    const seg = KIND_TO_SEG[e.kind];
+    if (!seg || !e.key) continue;
+    routes.push({
+      kind: "wissen",
+      path: `/wissen/${seg}/${e.key}`,
+      lastmod,
+      sitemapGroup: "knowledge",
+      changefreq: "weekly",
+      priority: e.kind === "beruf" ? 0.8 : 0.6,
+    });
+  }
+  routes.sort((a, b) => a.path.localeCompare(b.path));
+  console.log(`[seo-dynamic] loaded ${routes.length} wissen routes (sitemap-only)`);
+  return routes;
+}
+
 export async function loadDynamicRoutes() {
-  const [blog, products, intents, pillars] = await Promise.all([
+  const [blog, products, intents, pillars, wissen] = await Promise.all([
     loadBlogRoutes(),
     loadProductRoutes(),
     loadIntentRoutes(),
     loadPillarRoutes(),
+    loadWissenRoutes(),
   ]);
   console.log(
-    `[seo-dynamic] loaded ${blog.length} blog routes, ${products.length} product routes, ${intents.length} intent routes, ${pillars.length} pillar routes`
+    `[seo-dynamic] loaded ${blog.length} blog routes, ${products.length} product routes, ${intents.length} intent routes, ${pillars.length} pillar routes, ${wissen.length} wissen routes`
   );
-  return { blog, products, intents, pillars };
+  return { blog, products, intents, pillars, wissen };
 }
