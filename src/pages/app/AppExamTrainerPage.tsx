@@ -154,6 +154,7 @@ export default function AppExamTrainerPage() {
     setElapsed(0);
     setPressureSignal("Prüfungszustand aktualisiert");
     setStability(72);
+    recalc("Prüfungszustand aktualisiert");
   }
 
   function submitAnswer(quality: "weak" | "partial" | "strong") {
@@ -170,13 +171,35 @@ export default function AppExamTrainerPage() {
           ? "Fachlich stabil, aber strukturell unsicher"
           : "Zeitdruck erhöht Punktverluste";
       setMemory((m) => [verdict, ...m].slice(0, 5));
+
+      // Cross-Surface: gemeinsames Bewusstsein aktualisieren
+      const globalTone = next < 55 ? "critical" : next < 75 ? "watch" : "stable";
+      updateRisk("transfer_argumentation", {
+        label:
+          quality === "strong"
+            ? "Transferargumentation verbessert"
+            : "Transferargumentation instabil",
+        tone: quality === "strong" ? "watch" : "critical",
+      });
+      updateRisk("zeitdruck_relevant", {
+        label:
+          quality === "weak"
+            ? "Zeitdruck-Risiko erhöht"
+            : "Zeitdruck-Risiko relevant",
+        tone: quality === "weak" ? "critical" : "watch",
+      });
+      setReadiness(Math.round(readiness * 0.7 + next * 0.3));
+      remember(verdict, "Exam-Trainer", globalTone);
+
       if (idx + 1 < EXAM.length) {
         setIdx((i) => i + 1);
         setAnswer("");
         setPressureSignal("Strategie recalculated");
         setPhase("exam");
+        recalc("Strategie angepasst");
       } else {
         setPhase("result");
+        recalc("Transferrisiko neu bewertet");
       }
     }, 1600);
   }
