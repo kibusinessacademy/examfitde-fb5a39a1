@@ -281,6 +281,11 @@ export default function AppExamTrainerPage() {
           </div>
         </header>
 
+        {/* Phase 7.0 — Examiner-Lens: konsistente prüferische Wahrheit, surface-übergreifend */}
+        <ExaminerLensCard elapsedRatio={elapsedRatio} className="mb-5" />
+
+
+
         {/* PRE-EXAM */}
         {phase === "pre" && (
           <motion.section
