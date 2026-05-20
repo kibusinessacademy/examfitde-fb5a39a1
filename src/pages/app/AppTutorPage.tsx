@@ -99,19 +99,23 @@ function TutorHeader() {
 /* Tutor Presence — der Tutor "schaut hin", nicht "wartet auf Eingabe" */
 /* ------------------------------------------------------------------ */
 function TutorPresenceCard() {
+  const system = useSystemConsciousness();
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const t = window.setInterval(() => setTick((x) => x + 1), 7400);
     return () => clearInterval(t);
   }, []);
 
-  const observations = [
+  const fallback = [
     "Transferaufgaben bleiben trotz Verbesserung instabil.",
     "Fachgesprächsstruktur war heute stabiler als gestern.",
     "LF5 verursacht weiterhin die meisten Punktverluste.",
     "Lernpfad wurde deshalb vorgezogen.",
     "Rückfragen-Risiko gesunken.",
   ];
+  const observations = system.memory.length > 0
+    ? system.memory.map((m) => m.text)
+    : fallback;
   const current = observations[tick % observations.length];
 
   return (
