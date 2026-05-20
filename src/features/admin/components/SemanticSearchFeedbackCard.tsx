@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, BarChart3, EyeOff, Loader2, SearchCheck, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -173,7 +173,7 @@ export function SemanticSearchFeedbackCard() {
   );
 }
 
-function Stat({ label, value, icon }: { label: string; value: string | number; icon?: React.ReactNode }) {
+function Stat({ label, value, icon }: { label: string; value: string | number; icon?: ReactNode }) {
   return (
     <div className="rounded-lg border border-border-subtle bg-surface-sunken px-3 py-2">
       <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-text-tertiary">
