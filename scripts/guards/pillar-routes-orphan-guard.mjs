@@ -57,6 +57,7 @@ const HANDROLL = new RegExp(`['"\`]/wissen/(${ROUTED.join("|")})/`);
 const ALLOW = new Set([
   "src/lib/semantic/pillarRoutes.ts",
   "src/lib/semantic/pillarSitemap.ts",
+  "src/routes/AppRoutes.tsx",
   "scripts/guards/pillar-routes-orphan-guard.mjs",
 ]);
 function walk(dir, out = []) {
