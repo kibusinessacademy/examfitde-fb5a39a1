@@ -51,7 +51,19 @@ interface SystemConsciousnessState {
   risks: Record<RiskKey, RiskState>;
   memory: MemoryEntry[]; // jüngste zuerst, cap 20
   lastRecalc: RecalcEvent | null;
+  signals: BehavioralSignals; // Phase 6 — Verhaltens-Signale unter Prüfungsbedingungen
 }
+
+/** Phase 6 — Verhaltens-Signale (0..1), exponentiell gewichtet. */
+export interface BehavioralSignals {
+  timePressure: number;        // wie stark der Nutzer unter Zeit gerät
+  hesitation: number;          // Zögern bei Antwortwahl
+  structureStability: number;  // wie stabil Antwortstruktur unter Belastung bleibt
+  confidence: number;          // Ausdruck-/Wahlsicherheit
+  updatedAt: number;
+}
+
+export type SignalKey = Exclude<keyof BehavioralSignals, "updatedAt">;
 
 interface SystemConsciousnessApi extends SystemConsciousnessState {
   setReadiness: (n: number) => void;
