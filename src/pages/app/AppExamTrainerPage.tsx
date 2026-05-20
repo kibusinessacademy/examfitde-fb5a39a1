@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity, Brain, Cpu, Gauge, Radar, ShieldAlert, Sparkles, Timer, Waves } from "lucide-react";
+import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 
 /**
  * Phase 5.7 — Exam-Trainer als simulierte Prüfungssituation.
