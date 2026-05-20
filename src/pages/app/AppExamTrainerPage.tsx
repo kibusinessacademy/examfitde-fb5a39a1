@@ -9,6 +9,7 @@ import {
   type DramaturgyPhase,
 } from "@/lib/system/ExamDramaturgy";
 import { DramaturgyInline } from "@/components/system/DramaturgyChip";
+import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
 
 /**
  * Phase 5.7 — Exam-Trainer als simulierte Prüfungssituation.
@@ -279,6 +280,11 @@ export default function AppExamTrainerPage() {
             <SystemStrip note={pressureSignal ?? "Zustand stabil beobachtet"} />
           </div>
         </header>
+
+        {/* Phase 7.0 — Examiner-Lens: konsistente prüferische Wahrheit, surface-übergreifend */}
+        <ExaminerLensCard elapsedRatio={elapsedRatio} className="mb-5" />
+
+
 
         {/* PRE-EXAM */}
         {phase === "pre" && (
