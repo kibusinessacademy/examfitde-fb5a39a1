@@ -653,43 +653,41 @@ function Waveform({ active, fading }: { active: boolean; fading?: boolean }) {
 /* Debrief Stripe                                                      */
 /* ------------------------------------------------------------------ */
 function DebriefStripe() {
+  const { risks, readiness } = useSystemConsciousness();
+  const rows: Array<{ k: string; label: string; tone: RiskTone }> = [
+    { k: "Mündliche Stabilität", label: risks.muendliche_stabilitaet.label, tone: risks.muendliche_stabilitaet.tone },
+    { k: "Transferargumentation", label: risks.transfer_argumentation.label, tone: risks.transfer_argumentation.tone },
+    { k: "Praxisbezug", label: risks.praxisbezug.label, tone: risks.praxisbezug.tone },
+    { k: "Antwortstruktur", label: risks.antwortstruktur.label, tone: risks.antwortstruktur.tone },
+  ];
+
   return (
     <section className="mt-2">
-      <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--lp-text-tertiary,#7a8696)]">
-        Mündlicher Zustand
+      <div className="flex items-baseline justify-between">
+        <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--lp-text-tertiary,#7a8696)]">
+          Mündlicher Zustand
+        </div>
+        <div className="text-[11px] text-[color:var(--lp-text-tertiary,#7a8696)]">
+          Readiness · <span className="text-[color:var(--lp-text-primary,#e8ecf3)]">{readiness}%</span>
+        </div>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
-        {[
-          { k: "Letzte 7 Tage", v: "Mündlich instabil", tone: "warn" },
-          { k: "Transferfragen", v: "Kritisch", tone: "warn" },
-          { k: "Praxisbezug", v: "Stabil", tone: "ok" },
-          { k: "Antwortstruktur", v: "Verbessert", tone: "ok" },
-        ].map((m) => (
+        {rows.map((m) => (
           <div
             key={m.k}
-            className="rounded-xl px-3 py-3"
-            style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.05)",
-            }}
+            className={`rounded-xl border px-3 py-3 ${riskToneClasses(m.tone)}`}
           >
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--lp-text-tertiary,#7a8696)]">
+            <div className="text-[10px] uppercase tracking-[0.12em] opacity-70">
               {m.k}
             </div>
-            <div
-              className="mt-0.5 text-[13px]"
-              style={{
-                color: m.tone === "ok" ? "rgb(46,211,183)" : "rgb(255,184,108)",
-              }}
-            >
-              {m.v}
-            </div>
+            <div className="mt-0.5 text-[13px]">{m.label}</div>
           </div>
         ))}
       </div>
     </section>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 function formatTime(s: number) {
