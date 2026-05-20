@@ -14,6 +14,7 @@ import { dirname } from "node:path";
 const STEPS = [
   { id: "copy_governance", label: "Copy Governance", cmd: "node scripts/guards/examiner-copy-governance.mjs" },
   { id: "legacy_logic", label: "Legacy Logic Scanner", cmd: "node scripts/guards/examiner-legacy-logic.mjs" },
+  { id: "no_parallel_readiness", label: "No Parallel Readiness", cmd: "node scripts/guards/examiner-no-parallel-readiness.mjs" },
   { id: "golden_tests", label: "Examiner Golden Suite", cmd: "bunx vitest run src/__tests__/examiner-*.golden.test.ts --reporter=basic" },
 ];
 
