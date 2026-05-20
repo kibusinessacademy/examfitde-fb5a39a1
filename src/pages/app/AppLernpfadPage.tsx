@@ -35,6 +35,7 @@ export default function AppLernpfadPage() {
         <StrategyHeader />
         <SystemStatusStrip />
         <div className="mb-3"><DramaturgyChip /></div>
+        <div className="mb-3"><ExaminerLensCard /></div>
         <TodayPriority />
         <StrategyTimeline />
         <CompetencyStates />
