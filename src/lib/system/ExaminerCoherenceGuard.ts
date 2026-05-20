@@ -36,8 +36,8 @@ export function assertSnapshotCoherence(c: ExaminationConsciousness): CoherenceR
       c.psychology.priority.tone === "stable" && c.verdict.tone === "critical") {
     violations.push("priority_stable_vs_verdict_critical");
   }
-  if (c.fatigue.level === "kritisch" && c.simulation.beats[0]?.intent === "warmup") {
-    violations.push("critical_fatigue_in_warmup");
+  if (c.fatigue.level === "kritisch" && c.simulation.beats[0]?.kind === "warmup" && c.simulation.beats.length <= 1) {
+    violations.push("critical_fatigue_without_recovery_window");
   }
   for (const token of FORBIDDEN_EXAMINER_TOKENS) {
     if (c.verdict.headline.includes(token) || c.verdict.detail.includes(token)) {
