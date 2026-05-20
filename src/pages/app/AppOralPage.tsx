@@ -12,6 +12,13 @@ import {
   ChevronRight,
 } from "lucide-react";
 import "@/components/landing/v2/lp-v2-theme.css";
+import {
+  useSystemConsciousness,
+  riskToneClasses,
+  daysSince,
+  type RiskTone,
+} from "@/lib/system/SystemConsciousness";
+
 
 /**
  * /app/oral — Phase 5.2: Diagnostische Fachgesprächs-Simulation
