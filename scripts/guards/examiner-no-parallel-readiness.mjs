@@ -35,9 +35,12 @@ const PRODUCER_PATTERNS = [
 ];
 
 const BASELINE = new Set([
-  // Aktuell keine Baseline notwendig — RiskCostWidget verstößt nicht
-  // gegen Producer-Pattern (nur lokale Variable, gedeckt durch
-  // examiner-legacy-logic Baseline + docs/exceptions/...).
+  // Pre-existing, NICHT examiner-readiness-bezogen — dokumentiert in
+  // docs/exceptions/examiner-legacy-exceptions.md.
+  "src/components/admin/publish-blockers/L2EnforceReadinessCard.tsx:17:interface_examiner_output",
+  "src/components/b2b/RiskBadge.tsx:4:interface_examiner_output",
+  "src/features/mastery/api/masteryApi.ts:46:decl_readiness_state",
+  "src/lib/admin/runPhantomStepE2ETest.ts:3:interface_examiner_output",
 ]);
 
 function walk(dir, out = []) {
