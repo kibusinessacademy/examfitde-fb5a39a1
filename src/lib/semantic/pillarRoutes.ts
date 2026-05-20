@@ -10,11 +10,7 @@
 import type { EntityKind, SemanticEntity } from "./types";
 
 /** Entity kinds that have a public Pillar/Satellite page. */
-export const ROUTED_ENTITY_KINDS: ReadonlyArray<EntityKind> = [
-  "beruf",
-  "kompetenz",
-  "pruefung",
-] as const;
+export const ROUTED_ENTITY_KINDS = ["beruf", "kompetenz", "pruefung"] as const;
 
 export type RoutedEntityKind = (typeof ROUTED_ENTITY_KINDS)[number];
 
