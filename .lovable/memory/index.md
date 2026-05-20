@@ -2,6 +2,7 @@
 
 ## Core
 Examiner Foundation FROZEN (v1.0.0, Phase 8.9b): Readiness/Verdict/Confidence/Evidence Producer NUR in src/lib/examiner/**. Surfaces lesen ausschließlich useExaminerConsciousness(). Guards: copy-governance + legacy-logic + no-parallel-readiness + release-certification. Ausnahmen NUR in docs/exceptions/examiner-legacy-exceptions.md.
+Pillar/SRO/SEO/LLM SSOT: src/lib/semantic/** (P1) + src/lib/llm-grounding/** (P2+) + src/components/pillar/**. Diese Layer dürfen Examiner-Handover NUR lesen — nie readiness/confidence/verdict/severity selbst berechnen. Guard: semantic-no-examiner-bypass.mjs.
 SSOT: roles in user_roles table, never on profiles. Use has_role().
 Lovable Cloud + Lovable AI Gateway by default. Never call AI from client.
 ai_tutor: Strict-RAG. Citation-Block [SOURCES] Pflicht oder exakte Refusal-Phrase. tutor_access_check Gate vor Generation.
