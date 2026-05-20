@@ -9,6 +9,7 @@ import {
   type DramaturgyPhase,
 } from "@/lib/system/ExamDramaturgy";
 import { DramaturgyInline } from "@/components/system/DramaturgyChip";
+import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
 
 /**
  * Phase 5.7 — Exam-Trainer als simulierte Prüfungssituation.
