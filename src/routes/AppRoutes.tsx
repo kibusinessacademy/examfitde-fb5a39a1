@@ -49,6 +49,7 @@ const AppTutorPage = lazyRetry(() => import('@/pages/app/AppTutorPage'));
 const AppKompetenzPage = lazyRetry(() => import('@/pages/app/AppKompetenzPage'));
 const AppMiniCheckPage = lazyRetry(() => import('@/pages/app/AppMiniCheckPage'));
 const AppExamTrainerPage = lazyRetry(() => import('@/pages/app/AppExamTrainerPage'));
+const PruefungscheckPage = lazyRetry(() => import('@/pages/public/PruefungscheckPage'));
 const AppCoursesPage = lazyRetry(() => import('@/pages/app/AppCoursesPage'));
 const AppInvoicesPage = lazyRetry(() => import('@/pages/app/AppInvoicesPage'));
 const AppDownloadsPage = lazyRetry(() => import('@/pages/app/AppDownloadsPage'));
@@ -284,6 +285,9 @@ const AppRoutes = () => {
         <Route path="/app/minicheck" element={<AppMiniCheckPage />} />
         {/* Phase 5.7 — Exam-Trainer: simulierte Prüfungssituation */}
         <Route path="/app/exam-trainer" element={<AppExamTrainerPage />} />
+        {/* Phase 5.9 — Öffentliche diagnostische Erstbewertung (Prüfungscheck) */}
+        <Route path="/pruefungscheck" element={<PruefungscheckPage />} />
+        <Route path="/pruefungscheck/:slug" element={<PruefungscheckPage />} />
 
 
 
