@@ -1,0 +1,25 @@
+name: Semantic No-Examiner-Bypass Guard
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/semantic/**'
+      - 'src/lib/llm-grounding/**'
+      - 'src/components/pillar/**'
+      - 'scripts/guards/semantic-no-examiner-bypass.mjs'
+      - '.github/workflows/semantic-no-examiner-bypass.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Run semantic guard
+        run: node scripts/guards/semantic-no-examiner-bypass.mjs
