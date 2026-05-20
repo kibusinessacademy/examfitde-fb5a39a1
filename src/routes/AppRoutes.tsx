@@ -442,6 +442,9 @@ const AppRoutes = () => {
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/datenschutz" element={<DatenschutzPage />} />
           <Route path="/impressum" element={<ImpressumPage />} />
+          <Route path="/wissen/beruf/:key" element={<WissenBerufPage />} />
+          <Route path="/wissen/kompetenz/:key" element={<WissenKompetenzPage />} />
+          <Route path="/wissen/pruefung/:key" element={<WissenPruefungPage />} />
           <Route path="/wissen/:slug" element={<WissenArticlePage />} />
           <Route path="/blog" element={<BlogIndexPage />} />
           <Route path="/blog/:slug" element={<BlogArticlePage />} />
