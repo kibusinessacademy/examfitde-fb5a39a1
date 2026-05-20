@@ -105,6 +105,7 @@ const DEFAULT_STATE: SystemConsciousnessState = {
   risks: DEFAULT_RISKS,
   memory: DEFAULT_MEMORY,
   lastRecalc: null,
+  signals: DEFAULT_SIGNALS,
 };
 
 const STORAGE_KEY = "ef_sysconsciousness_v1";
@@ -120,6 +121,7 @@ function hydrate(): SystemConsciousnessState {
       risks: { ...DEFAULT_STATE.risks, ...(parsed.risks ?? {}) },
       memory: Array.isArray(parsed.memory) && parsed.memory.length > 0 ? parsed.memory.slice(0, 20) : DEFAULT_STATE.memory,
       lastRecalc: parsed.lastRecalc ?? null,
+      signals: { ...DEFAULT_SIGNALS, ...(parsed.signals ?? {}) },
     };
   } catch {
     return DEFAULT_STATE;
