@@ -23,6 +23,8 @@ import { useNotificationAttribution } from "@/hooks/useNotificationAttribution";
 import { CookieConsentBanner } from "@/components/consent/CookieConsentBanner";
 import { ClarityTracker } from "@/components/analytics/ClarityTracker";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { SystemConsciousnessProvider } from "@/lib/system/SystemConsciousness";
+import SystemConsciousnessOverlay from "@/components/system/SystemConsciousnessOverlay";
 
 const queryClient = new QueryClient({
   defaultOptions: {
