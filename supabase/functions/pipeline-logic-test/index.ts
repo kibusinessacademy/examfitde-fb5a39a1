@@ -813,16 +813,51 @@ Deno.serve(async (req) => {
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
     const { data: neverRan } = await sb
       .from("job_queue" as any)
-      .select("id, job_type, package_id, attempts, max_attempts, last_error")
+      .select("id, job_type, package_id, attempts, max_attempts, last_error, last_error_code, meta")
       .eq("status", "failed")
       .eq("attempts", 0)
       .gte("updated_at", sixHoursAgo)
       .limit(30);
 
+    // P0 Hardening (2026-05-20): NEVER auto-requeue terminally classified failures.
+    // Previous bug: T21 re-queued PRE_HEARTBEAT_KILL_TERMINAL / MAX_ATTEMPTS_EXHAUSTED /
+    // REQUEUE_LOOP_KILLED / STALE_AFTER_HEARTBEAT / NO_CHILDREN_DISPATCHED zombies
+    // indefinitely, nesting "Auto-healed: re-queued (was killed... (was killed..." prefixes.
+    const TERMINAL_CODES = new Set([
+      "PRE_HEARTBEAT_KILL_TERMINAL", "PRE_HEARTBEAT_QUARANTINED",
+      "MAX_ATTEMPTS_EXHAUSTED", "REQUEUE_LOOP_KILLED", "REQUEUE_LOOP_COOLDOWN",
+      "STALE_AFTER_HEARTBEAT", "NO_CHILDREN_DISPATCHED",
+      "AI_PROVIDER_AUTH_ERROR", "AI_PROVIDER_BAD_REQUEST", "AI_PROVIDER_PAYMENT_REQUIRED",
+      "MISSING_BLUEPRINT_ID", "SEALED_COURSE",
+    ]);
+    const TERMINAL_PATTERNS = [
+      /PRE_HEARTBEAT_KILL_TERMINAL/i, /MAX_ATTEMPTS_EXHAUSTED/i,
+      /REQUEUE_LOOP_KILLED/i, /STALE_AFTER_HEARTBEAT/i,
+      /SEALED_COURSE/i, /MISSING_BLUEPRINT_ID/i,
+      /invalid model ID/i, /API_KEY not configured/i,
+    ];
+    const isTerminal = (j: any) => {
+      if (j.last_error_code && TERMINAL_CODES.has(j.last_error_code)) return true;
+      const err = String(j.last_error || "");
+      return TERMINAL_PATTERNS.some((re) => re.test(err));
+    };
+    // Strip nested "Auto-healed: re-queued (was killed ... :" layers so last_error
+    // stays human-readable even across many heal cycles.
+    const stripNestedAutoHeal = (raw: string | null): string => {
+      let s = (raw || "").trim();
+      for (let i = 0; i < 10; i++) {
+        const m = s.match(/^Auto-healed(?:: re-queued)? \(was(?: killed with \d+ attempts)?: (.+?)\)?$/s);
+        if (!m) break;
+        s = m[1].replace(/\)+$/, "").trim();
+      }
+      return s.slice(0, 200);
+    };
+
     let healed = 0;
+    let skippedTerminal = 0;
     const requeued: any[] = [];
     for (const j of neverRan || []) {
-      // Only re-queue if the package is still building and the step needs work
+      if (isTerminal(j)) { skippedTerminal++; continue; }
       const { data: pkg } = await sb
         .from("course_packages" as any)
         .select("status")
@@ -830,13 +865,14 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (pkg?.status === "building") {
+        const originalErr = stripNestedAutoHeal(j.last_error);
         const { error } = await sb.from("job_queue" as any)
           .update({
             status: "pending",
             locked_at: null,
             locked_by: null,
             started_at: null,
-            last_error: `Auto-healed: re-queued (was killed with 0 attempts: ${(j.last_error || '').slice(0, 80)})`,
+            last_error: `Auto-healed (was: ${originalErr})`,
             updated_at: new Date().toISOString(),
           })
           .eq("id", j.id);
@@ -852,13 +888,14 @@ Deno.serve(async (req) => {
       severity: "warning",
       detail: (neverRan?.length || 0) === 0
         ? "No jobs failed without execution in last 6h"
-        : `${neverRan!.length} job(s) failed with 0 attempts`,
+        : `${neverRan!.length} job(s) failed with 0 attempts (${skippedTerminal} terminal-skipped, ${healed} requeued)`,
       healed,
       heal_detail: healed > 0 ? `Re-queued ${healed} job(s) for retry` : undefined,
       data: (neverRan || []).slice(0, 5).map((j: any) => ({
         id: j.id?.slice(0, 8),
         job_type: j.job_type,
         last_error: j.last_error?.slice(0, 60),
+        terminal: isTerminal(j),
       })),
     };
   }
