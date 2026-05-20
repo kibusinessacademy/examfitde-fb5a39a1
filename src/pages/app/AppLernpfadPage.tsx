@@ -21,6 +21,7 @@ import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 import { useExamPsychology } from "@/lib/system/ExamPsychology";
 import { DramaturgyChip } from "@/components/system/DramaturgyChip";
 import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
+import { ExaminerBiographyCard } from "@/components/system/ExaminerBiographyCard";
 
 /**
  * /app/lernpfad — Phase 5.3: Risiko-orientierte Prüfungsstrategie
@@ -37,6 +38,7 @@ export default function AppLernpfadPage() {
         <SystemStatusStrip />
         <div className="mb-3"><DramaturgyChip /></div>
         <div className="mb-3"><ExaminerLensCard /></div>
+        <div className="mb-3"><ExaminerBiographyCard /></div>
         <TodayPriority />
         <StrategyTimeline />
         <CompetencyStates />

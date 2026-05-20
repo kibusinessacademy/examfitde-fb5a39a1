@@ -10,6 +10,7 @@ import {
 } from "@/lib/system/ExamDramaturgy";
 import { DramaturgyInline } from "@/components/system/DramaturgyChip";
 import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
+import { ExaminerBiographyCard } from "@/components/system/ExaminerBiographyCard";
 
 /**
  * Phase 5.7 — Exam-Trainer als simulierte Prüfungssituation.
@@ -283,6 +284,7 @@ export default function AppExamTrainerPage() {
 
         {/* Phase 7.0 — Examiner-Lens: konsistente prüferische Wahrheit, surface-übergreifend */}
         <ExaminerLensCard elapsedRatio={elapsedRatio} className="mb-5" />
+        <ExaminerBiographyCard elapsedRatio={elapsedRatio} className="mb-5" />
 
 
 
