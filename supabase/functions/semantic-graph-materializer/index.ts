@@ -136,11 +136,18 @@ function build(certs: any[], curricula: any[], lfs: any[], comps: any[]): { enti
     edges.push({ from_id: lfId, to_id: eid, kind: "lernfeld_has_kompetenz" });
   }
 
+  // Orphan prevention at materialization time: drop entities not touched by
+  // any edge (e.g. certifications without a curriculum/lernfeld). Better to
+  // exclude them from the graph than to publish unreachable pillar pages.
+  const touched = new Set<string>();
+  for (const x of edges) { touched.add(x.from_id); touched.add(x.to_id); }
+  const cleanEntities = entities.filter((e) => touched.has(e.entity_id));
+
   // Stable ordering for hashing
-  entities.sort((a, b) => (a.kind + a.key + a.entity_id).localeCompare(b.kind + b.key + b.entity_id));
+  cleanEntities.sort((a, b) => (a.kind + a.key + a.entity_id).localeCompare(b.kind + b.key + b.entity_id));
   edges.sort((a, b) => (a.kind + a.from_id + a.to_id).localeCompare(b.kind + b.from_id + b.to_id));
 
-  return { entities, edges };
+  return { entities: cleanEntities, edges };
 }
 
 async function chunkInsert<T>(table: string, snapshot_id: string, rows: T[]): Promise<void> {
