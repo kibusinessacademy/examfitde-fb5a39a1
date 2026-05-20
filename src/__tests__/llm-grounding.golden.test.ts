@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildGroundedDocument,
-  buildKnowledgeGraph,
   generateBerufFaqs,
   generateKompetenzFaqs,
   serialiseBeruf,
@@ -23,9 +22,8 @@ import {
   assertDocumentContract,
   assertFaqContract,
   type ExaminerHandoverLike,
-  type KnowledgeGraphSnapshot,
 } from "@/lib/llm-grounding";
-import "@/lib/semantic";
+import { buildKnowledgeGraph, type KnowledgeGraphSnapshot } from "@/lib/semantic";
 
 const SNAP: KnowledgeGraphSnapshot = {
   snapshot_at: "2026-05-20T00:00:00.000Z",
