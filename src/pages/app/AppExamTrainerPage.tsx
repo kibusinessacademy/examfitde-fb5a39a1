@@ -128,12 +128,29 @@ export default function AppExamTrainerPage() {
   const current = EXAM[idx];
   const tone: RiskTone = stability < 55 ? "critical" : stability < 75 ? "watch" : "stable";
 
+  // Phase 6.1 — Dramaturgie (elapsedRatio basiert auf idx/EXAM-Länge + Zeit)
+  const elapsedRatio = phase === "exam" ? Math.min(1, (idx + Math.min(1, elapsed / 90)) / EXAM.length) : 0;
+  const dramaturgy = useExamDramaturgy(elapsedRatio);
+  const prevPhaseRef = useRef<DramaturgyPhase | null>(null);
+  const followupIntervention = dramaturgy.interventions.find((i) => i.key === "deepen_followup");
+
   // ruhiger Sekunden-Tick im Exam
   useEffect(() => {
     if (phase !== "exam") return;
     const t = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(t);
   }, [phase]);
+
+  // Phase 6.1 — Dramaturgie-Recalc nur bei echtem Phasenwechsel
+  useEffect(() => {
+    const next = dramaturgy.phase.phase;
+    if (shouldRecalcDramaturgy(prevPhaseRef.current, next)) {
+      recalc(dramaturgyRecalcMessage(next));
+      remember(`Dramaturgie: ${dramaturgy.phase.label}`, "Exam-Trainer",
+        next === "transfer_stress" ? "critical" : next === "load_increase" || next === "uncertainty_probe" ? "watch" : "stable");
+    }
+    prevPhaseRef.current = next;
+  }, [dramaturgy.phase.phase, dramaturgy.phase.label, recalc, remember]);
 
   // Zeitdruck-Diagnostik: stille Signale, kein Countdown
   useEffect(() => {
