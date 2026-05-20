@@ -191,10 +191,12 @@ function RiskChip({ t, children }: { t: RiskTone; children: React.ReactNode }) {
 
 export default function AppMiniCheckPage() {
   const { competencyId } = useParams();
+  const system = useSystemConsciousness();
   const [stage, setStage] = useState<Stage>("pre");
   const [pick, setPick] = useState<DiagPrompt["options"][number] | null>(null);
   const [recalcPulse, setRecalcPulse] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const wroteRef = useRef(false);
 
   // Ruhiger Fokus-Timer (kein Druck-Countdown)
   useEffect(() => {
@@ -216,6 +218,36 @@ export default function AppMiniCheckPage() {
     () => (pick ? PROMPT.stateAfter(pick.quality) : null),
     [pick]
   );
+
+  // Cross-Surface-Sync: bei reflect den globalen Prüfungszustand neu bewerten
+  useEffect(() => {
+    if (stage !== "reflect" || !pick || !stateAfter || wroteRef.current) return;
+    wroteRef.current = true;
+    const tone = stateAfter.risk;
+    system.updateRisk("antwortstruktur", {
+      label:
+        tone === "stable"
+          ? "Antwortstruktur zuletzt stabiler"
+          : tone === "watch"
+          ? "Antwortstruktur unter Belastung schwankend"
+          : "Antwortstruktur strukturell instabil",
+      tone,
+    });
+    if (pick.quality === "strong") {
+      system.updateRisk("transfer_argumentation", {
+        label: "Transferargumentation zuletzt belastbarer",
+        tone: "watch",
+      });
+    }
+    system.remember(
+      `MiniCheck · ${PROMPT.competency}: ${stateAfter.label}`,
+      "MiniCheck",
+      tone
+    );
+    const delta = pick.quality === "strong" ? 2 : pick.quality === "partial" ? 0 : -1;
+    system.setReadiness(system.readiness + delta);
+    system.recalc("Prüfungszustand aktualisiert");
+  }, [stage, pick, stateAfter, system]);
 
   function handlePick(o: DiagPrompt["options"][number]) {
     if (pick) return;
