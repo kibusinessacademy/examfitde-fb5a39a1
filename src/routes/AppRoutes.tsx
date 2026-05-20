@@ -48,6 +48,7 @@ const AppLernpfadPage = lazyRetry(() => import('@/pages/app/AppLernpfadPage'));
 const AppTutorPage = lazyRetry(() => import('@/pages/app/AppTutorPage'));
 const AppKompetenzPage = lazyRetry(() => import('@/pages/app/AppKompetenzPage'));
 const AppMiniCheckPage = lazyRetry(() => import('@/pages/app/AppMiniCheckPage'));
+const AppExamTrainerPage = lazyRetry(() => import('@/pages/app/AppExamTrainerPage'));
 const AppCoursesPage = lazyRetry(() => import('@/pages/app/AppCoursesPage'));
 const AppInvoicesPage = lazyRetry(() => import('@/pages/app/AppInvoicesPage'));
 const AppDownloadsPage = lazyRetry(() => import('@/pages/app/AppDownloadsPage'));
