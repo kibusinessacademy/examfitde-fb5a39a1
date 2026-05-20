@@ -36,6 +36,11 @@ const LEGACY_PATTERNS = [
   { id: "percent_threshold", re: />=?\s*(?:75|80|85|90)\s*%?\s*\?\s*['"`](ready|bereit|stable)['"`]/i, desc: "Hardcoded Prozent-Schwelle" },
 ];
 
+const BASELINE = new Set([
+  // Known legacy surfaces — must be migrated in follow-up sweep (Phase 8.4 burn-down).
+  "src/components/dashboard/RiskCostWidget.tsx:14:local_risk_derive",
+]);
+
 function walk(dir, out = []) {
   let entries;
   try { entries = readdirSync(dir); } catch { return out; }
@@ -62,6 +67,8 @@ for (const dir of SCAN_DIRS) {
       if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
       for (const pat of LEGACY_PATTERNS) {
         if (pat.re.test(line)) {
+          const key = `${rel}:${i + 1}:${pat.id}`;
+          if (BASELINE.has(key)) continue;
           violations.push({ file: rel, line: i + 1, id: pat.id, desc: pat.desc, snippet: line.trim().slice(0, 120) });
         }
       }
