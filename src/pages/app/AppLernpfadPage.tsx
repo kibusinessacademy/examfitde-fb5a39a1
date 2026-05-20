@@ -148,6 +148,26 @@ function SystemStatusStrip() {
 /* 2. Heutige Priorität — dominant, EIN Fokus                          */
 /* ------------------------------------------------------------------ */
 function TodayPriority() {
+  const { priority } = useExamPsychology();
+  const isCritical = priority.tone === "critical";
+  const isWatch = priority.tone === "watch";
+  const badgeLabel = isCritical ? "Risiko hoch" : isWatch ? "Risiko beobachtet" : "Stabilisiert";
+  const badgeColor = isCritical
+    ? "rgb(232,150,150)"
+    : isWatch
+    ? "rgb(232,196,124)"
+    : "rgb(120,220,196)";
+  const badgeBg = isCritical
+    ? "rgba(220,90,90,0.06)"
+    : isWatch
+    ? "rgba(212,168,96,0.06)"
+    : "rgba(46,211,183,0.06)";
+  const badgeBorder = isCritical
+    ? "rgba(220,90,90,0.22)"
+    : isWatch
+    ? "rgba(212,168,96,0.22)"
+    : "rgba(46,211,183,0.22)";
+
   return (
     <section className="mb-6">
       <div className="mb-2 flex items-center gap-2">
@@ -156,13 +176,9 @@ function TodayPriority() {
         </span>
         <span
           className="rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em]"
-          style={{
-            color: "rgb(232,150,150)",
-            background: "rgba(220,90,90,0.06)",
-            border: "1px solid rgba(220,90,90,0.22)",
-          }}
+          style={{ color: badgeColor, background: badgeBg, border: `1px solid ${badgeBorder}` }}
         >
-          Risiko hoch
+          {badgeLabel}
         </span>
       </div>
 
@@ -176,20 +192,19 @@ function TodayPriority() {
         }}
       >
         <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--lp-text-tertiary,#7a8696)]">
-          LF5 · Kosten- und Leistungsrechnung
+          Strategische Priorität · adaptiv
         </div>
         <h2 className="lp-display mt-1 text-[22px] leading-snug text-[color:var(--lp-text-primary,#e8ecf3)] sm:text-[24px]">
-          Transferaufgaben stabilisieren
+          {priority.focus}
         </h2>
         <p className="mt-2 text-[14px] leading-relaxed text-[color:var(--lp-text-secondary,#a8b3c2)]">
-          Aktuell die größte Quelle erwarteter Punktverluste. Eine fokussierte
-          Einheit reduziert dein Prüfungsrisiko spürbar.
+          {priority.reason}
         </p>
 
         <div className="mt-5 grid grid-cols-3 gap-2">
           {[
-            { k: "Δ Prüfungsreife", v: "+4 Pkt", tone: "ok" },
-            { k: "Relevanz", v: "schriftlich", tone: "neutral" },
+            { k: "Δ Prüfungsreife", v: priority.expectedImpact, tone: "ok" },
+            { k: "Tone", v: isCritical ? "kritisch" : isWatch ? "beobachtet" : "stabil", tone: "neutral" },
             { k: "Empfohlen", v: "35 min", tone: "neutral" },
           ].map((m) => (
             <div
