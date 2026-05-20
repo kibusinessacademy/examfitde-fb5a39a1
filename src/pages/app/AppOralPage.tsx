@@ -12,6 +12,13 @@ import {
   ChevronRight,
 } from "lucide-react";
 import "@/components/landing/v2/lp-v2-theme.css";
+import {
+  useSystemConsciousness,
+  riskToneClasses,
+  daysSince,
+  type RiskTone,
+} from "@/lib/system/SystemConsciousness";
+
 
 /**
  * /app/oral — Phase 5.2: Diagnostische Fachgesprächs-Simulation
@@ -94,36 +101,27 @@ function OralHeader() {
 /* System Memory                                                       */
 /* ------------------------------------------------------------------ */
 function OralMemoryStrip() {
-  const items = [
-    { tone: "warn", label: "Mündlich instabil seit 3 Sessions" },
-    { tone: "ok", label: "Praxisbezug zuletzt stabiler" },
-    { tone: "warn", label: "Transferfragen kritisch" },
-    { tone: "ok", label: "Antwortgeschwindigkeit +12%" },
-  ] as const;
+  const { topRisks } = useSystemConsciousness();
+  const items = topRisks(4);
+  if (items.length === 0) return null;
 
   return (
     <div className="mb-5 -mx-1 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       <div className="flex gap-2 px-1">
-        {items.map((it) => {
-          const ok = it.tone === "ok";
-          return (
-            <div
-              key={it.label}
-              className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium"
-              style={{
-                background: ok ? "rgba(46,211,183,0.10)" : "rgba(255,184,108,0.10)",
-                border: `1px solid ${ok ? "rgba(46,211,183,0.28)" : "rgba(255,184,108,0.30)"}`,
-                color: ok ? "rgb(46,211,183)" : "rgb(255,184,108)",
-              }}
-            >
-              {it.label}
-            </div>
-          );
-        })}
+        {items.map((it) => (
+          <div
+            key={it.key}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-medium ${riskToneClasses(it.tone)}`}
+          >
+            <span className="opacity-90">{it.label}</span>
+            <span className="ml-1.5 opacity-60">· seit {daysSince(it.since)}d</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Simulation Stage                                                    */
@@ -132,6 +130,8 @@ function SimulationStage() {
   const [phase, setPhase] = useState<Phase>("pre");
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<number | null>(null);
+  const system = useSystemConsciousness();
+  const wroteRevealRef = useRef(false);
 
   // Speaking timer
   useEffect(() => {
@@ -154,10 +154,55 @@ function SimulationStage() {
     }
   }, [phase]);
 
+  // Schreibe globale Wahrheit beim Reveal: eine Session = ein Recalc.
+  useEffect(() => {
+    if (phase !== "reveal" || wroteRevealRef.current) return;
+    wroteRevealRef.current = true;
+
+    // Sessionqualität aus Antwortzeit (40–90s = stabil, sonst kritischer)
+    const inWindow = elapsed >= 40 && elapsed <= 90;
+    const sessionStability = inWindow ? 0.72 : 0.45;
+
+    system.updateRisk("transfer_argumentation", {
+      label: inWindow
+        ? "Transferargumentation stabilisiert sich"
+        : "Transferargumentation zu allgemein",
+      tone: inWindow ? "watch" : "critical",
+    });
+    system.updateRisk("rueckfragen_wahrscheinlich", {
+      label: inWindow ? "Rückfragen weniger wahrscheinlich" : "Rückfragen wahrscheinlich",
+      tone: inWindow ? "watch" : "critical",
+    });
+    system.updateRisk("muendliche_stabilitaet", {
+      label: inWindow
+        ? "Mündliche Stabilität bestätigt"
+        : "Mündliche Stabilität unter Belastung schwankend",
+      tone: inWindow ? "stable" : "watch",
+    });
+    system.updateRisk("praxisbezug", {
+      label: "Praxisbezug stabilisiert",
+      tone: "stable",
+    });
+
+    system.remember(
+      inWindow
+        ? "Mündliche Session zeigte stabile Argumentationsstruktur"
+        : "Transferargumentation blieb auch mündlich zu allgemein",
+      "Oral-Simulation",
+      inWindow ? "stable" : "critical",
+    );
+
+    const next = Math.round(system.readiness * 0.7 + sessionStability * 100 * 0.3);
+    system.setReadiness(next);
+    system.recalc("Prüfungszustand aktualisiert");
+  }, [phase, elapsed, system]);
+
   const reset = () => {
     setElapsed(0);
+    wroteRevealRef.current = false;
     setPhase("pre");
   };
+
 
   return (
     <section className="mb-6">
@@ -608,43 +653,41 @@ function Waveform({ active, fading }: { active: boolean; fading?: boolean }) {
 /* Debrief Stripe                                                      */
 /* ------------------------------------------------------------------ */
 function DebriefStripe() {
+  const { risks, readiness } = useSystemConsciousness();
+  const rows: Array<{ k: string; label: string; tone: RiskTone }> = [
+    { k: "Mündliche Stabilität", label: risks.muendliche_stabilitaet.label, tone: risks.muendliche_stabilitaet.tone },
+    { k: "Transferargumentation", label: risks.transfer_argumentation.label, tone: risks.transfer_argumentation.tone },
+    { k: "Praxisbezug", label: risks.praxisbezug.label, tone: risks.praxisbezug.tone },
+    { k: "Antwortstruktur", label: risks.antwortstruktur.label, tone: risks.antwortstruktur.tone },
+  ];
+
   return (
     <section className="mt-2">
-      <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--lp-text-tertiary,#7a8696)]">
-        Mündlicher Zustand
+      <div className="flex items-baseline justify-between">
+        <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--lp-text-tertiary,#7a8696)]">
+          Mündlicher Zustand
+        </div>
+        <div className="text-[11px] text-[color:var(--lp-text-tertiary,#7a8696)]">
+          Readiness · <span className="text-[color:var(--lp-text-primary,#e8ecf3)]">{readiness}%</span>
+        </div>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
-        {[
-          { k: "Letzte 7 Tage", v: "Mündlich instabil", tone: "warn" },
-          { k: "Transferfragen", v: "Kritisch", tone: "warn" },
-          { k: "Praxisbezug", v: "Stabil", tone: "ok" },
-          { k: "Antwortstruktur", v: "Verbessert", tone: "ok" },
-        ].map((m) => (
+        {rows.map((m) => (
           <div
             key={m.k}
-            className="rounded-xl px-3 py-3"
-            style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.05)",
-            }}
+            className={`rounded-xl border px-3 py-3 ${riskToneClasses(m.tone)}`}
           >
-            <div className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--lp-text-tertiary,#7a8696)]">
+            <div className="text-[10px] uppercase tracking-[0.12em] opacity-70">
               {m.k}
             </div>
-            <div
-              className="mt-0.5 text-[13px]"
-              style={{
-                color: m.tone === "ok" ? "rgb(46,211,183)" : "rgb(255,184,108)",
-              }}
-            >
-              {m.v}
-            </div>
+            <div className="mt-0.5 text-[13px]">{m.label}</div>
           </div>
         ))}
       </div>
     </section>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 function formatTime(s: number) {
