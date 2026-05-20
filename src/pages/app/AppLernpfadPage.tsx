@@ -587,26 +587,38 @@ function StrategistTutor() {
 /* 6. Recalc-Stripe — stille Systemaktivität                           */
 /* ------------------------------------------------------------------ */
 function RecalcStripe() {
-  const items = [
-    { icon: Sparkles, label: "Priorisierung angepasst" },
-    { icon: Target, label: "mündliche Vorbereitung vorgezogen" },
-    { icon: AlertTriangle, label: "LF3 Risiko gesunken" },
+  const system = useSystemConsciousness();
+  const fallback = [
+    { label: "Priorisierung angepasst" },
+    { label: "mündliche Vorbereitung vorgezogen" },
+    { label: "LF3 Risiko gesunken" },
   ];
+  const items = system.memory.slice(0, 3).length > 0
+    ? system.memory.slice(0, 3).map((m) => ({ label: m.text }))
+    : fallback;
   return (
     <section className="mt-2">
       <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-[color:var(--lp-text-tertiary,#7a8696)]">
         Letzte System-Updates
+        {system.lastRecalc && (
+          <span className="ml-2 normal-case tracking-normal text-[color:var(--lp-text-secondary,#a8b3c2)]">
+            · {system.lastRecalc.message}
+          </span>
+        )}
       </div>
       <ul className="space-y-1.5">
-        {items.map(({ icon: Icon, label }) => (
-          <li
-            key={label}
-            className="flex items-center gap-2 text-[12px] text-[color:var(--lp-text-secondary,#a8b3c2)]"
-          >
-            <Icon className="h-3 w-3" style={{ color: "rgba(46,211,183,0.7)" }} />
-            <span>{label}</span>
-          </li>
-        ))}
+        {items.map(({ label }, i) => {
+          const Icon = i === 0 ? Sparkles : i === 1 ? Target : AlertTriangle;
+          return (
+            <li
+              key={label}
+              className="flex items-center gap-2 text-[12px] text-[color:var(--lp-text-secondary,#a8b3c2)]"
+            >
+              <Icon className="h-3 w-3" style={{ color: "rgba(46,211,183,0.7)" }} />
+              <span>{label}</span>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
