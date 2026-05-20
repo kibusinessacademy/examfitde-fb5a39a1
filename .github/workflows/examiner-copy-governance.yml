@@ -1,0 +1,27 @@
+name: Examiner Copy Governance
+
+on:
+  pull_request:
+    paths:
+      - 'src/pages/app/**'
+      - 'src/components/system/**'
+      - 'src/lib/system/**'
+      - 'src/pages/quiz/QuizResultPage.tsx'
+      - 'scripts/guards/examiner-copy-governance.mjs'
+  push:
+    branches: [main]
+    paths:
+      - 'src/pages/app/**'
+      - 'src/components/system/**'
+      - 'src/lib/system/**'
+
+permissions: read-all
+
+jobs:
+  examiner-copy-governance:
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run examiner copy guard
+        run: node scripts/guards/examiner-copy-governance.mjs
