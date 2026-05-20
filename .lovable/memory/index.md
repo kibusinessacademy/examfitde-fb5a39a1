@@ -1,6 +1,7 @@
 # Project Memory
 
 ## Core
+Examiner Foundation FROZEN (v1.0.0, Phase 8.9b): Readiness/Verdict/Confidence/Evidence Producer NUR in src/lib/examiner/**. Surfaces lesen ausschließlich useExaminerConsciousness(). Guards: copy-governance + legacy-logic + no-parallel-readiness + release-certification. Ausnahmen NUR in docs/exceptions/examiner-legacy-exceptions.md.
 SSOT: roles in user_roles table, never on profiles. Use has_role().
 Lovable Cloud + Lovable AI Gateway by default. Never call AI from client.
 ai_tutor: Strict-RAG. Citation-Block [SOURCES] Pflicht oder exakte Refusal-Phrase. tutor_access_check Gate vor Generation.
@@ -29,6 +30,7 @@ Hosting & SEO Authority: examfit.de = einzige SEO-autoritative Domain. Topologie
 
 
 ## Memories
+- [Examiner Foundation Frozen v1](mem://constraints/examiner-foundation-frozen-v1) — Examiner 7.1→8.9 production-frozen, Contracts v1.0.0, 3 CI-Guards, 25 Golden Tests, 5 dokumentierte Legacy-Ausnahmen, Pillar/SRO/SEO-Handover-Contract stabil
 - [Stripe Observatory + Event-Status v1](mem://architektur/marketing/stripe-observatory-and-event-status-v1) — stripe_event_log.process_status/error_message + Webhook ok/error markers + /admin/observatory UI + admin-stripe-webhook-test (signed real-webhook trigger).
 - [ExamFit Category Claim & Rollout R1→R4](mem://strategie/positionierung/examfit-category-and-rollout-sequence-v1) — Peer-Group Duolingo/UWorld/Brilliant, Market-Gap-These IHK-Abschlussprüfungen, harte Rollout-Reihenfolge R1 Existenz → R2 Funnel → R3 Adaptive Conversion → R4 B2B → erst dann S2/S3, Anti-Drift-Blocklist (IQ-Tests, Bundeswehr, Bewerbung, Listicles, Utility-SEO, Schüler/Abi). Strategic SSOT post S1 Recon 2026-05-18.
 - [Track 5 Mobile Foundation Phase 2](mem://architektur/marketing/track-5-mobile-foundation-phase2-v1) — notification_jobs Outbox SSOT, fn_notification_should_suppress (Quiet-Hours+fatigue+Bridge-14+rate-limits+exam_window_escalation), fn_enqueue_notification choke-point, fn_streak_recovery_decide Cron 04:00 UTC, send-learner-push Edge (web-push@3, claim+VAPID, skipped:no_vapid), notification-dispatch-1min Cron, AppNotificationsPage /app/benachrichtigungen.
