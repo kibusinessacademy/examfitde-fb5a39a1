@@ -212,9 +212,24 @@ export function SystemConsciousnessProvider({ children }: { children: ReactNode 
     [state.risks],
   );
 
+  // Phase 6 — Behavioral Signal Recording mit exponentieller Glättung.
+  // weight=0.3 = ruhig (Default), höhere weights = schnellere Reaktion.
+  const recordSignal = useCallback<SystemConsciousnessApi["recordSignal"]>((key, value, weight = 0.3) => {
+    const v = Math.max(0, Math.min(1, value));
+    const w = Math.max(0, Math.min(1, weight));
+    setState((s) => {
+      const prev = s.signals[key];
+      const blended = prev * (1 - w) + v * w;
+      return {
+        ...s,
+        signals: { ...s.signals, [key]: Number(blended.toFixed(3)), updatedAt: Date.now() },
+      };
+    });
+  }, []);
+
   const api = useMemo<SystemConsciousnessApi>(
-    () => ({ ...state, setReadiness, updateRisk, remember, recalc, topRisks }),
-    [state, setReadiness, updateRisk, remember, recalc, topRisks],
+    () => ({ ...state, setReadiness, updateRisk, remember, recalc, topRisks, recordSignal }),
+    [state, setReadiness, updateRisk, remember, recalc, topRisks, recordSignal],
   );
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
