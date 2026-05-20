@@ -690,6 +690,7 @@ Deno.serve(async (req) => {
   if (jobId) {
     const { error: parkErr } = await sb.from("job_queue").update({
       status: "pending",
+      attempts: 0, // C1: don't burn retry budget while waiting for children
       started_at: null,
       last_heartbeat_at: null,
       run_after: new Date(Date.now() + 90_000).toISOString(),
@@ -704,8 +705,10 @@ Deno.serve(async (req) => {
         target_per_lf: targetPerLf,
         gate_status_before: gateStatus,
         router_version: "phase_c_v1",
+        attempts_reset_for_park: true,
       },
     }).eq("id", jobId).in("status", ["processing", "pending"]);
+
     if (parkErr) {
       console.error(`[lf-cov-repair] parent park failed: ${parkErr.message}`);
       await sb.from("auto_heal_log").insert({
