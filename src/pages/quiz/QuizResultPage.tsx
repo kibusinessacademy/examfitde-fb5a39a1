@@ -33,6 +33,7 @@ import { Loader2, AlertCircle, ArrowRight, Quote, Activity } from "lucide-react"
 import { SEOHead } from "@/components/seo/SEOHead";
 import { SITE_URL } from "@/lib/seo";
 import "@/components/landing/v2/lp-v2-theme.css";
+import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 
 type MasteryLevel = "low" | "mid" | "high";
 type RecommendedMode = "learn" | "train" | "simulate";
