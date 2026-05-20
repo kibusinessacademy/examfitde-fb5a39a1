@@ -27,9 +27,9 @@ function stableRisks(): Record<RiskKey, RiskState> {
 }
 
 const signals: BehavioralSignals = {
-  timePressure: 0.3,
+  timePressure: 0.35,
   hesitation: 0.2,
-  structureStability: 0.8,
+  structureStability: 0.55,
   confidence: 0.75,
   updatedAt: NOW,
 };
