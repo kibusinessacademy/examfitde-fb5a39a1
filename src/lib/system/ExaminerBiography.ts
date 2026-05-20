@@ -252,7 +252,7 @@ export function deriveDeliberativeVoice(args: {
   const out: DeliberativeStatement[] = [];
 
   // Belastungsgewichtung dominiert Fachlichkeit
-  if (fatigue.level === "hoch" || fatigue.level === "kritisch") {
+  if (fatigue.level === "erhöht" || fatigue.level === "kritisch") {
     pushStatement(out, {
       text: "Die Fachlichkeit bleibt stabil, aber die Belastbarkeit sinkt.",
       tone: "critical",
