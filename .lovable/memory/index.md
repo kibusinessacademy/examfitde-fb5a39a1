@@ -2,6 +2,7 @@
 
 ## Core
 Examiner Foundation FROZEN (v1.0.0, Phase 8.9b): Readiness/Verdict/Confidence/Evidence Producer NUR in src/lib/examiner/**. Surfaces lesen ausschließlich useExaminerConsciousness(). Guards: copy-governance + legacy-logic + no-parallel-readiness + release-certification. Ausnahmen NUR in docs/exceptions/examiner-legacy-exceptions.md.
+Pillar/SRO/SEO/LLM SSOT: src/lib/semantic/** (P1) + src/lib/llm-grounding/** (P2+) + src/components/pillar/**. Diese Layer dürfen Examiner-Handover NUR lesen — nie readiness/confidence/verdict/severity selbst berechnen. Guard: semantic-no-examiner-bypass.mjs.
 SSOT: roles in user_roles table, never on profiles. Use has_role().
 Lovable Cloud + Lovable AI Gateway by default. Never call AI from client.
 ai_tutor: Strict-RAG. Citation-Block [SOURCES] Pflicht oder exakte Refusal-Phrase. tutor_access_check Gate vor Generation.
@@ -30,6 +31,7 @@ Hosting & SEO Authority: examfit.de = einzige SEO-autoritative Domain. Topologie
 
 
 ## Memories
+- [Semantic Knowledge Graph Foundation v1 (P1)](mem://architektur/semantic/knowledge-graph-foundation-v1) — SSOT src/lib/semantic (10 entity kinds, 11 edge kinds, 8 pillar kinds, 5 resolvers), determinism + examiner-isolation Tests (9/9), Guard semantic-no-examiner-bypass.mjs + Workflow. Foundation für P2 LLM-Grounding.
 - [Examiner Foundation Frozen v1](mem://constraints/examiner-foundation-frozen-v1) — Examiner 7.1→8.9 production-frozen, Contracts v1.0.0, 3 CI-Guards, 25 Golden Tests, 5 dokumentierte Legacy-Ausnahmen, Pillar/SRO/SEO-Handover-Contract stabil
 - [Stripe Observatory + Event-Status v1](mem://architektur/marketing/stripe-observatory-and-event-status-v1) — stripe_event_log.process_status/error_message + Webhook ok/error markers + /admin/observatory UI + admin-stripe-webhook-test (signed real-webhook trigger).
 - [ExamFit Category Claim & Rollout R1→R4](mem://strategie/positionierung/examfit-category-and-rollout-sequence-v1) — Peer-Group Duolingo/UWorld/Brilliant, Market-Gap-These IHK-Abschlussprüfungen, harte Rollout-Reihenfolge R1 Existenz → R2 Funnel → R3 Adaptive Conversion → R4 B2B → erst dann S2/S3, Anti-Drift-Blocklist (IQ-Tests, Bundeswehr, Bewerbung, Listicles, Utility-SEO, Schüler/Abi). Strategic SSOT post S1 Recon 2026-05-18.

@@ -1,0 +1,155 @@
+/**
+ * Phase P1 — Knowledge Graph SSOT (types).
+ *
+ * Pure, deterministic entity + edge types for the ExamFit Pillar /
+ * SRO / SEO / LLM authority architecture.
+ *
+ * HARD RULES (enforced by `scripts/guards/semantic-no-examiner-bypass.mjs`):
+ *   - This module MUST NOT compute readiness, confidence, verdicts,
+ *     evidence severity, or alternative risks.
+ *   - All examiner-derived signals MUST come from `@/lib/examiner` via
+ *     the frozen Handover Contract.
+ *   - No motivational copy. No marketing fluff. Evidence-grounded only.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Entity kinds                                                       */
+/* ------------------------------------------------------------------ */
+
+export type EntityKind =
+  | "beruf"
+  | "pruefung"
+  | "lernfeld"
+  | "kompetenz"
+  | "risiko"
+  | "fehlerbild"
+  | "pruefungsform"
+  | "pruefungsstrategie"
+  | "oral_pattern"
+  | "industry_context";
+
+export interface SemanticEntityBase<K extends EntityKind = EntityKind> {
+  /** Stable UUID or canonical key. Never derived from title. */
+  id: string;
+  /** Human-readable canonical key (slug-safe). Never used as SSOT join key — see `id`. */
+  key: string;
+  /** Human-readable name. UI-only. */
+  name: string;
+  kind: K;
+  /** Short, sober description (≤ 280 chars). Never motivational. */
+  description?: string;
+  /** Free-form metadata. Must be deterministic per entity. */
+  meta?: Readonly<Record<string, string | number | boolean | null>>;
+}
+
+export type Beruf = SemanticEntityBase<"beruf"> & {
+  certification_id?: string;
+  curriculum_id?: string;
+  industry?: string;
+};
+
+export type Pruefung = SemanticEntityBase<"pruefung"> & {
+  beruf_id: string;
+  form: "schriftlich" | "muendlich" | "praktisch" | "fachgespraech";
+};
+
+export type Lernfeld = SemanticEntityBase<"lernfeld"> & {
+  beruf_id: string;
+  ordinal?: number;
+};
+
+export type Kompetenz = SemanticEntityBase<"kompetenz"> & {
+  lernfeld_id?: string;
+  beruf_id?: string;
+  /** Optional difficulty signal (1..5). Purely descriptive, NOT derived from examiner. */
+  difficulty?: 1 | 2 | 3 | 4 | 5;
+};
+
+export type Risiko = SemanticEntityBase<"risiko"> & {
+  /** Linked competency this risk applies to. */
+  kompetenz_id?: string;
+  /**
+   * Severity is mirrored from Examiner Handover Contract.
+   * NEVER computed inside the semantic layer.
+   */
+  examiner_severity?: "info" | "warning" | "critical";
+};
+
+export type Fehlerbild = SemanticEntityBase<"fehlerbild"> & {
+  kompetenz_id?: string;
+  typical_in_form?: Pruefung["form"];
+};
+
+export type Pruefungsform = SemanticEntityBase<"pruefungsform">;
+export type Pruefungsstrategie = SemanticEntityBase<"pruefungsstrategie">;
+
+export type OralPattern = SemanticEntityBase<"oral_pattern"> & {
+  beruf_id?: string;
+  kompetenz_id?: string;
+};
+
+export type IndustryContext = SemanticEntityBase<"industry_context"> & {
+  industry: string;
+};
+
+export type SemanticEntity =
+  | Beruf
+  | Pruefung
+  | Lernfeld
+  | Kompetenz
+  | Risiko
+  | Fehlerbild
+  | Pruefungsform
+  | Pruefungsstrategie
+  | OralPattern
+  | IndustryContext;
+
+/* ------------------------------------------------------------------ */
+/* Edges                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Directed, typed edge between two entities. Edges are deterministic
+ * and content-addressable: `(from, to, kind)` is unique.
+ */
+export type EdgeKind =
+  | "beruf_has_pruefung"
+  | "beruf_has_lernfeld"
+  | "lernfeld_has_kompetenz"
+  | "kompetenz_has_risiko"
+  | "kompetenz_has_fehlerbild"
+  | "pruefung_uses_form"
+  | "pruefung_uses_strategie"
+  | "kompetenz_has_oral_pattern"
+  | "beruf_in_industry"
+  | "related_competency"
+  | "related_mistake";
+
+export interface SemanticEdge {
+  from: string;
+  to: string;
+  kind: EdgeKind;
+  /**
+   * Optional confidence in the *relation existence*, 0..1.
+   * NOT readiness confidence — must never feed back into Examiner.
+   */
+  weight?: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* Graph                                                              */
+/* ------------------------------------------------------------------ */
+
+export interface KnowledgeGraphSnapshot {
+  entities: ReadonlyArray<SemanticEntity>;
+  edges: ReadonlyArray<SemanticEdge>;
+  /** ISO-8601 timestamp of the snapshot — deterministic input only. */
+  snapshot_at: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* Type guards                                                        */
+/* ------------------------------------------------------------------ */
+
+export const isEntity = <K extends EntityKind>(e: SemanticEntity, k: K): e is Extract<SemanticEntity, { kind: K }> =>
+  e.kind === k;
