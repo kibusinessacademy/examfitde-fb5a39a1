@@ -21,7 +21,6 @@ export const FORBIDDEN_EXAMINER_TOKENS = [
   "To-do",
   "Todo",
   "Streak",
-  "Badge",
   "High Score",
   "Highscore",
 ] as const;

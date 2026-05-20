@@ -35,7 +35,6 @@ const FORBIDDEN = [
   "To-do",
   "Todo",
   "Streak",
-  "Badge",
   "High Score",
   "Highscore",
 ];
