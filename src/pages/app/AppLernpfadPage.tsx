@@ -33,6 +33,7 @@ export default function AppLernpfadPage() {
         <BackgroundAura />
         <StrategyHeader />
         <SystemStatusStrip />
+        <div className="mb-3"><DramaturgyChip /></div>
         <TodayPriority />
         <StrategyTimeline />
         <CompetencyStates />

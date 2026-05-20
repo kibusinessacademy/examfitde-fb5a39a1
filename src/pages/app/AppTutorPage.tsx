@@ -39,6 +39,7 @@ export default function AppTutorPage() {
         <TutorHeader />
         <TutorPresenceCard />
         <ObservationStream />
+        <div className="mb-3"><DramaturgyChip /></div>
         <RiskInterpretation />
         <PrioritizedFocus />
         <ExaminerLens />
