@@ -89,9 +89,12 @@ function OralHeader() {
           Fachgesprächs-Simulation
         </span>
       </div>
-      <div className="flex items-center gap-1.5 text-[11px] text-[color:var(--lp-text-tertiary,#7a8696)]">
-        <Activity className="h-3 w-3" />
-        <span>Prüfer aktiv</span>
+      <div className="flex items-center gap-2 text-[11px] text-[color:var(--lp-text-tertiary,#7a8696)]">
+        <DramaturgyInline />
+        <span className="hidden sm:inline-flex items-center gap-1.5">
+          <Activity className="h-3 w-3" />
+          <span>Prüfer aktiv</span>
+        </span>
       </div>
     </header>
   );
