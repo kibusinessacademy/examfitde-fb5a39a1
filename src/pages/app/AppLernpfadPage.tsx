@@ -113,12 +113,11 @@ function StrategyHeader() {
 /* 1. System-Status-Header                                             */
 /* ------------------------------------------------------------------ */
 function SystemStatusStrip() {
-  const items = [
-    { tone: "warn", label: "Transferaufgaben weiterhin kritisch" },
-    { tone: "ok", label: "Fachgespräch stabilisiert" },
-    { tone: "ok", label: "Bewertungslogik verbessert" },
-    { tone: "warn", label: "Zeitdruck-Risiko relevant" },
-  ] as const;
+  const system = useSystemConsciousness();
+  const items = system.topRisks(4).map((r) => ({
+    tone: r.tone === "stable" ? ("ok" as const) : ("warn" as const),
+    label: r.label,
+  }));
 
   return (
     <div className="mb-5 -mx-1 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
