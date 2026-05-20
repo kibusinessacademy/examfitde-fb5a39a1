@@ -105,7 +105,7 @@ const SectionTitle = ({ icon: Icon, eyebrow, title }: { icon: any; eyebrow: stri
 );
 
 export default function AppExamTrainerPage() {
-  const { recalc, remember, updateRisk, setReadiness, readiness } = useSystemConsciousness();
+  const { recalc, remember, updateRisk, setReadiness, readiness, recordSignal } = useSystemConsciousness();
   const [phase, setPhase] = useState<Phase>("pre");
   const [idx, setIdx] = useState(0);
   const [elapsed, setElapsed] = useState(0); // sec since exam start
