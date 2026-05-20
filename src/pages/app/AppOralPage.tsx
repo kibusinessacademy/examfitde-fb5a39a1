@@ -130,6 +130,8 @@ function SimulationStage() {
   const [phase, setPhase] = useState<Phase>("pre");
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<number | null>(null);
+  const system = useSystemConsciousness();
+  const wroteRevealRef = useRef(false);
 
   // Speaking timer
   useEffect(() => {
@@ -152,10 +154,55 @@ function SimulationStage() {
     }
   }, [phase]);
 
+  // Schreibe globale Wahrheit beim Reveal: eine Session = ein Recalc.
+  useEffect(() => {
+    if (phase !== "reveal" || wroteRevealRef.current) return;
+    wroteRevealRef.current = true;
+
+    // Sessionqualität aus Antwortzeit (40–90s = stabil, sonst kritischer)
+    const inWindow = elapsed >= 40 && elapsed <= 90;
+    const sessionStability = inWindow ? 0.72 : 0.45;
+
+    system.updateRisk("transfer_argumentation", {
+      label: inWindow
+        ? "Transferargumentation stabilisiert sich"
+        : "Transferargumentation zu allgemein",
+      tone: inWindow ? "watch" : "critical",
+    });
+    system.updateRisk("rueckfragen_wahrscheinlich", {
+      label: inWindow ? "Rückfragen weniger wahrscheinlich" : "Rückfragen wahrscheinlich",
+      tone: inWindow ? "watch" : "critical",
+    });
+    system.updateRisk("muendliche_stabilitaet", {
+      label: inWindow
+        ? "Mündliche Stabilität bestätigt"
+        : "Mündliche Stabilität unter Belastung schwankend",
+      tone: inWindow ? "stable" : "watch",
+    });
+    system.updateRisk("praxisbezug", {
+      label: "Praxisbezug stabilisiert",
+      tone: "stable",
+    });
+
+    system.remember(
+      inWindow
+        ? "Mündliche Session zeigte stabile Argumentationsstruktur"
+        : "Transferargumentation blieb auch mündlich zu allgemein",
+      "Oral-Simulation",
+      inWindow ? "stable" : "critical",
+    );
+
+    const next = Math.round(system.readiness * 0.7 + sessionStability * 100 * 0.3);
+    system.setReadiness(next);
+    system.recalc("Prüfungszustand aktualisiert");
+  }, [phase, elapsed, system]);
+
   const reset = () => {
     setElapsed(0);
+    wroteRevealRef.current = false;
     setPhase("pre");
   };
+
 
   return (
     <section className="mb-6">
