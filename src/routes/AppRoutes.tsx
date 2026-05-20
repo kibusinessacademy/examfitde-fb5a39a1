@@ -282,6 +282,8 @@ const AppRoutes = () => {
         {/* Phase 5.6 — MiniChecks: diagnostische Prüfungsimpulse */}
         <Route path="/app/minicheck/:competencyId" element={<AppMiniCheckPage />} />
         <Route path="/app/minicheck" element={<AppMiniCheckPage />} />
+        {/* Phase 5.7 — Exam-Trainer: simulierte Prüfungssituation */}
+        <Route path="/app/exam-trainer" element={<AppExamTrainerPage />} />
 
 
 
