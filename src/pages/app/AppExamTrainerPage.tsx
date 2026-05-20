@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, Brain, Cpu, Gauge, Radar, ShieldAlert, Sparkles, Timer, Waves } from "lucide-react";
+import { Activity, Brain, Cpu, Gauge, MessageCircle, Radar, ShieldAlert, Sparkles, Timer, Waves } from "lucide-react";
 import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
+import {
+  useExamDramaturgy,
+  shouldRecalcDramaturgy,
+  dramaturgyRecalcMessage,
+  type DramaturgyPhase,
+} from "@/lib/system/ExamDramaturgy";
+import { DramaturgyInline } from "@/components/system/DramaturgyChip";
 
 /**
  * Phase 5.7 — Exam-Trainer als simulierte Prüfungssituation.
@@ -121,12 +128,29 @@ export default function AppExamTrainerPage() {
   const current = EXAM[idx];
   const tone: RiskTone = stability < 55 ? "critical" : stability < 75 ? "watch" : "stable";
 
+  // Phase 6.1 — Dramaturgie (elapsedRatio basiert auf idx/EXAM-Länge + Zeit)
+  const elapsedRatio = phase === "exam" ? Math.min(1, (idx + Math.min(1, elapsed / 90)) / EXAM.length) : 0;
+  const dramaturgy = useExamDramaturgy(elapsedRatio);
+  const prevPhaseRef = useRef<DramaturgyPhase | null>(null);
+  const followupIntervention = dramaturgy.interventions.find((i) => i.key === "deepen_followup");
+
   // ruhiger Sekunden-Tick im Exam
   useEffect(() => {
     if (phase !== "exam") return;
     const t = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(t);
   }, [phase]);
+
+  // Phase 6.1 — Dramaturgie-Recalc nur bei echtem Phasenwechsel
+  useEffect(() => {
+    const next = dramaturgy.phase.phase;
+    if (shouldRecalcDramaturgy(prevPhaseRef.current, next)) {
+      recalc(dramaturgyRecalcMessage(next));
+      remember(`Dramaturgie: ${dramaturgy.phase.label}`, "Exam-Trainer",
+        next === "transfer_stress" ? "critical" : next === "load_increase" || next === "uncertainty_probe" ? "watch" : "stable");
+    }
+    prevPhaseRef.current = next;
+  }, [dramaturgy.phase.phase, dramaturgy.phase.label, recalc, remember]);
 
   // Zeitdruck-Diagnostik: stille Signale, kein Countdown
   useEffect(() => {
@@ -250,7 +274,10 @@ export default function AppExamTrainerPage() {
               <h1 className="text-base font-semibold leading-tight">Simulierte Prüfungssituation</h1>
             </div>
           </div>
-          <SystemStrip note={pressureSignal ?? "Zustand stabil beobachtet"} />
+          <div className="flex flex-col items-end gap-1.5">
+            <DramaturgyInline elapsedRatio={elapsedRatio} />
+            <SystemStrip note={pressureSignal ?? "Zustand stabil beobachtet"} />
+          </div>
         </header>
 
         {/* PRE-EXAM */}
@@ -322,6 +349,29 @@ export default function AppExamTrainerPage() {
 
             <h2 className="text-base font-semibold leading-snug text-foreground">{current.prompt}</h2>
             <p className="mt-2 text-xs italic text-muted-foreground">{current.examinerLens}</p>
+
+            {/* Phase 6.1 — Adaptive Rückfragen-Intervention (nur bei echter Belastung sichtbar) */}
+            <AnimatePresence>
+              {followupIntervention?.prompt && (
+                <motion.div
+                  key={followupIntervention.prompt}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  className="mt-3 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary"
+                  role="note"
+                  aria-label="Rückfrage des Prüfers"
+                >
+                  <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] opacity-80">
+                    <MessageCircle className="h-3 w-3" aria-hidden />
+                    Rückfrage
+                  </span>
+                  <p className="mt-1 text-foreground">{followupIntervention.prompt}</p>
+                  <p className="mt-1 text-[11px] opacity-70">{followupIntervention.rationale}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <textarea
               value={answer}

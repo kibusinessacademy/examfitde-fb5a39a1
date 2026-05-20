@@ -19,6 +19,7 @@ import {
 import "@/components/landing/v2/lp-v2-theme.css";
 import { useSystemConsciousness, daysSince } from "@/lib/system/SystemConsciousness";
 import { useExamPsychology } from "@/lib/system/ExamPsychology";
+import { DramaturgyChip } from "@/components/system/DramaturgyChip";
 
 /**
  * /app/tutor — Phase 5.4: Tutor-Surface
@@ -39,6 +40,7 @@ export default function AppTutorPage() {
         <TutorHeader />
         <TutorPresenceCard />
         <ObservationStream />
+        <div className="mb-3"><DramaturgyChip /></div>
         <RiskInterpretation />
         <PrioritizedFocus />
         <ExaminerLens />

@@ -19,6 +19,7 @@ import {
 import "@/components/landing/v2/lp-v2-theme.css";
 import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 import { useExamPsychology } from "@/lib/system/ExamPsychology";
+import { DramaturgyChip } from "@/components/system/DramaturgyChip";
 
 /**
  * /app/lernpfad — Phase 5.3: Risiko-orientierte Prüfungsstrategie
@@ -33,6 +34,7 @@ export default function AppLernpfadPage() {
         <BackgroundAura />
         <StrategyHeader />
         <SystemStatusStrip />
+        <div className="mb-3"><DramaturgyChip /></div>
         <TodayPriority />
         <StrategyTimeline />
         <CompetencyStates />
