@@ -29,7 +29,7 @@ export function FinalCTASection() {
           Eine durchgefallene Prüfung kostet dich Monate. Dieser Check kostet dich 4 Minuten.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <Link to="/pruefungsreife-check" className="contents">
+          <Link to="/pruefungscheck" className="contents">
             <button
               className="lp-cta-primary h-14 px-8 inline-flex items-center justify-center text-base group"
               data-cta-location="final_v2_primary"

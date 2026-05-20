@@ -81,7 +81,7 @@ export function NotAnotherCourseSection() {
         </motion.div>
 
         <div className="mt-10 flex justify-center">
-          <Link to="/pruefungsreife-check" className="contents">
+          <Link to="/pruefungscheck" className="contents">
             <button
               className="lp-cta-primary h-14 px-7 inline-flex items-center justify-center text-base group"
               data-cta-location="not_another_course_primary"

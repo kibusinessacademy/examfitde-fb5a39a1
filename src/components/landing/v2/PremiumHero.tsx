@@ -248,7 +248,7 @@ export function PremiumHero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            <Link to="/pruefungsreife-check" className="contents">
+            <Link to="/pruefungscheck" className="contents">
               <button
                 className="lp-cta-primary h-14 px-7 inline-flex items-center justify-center text-base group"
                 data-cta-location="hero_v2_primary"
@@ -261,7 +261,7 @@ export function PremiumHero() {
                 }
               >
                 <ClipboardCheck className="w-5 h-5 mr-2" />
-                Kostenlos Prüfungsreife testen
+                Prüfungszustand analysieren
                 <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-0.5" />
               </button>
             </Link>

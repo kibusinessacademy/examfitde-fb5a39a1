@@ -57,7 +57,7 @@ export default function PruefungstrainingAusbildungPage() {
                   <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
-              <Link to="/pruefungsreife-check">
+              <Link to="/pruefungscheck">
                 <Button size="lg" variant="outline" className="rounded-xl h-14 px-8 text-lg border-border hover:bg-muted/50">
                   Prüfungsreife testen
                 </Button>

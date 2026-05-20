@@ -56,7 +56,7 @@ export function ProductHero({ title, chamberType, catalogType, onBuyClick, isChe
             size="lg"
             className="rounded-xl h-14 px-8 text-lg w-full sm:w-auto"
           >
-            <Link to="/pruefungsreife-check">
+            <Link to="/pruefungscheck">
               <Shield className="mr-2 h-5 w-5" />
               Kostenlos: Prüfungsreife testen
             </Link>

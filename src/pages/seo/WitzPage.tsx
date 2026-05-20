@@ -99,7 +99,7 @@ export default function WitzPage() {
                     Mehr als nur Witze – ExamFit ist dein intelligentes Prüfungstrainings-System.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <Link to="/pruefungsreife-check">
+                    <Link to="/pruefungscheck">
                       <Button className="gradient-primary text-primary-foreground rounded-xl group w-full sm:w-auto">
                         Prüfungsreife kostenlos testen
                         <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />

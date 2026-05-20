@@ -19,7 +19,7 @@ export function GrowthBrandFooter({
   utmSource = "seo",
   variant = "compact",
 }: GrowthBrandFooterProps) {
-  const ctaUrl = `/pruefungsreife-check?utm_source=${utmSource}&utm_medium=growth_page&utm_campaign=brand_footer`;
+  const ctaUrl = `/pruefungscheck?utm_source=${utmSource}&utm_medium=growth_page&utm_campaign=brand_footer`;
 
   if (variant === "minimal") {
     return (

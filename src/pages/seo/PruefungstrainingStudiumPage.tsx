@@ -98,7 +98,7 @@ export default function PruefungstrainingStudiumPage() {
                 </Link>
               </Button>
               <Button size="lg" variant="outline" className="h-14 px-8 text-lg" asChild>
-                <Link to="/pruefungsreife-check">Wissensstand testen</Link>
+                <Link to="/pruefungscheck">Wissensstand testen</Link>
               </Button>
             </div>
           </div>

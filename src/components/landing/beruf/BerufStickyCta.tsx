@@ -31,9 +31,9 @@ export function BerufStickyCta({ visible, beruf, quizHref, onCtaClick }: Props) 
     >
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-text-tertiary truncate">{beruf}-Prüfungsreife</p>
+          <p className="text-xs text-text-tertiary truncate">{beruf}-Prüfungszustand</p>
           <p className="text-sm font-semibold text-text-primary truncate">
-            Kostenlos in 4 Min. testen
+            Diagnose in 4 Min. starten
           </p>
         </div>
         <Button asChild size="sm" className="shrink-0" onClick={onCtaClick}>

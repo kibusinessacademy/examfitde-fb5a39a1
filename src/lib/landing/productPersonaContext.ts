@@ -48,7 +48,7 @@ export const PRODUCT_PERSONA_CONTEXTS: Record<ProductPersona, ProductPersonaCont
     seoTitleSuffix: "für Azubis",
     seoDescription: (name, price) =>
       `${name} für Azubis: Prüfungsreife-Check, echte Prüfungsfragen, Simulation und KI-Coach. Einmalig ${price} €. Jetzt starten.`,
-    diagnoseTargetPath: "/pruefungsreife-check",
+    diagnoseTargetPath: "/pruefungscheck",
   },
   betrieb: {
     persona: "betrieb",
@@ -61,7 +61,7 @@ export const PRODUCT_PERSONA_CONTEXTS: Record<ProductPersona, ProductPersonaCont
     seoTitleSuffix: "für Ausbildungsbetriebe",
     seoDescription: (name, price) =>
       `${name} für Ausbildungsbetriebe: Diagnose-Check, Lizenzpakete für Ihre Azubis und KI-Coach mit Quellenangaben. Ab ${price} € pro Lizenz.`,
-    diagnoseTargetPath: "/pruefungsreife-check",
+    diagnoseTargetPath: "/pruefungscheck",
   },
   institution: {
     persona: "institution",
@@ -74,7 +74,7 @@ export const PRODUCT_PERSONA_CONTEXTS: Record<ProductPersona, ProductPersonaCont
     seoTitleSuffix: "für Berufsschulen & Kammern",
     seoDescription: (name, price) =>
       `${name} für Bildungsinstitutionen: Gruppen-Diagnose, Klassenlizenzen und Reporting. Ab ${price} € pro Lizenz.`,
-    diagnoseTargetPath: "/pruefungsreife-check",
+    diagnoseTargetPath: "/pruefungscheck",
   },
 };
 
