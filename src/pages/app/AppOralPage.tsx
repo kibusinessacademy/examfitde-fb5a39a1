@@ -101,36 +101,27 @@ function OralHeader() {
 /* System Memory                                                       */
 /* ------------------------------------------------------------------ */
 function OralMemoryStrip() {
-  const items = [
-    { tone: "warn", label: "Mündlich instabil seit 3 Sessions" },
-    { tone: "ok", label: "Praxisbezug zuletzt stabiler" },
-    { tone: "warn", label: "Transferfragen kritisch" },
-    { tone: "ok", label: "Antwortgeschwindigkeit +12%" },
-  ] as const;
+  const { topRisks } = useSystemConsciousness();
+  const items = topRisks(4);
+  if (items.length === 0) return null;
 
   return (
     <div className="mb-5 -mx-1 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       <div className="flex gap-2 px-1">
-        {items.map((it) => {
-          const ok = it.tone === "ok";
-          return (
-            <div
-              key={it.label}
-              className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium"
-              style={{
-                background: ok ? "rgba(46,211,183,0.10)" : "rgba(255,184,108,0.10)",
-                border: `1px solid ${ok ? "rgba(46,211,183,0.28)" : "rgba(255,184,108,0.30)"}`,
-                color: ok ? "rgb(46,211,183)" : "rgb(255,184,108)",
-              }}
-            >
-              {it.label}
-            </div>
-          );
-        })}
+        {items.map((it) => (
+          <div
+            key={it.key}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-medium ${riskToneClasses(it.tone)}`}
+          >
+            <span className="opacity-90">{it.label}</span>
+            <span className="ml-1.5 opacity-60">· seit {daysSince(it.since)}d</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Simulation Stage                                                    */
