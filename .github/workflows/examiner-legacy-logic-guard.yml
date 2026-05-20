@@ -1,0 +1,24 @@
+name: Examiner Legacy Logic Guard
+
+on:
+  pull_request:
+    paths:
+      - 'src/pages/**'
+      - 'src/components/**'
+      - 'src/features/**'
+      - 'src/lib/examiner/**'
+      - 'src/lib/system/**'
+      - 'scripts/guards/examiner-legacy-logic.mjs'
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  examiner-legacy-logic:
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run examiner legacy logic guard
+        run: node scripts/guards/examiner-legacy-logic.mjs
