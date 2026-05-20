@@ -1,0 +1,22 @@
+name: Examiner — No Parallel Readiness
+
+on:
+  pull_request:
+    paths:
+      - "src/**/*.ts"
+      - "src/**/*.tsx"
+      - "scripts/guards/examiner-no-parallel-readiness.mjs"
+      - ".github/workflows/examiner-no-parallel-readiness.yml"
+  push:
+    branches: [main]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run guard
+        run: node scripts/guards/examiner-no-parallel-readiness.mjs
