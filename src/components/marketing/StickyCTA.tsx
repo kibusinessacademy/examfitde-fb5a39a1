@@ -5,7 +5,7 @@ import { Search, X } from 'lucide-react';
 import { trackConversion } from '@/lib/seo-tracking';
 import { useConsentBannerVisible } from '@/hooks/useConsentBannerVisible';
 
-const EXCLUDED_ROUTES = ['/shop', '/checkout', '/auth', '/pruefungsreife-check', '/berufe'];
+const EXCLUDED_ROUTES = ['/shop', '/checkout', '/auth', '/pruefungsreife-check', '/pruefungscheck', '/berufe'];
 const SCROLL_THRESHOLD = 0.35;
 const MOBILE_DELAY_MS = 2000;
 
