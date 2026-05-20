@@ -350,6 +350,29 @@ export default function AppExamTrainerPage() {
             <h2 className="text-base font-semibold leading-snug text-foreground">{current.prompt}</h2>
             <p className="mt-2 text-xs italic text-muted-foreground">{current.examinerLens}</p>
 
+            {/* Phase 6.1 — Adaptive Rückfragen-Intervention (nur bei echter Belastung sichtbar) */}
+            <AnimatePresence>
+              {followupIntervention?.prompt && (
+                <motion.div
+                  key={followupIntervention.prompt}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  className="mt-3 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary"
+                  role="note"
+                  aria-label="Rückfrage des Prüfers"
+                >
+                  <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] opacity-80">
+                    <MessageCircle className="h-3 w-3" aria-hidden />
+                    Rückfrage
+                  </span>
+                  <p className="mt-1 text-foreground">{followupIntervention.prompt}</p>
+                  <p className="mt-1 text-[11px] opacity-70">{followupIntervention.rationale}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <textarea
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
