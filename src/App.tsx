@@ -143,7 +143,9 @@ const App = () => (
         >
           <TooltipProvider>
             <AuthProvider>
-              <AppContent />
+              <SystemConsciousnessProvider>
+                <AppContent />
+              </SystemConsciousnessProvider>
             </AuthProvider>
           </TooltipProvider>
         </ThemeProvider>
