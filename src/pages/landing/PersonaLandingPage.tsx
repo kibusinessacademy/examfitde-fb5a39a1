@@ -256,7 +256,7 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
                 size="lg"
                 variant="outline"
                 className="rounded-xl h-14 px-8 text-lg"
-                onClick={() => navigate("/pruefungsreife-check")}
+                onClick={() => navigate("/pruefungscheck")}
               >
                 {config.ctaSecondary}
               </Button>
@@ -381,7 +381,7 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
         curriculumId={resolvedCurriculumId}
         resolveReason={resolveReason}
         persona={(config as any)?.persona ?? null}
-        diagnoseHref={`/pruefungsreife-check?source=persona_landing&slug=${encodeURIComponent(slug)}`}
+        diagnoseHref={`/pruefungscheck?source=persona_landing&slug=${encodeURIComponent(slug)}`}
         onSkipToCheckout={() => proceedCheckout()}
         source="persona_landing"
       />

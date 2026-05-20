@@ -298,7 +298,7 @@ export default function FrageDesTagsPage() {
                 ExamFit analysiert deine Schwächen und trainiert gezielt – mit tausenden prüfungsnahen Fragen.
               </p>
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                <Link to="/pruefungsreife-check">
+                <Link to="/pruefungscheck">
                   <Button className="gradient-primary text-primary-foreground rounded-xl group w-full sm:w-auto">
                     Prüfungsreife kostenlos testen
                     <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />

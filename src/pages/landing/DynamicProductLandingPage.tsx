@@ -215,7 +215,7 @@ export default function DynamicProductLandingPage() {
 
   const handleSecondaryCta = () => {
     TrackingEvents.ctaSecondaryClick(slug, secondaryCta);
-    navigate("/pruefungsreife-check");
+    navigate("/pruefungscheck");
   };
 
   const seo = buildSeoMeta({
@@ -453,7 +453,7 @@ export default function DynamicProductLandingPage() {
         productSlug={slug}
         curriculumId={resolvedCurriculumId}
         resolveReason={resolveReason}
-        diagnoseHref={`/pruefungsreife-check?source=dynamic_product_landing&slug=${encodeURIComponent(slug)}`}
+        diagnoseHref={`/pruefungscheck?source=dynamic_product_landing&slug=${encodeURIComponent(slug)}`}
         onSkipToCheckout={() => proceedCheckout()}
         source="dynamic_product_landing"
       />

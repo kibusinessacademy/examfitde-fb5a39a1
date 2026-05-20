@@ -108,7 +108,7 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link to="/pruefungsreife-check" className="contents">
+              <Link to="/pruefungscheck" className="contents">
                 <Button
                   size="lg"
                   className="gradient-primary text-primary-foreground shadow-glow hover:shadow-glow-lg transition-all rounded-xl h-14 px-8 text-base sm:text-lg group"

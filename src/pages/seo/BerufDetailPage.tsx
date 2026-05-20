@@ -82,7 +82,7 @@ export default function BerufDetailPage() {
   const seo = SEO_TEMPLATES.beruf(title, kammerLabel, examConfig.label);
 
   const bundleHref = `/bundle/${slug}`;
-  const quizHref = `/pruefungsreife-check?source=beruf&slug=${encodeURIComponent(slug)}`;
+  const quizHref = `/pruefungscheck?source=beruf&slug=${encodeURIComponent(slug)}`;
 
   const faqs = [
     {

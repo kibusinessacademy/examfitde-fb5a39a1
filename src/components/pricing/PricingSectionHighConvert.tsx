@@ -235,7 +235,7 @@ function PlanCard({
               className="h-11 rounded-2xl px-5 text-sm font-semibold"
               asChild
             >
-              <Link to="/pruefungsreife-check">{secondary}</Link>
+              <Link to="/pruefungscheck">{secondary}</Link>
             </Button>
           )}
         </div>
@@ -470,7 +470,7 @@ export default function PricingSectionHighConvert() {
                 }}
                 asChild
               >
-                <Link to="/pruefungsreife-check">Prüfungsreife kostenlos testen</Link>
+                <Link to="/pruefungscheck">Prüfungsreife kostenlos testen</Link>
               </Button>
             </div>
           </motion.div>

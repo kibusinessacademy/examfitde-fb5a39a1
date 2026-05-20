@@ -23,7 +23,7 @@ export function StickyPurchaseBar({ priceDisplay, onBuyClick, isLoading, visible
       <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
         <div className="flex flex-col min-w-0">
           <span className="text-lg font-bold text-foreground">{priceDisplay}</span>
-          <Link to="/pruefungsreife-check" className="text-[10px] text-primary hover:underline flex items-center gap-1">
+          <Link to="/pruefungscheck" className="text-[10px] text-primary hover:underline flex items-center gap-1">
             <Shield className="h-2.5 w-2.5" /> Kostenlos testen
           </Link>
         </div>

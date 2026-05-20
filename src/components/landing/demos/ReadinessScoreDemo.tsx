@@ -78,11 +78,11 @@ export function ReadinessScoreDemo() {
       </div>
 
       <Link
-        to="/pruefungsreife-check"
+        to="/pruefungscheck"
         onClick={() =>
           trackEvent({
             eventName: "cta_click",
-            metadata: { location: "demo_readiness_score", target: "/pruefungsreife-check" },
+            metadata: { location: "demo_readiness_score", target: "/pruefungscheck" },
           })
         }
         className="block"

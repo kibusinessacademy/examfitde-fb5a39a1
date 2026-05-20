@@ -346,7 +346,7 @@ export default function QuizResultPage() {
             Das System konnte den Versuch nicht rekonstruieren.
           </p>
           <Button
-            onClick={() => navigate("/pruefungsreife-check")}
+            onClick={() => navigate("/pruefungscheck")}
             className="mt-5"
           >
             Erneut analysieren
