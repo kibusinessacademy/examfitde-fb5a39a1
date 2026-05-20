@@ -1,0 +1,19 @@
+name: semantic-graph-crawlability-guard
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "30 6 * * *"
+jobs:
+  crawl-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Run semantic graph crawlability guard
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/guards/semantic-graph-crawlability-guard.mjs
