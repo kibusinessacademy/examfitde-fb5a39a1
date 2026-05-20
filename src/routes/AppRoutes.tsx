@@ -278,6 +278,9 @@ const AppRoutes = () => {
         {/* Phase 5.5 — Kompetenzseiten: diagnostische Räume, keine Lerninhaltseiten */}
         <Route path="/app/kompetenz/:competencyId" element={<AppKompetenzPage />} />
         <Route path="/app/kompetenz" element={<AppKompetenzPage />} />
+        {/* Phase 5.6 — MiniChecks: diagnostische Prüfungsimpulse */}
+        <Route path="/app/minicheck/:competencyId" element={<AppMiniCheckPage />} />
+        <Route path="/app/minicheck" element={<AppMiniCheckPage />} />
 
 
 
