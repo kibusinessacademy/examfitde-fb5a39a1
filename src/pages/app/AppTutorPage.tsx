@@ -223,6 +223,25 @@ const STREAM: Obs[] = [
 ];
 
 function ObservationStream() {
+  const system = useSystemConsciousness();
+  const items = system.memory.length > 0
+    ? system.memory.slice(0, 6).map<Obs>((m) => {
+        const d = daysSince(m.ts);
+        return {
+          when: d === 0 ? "heute" : d === 1 ? "gestern" : `vor ${d} Tagen`,
+          text: m.text,
+          tone:
+            m.tone === "critical"
+              ? "risk"
+              : m.tone === "watch"
+              ? "watch"
+              : m.tone === "stable"
+              ? "ok"
+              : "neutral",
+          source: m.source,
+        };
+      })
+    : STREAM;
   return (
     <section className="mb-6">
       <SectionHeader
@@ -230,7 +249,7 @@ function ObservationStream() {
         title="Was das System zuletzt registriert hat"
       />
       <ol className="relative space-y-3 border-l border-white/5 pl-4">
-        {STREAM.map((o, i) => (
+        {items.map((o, i) => (
           <motion.li
             key={i}
             initial={{ opacity: 0, x: -6 }}
