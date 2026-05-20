@@ -12,3 +12,4 @@ export * from "./types";
 export * from "./KnowledgeGraph";
 export * from "./resolvers";
 export * from "./PillarTypes";
+export * from "./pillarRoutes";
