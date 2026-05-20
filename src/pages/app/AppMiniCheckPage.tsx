@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity,
