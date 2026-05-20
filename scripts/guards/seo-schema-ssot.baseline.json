@@ -1,0 +1,12 @@
+{
+  "_doc": "Legacy JSON-LD producers waived during P3 rollout. NEW files must NOT be added here.",
+  "waived": [
+    "src/components/seo/Breadcrumbs.tsx",
+    "src/components/seo/SEOHead.tsx",
+    "src/content/seoRoutes.ts",
+    "src/pages/seo/EnterpriseDemoPage.tsx",
+    "src/pages/seo/IntentLandingPage.tsx",
+    "src/pages/seo/PillarLandingPage.tsx",
+    "src/pages/seo/ThemenHubPage.tsx"
+  ]
+}
