@@ -31,6 +31,7 @@ Hosting & SEO Authority: examfit.de = einzige SEO-autoritative Domain. Topologie
 
 
 ## Memories
+- [Phase A — Pillar Publish Integrity v1](mem://architektur/seo/phase-a-pillar-publish-integrity-v1) — package_seo_pillar_ensure nach auto_publish (governance-first Skeleton), source_package_id Bridge auf blog_articles, 6 Cockpit-Views, Catalog-Guard mit Legacy-Grandfathering (190 Pakete), admin_backfill_pillar_source_package_id RPC. Baseline 2026-05-21: 19 pillars / 0 mit source_package_id / 190 missing.
 - [Safe Actions Dispatcher v1](mem://architektur/ops/safe-actions-dispatcher-v1) — fn_runtime_action_execute (service_role) mit validate→snapshot_before→execute→snapshot_after→audit→rollback_ref für 8 Handler. Idempotency 15min-bucket, synchronous execute aus admin_dispatch_runtime_safe_action. Smoke open_evidence_chain green.
 - [Runtime Command Center Observability v1.1](mem://architektur/ops/runtime-command-center-observability-v1-1) — v_runtime_action_history SSOT + 4 Admin-RPCs (history/detail/evidence/failures) + deterministic Diff-Engine + Actions/Failures Tabs + EvidenceDrawer + 4 statische Invarianten (NO_DELETE, APPEND_ONLY, NO_RANDOMNESS, NO_SECRET_FIELDS).
 - [Safe Actions Framework v1](mem://architektur/ops/safe-actions-framework-v1) — runtime_safe_actions/results/evidence SSOT, admin_dispatch_runtime_safe_action (Reason≥8, fn_emit_audit Pflicht), SafeActionsCard im /admin/runtime Safe-Actions Tab. 8 Seed-Actions. Dispatcher-Worker folgt.
