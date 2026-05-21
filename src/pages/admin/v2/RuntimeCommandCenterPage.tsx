@@ -55,6 +55,9 @@ export default function RuntimeCommandCenterPage() {
           <TabsTrigger value="intervention" className="gap-1.5">
             <Activity className="h-3.5 w-3.5" /> Intervention
           </TabsTrigger>
+          <TabsTrigger value="safe_actions" className="gap-1.5">
+            <Shield className="h-3.5 w-3.5" /> Safe Actions
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="health" className="mt-4 space-y-4">
@@ -68,6 +71,7 @@ export default function RuntimeCommandCenterPage() {
         <TabsContent value="sequencing" className="mt-4 space-y-4">
           <AdaptiveSequencingDecisionsCard />
         </TabsContent>
+
 
         <TabsContent value="observability" className="mt-4">
           <PlaceholderCard

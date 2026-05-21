@@ -92,7 +92,7 @@ export default function SafeActionsCard() {
       return data as string;
     },
     onSuccess: (resultId) => {
-      toast.success("Safe Action dispatched", { description: `result_id: ${resultId.slice(0, 8)}…` });
+      toast.success("Safe Action dispatched", { description: `result_id: ${String(resultId).slice(0, 8)}…` });
       setOpenAction(null);
       setReason("");
       queryClient.invalidateQueries({ queryKey: ["runtime-action-results"] });
