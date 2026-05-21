@@ -78,36 +78,45 @@ serve(async (req) => {
 
     // 1) auth + role gate
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing Authorization header");
-    const token = authHeader.replace("Bearer ", "");
+    // 1) auth + role gate (or internal shared-secret bypass for ops/cron)
+    const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET");
+    const internalHeader = req.headers.get("x-internal-secret");
+    const isInternal =
+      !!internalSecret && !!internalHeader && internalHeader === internalSecret;
 
-    const userClient = createClient(supabaseUrl, anonKey, {
-      auth: { persistSession: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser(token);
-    if (userErr || !userData.user) throw new Error("auth_failed");
-    const userId = userData.user.id;
-
+    const supabaseUrlEarly = supabaseUrl;
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false },
     });
 
-    const { data: roleRow, error: roleErr } = await admin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (roleErr) throw new Error(`role_check_failed: ${roleErr.message}`);
-    if (!roleRow) {
-      return new Response(JSON.stringify({ error: "forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (!isInternal) {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) throw new Error("Missing Authorization header");
+      const token = authHeader.replace("Bearer ", "");
+
+      const userClient = createClient(supabaseUrl, anonKey, {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: `Bearer ${token}` } },
       });
+      const { data: userData, error: userErr } = await userClient.auth.getUser(token);
+      if (userErr || !userData.user) throw new Error("auth_failed");
+      const userId = userData.user.id;
+
+      const { data: roleRow, error: roleErr } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (roleErr) throw new Error(`role_check_failed: ${roleErr.message}`);
+      if (!roleRow) {
+        return new Response(JSON.stringify({ error: "forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
-    // 2) Body params
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const dryRun = Boolean(body.dry_run);
     const limit = Math.min(Number(body.limit ?? 100), 100);
