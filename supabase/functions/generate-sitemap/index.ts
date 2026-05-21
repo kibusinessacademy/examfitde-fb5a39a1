@@ -200,59 +200,43 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
     }
 
 
-    // ── Blog articles ──
+    // ── Blog articles (P6 Cut 3c — SSOT v_blog_sitemap_entries) ──
     if (action === "blog") {
       const urls: SitemapURL[] = [];
-      // NOTE: blog_articles has NO noindex column → do not select it (PostgREST would 400 the whole query → 0 URLs).
-      const { data: articles, error: articlesErr } = await sb.from("blog_articles")
-        .select("slug, title, updated_at, hero_image_url, hero_image_alt, published_at")
-        .eq("status", "published").order("published_at", { ascending: false }).limit(500);
-      if (articlesErr) console.error("[generate-sitemap] blog_articles query error:", articlesErr);
-      for (const a of articles || []) {
-        if (!a.slug) continue;
-        const images: SitemapURL["images"] = [];
-        if (a.hero_image_url) images.push({
-          loc: a.hero_image_url.startsWith("http") ? a.hero_image_url : `${SITE_URL}${a.hero_image_url}`,
-          title: a.title, caption: a.hero_image_alt || undefined,
-        });
-        urls.push({ loc: `${SITE_URL}/blog/${a.slug}`, lastmod: (a.updated_at || a.published_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.7, images: images.length ? images : undefined });
+      const { data: rows, error: vErr } = await sb
+        .from("v_blog_sitemap_entries")
+        .select("slug, lastmod");
+      if (vErr) console.error("[generate-sitemap] v_blog_sitemap_entries error:", vErr);
+      for (const r of rows || []) {
+        if (!r.slug) continue;
+        const lm = (r.lastmod || "").toString().split("T")[0] || today;
+        urls.push({ loc: `${SITE_URL}/blog/${r.slug}`, lastmod: lm, changefreq: "weekly", priority: 0.7 });
       }
-      // Also blog_posts table
-      const { data: posts } = await sb.from("blog_posts")
-        .select("slug, title, updated_at, published_at, noindex, og_image_url")
-        .eq("status", "published").order("published_at", { ascending: false }).limit(500);
-      for (const p of posts || []) {
-        if (p.noindex || !p.slug) continue;
-        const images: SitemapURL["images"] = [];
-        if (p.og_image_url) images.push({ loc: p.og_image_url.startsWith("http") ? p.og_image_url : `${SITE_URL}${p.og_image_url}`, title: p.title });
-        urls.push({ loc: `${SITE_URL}/blog/${p.slug}`, lastmod: (p.updated_at || p.published_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.7, images: images.length ? images : undefined });
-      }
-      // Deduplicate by loc
-      const seen = new Set<string>();
-      const deduped = urls.filter(u => { if (seen.has(u.loc)) return false; seen.add(u.loc); return true; });
-      return xmlResponse(toSitemapXML(deduped), headers);
+      console.info(`[generate-sitemap] class=blog count=${urls.length}`);
+      return xmlResponse(toSitemapXML(urls), headers);
     }
 
-    // ── Landing pages (SEO documents type=landing) ──
+    // ── Landing pages → /pruefungstraining/* (P6 Cut 3c — SSOT v_pruefungstraining_sitemap_entries) ──
     if (action === "landing") {
       const urls: SitemapURL[] = [];
-      const { data: docs } = await sb.from("seo_documents")
-        .select("slug, updated_at, meta_title, og_image_path, noindex")
-        .eq("status", "published").eq("doc_type", "landing").limit(500);
-      for (const d of docs || []) {
-        if (d.noindex || !d.slug) continue;
-        const images: SitemapURL["images"] = [];
-        if (d.og_image_path) images.push({ loc: d.og_image_path.startsWith("http") ? d.og_image_path : `${SITE_URL}${d.og_image_path}`, title: d.meta_title || d.slug });
-        urls.push({ loc: `${SITE_URL}/pruefungstraining/${d.slug}`, lastmod: (d.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.8, images: images.length ? images : undefined });
+      const { data: rows, error: vErr } = await sb
+        .from("v_pruefungstraining_sitemap_entries")
+        .select("slug, lastmod");
+      if (vErr) console.error("[generate-sitemap] v_pruefungstraining_sitemap_entries error:", vErr);
+      for (const r of rows || []) {
+        if (!r.slug) continue;
+        const lm = (r.lastmod || "").toString().split("T")[0] || today;
+        urls.push({ loc: `${SITE_URL}/pruefungstraining/${r.slug}`, lastmod: lm, changefreq: "weekly", priority: 0.8 });
       }
-      // Content pages with page_type = landing
+      // Optional: content_pages with page_type=landing (kept for legacy parity, has noindex column)
       const { data: cp } = await sb.from("content_pages")
-        .select("slug, updated_at, meta_title, og_image_url, noindex")
+        .select("slug, updated_at, noindex")
         .eq("status", "published").eq("page_type", "landing").limit(500);
       for (const p of cp || []) {
         if (p.noindex || !p.slug) continue;
         urls.push({ loc: `${SITE_URL}/${p.slug}`, lastmod: (p.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.8 });
       }
+      console.info(`[generate-sitemap] class=pruefungstraining count=${urls.length}`);
       return xmlResponse(toSitemapXML(urls), headers);
     }
 
@@ -276,10 +260,11 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
       for (const s of store || []) {
         urls.push({ loc: `${SITE_URL}/shop/${generateSlug(s.name)}`, lastmod: (s.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.6 });
       }
+      console.info(`[generate-sitemap] class=products count=${urls.length}`);
       return xmlResponse(toSitemapXML(urls), headers);
     }
 
-    // ── Berufe + certifications ──
+    // ── Berufe + certifications + Paketseiten ──
     if (action === "berufe") {
       const urls: SitemapURL[] = [];
       const { data: berufe } = await sb.from("berufe")
@@ -291,45 +276,48 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         urls.push({ loc: `${SITE_URL}/ihk-pruefungen/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.7 });
       }
       // P6 Cut 3b: /paket/:slug NUR aus published course_packages (SSOT v_paket_sitemap_entries).
-      // Vorher: alle 326 aktiven Berufe → false positives. Jetzt: nur ~177 Berufe mit ≥1 published Paket.
       const { data: pakete, error: paketeErr } = await sb.from("v_paket_sitemap_entries")
         .select("bezeichnung_kurz, lastmod");
       if (paketeErr) console.error("[generate-sitemap] v_paket_sitemap_entries query error:", paketeErr);
+      let paketCount = 0;
       for (const p of pakete || []) {
         const slug = generateSlug(p.bezeichnung_kurz);
         const lm = (p.lastmod || "").toString().split("T")[0] || today;
         urls.push({ loc: `${SITE_URL}/paket/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.85 });
+        paketCount++;
       }
 
       const { data: certs } = await sb.from("certification_catalog")
-        .select("slug, updated_at").not("slug", "is", null).limit(500);
+        .select("slug, created_at").not("slug", "is", null).limit(500);
       for (const c of certs || []) {
         if (!c.slug) continue;
-        urls.push({ loc: `${SITE_URL}/pruefungstraining/${c.slug}`, lastmod: (c.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.7 });
+        urls.push({ loc: `${SITE_URL}/pruefungstraining/${c.slug}`, lastmod: (c.created_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.7 });
       }
-      // SEO-Landingpages: ausschließlich kanonische Kategorie-URL aus SSOT-Mapping.
-      // /pruefung/:slug ist nur Redirect und gehört NICHT in die Sitemap.
       const { data: seoMap } = await sb.from("v_certification_seo_with_product")
         .select("canonical_url_path").limit(500);
       for (const m of seoMap || []) {
         if (!m.canonical_url_path) continue;
         urls.push({ loc: `${SITE_URL}${m.canonical_url_path}`, lastmod: today, changefreq: "weekly", priority: 0.75 });
       }
+      console.info(`[generate-sitemap] class=berufe total=${urls.length} paket=${paketCount}`);
       return xmlResponse(toSitemapXML(urls), headers);
     }
 
-    // ── Content (SEO docs: blog/faq/glossary/cluster + content pages) ──
+    // ── Content / Wissen (P6 Cut 3c — SSOT v_wissen_sitemap_entries + seo_content_pages) ──
     if (action === "content") {
       const urls: SitemapURL[] = [];
-      const typeMap: Record<string, string> = { blog: "/wissen", faq: "/faq", glossary: "/glossar", cluster: "/wissen", product: "/produkt" };
-      const { data: docs } = await sb.from("seo_documents")
-        .select("slug, doc_type, updated_at, noindex, og_image_path, meta_title")
-        .eq("status", "published").not("doc_type", "eq", "landing").limit(500);
-      for (const d of docs || []) {
-        if (d.noindex || !d.slug) continue;
-        const base = typeMap[d.doc_type] || "/wissen";
-        urls.push({ loc: `${SITE_URL}${base}/${d.slug}`, lastmod: (d.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.6 });
+      const { data: wissen, error: wErr } = await sb
+        .from("v_wissen_sitemap_entries")
+        .select("path, lastmod");
+      if (wErr) console.error("[generate-sitemap] v_wissen_sitemap_entries error:", wErr);
+      for (const r of wissen || []) {
+        if (!r.path) continue;
+        const lm = (r.lastmod || "").toString().split("T")[0] || today;
+        urls.push({ loc: `${SITE_URL}${r.path}`, lastmod: lm, changefreq: "weekly", priority: 0.6 });
       }
+      let wissenCount = urls.length;
+
+      // content_pages (has noindex column)
       const { data: cp } = await sb.from("content_pages")
         .select("slug, page_type, updated_at, noindex")
         .eq("status", "published").limit(500);
@@ -337,14 +325,11 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         if (p.noindex || !p.slug || p.page_type === "landing") continue;
         urls.push({ loc: `${SITE_URL}/${p.slug}`, lastmod: (p.updated_at || "").split("T")[0] || today, changefreq: "monthly", priority: 0.5 });
       }
-      // ── SEO Intent-Pages (curriculum × intent × competency) ──
-      // slug shape: "<curriculum-slug>/intent_<key>/<competency-slug>" → URL: /kurse/<that>
+      // SEO Intent-Pages → /kurse/<curriculum>/intent_<key>/<competency>
       const { data: intents } = await sb.from("seo_content_pages")
         .select("slug, last_generated_at, updated_at, quality_score")
-        .eq("page_type", "intent_page")
-        .eq("status", "published")
-        .gte("quality_score", 80)
-        .limit(2000);
+        .eq("page_type", "intent_page").eq("status", "published")
+        .gte("quality_score", 80).limit(2000);
       const seen = new Set<string>();
       for (const r of intents || []) {
         if (!r.slug || r.slug.split("/").length !== 3) continue;
@@ -354,13 +339,11 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         seen.add(loc);
         urls.push({ loc, lastmod: lm, changefreq: "weekly", priority: 0.7 });
       }
-      // ── SEO Pillar-Pages (curriculum hubs) → URL: /kurse/<curriculum-slug> ──
+      // SEO Pillar-Pages → /kurse/<curriculum-slug>
       const { data: pillars } = await sb.from("seo_content_pages")
         .select("slug, last_generated_at, updated_at, quality_score")
-        .eq("page_type", "pillar_page")
-        .eq("status", "published")
-        .gte("quality_score", 80)
-        .limit(500);
+        .eq("page_type", "pillar_page").eq("status", "published")
+        .gte("quality_score", 80).limit(500);
       for (const r of pillars || []) {
         if (!r.slug || r.slug.includes("/")) continue;
         const lm = (r.last_generated_at || r.updated_at || "").split("T")[0] || today;
@@ -369,8 +352,11 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         seen.add(loc);
         urls.push({ loc, lastmod: lm, changefreq: "weekly", priority: 0.8 });
       }
+      console.info(`[generate-sitemap] class=content total=${urls.length} wissen=${wissenCount}`);
       return xmlResponse(toSitemapXML(urls), headers);
     }
+
+
 
     // ── Full (legacy) ──
     if (action === "full") {
