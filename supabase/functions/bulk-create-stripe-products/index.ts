@@ -258,26 +258,23 @@ serve(async (req) => {
             .from("products")
             .insert({
               slug: candidate,
-        // 4g) Audit (parameter is _payload, not _meta)
-        await admin.rpc("fn_emit_audit", {
-          _action_type: "shop_coverage_backfill_v1",
-          _target_type: "course",
-          _target_id: course.course_id,
-          _result_status: "success",
-          _payload: {
-            course_id: course.course_id,
-            curriculum_id: course.curriculum_id,
-            product_id: productId,
-            price_id: priceRow.id,
-            stripe_product_id: stripeProduct.id,
-            stripe_price_id: stripePrice.id,
-            amount_cents: amountCents,
-            currency,
-            slug,
-          },
-          _trigger_source: "edge_bulk_create_stripe_products",
-        });
-
+              title: course.title,
+              product_type: "course",
+              curriculum_id: course.curriculum_id,
+              status: "active",
+              visibility: "public",
+              channel_policy_json: policy ?? {},
+            })
+            .select("id, slug")
+            .single();
+          if (!insErr && ins) {
+            productId = ins.id;
+            slug = ins.slug;
+            break;
+          }
+          if (insErr && /duplicate key/i.test(insErr.message)) {
+            attempt += 1;
+            continue;
           }
           throw new Error(`product_insert_failed: ${insErr?.message ?? "unknown"}`);
         }
@@ -299,13 +296,13 @@ serve(async (req) => {
           .single();
         if (priceErr) throw new Error(`price_insert_failed: ${priceErr.message}`);
 
-        // 4g) Audit
+        // 4g) Audit (parameter is _payload, not _meta)
         await admin.rpc("fn_emit_audit", {
           _action_type: "shop_coverage_backfill_v1",
           _target_type: "course",
           _target_id: course.course_id,
           _result_status: "success",
-          _meta: {
+          _payload: {
             course_id: course.course_id,
             curriculum_id: course.curriculum_id,
             product_id: productId,
@@ -316,13 +313,9 @@ serve(async (req) => {
             currency,
             slug,
           },
+          _trigger_source: "edge_bulk_create_stripe_products",
         });
 
-        results.push({
-          ...course,
-          status: search.data.length > 0 ? "reused_stripe" : "created",
-          product_id: productId,
-          price_id: priceRow.id,
           stripe_product_id: stripeProduct.id,
           stripe_price_id: stripePrice.id,
         });
