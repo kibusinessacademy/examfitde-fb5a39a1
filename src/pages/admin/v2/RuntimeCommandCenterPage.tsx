@@ -1,4 +1,4 @@
-import { Activity, Gauge, ShieldCheck, Workflow, Radar, Sparkles, Shield, ListChecks, AlertCircle } from "lucide-react";
+import { Activity, Gauge, ShieldCheck, Workflow, Radar, Sparkles, Shield, ListChecks, AlertCircle, Undo2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import AdaptiveSequencingDecisionsCard from "@/features/admin/components/Adaptiv
 import SafeActionsCard from "@/features/admin/components/SafeActionsCard";
 import RuntimeActionsLedgerCard from "@/features/admin/components/RuntimeActionsLedgerCard";
 import RuntimeFailuresCard from "@/features/admin/components/RuntimeFailuresCard";
+import RuntimeReversiblePoliciesCard from "@/features/admin/components/RuntimeReversiblePoliciesCard";
+import RuntimeDryRunCard from "@/features/admin/components/RuntimeDryRunCard";
 
 /**
  * AI Runtime Command Center v1
