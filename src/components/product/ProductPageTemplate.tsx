@@ -17,6 +17,8 @@ import { ProductFAQSection } from './ProductFAQSection';
 import { ProductFinalCTABlock } from './ProductFinalCTABlock';
 import { ProductRelatedCourses } from './ProductRelatedCourses';
 import { StickyProductBar } from './StickyProductBar';
+import { ProductPagePillarHub } from './ProductPagePillarHub';
+
 
 interface Props {
   product: ProductPageSSOT;
