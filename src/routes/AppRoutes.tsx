@@ -203,6 +203,7 @@ const AdminAccessMatrixPage = lazyRetry(() => import('@/pages/admin/v2/AdminAcce
 const AdminPaidOrdersOpsPage = lazyRetry(() => import('@/pages/admin/v2/AdminPaidOrdersOpsPage'));
 const AdminTrafficFunnelPage = lazyRetry(() => import('@/pages/admin/v2/AdminTrafficFunnelPage'));
 const StripeObservatoryPage = lazyRetry(() => import('@/pages/admin/v2/StripeObservatoryPage'));
+const RuntimeCommandCenterPage = lazyRetry(() => import('@/pages/admin/v2/RuntimeCommandCenterPage'));
 
 // ExamFit@work public pages
 const WorkHomePage = lazyRetry(() => import('@/pages/work/WorkHomePage'));
@@ -571,6 +572,7 @@ const AppRoutes = () => {
           <Route path="ops/orders" element={<AdminPaidOrdersOpsPage />} />
           <Route path="ops/funnel" element={<AdminTrafficFunnelPage />} />
           <Route path="observatory" element={<StripeObservatoryPage />} />
+          <Route path="runtime" element={<RuntimeCommandCenterPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
