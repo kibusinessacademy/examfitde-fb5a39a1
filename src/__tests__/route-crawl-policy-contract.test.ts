@@ -93,21 +93,49 @@ describe('P6 Cut 3 — route_crawl_policy SSOT contract', () => {
     }
     expect(missing, `missing redirects in seed: ${missing.join(', ')}`).toEqual([]);
   });
-
   it('mutually exclusive: no pattern is both index AND noindex with same match_type', () => {
-    // A flat parse: pull tuples (pattern, match_type, state) from VALUES blocks.
-    const tupleRe = /\(\s*'([^']+)'\s*,\s*'(exact|prefix|regex)'\s*,\s*'(index|noindex|redirect|gone)'/g;
-    const seen = new Map<string, Set<string>>(); // key=pattern|match → states
-    let m: RegExpExecArray | null;
-    while ((m = tupleRe.exec(seedSql)) !== null) {
-      const k = `${m[1]}|${m[2]}`;
-      if (!seen.has(k)) seen.set(k, new Set());
-      seen.get(k)!.add(m[3]);
+    // Walk migrations chronologically; INSERTs add a (pattern, match_type, state) tuple,
+    // DELETEs with explicit `pattern IN (...) AND match_type = ... AND state = ...`
+    // remove it. Final state must have at most one state per (pattern, match_type).
+    const dir = path.join(ROOT, 'supabase/migrations');
+    const files = fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort()
+      .map((f) => ({ name: f, sql: fs.readFileSync(path.join(dir, f), 'utf8') }))
+      .filter(({ sql }) => sql.includes('route_crawl_policy'));
+
+    const effective = new Map<string, Set<string>>(); // key=pattern|match → states
+    for (const { sql } of files) {
+      // INSERT VALUES tuples
+      const insertRe = /\(\s*'([^']+)'\s*,\s*'(exact|prefix|regex)'\s*,\s*'(index|noindex|redirect|gone)'/g;
+      let m: RegExpExecArray | null;
+      while ((m = insertRe.exec(sql)) !== null) {
+        const k = `${m[1]}|${m[2]}`;
+        if (!effective.has(k)) effective.set(k, new Set());
+        effective.get(k)!.add(m[3]);
+      }
+      // DELETE FROM ... WHERE state='X' AND match_type='Y' AND pattern IN ('a','b')
+      const deleteBlockRe =
+        /DELETE FROM public\.route_crawl_policy[^;]*?state\s*=\s*'(index|noindex|redirect|gone)'[^;]*?match_type\s*=\s*'(exact|prefix|regex)'[^;]*?pattern\s+IN\s*\(([^)]+)\)/gi;
+      let d: RegExpExecArray | null;
+      while ((d = deleteBlockRe.exec(sql)) !== null) {
+        const state = d[1];
+        const match_type = d[2];
+        const patterns = [...d[3].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+        for (const p of patterns) {
+          const k = `${p}|${match_type}`;
+          effective.get(k)?.delete(state);
+          if (effective.get(k)?.size === 0) effective.delete(k);
+        }
+      }
     }
     const conflicts: string[] = [];
-    for (const [k, states] of seen) {
+    for (const [k, states] of effective) {
       if (states.size > 1) conflicts.push(`${k} → {${[...states].join(',')}}`);
     }
     expect(conflicts, `conflicting states: ${conflicts.join('; ')}`).toEqual([]);
   });
+});
+
 });
