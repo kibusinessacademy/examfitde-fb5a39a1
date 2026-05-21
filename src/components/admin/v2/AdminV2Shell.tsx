@@ -4,17 +4,18 @@ import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, Package, ListChecks, Menu, X, 
   LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Heart, Gauge,
-  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp, Webhook
+  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp, Webhook, Cpu
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 
-/** SSOT: 8 operative areas (Cockpit Top-Einstieg, Queue als Unified Hub) */
+/** SSOT: 9 operative areas — Runtime Command Center als AI-Control-Plane neben Heal Hub */
 const NAV_ITEMS = [
   { to: '/admin/cockpit', label: 'Cockpit', icon: Gauge },
   { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
   { to: '/admin/studio', label: 'Kurse', icon: Package },
   { to: '/admin/heal', label: 'Heal Hub', icon: Heart },
+  { to: '/admin/runtime', label: 'AI Runtime', icon: Cpu },
   { to: '/admin/growth', label: 'Growth', icon: Globe },
   { to: '/admin/support', label: 'Support', icon: HeadphonesIcon },
   { to: '/admin/kpi', label: 'KPIs', icon: BarChart3 },
