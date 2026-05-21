@@ -294,7 +294,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     if (opts.tools) body.tools = opts.tools;
     if (opts.tool_choice) body.tool_choice = opts.tool_choice;
 
-    resp = await fetch(cfg.url, {
+    resp = await fetch(targetUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -303,6 +303,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       body: JSON.stringify(body),
       signal: combinedSignal,
     });
+
   }
 
   // ── Record outcome for rate-limiter ──
