@@ -59,6 +59,33 @@ export interface AIResponse {
   raw: Response;
 }
 
+/**
+ * Lovable AI Gateway — SSOT for openai/google providers.
+ *
+ * Direct calls to api.openai.com or generativelanguage.googleapis.com
+ * fail on Gateway-only model names (e.g. `gpt-5.4-mini`, `gemini-2.5-flash`).
+ * The Gateway accepts prefixed model IDs (`openai/...`, `google/...`) and
+ * authenticates via `LOVABLE_API_KEY` for both providers.
+ *
+ * When LOVABLE_API_KEY is present (always true in this project), `openai`
+ * and `google` providers are routed through the Gateway. The model name is
+ * auto-prefixed if the caller passed an unprefixed value.
+ *
+ * Anthropic stays direct (separate API + key + endpoint).
+ */
+const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+function lovableGatewayEnabled(): boolean {
+  return !!Deno.env.get("LOVABLE_API_KEY");
+}
+
+function ensureGatewayModel(provider: AIProvider, model: string): string {
+  if (model.includes("/")) return model; // already prefixed
+  if (provider === "openai") return `openai/${model}`;
+  if (provider === "google") return `google/${model}`;
+  return model;
+}
+
 const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv: string; format: "openai" | "anthropic" | "google" }> = {
   openai: {
     url: "https://api.openai.com/v1/chat/completions",
@@ -74,11 +101,12 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
   },
   google: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    model: "claude-3-5-haiku-20241022", // DISABLED: Google provider not in active use
+    model: "gemini-2.5-flash",
     keyEnv: "GOOGLE_AI_API_KEY",
     format: "google",
   },
 };
+
 
 
 /**
@@ -103,8 +131,16 @@ const AI_FETCH_TIMEOUT_MS = 48_000;  // v15: was 38s — raised to 48s. 38s was 
 
 export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const cfg = PROVIDER_DEFAULTS[opts.provider];
-  const apiKey = Deno.env.get(cfg.keyEnv);
-  if (!apiKey) throw new Error(`${cfg.keyEnv} not configured`);
+
+  // ── SSOT routing: openai + google route through Lovable AI Gateway ──
+  // The Gateway accepts both providers via LOVABLE_API_KEY and avoids
+  // `invalid model ID` errors caused by Gateway-only model names being
+  // sent to api.openai.com directly.
+  const useGateway = lovableGatewayEnabled() && (opts.provider === "openai" || opts.provider === "google");
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const apiKey = useGateway ? lovableKey! : Deno.env.get(cfg.keyEnv);
+  if (!apiKey) throw new Error(`${useGateway ? "LOVABLE_API_KEY" : cfg.keyEnv} not configured`);
+  const targetUrl = useGateway ? LOVABLE_GATEWAY_URL : cfg.url;
 
   // ── Proactive rate-limit check (with cooldown wait) ──
   let health = getProviderHealth(opts.provider);
@@ -145,9 +181,18 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     ? AbortSignal.any([opts.signal, timeoutSignal])
     : timeoutSignal;
 
-  const model = opts.model || cfg.model;
+  // Auto-prefix model when routing through Gateway (e.g. `gpt-5.4-mini` → `openai/gpt-5.4-mini`).
+  const rawModel = opts.model || cfg.model;
+  const model = useGateway ? ensureGatewayModel(opts.provider, rawModel) : rawModel;
 
+  if (useGateway && rawModel !== model) {
+    console.info(`[AI-CLIENT] Gateway route: ${opts.provider} ${rawModel} → ${model} (auto-prefixed)`);
+  }
   let resp: Response;
+
+
+
+
 
   if (cfg.format === "anthropic") {
     // Anthropic has a different API format
@@ -218,7 +263,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
     if (opts.max_tokens !== undefined) body.max_tokens = opts.max_tokens;
 
-    resp = await fetch(cfg.url, {
+    resp = await fetch(targetUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -227,6 +272,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       body: JSON.stringify(body),
       signal: combinedSignal,
     });
+
   } else {
     // OpenAI-compatible (OpenAI direct)
     const body: Record<string, unknown> = {
@@ -253,7 +299,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     if (opts.tools) body.tools = opts.tools;
     if (opts.tool_choice) body.tool_choice = opts.tool_choice;
 
-    resp = await fetch(cfg.url, {
+    resp = await fetch(targetUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -262,6 +308,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       body: JSON.stringify(body),
       signal: combinedSignal,
     });
+
   }
 
   // ── Record outcome for rate-limiter ──
