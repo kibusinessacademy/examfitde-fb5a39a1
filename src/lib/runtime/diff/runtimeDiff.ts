@@ -2,7 +2,7 @@
  * Runtime Diff Engine — deterministic before/after comparison for Runtime Actions.
  *
  * Invariants (RUNTIME_DIFF_NO_RANDOMNESS):
- *  - Pure function. No Date.now(), no Math.random(), no Set iteration order leaks.
+ *  - Pure function. No nondeterministic clocks or RNGs, no Set iteration order leaks.
  *  - Stable sort by path. Same input → byte-identical output.
  *  - Audit-safe: never expands raw payloads; only emits typed deltas.
  *  - UI-safe: serializable JSON only.

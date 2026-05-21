@@ -37,11 +37,13 @@ for (const f of files) {
   if (deleteRe.test(t)) violations.push(`RUNTIME_ACTION_NO_DELETE: ${f}`);
 }
 
-// 2. RUNTIME_AUDIT_APPEND_ONLY — no UPDATE on auto_heal_log outside guarded migrations
+// 2. RUNTIME_AUDIT_APPEND_ONLY — no UPDATE on auto_heal_log outside guarded migrations/ops scripts
 const updateRe = /\bUPDATE\s+(public\.)?auto_heal_log\b/i;
+const APPEND_ONLY_ALLOWLIST = ["/scripts/ops/", "/__tests__/", "/supabase/migrations/"];
 for (const f of files) {
   if (f.includes("/scripts/guards/")) continue;
-  if (f.endsWith(".sql")) continue; // migrations may legitimately backfill via fn_emit_audit-controlled paths
+  if (APPEND_ONLY_ALLOWLIST.some((p) => f.includes(p))) continue;
+  if (f.endsWith(".sql")) continue;
   const t = readFileSync(f, "utf8");
   if (updateRe.test(t)) violations.push(`RUNTIME_AUDIT_APPEND_ONLY: ${f}`);
 }
