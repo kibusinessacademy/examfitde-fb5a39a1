@@ -1,4 +1,4 @@
-import { Activity, Gauge, ShieldCheck, Workflow, Radar, Sparkles } from "lucide-react";
+import { Activity, Gauge, ShieldCheck, Workflow, Radar, Sparkles, Shield } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +6,7 @@ import { AdminPageHeader } from "@/components/admin/v2/AdminPageHeader";
 import AiEvalRunsCard from "@/features/admin/components/AiEvalRunsCard";
 import PolicyGovernanceCard from "@/features/admin/components/PolicyGovernanceCard";
 import AdaptiveSequencingDecisionsCard from "@/features/admin/components/AdaptiveSequencingDecisionsCard";
+import SafeActionsCard from "@/features/admin/components/SafeActionsCard";
 
 /**
  * AI Runtime Command Center v1
@@ -54,6 +55,9 @@ export default function RuntimeCommandCenterPage() {
           <TabsTrigger value="intervention" className="gap-1.5">
             <Activity className="h-3.5 w-3.5" /> Intervention
           </TabsTrigger>
+          <TabsTrigger value="safe_actions" className="gap-1.5">
+            <Shield className="h-3.5 w-3.5" /> Safe Actions
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="health" className="mt-4 space-y-4">
@@ -67,6 +71,7 @@ export default function RuntimeCommandCenterPage() {
         <TabsContent value="sequencing" className="mt-4 space-y-4">
           <AdaptiveSequencingDecisionsCard />
         </TabsContent>
+
 
         <TabsContent value="observability" className="mt-4">
           <PlaceholderCard
