@@ -111,6 +111,11 @@ export default function RuntimeCommandCenterPage() {
         <TabsContent value="safe_actions" className="mt-4 space-y-4">
           <SafeActionsCard />
         </TabsContent>
+
+        <TabsContent value="rollback" className="mt-4 space-y-4">
+          <RuntimeDryRunCard />
+          <RuntimeReversiblePoliciesCard />
+        </TabsContent>
       </Tabs>
     </div>
   );
