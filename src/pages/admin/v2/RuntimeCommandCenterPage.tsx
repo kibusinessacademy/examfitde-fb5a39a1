@@ -68,6 +68,9 @@ export default function RuntimeCommandCenterPage() {
           <TabsTrigger value="safe_actions" className="gap-1.5">
             <Shield className="h-3.5 w-3.5" /> Safe Actions
           </TabsTrigger>
+          <TabsTrigger value="rollback" className="gap-1.5">
+            <Undo2 className="h-3.5 w-3.5" /> Rollback &amp; Dry-Run
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="actions" className="mt-4 space-y-4">
