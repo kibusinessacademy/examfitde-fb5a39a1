@@ -82,9 +82,10 @@ describe('failClusters — status thresholds', () => {
     expect(classifyStatus(8, 20)).toBe('critical');
   });
 
-  it('watch otherwise', () => {
-    expect(classifyStatus(1, 1)).toBe('watch');
-    expect(classifyStatus(3, 12)).toBe('watch');
+  it('watch when 24h within prior 4d baseline', () => {
+    // prior4d=(40-3)/4=9, 2x=18, 3>18? no, 3>=10? no => watch
+    expect(classifyStatus(3, 40)).toBe('watch');
+    expect(classifyStatus(5, 50)).toBe('watch');
   });
 });
 
