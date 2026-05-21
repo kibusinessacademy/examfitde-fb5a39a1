@@ -17,6 +17,8 @@ import { ProductFAQSection } from './ProductFAQSection';
 import { ProductFinalCTABlock } from './ProductFinalCTABlock';
 import { ProductRelatedCourses } from './ProductRelatedCourses';
 import { StickyProductBar } from './StickyProductBar';
+import { ProductPagePillarHub } from './ProductPagePillarHub';
+
 
 interface Props {
   product: ProductPageSSOT;
@@ -128,11 +130,14 @@ export function ProductPageTemplate({
           onExpand={onFaqExpand}
         />
 
+        <ProductPagePillarHub product={product} />
+
         <ProductFinalCTABlock
           product={product}
           onBuyClick={handlePrimaryClick}
           isLoading={isCheckoutLoading}
         />
+
 
         <ProductRelatedCourses
           courses={product.relatedCourses}
