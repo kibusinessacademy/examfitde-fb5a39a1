@@ -264,11 +264,10 @@ const AppRoutes = () => {
         <Route path="/user/*" element={<Navigate to="/faq" replace />} />
         <Route path="/shop/products" element={<Navigate to="/shop" replace />} />
         <Route path="/products" element={<Navigate to="/paket" replace />} />
-        <Route path="/product/:slug" element={<LegacyProductSlugRedirect />} />
-        <Route path="/apprenticeship-course-detail/:slug" element={<LegacyApprenticeshipRedirect />} />
+        <Route path="/product/:slug" element={<LegacyParamRedirect to="/paket" />} />
         <Route path="/category/:slug" element={<Navigate to="/wissen" replace />} />
         <Route path="/ausbildungsberufe" element={<Navigate to="/ausbildung" replace />} />
-        <Route path="/apprenticeship-course-detail/:slug" element={<Navigate to="/ausbildung" replace />} />
+        <Route path="/apprenticeship-course-detail/:slug" element={<LegacyParamRedirect to="/ausbildung" />} />
         <Route path="/learning/path/:courseId" element={<Navigate to="/dashboard" replace />} />
         <Route path="/learning/*" element={<Navigate to="/dashboard" replace />} />
         <Route path="/payment-success" element={<Navigate to="/purchase-success" replace />} />
