@@ -127,7 +127,10 @@ export function ProductPageTemplate({
 
         <ProductFAQSection
           items={product.faqItems}
-          onExpand={onFaqExpand}
+
+        <ProductPagePillarHub product={product} />
+
+
         />
 
         <ProductFinalCTABlock
