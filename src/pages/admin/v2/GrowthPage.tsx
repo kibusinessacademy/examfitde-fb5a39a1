@@ -34,6 +34,7 @@ const RefreshQueueManager = lazy(() => import('@/components/admin/growth/Refresh
 const SEOAuditManager = lazy(() => import('@/components/admin/growth/SEOAuditManager'));
 const LlmVisibilityCard = lazy(() => import('@/features/admin/components/LlmVisibilityCard').then(m => ({ default: m.LlmVisibilityCard })));
 const SemanticGraphCrawlHealthCard = lazy(() => import('@/features/admin/components/SemanticGraphCrawlHealthCard').then(m => ({ default: m.SemanticGraphCrawlHealthCard })));
+const GscReconciliationCard = lazy(() => import('@/features/admin/components/GscReconciliationCard').then(m => ({ default: m.GscReconciliationCard })));
 const SeoDeadEndDriftCard = lazy(() => import('@/features/admin/components/SeoDeadEndDriftCard').then(m => ({ default: m.SeoDeadEndDriftCard })));
 const SeoCanonicalParityCard = lazy(() => import('@/components/admin/growth/SeoCanonicalParityCard'));
 const GrowthGraphLeitstelleCard = lazy(() => import('@/components/admin/growth/GrowthGraphLeitstelleCard'));
@@ -159,6 +160,7 @@ export default function GrowthPage() {
           <Suspense fallback={<Loading />}><SeoCanonicalParityCard /></Suspense>
           <Suspense fallback={<Loading />}><SeoDeadEndDriftCard /></Suspense>
           <Suspense fallback={<Loading />}><SemanticGraphCrawlHealthCard /></Suspense>
+          <Suspense fallback={<Loading />}><GscReconciliationCard /></Suspense>
           <Suspense fallback={<Loading />}><LlmVisibilityCard /></Suspense>
           <Suspense fallback={<Loading />}><SEOAuditManager /></Suspense>
         </TabsContent>
