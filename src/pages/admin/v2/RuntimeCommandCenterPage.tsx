@@ -38,14 +38,17 @@ export default function RuntimeCommandCenterPage() {
         documentTitle="AI Runtime Command Center · ExamFit Admin"
         badges={
           <>
-            <Badge variant="outline" className="text-[10px]">v1.2</Badge>
-            <Badge variant="secondary" className="text-[10px]">rollback · dry-run</Badge>
+            <Badge variant="outline" className="text-[10px]">v1.3</Badge>
+            <Badge variant="secondary" className="text-[10px]">intelligence · cascade-guard</Badge>
           </>
         }
       />
 
-      <Tabs defaultValue="actions" className="w-full">
+      <Tabs defaultValue="intelligence" className="w-full">
         <TabsList className="flex w-full flex-wrap gap-1">
+          <TabsTrigger value="intelligence" className="gap-1.5">
+            <Brain className="h-3.5 w-3.5" /> Intelligence
+          </TabsTrigger>
           <TabsTrigger value="actions" className="gap-1.5">
             <ListChecks className="h-3.5 w-3.5" /> Actions
           </TabsTrigger>
@@ -74,6 +77,12 @@ export default function RuntimeCommandCenterPage() {
             <Undo2 className="h-3.5 w-3.5" /> Rollback &amp; Dry-Run
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="intelligence" className="mt-4 space-y-4">
+          <RuntimeRecommendationsCard />
+          <RuntimeIntelligenceCard />
+        </TabsContent>
+
 
         <TabsContent value="actions" className="mt-4 space-y-4">
           <RuntimeActionsLedgerCard />
