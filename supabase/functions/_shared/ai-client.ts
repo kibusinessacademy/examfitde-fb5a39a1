@@ -131,8 +131,16 @@ const AI_FETCH_TIMEOUT_MS = 48_000;  // v15: was 38s — raised to 48s. 38s was 
 
 export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const cfg = PROVIDER_DEFAULTS[opts.provider];
-  const apiKey = Deno.env.get(cfg.keyEnv);
-  if (!apiKey) throw new Error(`${cfg.keyEnv} not configured`);
+
+  // ── SSOT routing: openai + google route through Lovable AI Gateway ──
+  // The Gateway accepts both providers via LOVABLE_API_KEY and avoids
+  // `invalid model ID` errors caused by Gateway-only model names being
+  // sent to api.openai.com directly.
+  const useGateway = lovableGatewayEnabled() && (opts.provider === "openai" || opts.provider === "google");
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const apiKey = useGateway ? lovableKey! : Deno.env.get(cfg.keyEnv);
+  if (!apiKey) throw new Error(`${useGateway ? "LOVABLE_API_KEY" : cfg.keyEnv} not configured`);
+  const targetUrl = useGateway ? LOVABLE_GATEWAY_URL : cfg.url;
 
   // ── Proactive rate-limit check (with cooldown wait) ──
   let health = getProviderHealth(opts.provider);
@@ -173,9 +181,13 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     ? AbortSignal.any([opts.signal, timeoutSignal])
     : timeoutSignal;
 
-  const model = opts.model || cfg.model;
+  // Auto-prefix model when routing through Gateway (e.g. `gpt-5.4-mini` → `openai/gpt-5.4-mini`).
+  const rawModel = opts.model || cfg.model;
+  const model = useGateway ? ensureGatewayModel(opts.provider, rawModel) : rawModel;
 
   let resp: Response;
+
+
 
   if (cfg.format === "anthropic") {
     // Anthropic has a different API format
