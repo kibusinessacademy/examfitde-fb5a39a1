@@ -102,6 +102,10 @@ export default function RuntimeCommandCenterPage() {
             hint="Outcomes & Policy-Impact aus `v_recommendation_policy_effectiveness`. Folgecut bringt Effectiveness-Drilldown + Safe-Actions (Rollback, Disable Policy) mit Reason-Pflichtfeld + Audit."
           />
         </TabsContent>
+
+        <TabsContent value="safe_actions" className="mt-4 space-y-4">
+          <SafeActionsCard />
+        </TabsContent>
       </Tabs>
     </div>
   );
