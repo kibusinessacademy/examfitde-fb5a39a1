@@ -37,7 +37,39 @@ function escapeXml(text: string): string {
     .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 
-function toSitemapXML(urls: SitemapURL[]): string {
+// P6 Cut 3b — Hard-Gate gegen interne Drift: alle URLs, deren Pfad gegen eines
+// dieser Patterns matcht, werden NIE in eine Sitemap emittiert. Mirror der
+// noindex/redirect/gone-Klassen aus route_crawl_policy (defense-in-depth, falls
+// ein Entity-Resolver versehentlich einen verbotenen Pfad zurückliefert).
+const SITEMAP_FORBIDDEN_PREFIXES = [
+  "/products", "/product/", "/category/", "/learning/", "/dashboard",
+  "/checkout", "/search", "/legal/", "/account", "/admin", "/admin-v2",
+  "/app", "/auth", "/course/", "/courses", "/daily-challenge", "/diag",
+  "/drill", "/exam-results", "/exam-simulation", "/exam-trainer", "/heatmap",
+  "/installieren", "/lernplan/", "/lesson", "/newsletter/", "/oral-exam",
+  "/org", "/partner", "/payment-success", "/pruefungsreife-ergebnis/",
+  "/purchase-success", "/renew", "/shuttle", "/spaced-repetition", "/success",
+  "/tools/", "/user/", "/willkommen", "/work", "/about", "/ausbildungsberufe",
+  "/kontakt", "/registrieren", "/repair-courses", "/sitemap",
+];
+
+function isAllowedSitemapPath(loc: string): boolean {
+  try {
+    const u = new URL(loc);
+    const p = u.pathname;
+    for (const pre of SITEMAP_FORBIDDEN_PREFIXES) {
+      if (p === pre || p.startsWith(pre.endsWith("/") ? pre : pre + "/") || p === pre.replace(/\/$/, "")) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function toSitemapXML(urlsIn: SitemapURL[]): string {
+  const urls = urlsIn.filter((u) => isAllowedSitemapPath(u.loc));
   const entries = urls.map((u) => {
     let e = `  <url>\n    <loc>${escapeXml(u.loc)}</loc>\n`;
     if (u.lastmod) e += `    <lastmod>${u.lastmod}</lastmod>\n`;
@@ -51,6 +83,7 @@ function toSitemapXML(urls: SitemapURL[]): string {
     }
     return e + `  </url>`;
   }).join("\n");
+
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -255,10 +288,19 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         const slug = generateSlug(b.bezeichnung_kurz);
         const lm = (b.updated_at || "").split("T")[0] || today;
         urls.push({ loc: `${SITE_URL}/berufe/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.8 });
-        // Komplettpaket-SSOT: nur /paket/:slug in Sitemap; /lernkurse/* + /pruefungstrainer/* + /bundle/* sind nur Legacy-Redirects.
-        urls.push({ loc: `${SITE_URL}/paket/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.8 });
         urls.push({ loc: `${SITE_URL}/ihk-pruefungen/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.7 });
       }
+      // P6 Cut 3b: /paket/:slug NUR aus published course_packages (SSOT v_paket_sitemap_entries).
+      // Vorher: alle 326 aktiven Berufe → false positives. Jetzt: nur ~177 Berufe mit ≥1 published Paket.
+      const { data: pakete, error: paketeErr } = await sb.from("v_paket_sitemap_entries")
+        .select("bezeichnung_kurz, lastmod");
+      if (paketeErr) console.error("[generate-sitemap] v_paket_sitemap_entries query error:", paketeErr);
+      for (const p of pakete || []) {
+        const slug = generateSlug(p.bezeichnung_kurz);
+        const lm = (p.lastmod || "").toString().split("T")[0] || today;
+        urls.push({ loc: `${SITE_URL}/paket/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.85 });
+      }
+
       const { data: certs } = await sb.from("certification_catalog")
         .select("slug, updated_at").not("slug", "is", null).limit(500);
       for (const c of certs || []) {
