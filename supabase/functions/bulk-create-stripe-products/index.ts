@@ -316,9 +316,15 @@ serve(async (req) => {
           _trigger_source: "edge_bulk_create_stripe_products",
         });
 
+        results.push({
+          ...course,
+          status: search.data.length > 0 ? "reused_stripe" : "created",
+          product_id: productId,
+          price_id: priceRow.id,
           stripe_product_id: stripeProduct.id,
           stripe_price_id: stripePrice.id,
         });
+
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         log("course_failed", { course_id: course.course_id, error: msg });
