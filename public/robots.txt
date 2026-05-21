@@ -1,6 +1,6 @@
 # ExamFit.de Robots.txt
-# Realistic, documented bot allowlist
-# Last reviewed: 2026-04-29
+# P6 Crawl Governance Layer — only SEO-Authority routes are crawlable
+# Last reviewed: 2026-05-21
 #
 # Canonical host: examfit.de (apex). www.examfit.de is a 301 redirect.
 # All canonicals, sitemaps, IndexNow submissions and llms.txt point to apex only.
@@ -15,10 +15,43 @@ Disallow: /*.json$
 Disallow: /auth
 Disallow: /dashboard
 Disallow: /account
+Disallow: /app/
 Disallow: /checkout
 Disallow: /success
+Disallow: /willkommen
+Disallow: /purchase-success
+Disallow: /payment-success
 Disallow: /org/
 Disallow: /partner/
+Disallow: /work
+Disallow: /search
+Disallow: /courses
+Disallow: /course/
+Disallow: /products
+Disallow: /product/
+Disallow: /category/
+Disallow: /learning/
+Disallow: /apprenticeship-course-detail/
+Disallow: /exam-trainer
+Disallow: /oral-exam
+Disallow: /exam-simulation
+Disallow: /exam-results
+Disallow: /lesson/
+Disallow: /spaced-repetition
+Disallow: /drill
+Disallow: /shuttle
+Disallow: /daily-challenge
+Disallow: /heatmap
+Disallow: /diag
+Disallow: /tools/
+Disallow: /installieren
+Disallow: /renew
+Disallow: /quiz/
+Disallow: /lernplan/
+Disallow: /pruefungsreife-ergebnis/
+Disallow: /legal/
+Disallow: /user/
+Disallow: /newsletter/
 
 # ───── Classic search ─────
 User-agent: Googlebot
@@ -28,10 +61,41 @@ Disallow: /admin-v2
 Disallow: /auth
 Disallow: /dashboard
 Disallow: /account
+Disallow: /app/
 Disallow: /checkout
 Disallow: /success
+Disallow: /willkommen
+Disallow: /purchase-success
+Disallow: /payment-success
 Disallow: /org/
 Disallow: /partner/
+Disallow: /work
+Disallow: /search
+Disallow: /courses
+Disallow: /course/
+Disallow: /products
+Disallow: /product/
+Disallow: /category/
+Disallow: /learning/
+Disallow: /apprenticeship-course-detail/
+Disallow: /exam-trainer
+Disallow: /oral-exam
+Disallow: /exam-simulation
+Disallow: /exam-results
+Disallow: /lesson/
+Disallow: /spaced-repetition
+Disallow: /drill
+Disallow: /shuttle
+Disallow: /daily-challenge
+Disallow: /heatmap
+Disallow: /diag
+Disallow: /tools/
+Disallow: /quiz/
+Disallow: /lernplan/
+Disallow: /pruefungsreife-ergebnis/
+Disallow: /legal/
+Disallow: /user/
+Disallow: /newsletter/
 
 User-agent: Googlebot-Image
 Allow: /
@@ -43,10 +107,22 @@ Disallow: /admin-v2
 Disallow: /auth
 Disallow: /dashboard
 Disallow: /account
+Disallow: /app/
 Disallow: /checkout
 Disallow: /success
 Disallow: /org/
 Disallow: /partner/
+Disallow: /work
+Disallow: /search
+Disallow: /courses
+Disallow: /course/
+Disallow: /products
+Disallow: /product/
+Disallow: /category/
+Disallow: /learning/
+Disallow: /apprenticeship-course-detail/
+Disallow: /legal/
+Disallow: /user/
 
 User-agent: Slurp
 Allow: /
@@ -68,16 +144,21 @@ User-agent: LinkedInBot
 Allow: /
 
 # ───── OpenAI ─────
-# GPTBot = training; OAI-SearchBot = ChatGPT search/discovery; ChatGPT-User = on-demand fetch
 User-agent: GPTBot
 Allow: /
 Disallow: /admin
 Disallow: /admin-v2
+Disallow: /dashboard
+Disallow: /account
+Disallow: /app/
+Disallow: /checkout
 
 User-agent: OAI-SearchBot
 Allow: /
 Disallow: /admin
 Disallow: /admin-v2
+Disallow: /dashboard
+Disallow: /app/
 
 User-agent: ChatGPT-User
 Allow: /
@@ -96,21 +177,21 @@ Allow: /
 User-agent: PerplexityBot
 Allow: /
 
-# ───── Google AI (Gemini ist primär Googlebot + Google-Extended) ─────
+# ───── Google AI ─────
 User-agent: Google-Extended
 Allow: /
 
 User-agent: Google-CloudVertexBot
 Allow: /
 
-# ───── xAI / Grok (Doku unvollständig — Best-effort) ─────
+# ───── xAI / Grok ─────
 User-agent: xAI-Bot
 Allow: /
 
 User-agent: Grok
 Allow: /
 
-# ───── Weitere AI-Crawler (best effort) ─────
+# ───── Other AI crawlers ─────
 User-agent: Applebot-Extended
 Allow: /
 
@@ -136,7 +217,7 @@ User-agent: Bytespider
 Allow: /
 Crawl-delay: 5
 
-# ───── SEO-Tools (rate-limited) ─────
+# ───── SEO-Tools ─────
 User-agent: AhrefsBot
 Crawl-delay: 10
 
@@ -146,13 +227,8 @@ Crawl-delay: 10
 User-agent: MJ12bot
 Crawl-delay: 10
 
-# ───── Host preference (Yandex) ─────
+# ───── Host preference ─────
 Host: examfit.de
 
-# ───── Sitemap & AI manifests ─────
+# ───── Sitemap ─────
 Sitemap: https://examfit.de/sitemap.xml
-
-# AI discovery files (no User-agent scoping required, listed for clarity)
-# https://examfit.de/llms.txt
-# https://examfit.de/llms-full.txt
-# https://examfit.de/examfit-indexnow-key-2026.txt
