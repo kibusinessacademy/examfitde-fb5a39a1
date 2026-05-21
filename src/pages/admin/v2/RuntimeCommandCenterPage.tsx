@@ -34,14 +34,20 @@ export default function RuntimeCommandCenterPage() {
         documentTitle="AI Runtime Command Center · ExamFit Admin"
         badges={
           <>
-            <Badge variant="outline" className="text-[10px]">v1</Badge>
-            <Badge variant="secondary" className="text-[10px]">read-only</Badge>
+            <Badge variant="outline" className="text-[10px]">v1.1</Badge>
+            <Badge variant="secondary" className="text-[10px]">observability</Badge>
           </>
         }
       />
 
-      <Tabs defaultValue="health" className="w-full">
+      <Tabs defaultValue="actions" className="w-full">
         <TabsList className="flex w-full flex-wrap gap-1">
+          <TabsTrigger value="actions" className="gap-1.5">
+            <ListChecks className="h-3.5 w-3.5" /> Actions
+          </TabsTrigger>
+          <TabsTrigger value="failures" className="gap-1.5">
+            <AlertCircle className="h-3.5 w-3.5" /> Failures
+          </TabsTrigger>
           <TabsTrigger value="health" className="gap-1.5">
             <Gauge className="h-3.5 w-3.5" /> Health
           </TabsTrigger>
@@ -61,6 +67,14 @@ export default function RuntimeCommandCenterPage() {
             <Shield className="h-3.5 w-3.5" /> Safe Actions
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="actions" className="mt-4 space-y-4">
+          <RuntimeActionsLedgerCard />
+        </TabsContent>
+
+        <TabsContent value="failures" className="mt-4 space-y-4">
+          <RuntimeFailuresCard />
+        </TabsContent>
 
         <TabsContent value="health" className="mt-4 space-y-4">
           <AiEvalRunsCard />
