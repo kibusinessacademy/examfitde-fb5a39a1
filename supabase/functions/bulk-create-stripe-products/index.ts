@@ -258,23 +258,26 @@ serve(async (req) => {
             .from("products")
             .insert({
               slug: candidate,
-              title: course.title,
-              product_type: "course",
-              curriculum_id: course.curriculum_id,
-              status: "active",
-              visibility: "public",
-              channel_policy_json: policy ?? {},
-            })
-            .select("id, slug")
-            .single();
-          if (!insErr && ins) {
-            productId = ins.id;
-            slug = ins.slug;
-            break;
-          }
-          if (insErr && /duplicate key/i.test(insErr.message)) {
-            attempt += 1;
-            continue;
+        // 4g) Audit (parameter is _payload, not _meta)
+        await admin.rpc("fn_emit_audit", {
+          _action_type: "shop_coverage_backfill_v1",
+          _target_type: "course",
+          _target_id: course.course_id,
+          _result_status: "success",
+          _payload: {
+            course_id: course.course_id,
+            curriculum_id: course.curriculum_id,
+            product_id: productId,
+            price_id: priceRow.id,
+            stripe_product_id: stripeProduct.id,
+            stripe_price_id: stripePrice.id,
+            amount_cents: amountCents,
+            currency,
+            slug,
+          },
+          _trigger_source: "edge_bulk_create_stripe_products",
+        });
+
           }
           throw new Error(`product_insert_failed: ${insErr?.message ?? "unknown"}`);
         }
