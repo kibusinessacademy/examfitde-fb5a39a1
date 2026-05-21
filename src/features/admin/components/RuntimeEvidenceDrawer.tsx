@@ -91,6 +91,50 @@ export default function RuntimeEvidenceDrawer({ actionId }: Props) {
         <Badge variant="outline" className="text-[10px]">{data.status}</Badge>
       </div>
 
+      {/* Rollback Runner */}
+      {canRollback && (
+        <div className="flex items-center justify-between rounded-md border border-status-border-warning bg-status-bg-subtle-warning p-3">
+          <div className="flex items-center gap-2 text-xs">
+            <Undo2 className="h-4 w-4 text-status-fg-warning" />
+            <span>Rollback eligible if action is reversible &amp; within window.</span>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Undo2 className="h-3.5 w-3.5" /> Rollback…
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Rollback runtime action</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Reverses <code className="font-mono">{data.action_key}</code>. Only succeeds if the action is reversible and inside its rollback window. A new audit row will be linked to this one.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Reason (min 8 chars)…"
+                rows={3}
+                className="font-mono text-xs"
+              />
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={rollback.isPending}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={reason.trim().length < 8 || rollback.isPending}
+                  onClick={(e) => { e.preventDefault(); rollback.mutate(); }}
+                  className="gap-1.5"
+                >
+                  {rollback.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
+                  Execute rollback
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
+
+
       {/* Timeline */}
       <section>
         <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
