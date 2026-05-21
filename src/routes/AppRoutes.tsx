@@ -572,6 +572,7 @@ const AppRoutes = () => {
           <Route path="ops/orders" element={<AdminPaidOrdersOpsPage />} />
           <Route path="ops/funnel" element={<AdminTrafficFunnelPage />} />
           <Route path="observatory" element={<StripeObservatoryPage />} />
+          <Route path="runtime" element={<RuntimeCommandCenterPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
