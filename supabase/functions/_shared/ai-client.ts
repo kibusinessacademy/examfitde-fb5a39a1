@@ -258,7 +258,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
     if (opts.max_tokens !== undefined) body.max_tokens = opts.max_tokens;
 
-    resp = await fetch(cfg.url, {
+    resp = await fetch(targetUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -267,6 +267,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       body: JSON.stringify(body),
       signal: combinedSignal,
     });
+
   } else {
     // OpenAI-compatible (OpenAI direct)
     const body: Record<string, unknown> = {
