@@ -20,6 +20,9 @@ const INTENT_ROUTES: Record<string, string> = {
   auto_heal_runner_tick: "auto-heal-runner",
   pipeline_watchdog_tick: "pipeline-watchdog",
   gate_history_export: "gate-history-export-worker",
+  // Phase 2b — migrated 2026-05-21
+  production_guardian_tick: "production-guardian",
+  exam_pool_loop_breaker_tick: "exam-pool-loop-breaker",
 };
 
 const WORKER_ID = `system-intent-worker:${crypto.randomUUID().slice(0, 8)}`;
