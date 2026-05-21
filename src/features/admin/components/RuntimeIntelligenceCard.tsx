@@ -46,7 +46,7 @@ export default function RuntimeIntelligenceCard() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_get_runtime_intelligence");
       if (error) throw error;
-      return (data ?? []) as IntelligenceRow[];
+      return (data ?? []) as unknown as IntelligenceRow[];
     },
     staleTime: 60_000,
     refetchInterval: 120_000,
