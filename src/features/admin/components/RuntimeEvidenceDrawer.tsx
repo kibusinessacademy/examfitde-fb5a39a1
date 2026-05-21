@@ -1,7 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Clock, XCircle, FileCheck, Database, FileSearch, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { CheckCircle2, Clock, XCircle, FileCheck, Database, FileSearch, AlertTriangle, Undo2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { buildRuntimeDiff, summarizeRuntimeDiff } from "@/lib/runtime/diff/runtimeDiff";
 
 interface Props { actionId: string }
