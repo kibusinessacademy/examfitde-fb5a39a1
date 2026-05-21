@@ -86,7 +86,6 @@ export default function SafeActionsCard() {
         _action_key: vars.action_key,
         _reason: vars.reason,
         _payload: {},
-        _severity: null,
       });
       if (error) throw error;
       return data as string;
