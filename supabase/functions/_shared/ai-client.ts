@@ -59,6 +59,33 @@ export interface AIResponse {
   raw: Response;
 }
 
+/**
+ * Lovable AI Gateway — SSOT for openai/google providers.
+ *
+ * Direct calls to api.openai.com or generativelanguage.googleapis.com
+ * fail on Gateway-only model names (e.g. `gpt-5.4-mini`, `gemini-2.5-flash`).
+ * The Gateway accepts prefixed model IDs (`openai/...`, `google/...`) and
+ * authenticates via `LOVABLE_API_KEY` for both providers.
+ *
+ * When LOVABLE_API_KEY is present (always true in this project), `openai`
+ * and `google` providers are routed through the Gateway. The model name is
+ * auto-prefixed if the caller passed an unprefixed value.
+ *
+ * Anthropic stays direct (separate API + key + endpoint).
+ */
+const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+
+function lovableGatewayEnabled(): boolean {
+  return !!Deno.env.get("LOVABLE_API_KEY");
+}
+
+function ensureGatewayModel(provider: AIProvider, model: string): string {
+  if (model.includes("/")) return model; // already prefixed
+  if (provider === "openai") return `openai/${model}`;
+  if (provider === "google") return `google/${model}`;
+  return model;
+}
+
 const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv: string; format: "openai" | "anthropic" | "google" }> = {
   openai: {
     url: "https://api.openai.com/v1/chat/completions",
@@ -74,11 +101,12 @@ const PROVIDER_DEFAULTS: Record<AIProvider, { url: string; model: string; keyEnv
   },
   google: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    model: "claude-3-5-haiku-20241022", // DISABLED: Google provider not in active use
+    model: "gemini-2.5-flash",
     keyEnv: "GOOGLE_AI_API_KEY",
     format: "google",
   },
 };
+
 
 
 /**
