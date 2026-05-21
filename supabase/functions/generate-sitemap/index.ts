@@ -255,10 +255,19 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         const slug = generateSlug(b.bezeichnung_kurz);
         const lm = (b.updated_at || "").split("T")[0] || today;
         urls.push({ loc: `${SITE_URL}/berufe/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.8 });
-        // Komplettpaket-SSOT: nur /paket/:slug in Sitemap; /lernkurse/* + /pruefungstrainer/* + /bundle/* sind nur Legacy-Redirects.
-        urls.push({ loc: `${SITE_URL}/paket/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.8 });
         urls.push({ loc: `${SITE_URL}/ihk-pruefungen/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.7 });
       }
+      // P6 Cut 3b: /paket/:slug NUR aus published course_packages (SSOT v_paket_sitemap_entries).
+      // Vorher: alle 326 aktiven Berufe → false positives. Jetzt: nur ~177 Berufe mit ≥1 published Paket.
+      const { data: pakete, error: paketeErr } = await sb.from("v_paket_sitemap_entries")
+        .select("bezeichnung_kurz, lastmod");
+      if (paketeErr) console.error("[generate-sitemap] v_paket_sitemap_entries query error:", paketeErr);
+      for (const p of pakete || []) {
+        const slug = generateSlug(p.bezeichnung_kurz);
+        const lm = (p.lastmod || "").toString().split("T")[0] || today;
+        urls.push({ loc: `${SITE_URL}/paket/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.85 });
+      }
+
       const { data: certs } = await sb.from("certification_catalog")
         .select("slug, updated_at").not("slug", "is", null).limit(500);
       for (const c of certs || []) {
