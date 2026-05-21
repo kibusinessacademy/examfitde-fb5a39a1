@@ -133,62 +133,39 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
       return xmlResponse(toSitemapIndex(sitemaps), headers);
     }
 
-    // ── Static pages ──
+    // ── Static pages (P6 Cut 3 — SSOT route_crawl_policy) ──
     if (action === "static") {
-      const pages: SitemapURL[] = [
+      // Fetch from SSOT. Falls Query failt, Fallback auf hardcoded Liste, damit
+      // Sitemap nie leer wird (DB-Outage Resilience).
+      const { data: rows, error: rpErr } = await sb
+        .from("route_crawl_policy")
+        .select("pattern, priority, changefreq")
+        .eq("state", "index")
+        .eq("match_type", "exact")
+        .order("priority", { ascending: false });
+      if (rpErr) console.error("[generate-sitemap] route_crawl_policy query error:", rpErr);
+
+      const ssot: SitemapURL[] = (rows ?? []).map((r) => ({
+        loc: `${SITE_URL}${r.pattern}`,
+        lastmod: today,
+        changefreq: r.changefreq ?? undefined,
+        priority: r.priority != null ? Number(r.priority) : undefined,
+      }));
+
+      const fallback: SitemapURL[] = [
         { loc: `${SITE_URL}/`, lastmod: today, changefreq: "daily", priority: 1.0 },
         { loc: `${SITE_URL}/themen`, lastmod: today, changefreq: "weekly", priority: 0.95 },
         { loc: `${SITE_URL}/berufe`, lastmod: today, changefreq: "weekly", priority: 0.9 },
-        { loc: `${SITE_URL}/ihk-pruefungen`, lastmod: today, changefreq: "weekly", priority: 0.9 },
-        { loc: `${SITE_URL}/lernkurse`, lastmod: today, changefreq: "weekly", priority: 0.9 },
-        { loc: `${SITE_URL}/pruefungstrainer`, lastmod: today, changefreq: "weekly", priority: 0.9 },
         { loc: `${SITE_URL}/paket`, lastmod: today, changefreq: "weekly", priority: 0.9 },
         { loc: `${SITE_URL}/shop`, lastmod: today, changefreq: "weekly", priority: 0.8 },
-        // IHK Pillar-Cluster Hubs (zentrale Topic-Pages)
-        { loc: `${SITE_URL}/ihk-pruefungsvorbereitung`, lastmod: today, changefreq: "weekly", priority: 0.9 },
-        { loc: `${SITE_URL}/ihk-pruefungsfragen`, lastmod: today, changefreq: "weekly", priority: 0.85 },
-        { loc: `${SITE_URL}/ihk-fachgespraech`, lastmod: today, changefreq: "monthly", priority: 0.8 },
-        { loc: `${SITE_URL}/ihk-probepruefung`, lastmod: today, changefreq: "monthly", priority: 0.8 },
-        // Mündliche Prüfung & Methoden
-        { loc: `${SITE_URL}/muendliche-pruefung`, lastmod: today, changefreq: "weekly", priority: 0.85 },
-        { loc: `${SITE_URL}/probepruefung`, lastmod: today, changefreq: "monthly", priority: 0.75 },
-        { loc: `${SITE_URL}/lernplan-pruefung`, lastmod: today, changefreq: "monthly", priority: 0.75 },
-        { loc: `${SITE_URL}/pruefungsfragen`, lastmod: today, changefreq: "weekly", priority: 0.8 },
         { loc: `${SITE_URL}/wissen`, lastmod: today, changefreq: "daily", priority: 0.8 },
         { loc: `${SITE_URL}/blog`, lastmod: today, changefreq: "daily", priority: 0.8 },
-        { loc: `${SITE_URL}/preise`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/unternehmen`, lastmod: today, changefreq: "monthly", priority: 0.6 },
-        { loc: `${SITE_URL}/work`, lastmod: today, changefreq: "weekly", priority: 0.9 },
-        { loc: `${SITE_URL}/work/corporate`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/pruefungstraining`, lastmod: today, changefreq: "weekly", priority: 0.9 },
-        { loc: `${SITE_URL}/pruefungstraining/ausbildung`, lastmod: today, changefreq: "weekly", priority: 0.8 },
-        { loc: `${SITE_URL}/pruefungstraining/fachwirt`, lastmod: today, changefreq: "weekly", priority: 0.8 },
-        { loc: `${SITE_URL}/pruefungstraining/meister`, lastmod: today, changefreq: "weekly", priority: 0.8 },
-        { loc: `${SITE_URL}/pruefungstraining/betriebswirt`, lastmod: today, changefreq: "weekly", priority: 0.8 },
-        { loc: `${SITE_URL}/pruefungstraining/sachkunde`, lastmod: today, changefreq: "weekly", priority: 0.8 },
-        { loc: `${SITE_URL}/pruefungstraining/aevo`, lastmod: today, changefreq: "weekly", priority: 0.8 },
-        { loc: `${SITE_URL}/aevo-pruefungsvorbereitung`, lastmod: today, changefreq: "weekly", priority: 0.85 },
-        { loc: `${SITE_URL}/aevo-schriftliche-pruefung`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/aevo-praktische-pruefung`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/aevo-fachgespraech`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        // Lead-Magnet Quizzes (Funnel Phase 1) — Lernplan-Seiten bleiben noindex
-        { loc: `${SITE_URL}/quiz/aevo-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/quiz/bilanzbuchhalter-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/quiz/wirtschaftsfachwirt-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/quiz/fiae-pruefungsreife`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        // Bilanzbuchhalter SEO Pillar-Cluster
-        { loc: `${SITE_URL}/bilanzbuchhalter-pruefungsvorbereitung`, lastmod: today, changefreq: "weekly", priority: 0.85 },
-        { loc: `${SITE_URL}/bilanzbuchhalter-buchhaltung`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/bilanzbuchhalter-jahresabschluss`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/bilanzbuchhalter-steuern`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        // Fachinformatiker AE SEO Pillar-Cluster
-        { loc: `${SITE_URL}/fachinformatiker-ae-pruefungsvorbereitung`, lastmod: today, changefreq: "weekly", priority: 0.85 },
-        { loc: `${SITE_URL}/fiae-anwendungsentwicklung`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/fiae-wiso`, lastmod: today, changefreq: "monthly", priority: 0.7 },
-        { loc: `${SITE_URL}/fiae-projektarbeit`, lastmod: today, changefreq: "monthly", priority: 0.7 },
       ];
+
+      const pages = ssot.length > 0 ? ssot : fallback;
       return xmlResponse(toSitemapXML(pages), headers);
     }
+
 
     // ── Blog articles ──
     if (action === "blog") {
