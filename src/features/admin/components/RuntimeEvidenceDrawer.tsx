@@ -38,6 +38,9 @@ const STATUS_ICON: Record<string, JSX.Element> = {
 };
 
 export default function RuntimeEvidenceDrawer({ actionId }: Props) {
+  const qc = useQueryClient();
+  const [reason, setReason] = useState("");
+
   const { data, isLoading } = useQuery({
     queryKey: ["runtime-evidence-chain", actionId],
     queryFn: async () => {
@@ -48,10 +51,28 @@ export default function RuntimeEvidenceDrawer({ actionId }: Props) {
     staleTime: 30_000,
   });
 
+  const rollback = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("admin_runtime_action_rollback" as never, {
+        _result_id: actionId, _reason: reason,
+      } as never);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Rollback completed");
+      setReason("");
+      qc.invalidateQueries({ queryKey: ["runtime-evidence-chain", actionId] });
+      qc.invalidateQueries({ queryKey: ["runtime-action-history"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading) return <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded bg-muted/30" />)}</div>;
   if (!data || data.error) return <p className="text-sm text-muted-foreground">Not found.</p>;
 
   const diff = buildRuntimeDiff(data.before_snapshot, data.after_snapshot);
+  const canRollback = data.status === "completed" && !data.action_key.startsWith("rollback:");
 
   return (
     <div className="space-y-4">
