@@ -7,9 +7,9 @@ interface GovRow {
   version_id: string;
   version_no: number;
   change_kind: string;
-  adjusted_count: number;
-  capped_count: number;
-  max_abs_delta: number;
+  audited_changes: number;
+  capped_changes: number;
+  max_delta: number;
   created_at: string;
 }
 
@@ -20,7 +20,7 @@ export function PolicyGovernanceCard() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.rpc("admin_get_policy_governance_summary", { p_limit: 20 });
-      setRows((data as GovRow[]) ?? []);
+      setRows((data ?? []) as GovRow[]);
       setLoading(false);
     })();
   }, []);
@@ -42,12 +42,12 @@ export function PolicyGovernanceCard() {
                 <div className="flex flex-col">
                   <span className="font-medium">v{r.version_no} · {r.change_kind}</span>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(r.created_at).toLocaleString()} · Δmax {Number(r.max_abs_delta ?? 0).toFixed(3)}
+                    {new Date(r.created_at).toLocaleString()} · Δmax {Number(r.max_delta ?? 0).toFixed(3)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{r.adjusted_count} adj</Badge>
-                  {r.capped_count > 0 && <Badge variant="secondary">{r.capped_count} capped</Badge>}
+                  <Badge variant="outline">{r.audited_changes} adj</Badge>
+                  {r.capped_changes > 0 && <Badge variant="secondary">{r.capped_changes} capped</Badge>}
                 </div>
               </div>
             ))}

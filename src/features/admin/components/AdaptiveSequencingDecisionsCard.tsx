@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge";
 
 interface SeqRow {
   rule_key: string;
-  decisions: number;
-  applied: number;
+  decisions_total: number;
+  applied_total: number;
   distinct_users: number;
-  last_decision_at: string;
+  last_decided_at: string;
 }
 
 interface AlertRow {
@@ -29,10 +29,11 @@ export function AdaptiveSequencingDecisionsCard() {
     (async () => {
       const [{ data: s }, { data: a }] = await Promise.all([
         supabase.rpc("admin_get_sequencing_decisions_summary", { p_window_days: 7 }),
-        supabase.rpc("admin_get_ai_eval_regression_alerts"),
+        // RPC freshly created — types regeneration pending, cast via unknown.
+        (supabase.rpc as unknown as (n: string) => Promise<{ data: unknown }>)("admin_get_ai_eval_regression_alerts"),
       ]);
-      setRows((s as SeqRow[]) ?? []);
-      setAlerts((a as AlertRow[]) ?? []);
+      setRows((s ?? []) as SeqRow[]);
+      setAlerts(((a ?? []) as unknown) as AlertRow[]);
       setLoading(false);
     })();
   }, []);
@@ -55,12 +56,12 @@ export function AdaptiveSequencingDecisionsCard() {
                   <div className="flex flex-col">
                     <span className="font-medium">{r.rule_key}</span>
                     <span className="text-xs text-muted-foreground">
-                      letzte: {r.last_decision_at ? new Date(r.last_decision_at).toLocaleString() : "—"}
+                      letzte: {r.last_decided_at ? new Date(r.last_decided_at).toLocaleString() : "—"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">{r.decisions} dec</Badge>
-                    <Badge variant="secondary">{r.applied} appl</Badge>
+                    <Badge variant="outline">{r.decisions_total} dec</Badge>
+                    <Badge variant="secondary">{r.applied_total} appl</Badge>
                     <Badge variant="outline">{r.distinct_users} users</Badge>
                   </div>
                 </div>

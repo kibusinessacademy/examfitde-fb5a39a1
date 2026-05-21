@@ -10,7 +10,7 @@ interface EvalRun {
   job_type: string;
   status: string;
   score_count: number;
-  regression_count: number;
+  regression_flags: number;
   started_at: string;
 }
 
@@ -21,7 +21,7 @@ export function AiEvalRunsCard() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.rpc("admin_get_ai_eval_summary", { p_limit: 20 });
-      setRows((data as EvalRun[]) ?? []);
+      setRows((data ?? []) as EvalRun[]);
       setLoading(false);
     })();
   }, []);
@@ -49,7 +49,7 @@ export function AiEvalRunsCard() {
                 <div className="flex items-center gap-2">
                   <Badge variant={r.status === "succeeded" ? "secondary" : "destructive"}>{r.status}</Badge>
                   <Badge variant="outline">{r.score_count} scores</Badge>
-                  {r.regression_count > 0 && <Badge variant="destructive">{r.regression_count} regr</Badge>}
+                  {r.regression_flags > 0 && <Badge variant="destructive">{r.regression_flags} regr</Badge>}
                 </div>
               </div>
             ))}
