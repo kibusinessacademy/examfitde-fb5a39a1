@@ -251,6 +251,28 @@ const AppRoutes = () => {
     <Suspense fallback={<LoadingFallback />}>
       <RouteNoindex />
       <Routes>
+        {/* Legacy 301 redirects (GSC 404/Soft-404 cleanup, P6 Crawl Governance) */}
+        <Route path="/about" element={<Navigate to="/unternehmen" replace />} />
+        <Route path="/kontakt" element={<Navigate to="/impressum" replace />} />
+        <Route path="/registrieren" element={<Navigate to="/auth" replace />} />
+        <Route path="/repair-courses" element={<Navigate to="/" replace />} />
+        <Route path="/legal/refund" element={<Navigate to="/agb" replace />} />
+        <Route path="/legal/impressum" element={<Navigate to="/impressum" replace />} />
+        <Route path="/legal/agb" element={<Navigate to="/agb" replace />} />
+        <Route path="/legal/datenschutz" element={<Navigate to="/datenschutz" replace />} />
+        <Route path="/user/support" element={<Navigate to="/faq" replace />} />
+        <Route path="/user/*" element={<Navigate to="/faq" replace />} />
+        <Route path="/shop/products" element={<Navigate to="/shop" replace />} />
+        <Route path="/products" element={<Navigate to="/paket" replace />} />
+        <Route path="/product/:slug" element={<Navigate to="/paket/:slug" replace />} />
+        <Route path="/category/:slug" element={<Navigate to="/wissen" replace />} />
+        <Route path="/ausbildungsberufe" element={<Navigate to="/ausbildung" replace />} />
+        <Route path="/apprenticeship-course-detail/:slug" element={<Navigate to="/ausbildung" replace />} />
+        <Route path="/learning/path/:courseId" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/learning/*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/payment-success" element={<Navigate to="/purchase-success" replace />} />
+        <Route path="/sitemap" element={<Navigate to="/sitemap.xml" replace />} />
+
         {/* Public Routes */}
         <Route path="/auth" element={<Auth />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
