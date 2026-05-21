@@ -31,6 +31,7 @@ Hosting & SEO Authority: examfit.de = einzige SEO-autoritative Domain. Topologie
 
 
 ## Memories
+- [Internal Link Hygiene Guard v1 (P6 Cut 2)](mem://architektur/seo/internal-link-hygiene-guard-v1) — Static guard scripts/guards/internal-link-hygiene-guard.mjs blockt neue (to|href)="/<dead>" auf /products,/product/,/category/,/learning/,/checkout,/search,/legal/. Allowlist: AppRoutes/RouteNoindex/LegacyParamRedirect. Baseline 2026-05-21: 1326 files, 0 violations.
 - [AI Gateway SSOT Routing v1](mem://architektur/ki/ai-gateway-ssot-routing-v1) — callAI routet provider=openai|google über ai.gateway.lovable.dev mit auto-prefixed Modell-IDs; generate-seo-slug + curriculum-import migriert; Guard erweitert um api.openai.com / api.anthropic.com / generativelanguage.googleapis.com. Schließt fail_cluster=ai_gateway_bypass.
 
 - [Semantic Knowledge Graph Foundation v1 (P1)](mem://architektur/semantic/knowledge-graph-foundation-v1) — SSOT src/lib/semantic (10 entity kinds, 11 edge kinds, 8 pillar kinds, 5 resolvers), determinism + examiner-isolation Tests (9/9), Guard semantic-no-examiner-bypass.mjs + Workflow. Foundation für P2 LLM-Grounding.
