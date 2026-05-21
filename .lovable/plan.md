@@ -1,86 +1,94 @@
+# Cut: Shop-Coverage + Pillar Hub
 
-# ExamFit — Pillar / SRO / SEO Authority / LLM Visibility Rollout
+## Befund
 
-Scope is huge (P1–P7). I'll execute it **phased**, each phase shippable and verifiable, all grounded on the frozen Examiner SSOT (`src/lib/examiner/*`). No phase recomputes readiness/confidence/verdicts — they only read, contextualize, and link.
+| Bereich | Stand | Lücke |
+|---|---|---|
+| Published Kurse | 244 | – |
+| Sellable (Produkt+Preis+Lessons) | 191 | **53** |
+| → davon ohne `products(active,public)` | – | **52** |
+| → davon ohne aktiven Preis | – | 1 |
+| → davon Lessons nicht ready | – | 1 |
+| Pillar-Pages (`certification_seo_pages`) für Aufstieg/Meister/AEVO | 28 published | **3 Skeletons fehlen** |
+| Duplikat-Slug `wirtschaftsfachwirt` (vs `wirtschaftsfachwirt-ihk`) | – | konsolidieren |
 
-## Hard rules (apply to every phase)
-- Pillar/SRO/SEO/LLM layers MUST import from `@/lib/examiner` only — never compute readiness, confidence, verdicts, or alternative risks.
-- No motivational copy. ExaminerToneGuard wording standard everywhere.
-- Deterministic, SSR-safe, evidence-grounded. No generated marketing fluff.
-- Semantic tokens only (no `text-white`, no raw hex in components).
-- New CI guards as we add layers; baseline existing legacy.
+**Standard-Pricing aus Bestand:** 24,90 € EUR, one-time, 12 Monate Zugang (137 Kurse heute genau so) → übernehme ich für die 52 Lückenkurse.
 
-## Phase order & deliverables
+---
 
-### P1 — Knowledge Graph + Pillar Foundation
-**New SSOT:** `src/lib/semantic/`
-- Entity types: `Beruf`, `Pruefung`, `Lernfeld`, `Kompetenz`, `Risiko`, `Fehlerbild`, `Pruefungsform`, `Pruefungsstrategie`, `OralPattern`, `IndustryContext`.
-- Graph model (typed, deterministic), pure read-side: `KnowledgeGraph.ts`, `relations.ts`, `resolvers.ts`.
-- Resolvers: `relatedCompetencies()`, `relatedRisks()`, `relatedMistakes()`, `relatedOralPatterns()`, `relatedExamScenarios()`.
-- Pillar content model: `PillarTypes.ts` (8 pillar kinds).
-- Wire to existing certification/curriculum/competency tables via read-only views (no schema migrations in P1 unless gaps force it).
-- Golden tests: graph determinism, resolver stability.
+## Cut A — Shop-Coverage schließen (52 IHK-Azubi-Kurse kaufbar machen)
 
-### P2 — SRO / LLM Grounding Layer
-**New:** `src/lib/llm-grounding/`
-- Stable serializers: `examinerEvidenceForLLM()`, `competencySummary()`, `riskExplanation()`, `readinessExplanation()`, `misconceptionSummary()`.
-- All outputs deterministic, chunkable, evidence-cited, tone-guarded.
-- Entity-first / competency-first / question-first page section components: `<EntityHero>`, `<CompetencyBlock>`, `<EvidenceBlock>`, `<StructuredFaq>`.
-- FAQ generator (SSOT-only, no LLM at runtime): `generateFaqFromGraph()`.
-- Golden tests: identical input → identical chunks; tone guard pass.
+### A.1 Stripe Bulk-Anlage
+- Edge Function `bulk-create-stripe-products` (admin-gated, idempotent über `metadata.curriculum_id`).
+- Pro Lückenkurs: `Stripe Product` (name=course.title, metadata={curriculum_id, course_id}) + `Stripe Price` (2490 EUR one-time).
+- Outputs: `{course_id, stripe_product_id, stripe_price_id}` Liste.
 
-### P3 — SEO Authority Expansion
-- Authority cluster mapping (Beruf/Prüfung/Lernfeld/Kompetenz/Fehler/Risiko) — extends existing `seo_cluster_*` SSOT.
-- Pillar + satellite route scaffolding (use existing dynamic SEO pages; add resolver bindings).
-- Exam-first copy primitives ("Was kommt dran?", "Typische Fehler", "Mündliche Beispiele") — pure components, fed by graph.
-- Schema.org markup helpers: `FAQPage`, `HowTo`, `Course`, `EducationalOccupationalProgram`, `DefinedTerm`, `QAPage`, `BreadcrumbList` (`src/lib/seo/schema/`).
-- Trust/evidence SEO blocks reusing P2 grounding serializers.
+### A.2 DB-Insert
+- `products` row pro Kurs (`curriculum_id`, `status=active`, `visibility=public`, slug aus `slugify(title)`, `channel_policy_json` via `fn_default_channel_policy('EXAM_FIRST')`).
+- `product_prices` row (`amount_cents=2490`, `currency='EUR'`, `billing_type='one_time'`, `access_months=12`, `active=true`, `stripe_price_id`).
+- Audit: `fn_emit_audit('shop_coverage_backfill_v1', …)` pro Kurs.
 
-### P4 — LLM Visibility & AI Authority
-- AI-quotable content primitives (short precise answers, defined-term blocks).
-- Extend `/llms.txt` + `/llms-full.txt` from graph (entity index + pillar index).
-- Entity-dominance audit script: coverage per entity type.
-- Plug into existing `llm_visibility_*` measurement (cron 138) — add per-entity probes.
+### A.3 Verifikation
+- `select count(*) from v_public_sellable_courses where is_sellable and has_stripe_price` muss **243** (191 + 52) sein.
+- `pricing-integrity-guard` grün halten (Trigger blockt sonst).
 
-### P5 — Conversion & Trust Scaling
-- Trust-first UX components: `<ExaminerAuthorityBadge>`, `<ReadinessTrustPanel>`, `<EvidenceBackedRecommendation>` — all pull from frozen Examiner Handover Contract.
-- Evidence-based upsell hooks (no fake urgency, no motivational copy).
-- B2B authority panels (aggregated readiness/risk views — governance-safe).
+---
 
-### P6 — SEO + SRO Observatory
-- Admin cockpit cards:
-  - `PillarCoverageCard`, `SemanticGapCard`, `EntityCoverageCard`, `FaqCoverageCard`, `InternalLinkDensityCard`.
-- Pillar Health Engine: `scorePillarHealth()` (semantic completeness, evidence density, graph connectivity, FAQ depth, LLM readability).
-- SQL views: `v_pillar_health`, `v_semantic_gaps`, `v_entity_coverage`.
-- CI guards: `pillar-health-threshold-guard.mjs`, `no-examiner-bypass-in-pillars.mjs`.
+## Cut B — Pillar-Skeletons schließen
 
-### P7 — Final Authority System (integration + freeze)
-- Cross-surface coherence test: pillar pages, FAQ blocks, examiner outputs say the same thing for the same entity.
-- Documentation: `docs/architecture/pillar-sro-ssot.md`, `docs/contracts/pillar-contracts-v1.md`, `docs/governance/pillar-governance.md`.
-- Release certification script + memory freeze.
+3 fehlende `certification_seo_pages` (page_type=`landing`, `is_published=false` initial → SEO-Skeleton, kein dünner Live-Inhalt):
 
-## Technical anchors (already in repo)
-- Examiner SSOT: `src/lib/examiner/{ExaminerConsciousness,ReadinessAuthority,ExaminerEvidence,...}.ts`
-- Handover Contract (frozen v1): `docs/contracts/examiner-contracts-v1.md`
-- Existing SEO: `src/components/seo/*`, `src/hooks/useSEOKeywords.ts`, `useSEODocuments.ts`, `llm_visibility_*` tables + cron 138.
-- Cluster/Pillar DB: `seo_cluster_*`, `cert_pillars`, `pillar_to_cluster`, `persona_landing`, `certification_seo_pages` (per memory).
+1. `industriekaufmann-ihk-pruefung`
+2. `kaufmann-bueromanagement-ihk-pruefung`
+3. `kaufmann-einzelhandel-ihk-pruefung`
 
-## What I propose to ship in the **first build pass** after you approve
-**Phase P1 only** — the foundation. Concretely:
-1. `src/lib/semantic/types.ts` — all entity types + graph edge types.
-2. `src/lib/semantic/KnowledgeGraph.ts` — pure in-memory graph builder from existing DB views (read-only).
-3. `src/lib/semantic/resolvers.ts` — the 5 related*() resolvers, deterministic.
-4. `src/lib/semantic/PillarTypes.ts` — 8 pillar kinds + zod schemas.
-5. `src/lib/semantic/index.ts` — barrel.
-6. `src/__tests__/semantic-graph.golden.test.ts` — determinism + Examiner-isolation tests (asserts no readiness/confidence computation in semantic layer).
-7. `scripts/guards/semantic-no-examiner-bypass.mjs` + workflow — blocks any new readiness/verdict logic in `src/lib/semantic/` or `src/components/pillar/`.
-8. Memory file `mem://architektur/semantic/knowledge-graph-foundation-v1.md` + index update.
+Zusätzlich: `wirtschaftsfachwirt` (Duplikat-Catalog-Eintrag ohne Page) → `notes` markieren als `merged_into=wirtschaftsfachwirt-ihk`, kein Page-Insert.
 
-P2–P7 follow in separate passes once P1 is green and you confirm direction.
+Inserts via `supabase--insert` mit Templated `meta_title`, `meta_description`, `content_json` (Hero+FAQ-Skeleton, ≥80 Zeichen desc, kein dünnes HTML — `fn_seo_thin_content_guard` muss grün sein).
 
-## Open questions before P1
-1. **Data source for graph nodes** — should I read from existing tables (`certification_catalog`, `curricula`, `learning_fields`, `competencies`, `exam_questions`, `oral_exam_*`) via Supabase views, or do you want a new `semantic_*` materialized layer? Recommended: views first, materialize only if perf demands it.
-2. **Scope of "Risk/Mistake" entities** — pull from existing examiner risk taxonomy (`critical_competencies`, evidence severity) or introduce a separate `misconception_catalog`? Recommended: derive from Examiner SSOT — single source.
-3. **Pillar pages: new routes or extend existing SEO pages?** Recommended: extend existing `certification_seo_pages` + `persona_landing` with pillar bindings; no new routes in P1.
+Status `is_published=false` bis Content-Wave die Pages auffüllt (existiert bereits in der Pipeline).
 
-If you're happy with this plan and the P1 first-pass scope, say "go" (or pick different defaults for the 3 questions) and I'll build P1.
+---
+
+## Cut C — Erweiterte Produktseiten (SEO-Hub-Block)
+
+Auf den bestehenden Produktseiten der **4 kaufbaren Aufstiegsfortbildungen** (AEVO, Betriebswirt IHK, Technischer Betriebswirt, Personalfachkaufmann) wird ein neuer Section-Block `<ProductPagePillarHub />` ergänzt:
+
+- Verlinkt zur passenden `certification_seo_pages` (Pillar)
+- Listet 3–6 Spoke-Themen (Lernfelder/Kompetenzen) aus dem Curriculum
+- Verlinkt zurück zur Produktseite (cluster→pillar→cluster Loop)
+- JSON-LD `BreadcrumbList` ergänzt (Pillar in Kette)
+
+Keine neuen Routen, keine neuen Templates — Block fügt sich in bestehende `ProductPageSSOT`.
+
+---
+
+## Files / Migrationen / Edge Functions
+
+```text
+supabase/functions/bulk-create-stripe-products/index.ts   (NEU, admin-only)
+supabase/migrations/<ts>_shop_coverage_backfill_audit.sql (audit_contract registrieren)
+supabase/migrations/<ts>_pillar_skeleton_inserts.sql      (3 INSERTs via insert tool)
+src/components/product/ProductPagePillarHub.tsx           (NEU)
+src/pages/.../ProductPage.tsx                             (Slot einfügen)
+```
+
+Audit `action_type`s:
+- `shop_coverage_backfill_v1` (1 row pro Kurs)
+- `pillar_skeleton_inserted_v1` (3 rows)
+
+## Vorher/Nachher
+
+| KPI | Vorher | Nachher |
+|---|---:|---:|
+| sellable courses | 191 | **243** |
+| missing public products | 52 | **0** |
+| pillar landings published | 28 | 28 (+3 skeleton draft) |
+| pillar-coverage Aufstieg/Meister/AEVO | 90% | **100%** |
+| Produktseiten mit SEO-Hub | 0 | **4** |
+
+## Risiken / Mitigation
+
+- **Stripe-Live-Modus**: 52 echte Produkte erzeugen. Idempotenz via `metadata.curriculum_id` + Pre-Check `stripe.products.search`. Bei Fehler in Mitte: rerun ist no-op.
+- **Pricing-Guard**: `trg_guard_publish_requires_pricing` triggert beim Publish — wir publishen kein neues Paket, sondern fügen nur Produkte zu schon-published Kursen → Trigger nicht relevant.
+- **Lessons-Gap**: 1 Kurs hat lessons not-ready — bleibt vorerst draußen, wird in Wave-Repair geheilt.
