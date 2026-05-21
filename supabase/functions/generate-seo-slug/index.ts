@@ -64,18 +64,19 @@ Deno.serve(async (req) => {
     let seoTitle = `${curriculum.title} ${product.name} | ExamFit`;
     let seoDescription = curriculum.description || `${product.name} für ${curriculum.title}. Bereite dich optimal auf deine IHK-Prüfung vor.`;
 
-    // Use OpenAI direct API to generate better SEO content
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (openaiApiKey) {
+    // Use Lovable AI Gateway (SSOT) — never call api.openai.com directly.
+    const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+    if (lovableKey) {
       try {
-        const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${openaiApiKey}`,
+            Authorization: `Bearer ${lovableKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-5.2',
+            model: 'openai/gpt-5.2',
+
             messages: [
               {
                 role: 'system',
