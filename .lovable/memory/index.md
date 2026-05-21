@@ -31,6 +31,7 @@ Hosting & SEO Authority: examfit.de = einzige SEO-autoritative Domain. Topologie
 
 
 ## Memories
+- [Safe Actions Framework v1](mem://architektur/ops/safe-actions-framework-v1) — runtime_safe_actions/results/evidence SSOT, admin_dispatch_runtime_safe_action (Reason≥8, fn_emit_audit Pflicht), SafeActionsCard im /admin/runtime Safe-Actions Tab. 8 Seed-Actions. Dispatcher-Worker folgt.
 - [Runtime Operationalisierung P0–P4](mem://architektur/ops/runtime-operationalisierung-p0-p4-2026-05-21) — ai-eval-worker (6h cron), fn_policy_mutation_watchdog (hourly), learner_compute_and_get_sequence + learner_mark_sequence_applied, 3 Cockpit Cards, v_ai_eval_regression_alerts + admin RPC, 4 neue Audit-Contracts.
 - [Control-Plane Mega-Layers L1–L3](mem://architektur/ops/control-plane-mega-layers-l1-l3-2026-05-21) — Policy Governance (versions/audits/rollback + bounded mutation), AI Eval Engine (datasets/runs/scores/regression_windows + fn_record_ai_eval_run), Adaptive Sequencing (5 seed-rules + fn_compute_adaptive_sequence). Service-Role Internal-State-Update-Pattern als SSOT.
 - [AI Runtime Command Center v1](mem://architektur/ops/ai-runtime-command-center-v1) — /admin/runtime bündelt AI-Eval/Policy/Sequencing/Observability/Intervention als read-only Control-Plane mit 5 Tabs. Top-Nav `AI Runtime` (Icon Cpu). Safe-Actions (Reason+Audit) im Folgecut.
