@@ -31,6 +31,8 @@ Hosting & SEO Authority: examfit.de = einzige SEO-autoritative Domain. Topologie
 
 
 ## Memories
+- [AI Gateway SSOT Routing v1](mem://architektur/ki/ai-gateway-ssot-routing-v1) — callAI routet provider=openai|google über ai.gateway.lovable.dev mit auto-prefixed Modell-IDs; generate-seo-slug + curriculum-import migriert; Guard erweitert um api.openai.com / api.anthropic.com / generativelanguage.googleapis.com. Schließt fail_cluster=ai_gateway_bypass.
+
 - [Semantic Knowledge Graph Foundation v1 (P1)](mem://architektur/semantic/knowledge-graph-foundation-v1) — SSOT src/lib/semantic (10 entity kinds, 11 edge kinds, 8 pillar kinds, 5 resolvers), determinism + examiner-isolation Tests (9/9), Guard semantic-no-examiner-bypass.mjs + Workflow. Foundation für P2 LLM-Grounding.
 - [LLM-Grounding Layer v1 (P2)](mem://architektur/semantic/llm-grounding-layer-v1) — src/lib/llm-grounding: GroundedChunk/Citation/FAQ/Document (FNV-1a content-addressed), serializers für Beruf/Pruefung/Kompetenz, Examiner-Handover Verbatim-Serializer, deterministic FAQ-Generator (kein LLM), DocumentBuilder. Contract-Guard (marketing-tone + citation_version=1.0.0). Tests 8/8 grün.
 - [Schema.org SSOT v1 (P3)](mem://architektur/seo/schema-org-ssot-v1) — src/lib/seo/schema: Pillar/Satellite JSON-LD Builders (Course, FAQPage, QAPage, DefinedTerm/Set, EducationEvent, BreadcrumbList, WebPage) + composeSchemaGraph (sorted @graph), assertSchemaContract (@id+marketing-guard). CI-Guard seo-schema-ssot.mjs blockt hand-rolled JSON-LD außerhalb SSOT (Baseline 8 Legacy-Files inkl. JsonLdHead Renderer). Tests 9/9 grün.
