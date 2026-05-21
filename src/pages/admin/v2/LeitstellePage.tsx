@@ -248,6 +248,9 @@ export default function LeitstellePage() {
       <Suspense fallback={null}>
         <BlockedPackagesCard variant="compact" detailHrefBuilder={(id) => `/admin/courses/${id}`} />
       </Suspense>
+      <Suspense fallback={null}>
+        <FailClusterDeltaCard />
+      </Suspense>
 
       {/* KPI Grid */}
       {kpis && (
