@@ -45,6 +45,7 @@ const PublishWorkflowStatusCard = lazy(() => import('@/components/admin/leitstel
 const HandbookPublishDriftCard = lazy(() => import('@/components/admin/leitstelle/HandbookPublishDriftCard').then(m => ({ default: m.HandbookPublishDriftCard })));
 const RealtimePulse = lazy(() => import('@/components/admin/leitstelle/RealtimePulse').then(m => ({ default: m.RealtimePulse })));
 const BlockedPackagesCard = lazy(() => import('@/components/admin/heal/BlockedPackagesCard').then(m => ({ default: m.BlockedPackagesCard })));
+const FailClusterDeltaCard = lazy(() => import('@/components/admin/heal/cards/FailClusterDeltaCard').then(m => ({ default: m.FailClusterDeltaCard })));
 const ExamPoolAuditCard = lazy(() => import('@/components/admin/cards/ExamPoolAuditCard'));
 const BlockedButReadyCard = lazy(() => import('@/components/admin/cards/BlockedButReadyCard'));
 const RecoveryBoardCard = lazy(() => import('@/components/admin/cards/RecoveryBoardCard'));
@@ -246,6 +247,9 @@ export default function LeitstellePage() {
       </Suspense>
       <Suspense fallback={null}>
         <BlockedPackagesCard variant="compact" detailHrefBuilder={(id) => `/admin/courses/${id}`} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <FailClusterDeltaCard />
       </Suspense>
 
       {/* KPI Grid */}
