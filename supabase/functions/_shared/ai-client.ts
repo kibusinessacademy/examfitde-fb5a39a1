@@ -185,7 +185,12 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const rawModel = opts.model || cfg.model;
   const model = useGateway ? ensureGatewayModel(opts.provider, rawModel) : rawModel;
 
+  if (useGateway && rawModel !== model) {
+    console.info(`[AI-CLIENT] Gateway route: ${opts.provider} ${rawModel} → ${model} (auto-prefixed)`);
+  }
   let resp: Response;
+
+
 
 
 
