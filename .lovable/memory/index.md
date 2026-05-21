@@ -31,6 +31,7 @@ Hosting & SEO Authority: examfit.de = einzige SEO-autoritative Domain. Topologie
 
 
 ## Memories
+- [Crawl-State SSOT route_crawl_policy v1 (P6 Cut 3)](mem://architektur/seo/crawl-state-ssot-p6-cut3-v1) — Tabelle public.route_crawl_policy + enum {index,noindex,redirect,gone}, RLS service_role only. RPCs public_get_indexable_routes (anon, exact-index) + admin_get_route_crawl_policy (has_role). Sitemap-static liest aus DB mit Hardcoded-Fallback. Seed 2026-05-21: 43 index / 42 noindex / 18 redirect (+2 fixup). Audit route_crawl_policy_seeded. Contract-Tests 4/4 grün (counts + noindex coverage + redirect coverage + mutex über INSERT/DELETE-Walk).
 - [Internal Link Hygiene Guard v1 (P6 Cut 2)](mem://architektur/seo/internal-link-hygiene-guard-v1) — Static guard scripts/guards/internal-link-hygiene-guard.mjs blockt neue (to|href)="/<dead>" auf /products,/product/,/category/,/learning/,/checkout,/search,/legal/. Allowlist: AppRoutes/RouteNoindex/LegacyParamRedirect. Baseline 2026-05-21: 1326 files, 0 violations.
 - [AI Gateway SSOT Routing v1](mem://architektur/ki/ai-gateway-ssot-routing-v1) — callAI routet provider=openai|google über ai.gateway.lovable.dev mit auto-prefixed Modell-IDs; generate-seo-slug + curriculum-import migriert; Guard erweitert um api.openai.com / api.anthropic.com / generativelanguage.googleapis.com. Schließt fail_cluster=ai_gateway_bypass.
 
