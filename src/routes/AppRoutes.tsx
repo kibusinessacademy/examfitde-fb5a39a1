@@ -24,6 +24,7 @@ import SEOLayout from '@/components/layout/SEOLayout';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import WorkGonePage from '@/components/work/WorkGonePage';
 import { RouteNoindex } from '@/components/seo/RouteNoindex';
+import { LegacyParamRedirect } from '@/components/seo/LegacyParamRedirect';
 
 // Lazy Loaded Pages
 import AuthHomeRoute from '@/components/auth/AuthHomeRoute';
