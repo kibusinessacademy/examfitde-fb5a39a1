@@ -14,7 +14,7 @@ import { globSync } from "glob";
 const files = globSync("supabase/functions/**/*.ts", { nodir: true });
 
 const PATTERNS = [
-const PATTERNS = [
+
   { regex: /fetch\(\s*["'`]https:\/\/api\.openai\.com\/v1\/chat/g, label: "direct OpenAI chat fetch" },
   { regex: /fetch\(\s*["'`]https:\/\/api\.anthropic\.com/g, label: "direct Anthropic fetch" },
   { regex: /fetch\(\s*["'`]https:\/\/generativelanguage\.googleapis\.com/g, label: "direct Google Generative-Language fetch" },
