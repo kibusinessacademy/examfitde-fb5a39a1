@@ -98,6 +98,8 @@ Deno.serve(async (req) => {
 
   await supabase.rpc("fn_emit_audit", {
     _action_type: "ai_eval_worker_run",
+    _target_type: "system",
+    _result_status: failures > 0 ? "partial" : "success",
     _payload: {
       datasets_scanned: datasets?.length ?? 0,
       runs_recorded,
@@ -106,6 +108,7 @@ Deno.serve(async (req) => {
       probe_ok: probe.ok,
       probe_latency_ms: probe.latency_ms,
     },
+    _trigger_source: "cron",
   });
 
   return new Response(
