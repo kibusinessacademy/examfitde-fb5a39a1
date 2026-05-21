@@ -1,7 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Clock, XCircle, FileCheck, Database, FileSearch, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { CheckCircle2, Clock, XCircle, FileCheck, Database, FileSearch, AlertTriangle, Undo2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { buildRuntimeDiff, summarizeRuntimeDiff } from "@/lib/runtime/diff/runtimeDiff";
 
 interface Props { actionId: string }
@@ -29,6 +38,9 @@ const STATUS_ICON: Record<string, JSX.Element> = {
 };
 
 export default function RuntimeEvidenceDrawer({ actionId }: Props) {
+  const qc = useQueryClient();
+  const [reason, setReason] = useState("");
+
   const { data, isLoading } = useQuery({
     queryKey: ["runtime-evidence-chain", actionId],
     queryFn: async () => {
@@ -39,10 +51,28 @@ export default function RuntimeEvidenceDrawer({ actionId }: Props) {
     staleTime: 30_000,
   });
 
+  const rollback = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("admin_runtime_action_rollback" as never, {
+        _result_id: actionId, _reason: reason,
+      } as never);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Rollback completed");
+      setReason("");
+      qc.invalidateQueries({ queryKey: ["runtime-evidence-chain", actionId] });
+      qc.invalidateQueries({ queryKey: ["runtime-action-history"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading) return <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded bg-muted/30" />)}</div>;
   if (!data || data.error) return <p className="text-sm text-muted-foreground">Not found.</p>;
 
   const diff = buildRuntimeDiff(data.before_snapshot, data.after_snapshot);
+  const canRollback = data.status === "completed" && !data.action_key.startsWith("rollback:");
 
   return (
     <div className="space-y-4">
@@ -60,6 +90,50 @@ export default function RuntimeEvidenceDrawer({ actionId }: Props) {
         </div>
         <Badge variant="outline" className="text-[10px]">{data.status}</Badge>
       </div>
+
+      {/* Rollback Runner */}
+      {canRollback && (
+        <div className="flex items-center justify-between rounded-md border border-status-border-warning bg-status-bg-subtle-warning p-3">
+          <div className="flex items-center gap-2 text-xs">
+            <Undo2 className="h-4 w-4 text-status-fg-warning" />
+            <span>Rollback eligible if action is reversible &amp; within window.</span>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Undo2 className="h-3.5 w-3.5" /> Rollback…
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Rollback runtime action</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Reverses <code className="font-mono">{data.action_key}</code>. Only succeeds if the action is reversible and inside its rollback window. A new audit row will be linked to this one.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Reason (min 8 chars)…"
+                rows={3}
+                className="font-mono text-xs"
+              />
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={rollback.isPending}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={reason.trim().length < 8 || rollback.isPending}
+                  onClick={(e) => { e.preventDefault(); rollback.mutate(); }}
+                  className="gap-1.5"
+                >
+                  {rollback.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
+                  Execute rollback
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
+
 
       {/* Timeline */}
       <section>

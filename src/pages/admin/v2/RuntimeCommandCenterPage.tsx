@@ -1,4 +1,4 @@
-import { Activity, Gauge, ShieldCheck, Workflow, Radar, Sparkles, Shield, ListChecks, AlertCircle } from "lucide-react";
+import { Activity, Gauge, ShieldCheck, Workflow, Radar, Sparkles, Shield, ListChecks, AlertCircle, Undo2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import AdaptiveSequencingDecisionsCard from "@/features/admin/components/Adaptiv
 import SafeActionsCard from "@/features/admin/components/SafeActionsCard";
 import RuntimeActionsLedgerCard from "@/features/admin/components/RuntimeActionsLedgerCard";
 import RuntimeFailuresCard from "@/features/admin/components/RuntimeFailuresCard";
+import RuntimeReversiblePoliciesCard from "@/features/admin/components/RuntimeReversiblePoliciesCard";
+import RuntimeDryRunCard from "@/features/admin/components/RuntimeDryRunCard";
 
 /**
  * AI Runtime Command Center v1
@@ -34,8 +36,8 @@ export default function RuntimeCommandCenterPage() {
         documentTitle="AI Runtime Command Center · ExamFit Admin"
         badges={
           <>
-            <Badge variant="outline" className="text-[10px]">v1.1</Badge>
-            <Badge variant="secondary" className="text-[10px]">observability</Badge>
+            <Badge variant="outline" className="text-[10px]">v1.2</Badge>
+            <Badge variant="secondary" className="text-[10px]">rollback · dry-run</Badge>
           </>
         }
       />
@@ -65,6 +67,9 @@ export default function RuntimeCommandCenterPage() {
           </TabsTrigger>
           <TabsTrigger value="safe_actions" className="gap-1.5">
             <Shield className="h-3.5 w-3.5" /> Safe Actions
+          </TabsTrigger>
+          <TabsTrigger value="rollback" className="gap-1.5">
+            <Undo2 className="h-3.5 w-3.5" /> Rollback &amp; Dry-Run
           </TabsTrigger>
         </TabsList>
 
@@ -105,6 +110,11 @@ export default function RuntimeCommandCenterPage() {
 
         <TabsContent value="safe_actions" className="mt-4 space-y-4">
           <SafeActionsCard />
+        </TabsContent>
+
+        <TabsContent value="rollback" className="mt-4 space-y-4">
+          <RuntimeDryRunCard />
+          <RuntimeReversiblePoliciesCard />
         </TabsContent>
       </Tabs>
     </div>
