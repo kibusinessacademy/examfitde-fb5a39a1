@@ -36,8 +36,8 @@ export default function RuntimeCommandCenterPage() {
         documentTitle="AI Runtime Command Center · ExamFit Admin"
         badges={
           <>
-            <Badge variant="outline" className="text-[10px]">v1.1</Badge>
-            <Badge variant="secondary" className="text-[10px]">observability</Badge>
+            <Badge variant="outline" className="text-[10px]">v1.2</Badge>
+            <Badge variant="secondary" className="text-[10px]">rollback · dry-run</Badge>
           </>
         }
       />
