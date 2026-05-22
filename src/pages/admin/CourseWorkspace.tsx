@@ -13,7 +13,7 @@ import {
   Loader2, ArrowLeft, CheckCircle2, XCircle, Clock,
   RefreshCw, Download, RotateCcw, Rocket, Activity,
   Unlock, AlertTriangle, Lightbulb, Zap, StopCircle, ChevronDown, ChevronRight, ShieldCheck,
-  TrendingDown, Shield
+  TrendingDown, Shield, Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
