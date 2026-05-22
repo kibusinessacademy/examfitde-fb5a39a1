@@ -147,17 +147,9 @@ try {
   log(`${B}P0.1${X} admin_backfill_pillar_source_package_id (dry-run)`);
   const dry = await rpc("admin_backfill_pillar_source_package_id", {
     _dry_run: true,
-    _reason: "Phase A Backfill 19 Orphans — dry-run",
   });
   report.steps.p0_dry = dry;
-  log(`  → ${JSON.stringify(dry).slice(0, 200)}`);
-
-  // Heuristik für Live-Run: dry meldet > 0 (egal ob 19 oder weniger)
-  const dryCount =
-    (Array.isArray(dry) ? dry[0]?.affected ?? dry[0]?.count ?? dry.length : null) ??
-    dry?.affected ??
-    dry?.count ??
-    null;
+  log(`  → ${JSON.stringify(dry).slice(0, 400)}`);
 
   // P0.2 live (skip wenn schon vorhanden in 24h)
   const already = await liveAlreadyDone();
@@ -168,10 +160,9 @@ try {
     log(`${B}P0.2${X} admin_backfill_pillar_source_package_id (live)`);
     const live = await rpc("admin_backfill_pillar_source_package_id", {
       _dry_run: false,
-      _reason: "Phase A Backfill 19 Orphans — live",
     });
     report.steps.p0_live = live;
-    log(`  → ${JSON.stringify(live).slice(0, 200)}`);
+    log(`  → ${JSON.stringify(live).slice(0, 400)}`);
   }
 
   // P0.3 verify
