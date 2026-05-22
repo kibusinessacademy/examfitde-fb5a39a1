@@ -1,0 +1,29 @@
+name: Publish Fanout Completeness Guard
+
+on:
+  push:
+    paths:
+      - 'scripts/guards/publish-fanout-completeness-guard.mjs'
+      - '.github/workflows/publish-fanout-completeness-guard.yml'
+  pull_request:
+    paths:
+      - 'scripts/guards/publish-fanout-completeness-guard.mjs'
+      - '.github/workflows/publish-fanout-completeness-guard.yml'
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Run publish-fanout-completeness guard
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PUBLISH_FANOUT_GUARD_ALLOW: "0"
+        run: node scripts/guards/publish-fanout-completeness-guard.mjs
