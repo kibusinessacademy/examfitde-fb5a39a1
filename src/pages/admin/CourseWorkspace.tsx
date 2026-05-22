@@ -647,6 +647,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
           {(pkg.status === 'published' || canPublish) && (
             <div className="flex flex-wrap gap-3">
               <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" /> Export</Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/admin/factory/export-preview/${packageId}`}>
+                  <Eye className="h-4 w-4 mr-1" /> Export-Preview
+                </Link>
+              </Button>
             </div>
           )}
         </TabsContent>
