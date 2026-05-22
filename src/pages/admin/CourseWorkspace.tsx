@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePackageEffectiveState } from '@/hooks/usePackageEffectiveState';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useCoursePackageDetail } from '@/hooks/useCoursePackages';
 import { useActiveCourse } from '@/contexts/ActiveCourseContext';
 import { useAdminPackagesSSOT, AdminPackageSSOT } from '@/hooks/useAdminPackagesSSOT';
@@ -13,7 +13,7 @@ import {
   Loader2, ArrowLeft, CheckCircle2, XCircle, Clock,
   RefreshCw, Download, RotateCcw, Rocket, Activity,
   Unlock, AlertTriangle, Lightbulb, Zap, StopCircle, ChevronDown, ChevronRight, ShieldCheck,
-  TrendingDown, Shield
+  TrendingDown, Shield, Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -647,6 +647,11 @@ function WorkspaceContent({ packageId, onBack }: { packageId: string; onBack: ()
           {(pkg.status === 'published' || canPublish) && (
             <div className="flex flex-wrap gap-3">
               <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" /> Export</Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/admin/factory/export-preview/${packageId}`}>
+                  <Eye className="h-4 w-4 mr-1" /> Export-Preview
+                </Link>
+              </Button>
             </div>
           )}
         </TabsContent>
