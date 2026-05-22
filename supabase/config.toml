@@ -494,3 +494,6 @@ verify_jwt = false
 
 [functions.auth-email-hook]
 verify_jwt = false
+
+[functions.export-course-package-manifest]
+verify_jwt = true
