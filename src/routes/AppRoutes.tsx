@@ -172,6 +172,7 @@ const LeitstellePage = lazyRetry(() => import('@/pages/admin/v2/LeitstellePage')
 const OrgEnterprisePage = lazyRetry(() => import('@/pages/org/OrgEnterprisePage'));
 const KursePage = lazyRetry(() => import('@/pages/admin/v2/KursePage'));
 const GrowthPage = lazyRetry(() => import('@/pages/admin/v2/GrowthPage'));
+const GrowthIntelligencePage = lazyRetry(() => import('@/pages/admin/v2/GrowthIntelligencePage'));
 const TestAreaPage = lazyRetry(() => import('@/pages/admin/v2/TestAreaPage'));
 const CourseWorkspace = lazyRetry(() => import('@/pages/admin/CourseWorkspace'));
 const SupportPage = lazyRetry(() => import('@/pages/admin/v2/SupportPage'));
@@ -558,6 +559,7 @@ const AppRoutes = () => {
 
           <Route path="jobs/timeline" element={<JobTimelinePage />} />
           <Route path="growth" element={<GrowthPage />} />
+          <Route path="growth-intelligence" element={<GrowthIntelligencePage />} />
           <Route path="support" element={<SupportPage />} />
           <Route path="kpi" element={<KPIPage />} />
           <Route path="security/findings" element={<SecurityFindingsPage />} />
