@@ -148,7 +148,9 @@ Deno.serve(async (req) => {
 
       if (!product && exact) {
         product = exact;
-      } else {
+      }
+
+      if (!product) {
         // Pull all active product slugs (~few hundred rows) and run recovery
         // in-memory. Cheaper than full-text/like and deterministic.
         const { data: candidates } = await adminClient
