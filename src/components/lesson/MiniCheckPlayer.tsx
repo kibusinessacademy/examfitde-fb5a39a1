@@ -13,6 +13,7 @@ import MiniCheckTutorFeedback, {
   type MiniCheckTutorResult,
   type MiniCheckWrongItem,
 } from './MiniCheckTutorFeedback';
+import LearningRecoveryLoop from './LearningRecoveryLoop';
 
 export interface MiniCheckQuestion {
   id: string;
@@ -316,6 +317,11 @@ export default function MiniCheckPlayer({
             )}
           </CardContent>
         </Card>
+
+        {/* Learning Recovery Loop v1 — gezielter Wiederholungsweg bei failed/partial */}
+        {!passed && (
+          <LearningRecoveryLoop context={tutorContext} result={tutorResult} />
+        )}
 
         {/* MiniCheck Tutor Feedback v1 — fail-closed wenn Kontext unvollständig */}
         <MiniCheckTutorFeedback context={tutorContext} result={tutorResult} />
