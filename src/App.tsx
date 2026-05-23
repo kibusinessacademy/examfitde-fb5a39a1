@@ -16,6 +16,7 @@ import { MobileWebBottomNav } from "@/components/mobile/MobileWebBottomNav";
 import { useNativeApp } from "@/hooks/useNativeApp";
 import { useTrailingSlashNormalizer } from "@/hooks/useTrailingSlashNormalizer";
 import AppRoutes from "@/routes/AppRoutes";
+import ScrollToTop from "@/components/ScrollToTop";
 import { AccessDebugPanel } from "@/components/debug/AccessDebugPanel";
 import { useHeatmapTracking } from "@/features/analytics/useHeatmapTracking";
 import { useGtmPageView } from "@/hooks/useGtmPageView";
@@ -105,6 +106,7 @@ function AppChrome() {
 
   return (
     <>
+      <ScrollToTop />
       <OfflineIndicator />
       <Toaster />
       <Sonner />
