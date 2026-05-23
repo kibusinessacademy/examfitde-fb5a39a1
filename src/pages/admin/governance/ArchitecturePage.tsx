@@ -262,7 +262,7 @@ export default function ArchitecturePage() {
               </Select>
             </div>
             <div className="flex gap-2">
-              <Button onClick={runReview} disabled={!canRun} className="flex-1">
+              <Button onClick={() => { void runReview(); }} disabled={!canRun} className="flex-1">
                 Architecture Review ausführen
               </Button>
               <CopyButton
