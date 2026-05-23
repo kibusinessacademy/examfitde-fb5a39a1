@@ -61,10 +61,16 @@ const MODEL_RULES: SmokeRule[] = [
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
+  if (req.method === "OPTIONS") return new Response(null, { status: 204 });
   if (url.searchParams.get("health") === "1") {
+    // Auth-first: require shared secret even for health probe to avoid version fingerprinting.
+    const probeSecret = req.headers.get("x-job-runner-key") ?? req.headers.get("x-internal-secret") ?? "";
+    const expected = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    if (!probeSecret || probeSecret !== expected) {
+      return jsonResp({ ok: true });
+    }
     return jsonResp({ ok: true, health: true, version: "2.0.0" });
   }
-  if (req.method === "OPTIONS") return new Response(null, { status: 204 });
 
   try {
     if (req.method !== "POST") return jsonResp({ error: "METHOD_NOT_ALLOWED" }, 405);
