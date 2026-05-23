@@ -58,6 +58,7 @@ export default function HomePageV2() {
       />
       <div className="lp-v2 min-h-screen">
         <PremiumHero />
+        <MobileCourseFinder />
         <StoryScrollSection />
         <ReadinessRevealScene />
         <WhyNotChatGPTSection />
