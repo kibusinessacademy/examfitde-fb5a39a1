@@ -20,6 +20,7 @@ import LessonHero from '@/components/lesson/LessonHero';
 import PageExplainer from '@/components/admin/PageExplainer';
 import LessonContent from '@/components/lesson/LessonContent';
 import LessonNavigation from '@/components/lesson/LessonNavigation';
+import LessonTutorBox from '@/components/lesson/LessonTutorBox';
 import { LearningGoalFeedback } from '@/components/course/LearningGoalFeedback';
 
 interface Lesson {
@@ -516,6 +517,18 @@ export default function LessonPlayer() {
             className="max-w-4xl mx-auto mb-4"
           />
         )}
+
+        <LessonTutorBox
+          context={{
+            curriculumId: course.curriculum_id,
+            competencyId: lesson.competency_id,
+            lessonId: lesson.id,
+            stepKey: lesson.step,
+            competencyCode: competency.code,
+            competencyTitle: competency.title,
+          }}
+        />
+
 
         <LessonNavigation
           prevLesson={prevLesson}
