@@ -18,7 +18,7 @@
  */
 
 const UUID_SUFFIX_RE = /-[0-9a-f]{6,8}(?:[_-]+archived[_-]+[0-9a-f]+)?$/i;
-const TRAILING_GENDER_RE = /(?:-(?:frau|innen|in))+$/i;
+const TRAILING_GENDER_RE = /-(?:frau|innen|in)(?=-|$)/gi;
 const SEPARATOR_RE = /[/_]+/g;
 
 function fold(input: string): string {
