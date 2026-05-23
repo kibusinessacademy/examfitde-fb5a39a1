@@ -139,36 +139,53 @@ export default function GrowthIntelligencePage() {
         </TabsContent>
 
         {/* Signal-Feed */}
-        <TabsContent value="signals" className="space-y-2">
+        <TabsContent value="signals" className="space-y-3">
+          <ManualSignalForm />
           {signals.isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : signals.data && signals.data.length > 0 ? (
             <div className="space-y-2">
-              {signals.data.map((s: any) => (
-                <Card key={s.id}>
-                  <CardContent className="py-3 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={severityVariant(s.severity)}>{s.severity}</Badge>
-                      <Badge variant="outline">{s.signal_type}</Badge>
-                      <Badge variant="outline">{s.source}</Badge>
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {new Date(s.observed_at).toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="text-sm font-medium">{s.title}</p>
-                    {s.summary && <p className="text-sm text-muted-foreground">{s.summary}</p>}
-                  </CardContent>
-                </Card>
-              ))}
+              {signals.data.map((s: any) => {
+                const isP18 = s.source === 'p18' && s.signal_type === 'internal_drift';
+                const driftType = s.payload?.drift_type as string | undefined;
+                const idemKey = s.payload?.idempotency_key as string | undefined;
+                return (
+                  <Card key={s.id}>
+                    <CardContent className="py-3 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant={severityVariant(s.severity)}>{s.severity}</Badge>
+                        <Badge variant="outline">{s.signal_type}</Badge>
+                        <Badge variant="outline">{s.source}</Badge>
+                        {isP18 && (
+                          <Badge className="bg-status-bg-subtle-info text-status-fg-info">
+                            P18 Drift{driftType ? ` · ${driftType}` : ''}
+                          </Badge>
+                        )}
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {new Date(s.observed_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium">{s.title}</p>
+                      {s.summary && <p className="text-sm text-muted-foreground">{s.summary}</p>}
+                      {isP18 && idemKey && (
+                        <p className="text-[10px] font-mono text-muted-foreground truncate" title={idemKey}>
+                          ledger: {idemKey}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           ) : (
             <Card>
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                Noch keine Signale. Producer (P20: Signal-Collector) folgt.
+                Noch keine Signale. Manuell anlegen oder via P18-Forensik als GIL-Signal übernehmen.
               </CardContent>
             </Card>
           )}
         </TabsContent>
+
 
         {/* Competitor-Radar */}
         <TabsContent value="competitors" className="space-y-2">
