@@ -14,8 +14,15 @@ import {
   submitCollectorBatch,
   decideIntake,
   parsePasteToRawItems,
+  listRssFeeds,
+  addRssFeed,
+  setRssFeedEnabled,
+  runGilRssCollector,
   type CollectorSourceRow,
+  type RssFeedRow,
+  type RssCollectorRunSummary,
 } from '@/lib/gil/collectors/client';
+
 
 function severityVariant(s: string): 'default' | 'secondary' | 'destructive' {
   if (s === 'critical') return 'destructive';
