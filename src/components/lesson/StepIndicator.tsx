@@ -1,54 +1,87 @@
-import { Badge } from '@/components/ui/badge';
+import { CheckCircle2, Lock } from 'lucide-react';
 import { STEP_ORDER, STEP_CONFIG } from '@/lib/step-config';
 
 interface StepIndicatorProps {
   currentStep: string;
-  lessonTitle: string;
+  /** @deprecated Title rendering moved to LessonHero. Kept for backwards-compat callers. */
+  lessonTitle?: string;
+  /** Optional: which steps are already completed for this lesson group. */
+  completedSteps?: string[];
 }
 
-export default function StepIndicator({ currentStep, lessonTitle }: StepIndicatorProps) {
-  const stepInfo = STEP_CONFIG[currentStep] || STEP_CONFIG.einstieg;
-  const StepIcon = stepInfo.icon;
+/**
+ * Visible step labels with state per-step (done / current / locked).
+ * Renders icons + labels; on small screens labels collapse to abbreviated form.
+ */
+export default function StepIndicator({ currentStep, completedSteps = [] }: StepIndicatorProps) {
+  const currentIdx = STEP_ORDER.indexOf(currentStep as typeof STEP_ORDER[number]);
 
   return (
-    <>
-      {/* Step Progress Indicator */}
-      <div className="flex items-center justify-center gap-2 mb-8">
+    <nav
+      aria-label="Lernschritte"
+      className="max-w-4xl mx-auto mb-6"
+    >
+      <ol className="flex items-stretch justify-between gap-1 md:gap-2 overflow-x-auto">
         {STEP_ORDER.map((key, idx) => {
           const config = STEP_CONFIG[key];
           const Icon = config.icon;
           const isActive = key === currentStep;
-          const isPast = STEP_ORDER.indexOf(currentStep as typeof STEP_ORDER[number]) > idx;
+          const isPast = currentIdx > idx || completedSteps.includes(key);
+          const isLocked = !isActive && !isPast;
+
+          const stateLabel = isActive ? 'Jetzt aktiv' : isPast ? 'Abgeschlossen' : 'Gesperrt';
 
           return (
-            <div key={key} className="flex items-center">
-              <div 
-                className={`
-                  w-10 h-10 rounded-full flex items-center justify-center transition-all
-                  ${isActive ? `${config.bgColor} ring-2 ring-offset-2 ring-offset-background ring-primary` : 
-                    isPast ? 'bg-primary/20' : 'bg-muted'}
-                `}
+            <li
+              key={key}
+              className="flex-1 min-w-0"
+              aria-current={isActive ? 'step' : undefined}
+            >
+              <div
+                className={[
+                  'flex flex-col items-center gap-1 rounded-md px-2 py-2 text-center transition-all',
+                  isActive ? 'bg-primary/10 ring-1 ring-primary/40' : '',
+                  isPast ? 'text-foreground' : '',
+                  isLocked ? 'opacity-60' : '',
+                ].join(' ')}
               >
-                <Icon className={`h-5 w-5 ${isActive ? config.color : isPast ? 'text-primary' : 'text-muted-foreground'}`} />
+                <div
+                  className={[
+                    'w-9 h-9 rounded-full flex items-center justify-center',
+                    isActive ? config.bgColor : isPast ? 'bg-success-bg-subtle' : 'bg-muted',
+                  ].join(' ')}
+                  aria-hidden="true"
+                >
+                  {isPast ? (
+                    <CheckCircle2 className="h-4 w-4 text-success" />
+                  ) : isLocked ? (
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Icon className={`h-4 w-4 ${config.color}`} />
+                  )}
+                </div>
+                <div className="min-w-0 w-full">
+                  <div
+                    className={[
+                      'text-xs font-medium truncate',
+                      isActive ? 'text-foreground' : 'text-muted-foreground',
+                    ].join(' ')}
+                  >
+                    {idx + 1}. {config.label}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground hidden sm:block">
+                    {stateLabel}
+                  </div>
+                </div>
+                <span className="sr-only">
+                  Schritt {idx + 1}: {config.label} – {stateLabel}
+                </span>
               </div>
-              {idx < STEP_ORDER.length - 1 && (
-                <div className={`w-8 h-0.5 ${isPast ? 'bg-primary' : 'bg-muted'}`} />
-              )}
-            </div>
+            </li>
           );
         })}
-      </div>
-
-      {/* Step Header */}
-      <div className="text-center mb-8">
-        <Badge className={`${stepInfo.bgColor} ${stepInfo.color} border-0 mb-3`}>
-          <StepIcon className="h-4 w-4 mr-1" />
-          {stepInfo.label}
-        </Badge>
-        <h1 className="text-2xl md:text-3xl font-display font-bold">{lessonTitle}</h1>
-        <p className="text-muted-foreground mt-2">{stepInfo.description}</p>
-      </div>
-    </>
+      </ol>
+    </nav>
   );
 }
 
