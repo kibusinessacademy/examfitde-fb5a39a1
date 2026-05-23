@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import {
   type ArchitectureReview,
   type RuleFinding,
 } from '@/lib/governance/architecture-review';
+import { runtimePlanToProposal, type RuntimeActionPlan } from '@/lib/governance/runtime-proposal-adapter';
 import { ShieldCheck, AlertTriangle, Ban, Info } from 'lucide-react';
 
 const KIND_OPTIONS: { value: ProposalKind; label: string }[] = [
