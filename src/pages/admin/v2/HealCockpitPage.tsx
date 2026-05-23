@@ -419,6 +419,8 @@ export default function HealCockpitPage() {
             <AutoPublishRetryCard />
             <ManualRetryAuditCard />
             <BronzeQuarantineCard />
+            <BronzeDrainWaveCard />
+            <ActiveJobReconciliationCard />
             <HealStatusCard />
             <SoftDriftMcRepairCard />
             <JobTypeWorkerAuditCard />
