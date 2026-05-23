@@ -757,3 +757,102 @@ function Stat({ label, value }: { label: string; value: number | string }) {
   );
 }
 
+
+// ─── P18 Forensics Panel (Cut 1: Detection + Classification + Evidence) ──
+const SEV_BADGE: Record<DriftSeverity, string> = {
+  block: 'bg-status-bg-subtle-danger text-status-fg-danger',
+  warn: 'bg-status-bg-subtle-warning text-status-fg-warning',
+  info: 'bg-status-bg-subtle-info text-status-fg-info',
+};
+
+function P18ForensicsPanel() {
+  const result = useMemo(() => runP18Cut1({ knownSystemsChange: {}, now: new Date() }), []);
+  const { signals, summary, active_triggers, policy_version } = result;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <Card className="lg:col-span-1">
+        <CardHeader>
+          <CardTitle className="text-base">P18 Cut 1 — Drift-Forensik</CardTitle>
+          <CardDescription>
+            Read-only. Detection · Classification · Evidence.
+            <strong className="text-fg-default"> Kein Self-Healing.</strong> Kein Audit-Write. Kein DB-Call.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div>
+            <Label className="text-xs">Aktive Trigger</Label>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {active_triggers.map((t) => (
+                <Badge key={t} variant="secondary" className="text-[10px] font-mono">{t}</Badge>
+              ))}
+            </div>
+            <p className="text-[11px] text-fg-muted mt-2">
+              Cut 2/3 Trigger (static-guard-failed, runtime-anomaly-detected, memory-sync-drift,
+              semantic-runtime-conflict) sind bewusst inaktiv — Signalrauschen-Schutz.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <Stat label="Signale" value={summary.total} />
+            <Stat label="Block" value={summary.by_severity.block} />
+            <Stat label="Warn" value={summary.by_severity.warn} />
+          </div>
+          <div>
+            <Label className="text-xs">Policy</Label>
+            <div className="font-mono text-xs text-fg-muted mt-1">{policy_version}</div>
+          </div>
+          <CopyButton
+            value={() => JSON.stringify(result, null, 2)}
+            variant="button"
+            label="Drift-Korpus als JSON"
+            toastLabel="Drift-Korpus kopiert"
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">Drift-Korpus ({signals.length})</CardTitle>
+          <CardDescription>
+            Semantische Architekturforensik. Idempotency-Keys werden berechnet, aber NICHT persistiert
+            (Ledger = Cut 3).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {signals.length === 0 ? (
+            <p className="text-sm text-fg-muted">Keine Drift-Signale erkannt.</p>
+          ) : (
+            <ul className="space-y-3">
+              {signals.slice(0, 50).map((s) => (
+                <DriftSignalRow key={s.idempotency_key} signal={s} />
+              ))}
+              {signals.length > 50 && (
+                <li className="text-xs text-fg-muted">… {signals.length - 50} weitere Signale (siehe JSON-Export).</li>
+              )}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function DriftSignalRow({ signal }: { signal: DriftSignal }) {
+  return (
+    <li className="border-l-2 border-border-default pl-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge className={`text-[10px] ${SEV_BADGE[signal.severity]}`}>{signal.severity}</Badge>
+        <Badge variant="outline" className="text-[10px] font-mono">{signal.drift_type}</Badge>
+        <Badge variant="secondary" className="text-[10px]">{signal.category}</Badge>
+        <span className="text-[10px] text-fg-muted font-mono">{signal.trigger}</span>
+      </div>
+      <div className="text-sm text-fg-default mt-1">{signal.message}</div>
+      <div className="text-xs text-fg-muted mt-1">
+        <span className="font-medium">Action:</span> {signal.evidence.recommended_action}
+      </div>
+      <div className="text-[10px] text-fg-muted mt-1 font-mono break-all">
+        {signal.idempotency_key} · → {signal.evidence.escalation_target}
+      </div>
+    </li>
+  );
+}
