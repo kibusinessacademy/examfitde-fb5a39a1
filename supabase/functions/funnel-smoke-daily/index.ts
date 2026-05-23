@@ -101,8 +101,8 @@ Deno.serve(async (req) => {
     let targets = (rows ?? [])
       .map((r) => ({
         product_id: r.product_id as string,
-        product_slug: r.product_slug as string,
-        canonical_slug: slugByProductId.get(r.product_id as string) ?? r.product_slug,
+        product_slug: slugByProductId.get(r.product_id as string) ?? "",
+        canonical_slug: slugByProductId.get(r.product_id as string) ?? "",
       }))
       .filter((t) => !!t.canonical_slug && !!t.product_id) as Array<{
         product_id: string; product_slug: string; canonical_slug: string;
