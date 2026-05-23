@@ -2,9 +2,8 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  buildFilteredZip,
   buildTree,
-  emitExportFilteredAudit,
+  downloadFilteredZip,
   fetchExportManifest,
   humanBytes,
   type ManifestFile,
@@ -15,11 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw, Info } from "lucide-react";
 import { toast } from "sonner";
 
 function FileIcon({ file }: { file: ManifestFile }) {
   if (file.kind === "blocked") return <FileWarning className="h-3.5 w-3.5 text-destructive" />;
+  if (file.kind === "oversized") return <FileWarning className="h-3.5 w-3.5 text-amber-500" />;
   return <FileText className="h-3.5 w-3.5 text-muted-foreground" />;
 }
 
@@ -114,7 +115,7 @@ function collectFilePaths(node: TreeNode): string[] {
   return node.children.flatMap(collectFilePaths);
 }
 
-function FilePreview({ file }: { file: ManifestFile | null }) {
+function FilePreview({ file, inlineLimit }: { file: ManifestFile | null; inlineLimit: number }) {
   if (!file) {
     return (
       <div className="text-sm text-muted-foreground p-6 text-center">
@@ -133,7 +134,14 @@ function FilePreview({ file }: { file: ManifestFile | null }) {
   if (file.kind === "binary") {
     return (
       <div className="p-4 text-sm text-muted-foreground">
-        Binärdatei ({humanBytes(file.size)}, {file.mime}). Keine Inline-Vorschau.
+        Binärdatei ({humanBytes(file.size)}, {file.mime}). Keine Inline-Vorschau — Re-Export überträgt die Datei serverseitig.
+      </div>
+    );
+  }
+  if (file.kind === "oversized") {
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        Datei zu groß für Inline-Vorschau ({humanBytes(file.size)} &gt; {humanBytes(inlineLimit)}). Re-Export funktioniert serverseitig.
       </div>
     );
   }
@@ -141,11 +149,7 @@ function FilePreview({ file }: { file: ManifestFile | null }) {
   const isJson = file.mime === "application/json";
   let pretty = text;
   if (isJson) {
-    try {
-      pretty = JSON.stringify(JSON.parse(text), null, 2);
-    } catch {
-      /* keep raw */
-    }
+    try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch { /* keep raw */ }
   }
   return (
     <ScrollArea className="h-full">
