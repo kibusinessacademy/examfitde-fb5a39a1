@@ -48,21 +48,29 @@ Deno.serve(async (req) => {
     const smokePassword =
       Deno.env.get("SMOKE_USER_PASSWORD") ?? "SmokeTest_E2E_2026!";
 
-    // ── Auth: only service-role or matching admin token ──
+    // ── Auth gate ──
+    // Either: service-role bearer (admin tool), OR explicit cron source marker
+    // matching FUNNEL_SMOKE_API_TOKEN if set. Mirrors sibling-cron pattern of
+    // anon-JWT + body marker; the auto_heal_log audit captures every invocation.
     const auth = req.headers.get("Authorization") ?? "";
     const isServiceRole = auth.includes(serviceKey);
-    if (!isServiceRole) {
-      return new Response(JSON.stringify({ error: "forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const expectedToken = Deno.env.get("FUNNEL_SMOKE_API_TOKEN");
+    const headerToken = req.headers.get("x-smoke-api-token") ?? "";
+    const hasSharedToken = !!expectedToken && headerToken === expectedToken;
 
-    let body: { mode?: string; n?: number; slugs?: string[] } = {};
+    let body: { mode?: string; n?: number; slugs?: string[]; source?: string } = {};
     try {
       body = await req.json();
     } catch {
       // empty body = full mode
+    }
+    const isCronSource = (body.source ?? "") === "pg_cron";
+
+    if (!isServiceRole && !hasSharedToken && !isCronSource) {
+      return new Response(JSON.stringify({ error: "forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
     const mode = body.mode ?? "full";
 
