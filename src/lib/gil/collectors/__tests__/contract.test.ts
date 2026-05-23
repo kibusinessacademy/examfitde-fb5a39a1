@@ -28,12 +28,13 @@ describe('GIL Collector Contract — pure', () => {
 
   it('rejects unknown sources and disabled sources', () => {
     const u = normalizeCollectorItem('does_not_exist', { title: 'x' });
-    const d = normalizeCollectorItem('rss', { title: 'New release' });
+    const d = normalizeCollectorItem('semrush', { title: 'serp drop' });
     expect(u.ok).toBe(false);
     expect(d.ok).toBe(false);
     if (!u.ok) expect(u.reason).toBe('unknown_source');
     if (!d.ok) expect(d.reason).toBe('source_disabled');
   });
+
 
   it('rejects invalid titles and unknown signal_types', () => {
     const t = normalizeCollectorItem('manual_paste', { title: 'a' });
