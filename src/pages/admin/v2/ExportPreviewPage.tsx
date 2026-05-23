@@ -2,9 +2,8 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  buildFilteredZip,
   buildTree,
-  emitExportFilteredAudit,
+  downloadFilteredZip,
   fetchExportManifest,
   humanBytes,
   type ManifestFile,
@@ -15,11 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw, Info } from "lucide-react";
 import { toast } from "sonner";
 
 function FileIcon({ file }: { file: ManifestFile }) {
   if (file.kind === "blocked") return <FileWarning className="h-3.5 w-3.5 text-destructive" />;
+  if (file.kind === "oversized") return <FileWarning className="h-3.5 w-3.5 text-amber-500" />;
   return <FileText className="h-3.5 w-3.5 text-muted-foreground" />;
 }
 
@@ -114,7 +115,7 @@ function collectFilePaths(node: TreeNode): string[] {
   return node.children.flatMap(collectFilePaths);
 }
 
-function FilePreview({ file }: { file: ManifestFile | null }) {
+function FilePreview({ file, inlineLimit }: { file: ManifestFile | null; inlineLimit: number }) {
   if (!file) {
     return (
       <div className="text-sm text-muted-foreground p-6 text-center">
@@ -133,7 +134,14 @@ function FilePreview({ file }: { file: ManifestFile | null }) {
   if (file.kind === "binary") {
     return (
       <div className="p-4 text-sm text-muted-foreground">
-        Binärdatei ({humanBytes(file.size)}, {file.mime}). Keine Inline-Vorschau.
+        Binärdatei ({humanBytes(file.size)}, {file.mime}). Keine Inline-Vorschau — Re-Export überträgt die Datei serverseitig.
+      </div>
+    );
+  }
+  if (file.kind === "oversized") {
+    return (
+      <div className="p-4 text-sm text-muted-foreground">
+        Datei zu groß für Inline-Vorschau ({humanBytes(file.size)} &gt; {humanBytes(inlineLimit)}). Re-Export funktioniert serverseitig.
       </div>
     );
   }
@@ -141,11 +149,7 @@ function FilePreview({ file }: { file: ManifestFile | null }) {
   const isJson = file.mime === "application/json";
   let pretty = text;
   if (isJson) {
-    try {
-      pretty = JSON.stringify(JSON.parse(text), null, 2);
-    } catch {
-      /* keep raw */
-    }
+    try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch { /* keep raw */ }
   }
   return (
     <ScrollArea className="h-full">
@@ -156,12 +160,13 @@ function FilePreview({ file }: { file: ManifestFile | null }) {
 
 export default function ExportPreviewPage() {
   const { packageId } = useParams<{ packageId: string }>();
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ["export-manifest", packageId],
-    queryFn: () => fetchExportManifest(packageId!),
+    queryKey: ["export-manifest", packageId, refreshTick],
+    queryFn: () => fetchExportManifest(packageId!, { refresh: refreshTick > 0 }),
     enabled: !!packageId,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 
   const tree = useMemo(() => (data ? buildTree(data.files) : null), [data]);
@@ -169,6 +174,8 @@ export default function ExportPreviewPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [picked, setPicked] = useState<ManifestFile | null>(null);
   const [exporting, setExporting] = useState(false);
+
+  const handleRefresh = () => { setRefreshTick((n) => n + 1); refetch(); };
 
   // initialize selection: all non-blocked
   useMemo(() => {
@@ -195,20 +202,17 @@ export default function ExportPreviewPage() {
     setExporting(true);
     try {
       const accepted = Array.from(selected);
-      const rejected = data.file_count - accepted.length;
-      const blob = await buildFilteredZip(data, selected);
-      // download
+      const { blob, filename } = await downloadFilteredZip(data.package_id, accepted);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `export-${data.package_id}-filtered.zip`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
-      await emitExportFilteredAudit(data.package_id, accepted, rejected);
-      toast.success(`ZIP exportiert: ${accepted.length} Dateien`);
+      const rejected = data.file_count - accepted.length;
+      toast.success(`ZIP exportiert: ${accepted.length} angenommen, ${rejected} verworfen`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       toast.error(`Export fehlgeschlagen: ${msg}`);
@@ -228,7 +232,7 @@ export default function ExportPreviewPage() {
             <p className="text-xs text-muted-foreground mt-1 font-mono">{packageId}</p>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <Button size="sm" variant="outline" onClick={handleRefresh} disabled={isFetching}>
               <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? "animate-spin" : ""}`} />
               Manifest neu laden
             </Button>
@@ -259,10 +263,23 @@ export default function ExportPreviewPage() {
             </div>
           )}
           {data && (
-            <div className="text-xs text-muted-foreground flex gap-4">
-              <span>Dateien: <strong>{data.file_count}</strong></span>
-              <span>Größe: <strong>{humanBytes(data.total_bytes)}</strong></span>
-              <span>Quelle: <span className="font-mono">{data.export_path}</span></span>
+            <div className="space-y-2">
+              <div className="text-xs text-muted-foreground flex flex-wrap gap-4">
+                <span>Dateien: <strong>{data.file_count}</strong></span>
+                <span>Größe: <strong>{humanBytes(data.total_bytes)}</strong></span>
+                <span>Inline-Limit: <strong>{humanBytes(data.inline_limit_bytes)}</strong></span>
+                <span>Quelle: <span className="font-mono">{data.export_path}</span></span>
+                <span>Hash: <span className="font-mono">{data.export_hash.slice(0, 12)}…</span></span>
+                <span>Cache: <strong>{data.cache_hit ? "hit" : "miss"}</strong></span>
+              </div>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  „Manifest neu laden" erzeugt einen frischen Export-Stand und invalidiert den Cache.
+                  Re-Export läuft serverseitig über den gespeicherten Original-ZIP — Binärdateien
+                  werden hier nicht inline gehalten.
+                </AlertDescription>
+              </Alert>
             </div>
           )}
         </CardContent>
@@ -302,7 +319,7 @@ export default function ExportPreviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 h-[70vh]">
-              <FilePreview file={picked} />
+              <FilePreview file={picked} inlineLimit={data.inline_limit_bytes} />
             </CardContent>
           </Card>
         </div>
