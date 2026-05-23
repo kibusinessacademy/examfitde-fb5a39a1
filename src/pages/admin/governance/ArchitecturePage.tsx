@@ -123,6 +123,7 @@ export default function ArchitecturePage() {
         <TabsList>
           <TabsTrigger value="proposal">Proposal Review</TabsTrigger>
           <TabsTrigger value="runtime">Runtime Preflight</TabsTrigger>
+          <TabsTrigger value="graph">Runtime Graph</TabsTrigger>
         </TabsList>
         <TabsContent value="proposal" className="mt-4">
 
