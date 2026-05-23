@@ -16,6 +16,7 @@ import type { LessonStatus } from '@/hooks/useCourseProgress';
 
 import LessonHeader from '@/components/lesson/LessonHeader';
 import StepIndicator from '@/components/lesson/StepIndicator';
+import LessonHero from '@/components/lesson/LessonHero';
 import PageExplainer from '@/components/admin/PageExplainer';
 import LessonContent from '@/components/lesson/LessonContent';
 import LessonNavigation from '@/components/lesson/LessonNavigation';
