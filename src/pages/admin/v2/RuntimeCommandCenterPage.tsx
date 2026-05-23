@@ -127,15 +127,3 @@ export default function RuntimeCommandCenterPage() {
   );
 }
 
-function PlaceholderCard({ title, hint }: { title: string; hint: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{hint}</p>
-      </CardContent>
-    </Card>
-  );
-}
