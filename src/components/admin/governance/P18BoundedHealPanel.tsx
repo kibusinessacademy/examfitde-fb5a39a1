@@ -38,6 +38,9 @@ import {
   requestP18Heal,
   type LedgerRow,
 } from '@/lib/governance/p18-heal-executor.functions';
+import { bridgeP18DriftToGil } from '@/lib/governance/p18-gil-bridge.client';
+
+
 
 const SEV_TONE: Record<DriftSignal['severity'], string> = {
   block: 'bg-status-bg-subtle-danger text-status-fg-danger',
