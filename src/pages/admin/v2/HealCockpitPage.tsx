@@ -56,6 +56,7 @@ import { ArtifactCompletenessCard } from "@/components/admin/heal/cards/Artifact
 import { LessonJoinParityCard } from "@/components/admin/heal/cards/LessonJoinParityCard";
 import { PostPublishOrchestratorCard } from "@/components/admin/heal/cards/PostPublishOrchestratorCard";
 import { PaidButNotDeliveredCard } from "@/components/admin/heal/cards/PaidButNotDeliveredCard";
+import { CommerceReadinessCard } from "@/components/admin/heal/cards/CommerceReadinessCard";
 import { ActivationFunnelCard } from "@/components/admin/heal/cards/ActivationFunnelCard";
 import { ExamReadinessDistributionCard } from "@/components/admin/heal/cards/ExamReadinessDistributionCard";
 import { ContentFeedbackPipelineCard } from "@/components/admin/heal/cards/ContentFeedbackPipelineCard";
@@ -487,6 +488,7 @@ export default function HealCockpitPage() {
                 <LessonJoinParityCard />
                 <PostPublishOrchestratorCard />
                 <PaidButNotDeliveredCard />
+                <CommerceReadinessCard />
                 <ActivationFunnelCard />
                 <ExamReadinessDistributionCard />
                 <ContentFeedbackPipelineCard />
