@@ -17,27 +17,27 @@
  * caller's job to handle).
  */
 
-const UUID_SUFFIX_RE = /-[0-9a-f]{6,8}(?:[_-]archived[_-][0-9a-f]+)?$/i;
-const SUFFIX_NOISE_RE = /(?:-?\b(?:in|innen|frau|mann)\b)|(?:[/_])/gi;
+const UUID_SUFFIX_RE = /-[0-9a-f]{6,8}(?:[_-]+archived[_-]+[0-9a-f]+)?$/i;
+const TRAILING_GENDER_RE = /(?:-(?:frau|innen|in))+$/i;
+const SEPARATOR_RE = /[/_]+/g;
 
 function fold(input: string): string {
   return input
     .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '') // strip diacritics
     .replace(/ß/g, 'ss')
     .replace(/ä/g, 'ae')
     .replace(/ö/g, 'oe')
-    .replace(/ü/g, 'ue');
+    .replace(/ü/g, 'ue')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, ''); // strip remaining diacritics
 }
 
 export function normalizeSlug(slug: string | null | undefined): string {
   if (!slug) return '';
-  return fold(slug)
-    .replace(UUID_SUFFIX_RE, '')
-    .replace(SUFFIX_NOISE_RE, '-')
-    .replace(/--+/g, '-')
-    .replace(/^-|-$/g, '');
+  let s = fold(slug).replace(SEPARATOR_RE, '-');
+  s = s.replace(UUID_SUFFIX_RE, '');
+  s = s.replace(TRAILING_GENDER_RE, '');
+  return s.replace(/--+/g, '-').replace(/^-|-$/g, '');
 }
 
 /**
