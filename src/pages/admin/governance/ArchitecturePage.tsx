@@ -26,6 +26,7 @@ import {
 import { runtimePlanToProposal, type RuntimeActionPlan } from '@/lib/governance/runtime-proposal-adapter';
 import { deriveSemanticRuntimeGraph } from '@/lib/governance/semantic-runtime-graph';
 import { runP18Cut1, type DriftSignal, type DriftSeverity } from '@/lib/governance/p18-orchestrator';
+import P18BoundedHealPanel from '@/components/admin/governance/P18BoundedHealPanel';
 import { ShieldCheck, AlertTriangle, Ban, Info } from 'lucide-react';
 
 const KIND_OPTIONS: { value: ProposalKind; label: string }[] = [
