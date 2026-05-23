@@ -155,6 +155,7 @@ export default function GrowthPage() {
         <TabsContent value="pages" className="mt-4"><Suspense fallback={<Loading />}><ContentPageEditor /></Suspense></TabsContent>
         <TabsContent value="links" className="mt-4"><Suspense fallback={<Loading />}><InternalLinkManager /></Suspense></TabsContent>
         <TabsContent value="audit" className="mt-4 space-y-4">
+          <Suspense fallback={<Loading />}><SeoContentNodeSsotCard /></Suspense>
           <Suspense fallback={<Loading />}><GrowthGraphHealthStatusCard /></Suspense>
           <Suspense fallback={<Loading />}><TutorIndexNoIndexHealCard /></Suspense>
           <Suspense fallback={<Loading />}><GrowthGraphLeitstelleCard /></Suspense>
