@@ -4,8 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useGilOverview,
   useGilBriefings,
@@ -15,6 +18,8 @@ import {
   useTriggerExecutiveBriefing,
 } from '@/features/gil/useGrowthIntelligence';
 import { GIL_AGENT_CONTRACTS, GIL_AGENT_KINDS } from '@/lib/gil/contracts';
+import { createManualMarketSignal } from '@/lib/governance/p18-gil-bridge.client';
+
 
 function severityVariant(s: string): 'default' | 'secondary' | 'destructive' {
   if (s === 'critical') return 'destructive';
