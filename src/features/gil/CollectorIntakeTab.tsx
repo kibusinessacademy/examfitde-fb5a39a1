@@ -123,8 +123,9 @@ export default function CollectorIntakeTab() {
             <Input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="z.B. „Wettbewerbsbeobachtung KW21""
+              placeholder={'z.B. "Wettbewerbsbeobachtung KW21"'}
             />
+
           </div>
 
           <div className="flex justify-end">
