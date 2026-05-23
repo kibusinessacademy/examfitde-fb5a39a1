@@ -1,0 +1,56 @@
+{
+  "kind": "table",
+  "name": "p18_idempotency_ledger",
+  "domain": "governance",
+  "purpose": "P18 Cut 3 — persistent Idempotency-Ledger für bounded Healing State-Machine.",
+  "verdict": "approved",
+  "review_required": false,
+  "blocked": false,
+  "rules_satisfied": [
+    "SSOT_FIRST",
+    "EXTEND_EXISTING",
+    "NO_PARALLEL_SYSTEMS",
+    "NO_HIDDEN_STATE",
+    "AUDITABLE_MUTATIONS",
+    "SECURITY_INHERITS",
+    "NO_AUTONOMOUS_PRODUCTION_WRITES",
+    "HEALABILITY_IS_REQUIRED",
+    "GOVERNANCE_BEFORE_AUTOMATION"
+  ],
+  "bridge_strategy": "Ledger ist KEINE zweite Audit-Struktur — Audit-SSOT bleibt fn_emit_audit + auto_heal_log. Ledger speichert ausschließlich Drift-State (status, allowed_actions, idempotency_key). Schreibwege ausschließlich SECURITY DEFINER RPCs.",
+  "healing_context": {
+    "replayable": true,
+    "recoverable": true,
+    "auditable": true,
+    "observable": true,
+    "drift_detectable": true
+  },
+  "neighbors": ["auto_heal_log", "ops_audit_contract", "p18_orchestrator"],
+  "event_contracts": [
+    "p18_semantic_drift_detected",
+    "p18_bounded_heal_requested",
+    "p18_bounded_heal_completed",
+    "p18_bounded_heal_rejected"
+  ],
+  "audit_actions": [
+    "p18_semantic_drift_detected",
+    "p18_bounded_heal_requested",
+    "p18_bounded_heal_completed",
+    "p18_bounded_heal_rejected"
+  ],
+  "hard_no_go": [
+    "auto-write known-systems.ts",
+    "auto-modify schema",
+    "queue rewrites",
+    "content rewrites",
+    "bulk heal",
+    "raw payload column",
+    "secret-bearing fields",
+    "production mutation outside whitelist"
+  ],
+  "whitelist_actions": [
+    "SUGGEST_KNOWN_SYSTEM_ENTRY",
+    "EMIT_GOVERNANCE_AUDIT",
+    "TRIGGER_QUALITY_GATE_RERUN"
+  ]
+}

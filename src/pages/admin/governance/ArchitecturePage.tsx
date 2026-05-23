@@ -26,6 +26,7 @@ import {
 import { runtimePlanToProposal, type RuntimeActionPlan } from '@/lib/governance/runtime-proposal-adapter';
 import { deriveSemanticRuntimeGraph } from '@/lib/governance/semantic-runtime-graph';
 import { runP18Cut1, type DriftSignal, type DriftSeverity } from '@/lib/governance/p18-orchestrator';
+import P18BoundedHealPanel from '@/components/admin/governance/P18BoundedHealPanel';
 import { ShieldCheck, AlertTriangle, Ban, Info } from 'lucide-react';
 
 const KIND_OPTIONS: { value: ProposalKind; label: string }[] = [
@@ -127,6 +128,7 @@ export default function ArchitecturePage() {
           <TabsTrigger value="runtime">Runtime Preflight</TabsTrigger>
           <TabsTrigger value="graph">Runtime Graph</TabsTrigger>
           <TabsTrigger value="p18">P18 Forensics</TabsTrigger>
+          <TabsTrigger value="p18heal">P18 Bounded Heal</TabsTrigger>
         </TabsList>
         <TabsContent value="proposal" className="mt-4">
 
@@ -255,6 +257,9 @@ export default function ArchitecturePage() {
         </TabsContent>
         <TabsContent value="p18" className="mt-4">
           <P18ForensicsPanel />
+        </TabsContent>
+        <TabsContent value="p18heal" className="mt-4">
+          <P18BoundedHealPanel />
         </TabsContent>
       </Tabs>
     </div>
