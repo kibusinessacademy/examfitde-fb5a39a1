@@ -14,6 +14,7 @@
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { recoverProductSlug, normalizeSlug } from "../_shared/slug-normalize.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[CREATE-PRODUCT-CHECKOUT] ${step}`, details ? JSON.stringify(details) : '');
