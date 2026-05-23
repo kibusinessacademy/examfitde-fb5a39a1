@@ -13,6 +13,8 @@ import RuntimeReversiblePoliciesCard from "@/features/admin/components/RuntimeRe
 import RuntimeDryRunCard from "@/features/admin/components/RuntimeDryRunCard";
 import RuntimeIntelligenceCard from "@/features/admin/components/RuntimeIntelligenceCard";
 import RuntimeRecommendationsCard from "@/features/admin/components/RuntimeRecommendationsCard";
+import AiObservabilityCard from "@/features/admin/components/AiObservabilityCard";
+import RecommendationPolicyEffectivenessCard from "@/features/admin/components/RecommendationPolicyEffectivenessCard";
 
 /**
  * AI Runtime Command Center v1
