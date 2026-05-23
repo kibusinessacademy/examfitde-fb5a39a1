@@ -122,6 +122,8 @@ Deno.serve(async (req) => {
     let product: { id: string; slug: string; title: string; certification_id: string | null } | null = null;
     let recoveryStrategy: string = "exact";
     let recoveryAuditNote: Record<string, unknown> | null = null;
+    let allActiveCandidates: { id: string; slug: string }[] = [];
+
 
     {
       const { data: exact } = await adminClient
