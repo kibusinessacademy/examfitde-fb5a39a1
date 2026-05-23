@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     // We test the inner set; the gap is reported as drift KPI.
     const { data: rows, error: rowErr } = await admin
       .from("v_sellable_and_deliverable")
-      .select("course_package_id, product_id, product_slug")
+      .select("course_package_id, product_id")
       .eq("is_sellable_and_deliverable", true);
     if (rowErr) throw new Error(`load sellable_and_deliverable: ${rowErr.message}`);
 
