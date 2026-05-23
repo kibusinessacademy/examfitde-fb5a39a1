@@ -16,6 +16,7 @@ import type { LessonStatus } from '@/hooks/useCourseProgress';
 
 import LessonHeader from '@/components/lesson/LessonHeader';
 import StepIndicator from '@/components/lesson/StepIndicator';
+import LessonHero from '@/components/lesson/LessonHero';
 import PageExplainer from '@/components/admin/PageExplainer';
 import LessonContent from '@/components/lesson/LessonContent';
 import LessonNavigation from '@/components/lesson/LessonNavigation';
@@ -31,6 +32,7 @@ interface Lesson {
   sort_order: number | null;
   h5p_content_id: string | null;
   competency_id: string | null;
+  exam_relevance_score: number | null;
 }
 
 interface Module {
@@ -78,6 +80,7 @@ export default function LessonPlayer() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [miniCheckKey, setMiniCheckKey] = useState(0);
   const [progressionBlocked, setProgressionBlocked] = useState<{ blocked: boolean; reason?: string; prevLessonId?: string } | null>(null);
+  const [competency, setCompetency] = useState<{ code: string | null; title: string | null }>({ code: null, title: null });
   const { syncMiniCheckResult } = useMiniCheckMasterySync();
   const certificationId = useCertificationFromCurriculum(course?.curriculum_id);
 
@@ -134,6 +137,18 @@ export default function LessonPlayer() {
       }
 
       setLesson(lessonData);
+
+      // Fetch competency (learner-facing label SSOT)
+      if (lessonData.competency_id) {
+        const { data: compData } = await supabase
+          .from('competencies')
+          .select('code, title')
+          .eq('id', lessonData.competency_id)
+          .maybeSingle();
+        if (compData) setCompetency({ code: compData.code ?? null, title: compData.title ?? null });
+      } else {
+        setCompetency({ code: null, title: null });
+      }
 
       // Fetch module
       const { data: moduleData } = await supabase
@@ -431,24 +446,19 @@ export default function LessonPlayer() {
       />
 
       <div className="container mx-auto px-4 py-6">
-        <StepIndicator 
-          currentStep={lesson.step} 
-          lessonTitle={lesson.title} 
-        />
+        <StepIndicator currentStep={lesson.step} />
 
-        <PageExplainer
-          title="Wie funktioniert diese Lektion?"
-          description="Jede Lektion folgt einem didaktischen Schritt: Einstieg, Verstehen, Anwenden, Wiederholen oder Mini-Check. Bei Mini-Checks bekommst du sofort Feedback zu deinem Lernstand. Ab 80% gilt das Lernziel als gemeistert."
-          actions={[
-            '"Abschließen" – Markiert die Lektion als erledigt und schaltet die nächste frei',
-            'Mini-Check am Ende prüft dein Wissen – bei < 80% kannst du wiederholen',
-            'Navigation unten → Wechsle zur vorherigen oder nächsten Lektion',
-          ]}
-          tips={[
-            'Du musst die vorherige Lektion abschließen, bevor die nächste freigeschaltet wird',
-            'Der Fortschrittsbalken oben zeigt deinen Modulfortschritt',
-            'Bei H5P-Inhalten wird dein Score automatisch erfasst',
-          ]}
+        <LessonHero
+          rawTitle={lesson.title}
+          content={lesson.content}
+          competencyCode={competency.code}
+          competencyTitle={competency.title}
+          courseTitle={course.title}
+          step={lesson.step}
+          lessonNumber={getCurrentLessonIndex() + 1}
+          totalLessons={siblingLessons.length}
+          examRelevanceScore={lesson.exam_relevance_score ?? null}
+          isCompleted={!!progress?.completed}
         />
 
         {/* Humor Intro */}
@@ -517,6 +527,22 @@ export default function LessonPlayer() {
           onComplete={() => completeLesson()}
           onNavigate={navigateToLesson}
         />
+
+        <div className="max-w-4xl mx-auto mt-10">
+          <PageExplainer
+            title="So funktioniert der Lernweg"
+            description="Jede Lektion durchläuft mehrere Schritte (Einstieg, Verstehen, Anwenden, Wiederholen, Mini-Check). Mini-Checks geben Feedback zu deinem Lernstand. Ab 80% gilt ein Lernziel als gemeistert."
+            actions={[
+              '„Als abgeschlossen markieren" schließt den aktuellen Schritt ab',
+              'Mini-Check prüft dein Wissen – bei < 80% kannst du wiederholen',
+              'Über die Navigation wechselst du zum vorherigen oder nächsten Schritt',
+            ]}
+            tips={[
+              'Vorherige Schritte müssen abgeschlossen sein, bevor der nächste freischaltet',
+              'Bei H5P-Inhalten wird dein Score automatisch erfasst',
+            ]}
+          />
+        </div>
       </div>
     </div>
   );
