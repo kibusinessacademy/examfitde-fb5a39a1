@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { normalizeSlug, recoverProductSlug } from "../_shared/slug-normalize.ts";
+import { normalizeSlug, recoverProductSlug, suggestClosestSlug } from "../_shared/slug-normalize.ts";
 
 const ROWS = [
   { id: "p-anlagen", slug: "anlagenmechaniker-in-für-sanitär--heizungs--und-klimatechnik-ef7ba3bf" },
