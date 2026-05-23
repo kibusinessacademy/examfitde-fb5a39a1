@@ -64,8 +64,13 @@ Deno.test("recover: uuid_suffix_strip strategy when input has no uuid", () => {
 
 Deno.test("suggestClosestSlug: typo in beruf → nearest active product", () => {
   // Mehrere Beispielpakete: Empfehlung muss auf das tokenweise nächste fallen.
-  const s = suggestClosestSlug("industriekauffrau-buero", ROWS);
+  const s = suggestClosestSlug("industriekaufmann-bueromanagement", ROWS);
   assertEquals(s?.id, "p-industrie");
+});
+
+Deno.test("suggestClosestSlug: short prefix match suggests fisi", () => {
+  const s = suggestClosestSlug("fachinformatiker-systemintegration-mobile", ROWS);
+  assertEquals(s?.id, "p-fisi");
 });
 
 Deno.test("suggestClosestSlug: short prefix match suggests fisi", () => {
