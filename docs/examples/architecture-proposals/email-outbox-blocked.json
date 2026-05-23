@@ -1,0 +1,14 @@
+{
+  "kind": "queue",
+  "name": "email_outbox",
+  "purpose": "Neue Outbox-Tabelle für ausgehende Marketing-Mails mit eigenem Worker.",
+  "tags": ["email", "queue", "outbox"],
+  "touches": ["email_delivery_queue"],
+  "proposed_tables": ["email_outbox"],
+  "proposed_jobs": ["email_outbox_dispatch"],
+  "hasAuditContract": false,
+  "hasStopCondition": false,
+  "hasEligibilityGate": false,
+  "rlsStatus": "on",
+  "usesHasRole": true
+}

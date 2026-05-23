@@ -1,0 +1,12 @@
+{
+  "kind": "view",
+  "name": "v_activation_bridge",
+  "purpose": "Bridge-View zwischen learner_course_grants und notification_events um Aktivierungs-Trigger sichtbar zu machen.",
+  "tags": ["bridge", "activation", "license"],
+  "touches": ["learner_course_grants", "notification_events"],
+  "hasAuditContract": true,
+  "hasStopCondition": true,
+  "hasEligibilityGate": true,
+  "rlsStatus": "not_applicable",
+  "usesHasRole": true
+}
