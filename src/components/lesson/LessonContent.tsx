@@ -8,6 +8,7 @@ import MiniCheckPlayer, { type MiniCheckContent, type MiniCheckQuestion } from '
 import { useLessonMiniChecks } from '@/hooks/useLessonMiniChecks';
 import { useLessonAnswerKey } from '@/hooks/useLessonAnswerKey';
 import LessonAnswerCheck from './LessonAnswerCheck';
+import LessonSections from './sections/LessonSections';
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
 interface LessonContentProps {
@@ -197,18 +198,10 @@ export default function LessonContent({
   }
 
   // Text/HTML content
-  if (contentData.type === 'text' && contentData.html) {
-    const sanitizedHTML = DOMPurify.sanitize(String(contentData.html), {
-      ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'strong', 'em', 'u', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'span', 'div', 'sub', 'sup', 'hr'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel'],
-      ALLOW_DATA_ATTR: false,
-    });
+  if (contentData.type === 'text' && (contentData.html || contentData.sections)) {
     return (
       <div className="space-y-4">
-        <div 
-          className="prose prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: sanitizedHTML }} 
-        />
+        <LessonSections content={contentData} />
         {/* Answer check for Einstieg/Anwenden steps */}
         {answerKey && lessonId && (
           <LessonAnswerCheck
@@ -256,16 +249,9 @@ export default function LessonContent({
     if (validation.valid) {
       return (
         <div className="space-y-8">
-          {/* Render text content first if present */}
-          {contentData.type === 'text' && contentData.html && (
-            <div 
-              className="prose prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(String(contentData.html), {
-                ALLOWED_TAGS: ['h1','h2','h3','h4','h5','h6','p','br','strong','em','u','ul','ol','li','blockquote','code','pre','a','img','table','thead','tbody','tr','th','td','span','div','sub','sup','hr'],
-                ALLOWED_ATTR: ['href','src','alt','title','class','id','target','rel'],
-                ALLOW_DATA_ATTR: false,
-              }) }}
-            />
+          {/* Render structured sections (or html fallback) first if present */}
+          {(contentData.html || contentData.sections) && (
+            <LessonSections content={contentData} />
           )}
           <MiniCheckPlayer
             content={dbMiniChecks}
