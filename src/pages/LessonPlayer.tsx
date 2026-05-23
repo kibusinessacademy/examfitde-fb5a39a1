@@ -32,6 +32,7 @@ interface Lesson {
   sort_order: number | null;
   h5p_content_id: string | null;
   competency_id: string | null;
+  exam_relevance_score: number | null;
 }
 
 interface Module {
