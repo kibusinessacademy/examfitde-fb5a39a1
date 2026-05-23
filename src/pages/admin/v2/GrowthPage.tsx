@@ -37,6 +37,7 @@ const SemanticGraphCrawlHealthCard = lazy(() => import('@/features/admin/compone
 const GscReconciliationCard = lazy(() => import('@/features/admin/components/GscReconciliationCard').then(m => ({ default: m.GscReconciliationCard })));
 const SeoDeadEndDriftCard = lazy(() => import('@/features/admin/components/SeoDeadEndDriftCard').then(m => ({ default: m.SeoDeadEndDriftCard })));
 const SeoCanonicalParityCard = lazy(() => import('@/components/admin/growth/SeoCanonicalParityCard'));
+const SeoContentNodeSsotCard = lazy(() => import('@/components/admin/growth/SeoContentNodeSsotCard'));
 const GrowthGraphLeitstelleCard = lazy(() => import('@/components/admin/growth/GrowthGraphLeitstelleCard'));
 const GrowthGraphHealthStatusCard = lazy(() => import('@/components/admin/growth/GrowthGraphHealthStatusCard'));
 const TutorIndexNoIndexHealCard = lazy(() => import('@/components/admin/growth/TutorIndexNoIndexHealCard'));
