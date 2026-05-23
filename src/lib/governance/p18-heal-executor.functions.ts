@@ -114,8 +114,8 @@ export async function listP18Ledger(opts: {
 } = {}): Promise<LedgerRow[]> {
   const { data, error } = await supabase.rpc('admin_get_p18_ledger', {
     p_limit: opts.limit ?? 100,
-    p_status: opts.status ?? null,
-    p_drift_type: opts.drift_type ?? null,
+    p_status: opts.status ?? undefined,
+    p_drift_type: opts.drift_type ?? undefined,
   });
   if (error) throw error;
   return (data ?? []) as unknown as LedgerRow[];
