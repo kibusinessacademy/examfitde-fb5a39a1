@@ -243,6 +243,9 @@ const HandbookLandingPage = lazyRetry(() => import('@/pages/seo/HandbookLandingP
 // Internal Tools (noindex)
 const EventInspectorPage = lazyRetry(() => import('@/pages/tools/EventInspectorPage'));
 
+// Governance — Architectural Continuity Guard
+const ArchitecturePage = lazyRetry(() => import('@/pages/admin/governance/ArchitecturePage'));
+
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -540,6 +543,7 @@ const AppRoutes = () => {
           <Route path="synthetic-cohort" element={<SyntheticCohortPage />} />
           <Route path="ops/publish-blockers" element={<PublishBlockerCockpitPage />} />
           <Route path="factory/export-preview/:packageId" element={<ExportPreviewPage />} />
+          <Route path="governance/architecture" element={<ArchitecturePage />} />
           {/* Legacy redirects — alle alten Heal-/Queue-Hubs landen im Heal Cockpit */}
           <Route path="queue" element={<Navigate to="/admin/heal?queue_tab=live" replace />} />
           <Route path="heal-cockpit" element={<Navigate to="/admin/heal?queue_tab=heal" replace />} />
