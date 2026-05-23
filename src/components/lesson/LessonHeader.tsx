@@ -65,8 +65,8 @@ export default function LessonHeader({
               className="text-sm text-muted-foreground whitespace-nowrap"
               aria-live="polite"
             >
-              <span className="sr-only">Lektion </span>
-              {currentIndex + 1}/{totalLessons}
+              <span className="hidden lg:inline">Lektion </span>
+              {currentIndex + 1} von {totalLessons}
             </span>
           </div>
 
