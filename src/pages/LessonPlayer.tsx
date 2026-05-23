@@ -457,7 +457,7 @@ export default function LessonPlayer() {
           step={lesson.step}
           lessonNumber={getCurrentLessonIndex() + 1}
           totalLessons={siblingLessons.length}
-          examRelevanceScore={null}
+          examRelevanceScore={lesson.exam_relevance_score ?? null}
           isCompleted={!!progress?.completed}
         />
 
