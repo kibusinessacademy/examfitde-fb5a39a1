@@ -144,6 +144,7 @@ Deno.serve(async (req) => {
           .eq("status", "active");
 
         const rows = (candidates ?? []).map((r) => ({ id: r.id, slug: r.slug }));
+        allActiveCandidates = rows;
         const rec = recoverProductSlug(productSlug, rows);
 
         if (rec.matched) {
