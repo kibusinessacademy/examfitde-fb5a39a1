@@ -25,6 +25,7 @@ import {
 } from '@/lib/governance/architecture-review';
 import { runtimePlanToProposal, type RuntimeActionPlan } from '@/lib/governance/runtime-proposal-adapter';
 import { deriveSemanticRuntimeGraph } from '@/lib/governance/semantic-runtime-graph';
+import { runP18Cut1, type DriftSignal, type DriftSeverity } from '@/lib/governance/p18-orchestrator';
 import { ShieldCheck, AlertTriangle, Ban, Info } from 'lucide-react';
 
 const KIND_OPTIONS: { value: ProposalKind; label: string }[] = [
