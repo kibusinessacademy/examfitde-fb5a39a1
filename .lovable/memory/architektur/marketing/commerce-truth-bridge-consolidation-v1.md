@@ -32,12 +32,20 @@ Resultat: 27/190 sellable_and_deliverable bei 190 customer_safe = harter Drift.
 
 Smoke `funnel-smoke-daily mode=sample n=10`: **10/10 success, 0 failed**.
 
-## Erklärung des verbleibenden Diff (191 vs 190)
+Smoke `funnel-smoke-daily mode=slugs` 5 Batches × 40 Slugs:
+**190/190 success, 0 failed, alle phase=complete** (cs_live_* via create-product-checkout).
+Run-IDs: 9c023847, 52e5ffaa, 7d3f76a1, 89cdb2e5, b2729e87.
 
-`v_public_sellable_courses` zählt **Produkte** (191), `v_sellable_and_deliverable`
-zählt **course_packages** (190). Der eine Übersteher: Produkt
-`examfit-medizinische-r-fachangestellte-r` (id 860eefac…) ist katalog-sichtbar,
-aber ohne gepairtes `course_package`. Erwartet — Catalog-Scope ≠ Commerce-Scope.
+## Catalog Pairing Repair (P0.4, 2026-05-23)
+
+Orphan-Produkt `860eefac-db8e-4c10-8783-8cf585b41d20`
+(slug `examfit-medizinische-r-fachangestellte-r-e96bc7b7`, Feb 2026, 0 Bestellungen)
+war Duplikat der aktiven, gepairten `medizinische-r-fachangestellte-r-11b697be`
+(Apr 2026, paired course_package `11b697be-07a8-4164-ab1b-a8747ec49b03`).
+Orphan auf `status='archived'` → fällt aus `v_public_sellable_courses` raus.
+Audit `commerce_catalog_orphan_archived_v1` (registriert 2026-05-23) + Eintrag.
+
+**Resultat: catalog 191→190 = commerce 190 = 0 Drift.**
 
 ## V1 nicht gelöscht
 
