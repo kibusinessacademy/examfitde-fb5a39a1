@@ -56,12 +56,16 @@ interface QuestionResult {
   explanation: string;
 }
 
-export default function MiniCheckPlayer({ 
-  content, 
+export default function MiniCheckPlayer({
+  content,
   lessonId,
   certificationId,
   competenceId,
-  onCompleted 
+  curriculumId,
+  competencyCode,
+  competencyTitle,
+  stepKey,
+  onCompleted,
 }: MiniCheckPlayerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -133,11 +137,16 @@ export default function MiniCheckPlayer({
   const finishAnswer = (result: { is_correct: boolean; correct_index: number; explanation: string }) => {
     setHasAnswered(true);
 
+    const correctOption = currentQuestion.options[result.correct_index];
+    const selectedOption = currentQuestion.options[selectedIndex!];
     setResults(prev => [...prev, {
       questionId: currentQuestion.id,
+      questionText: currentQuestion.text,
       selectedIndex: selectedIndex!,
-      isCorrect: result.is_correct,
+      selectedText: selectedOption?.text ?? '',
       correctIndex: result.correct_index,
+      correctText: correctOption?.text ?? '',
+      isCorrect: result.is_correct,
       explanation: result.explanation,
     }]);
 
