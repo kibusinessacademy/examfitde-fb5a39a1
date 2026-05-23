@@ -1,0 +1,36 @@
+{
+  "name": "SEO Knowledge OS — Cut A: Content-Node-SSOT View",
+  "intent": "Bridge 7 fragmented SEO content sources (seo_documents, blog_articles, certification_seo_pages, seo_content_pages, profession_glossaries, product_persona_overlays, course_packages) into a single read-only node graph as the foundation for Cut B (refresh-queue producers) and Cut C (declarative conversion routing).",
+  "category": "ssot_view",
+  "expected_verdict": "approved",
+  "proposed_views": [
+    "v_seo_content_node_ssot"
+  ],
+  "proposed_rpcs": [
+    "admin_get_seo_content_node_ssot",
+    "admin_get_seo_content_node_ssot_summary"
+  ],
+  "proposed_tables": [],
+  "proposed_jobs": [],
+  "proposed_events": [],
+  "proposed_audit_actions": [],
+  "touched_systems": [
+    "seo_documents",
+    "blog_articles",
+    "certification_seo_pages",
+    "seo_content_pages",
+    "profession_glossaries",
+    "product_persona_overlays",
+    "course_packages"
+  ],
+  "bridge_intent": true,
+  "rationale": "Pure read-only bridge. No new table, no producer changes, no data migration. View locked to service_role; client access only via admin-gated RPC.",
+  "rules_applied": [
+    "SSOT_FIRST",
+    "EXTEND_EXISTING",
+    "BRIDGE_DONT_FORK",
+    "NO_HIDDEN_STATE",
+    "SECURITY_INHERITS",
+    "NO_AUTONOMOUS_PRODUCTION_WRITES"
+  ]
+}
