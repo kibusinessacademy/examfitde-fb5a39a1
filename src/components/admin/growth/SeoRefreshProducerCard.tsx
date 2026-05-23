@@ -16,7 +16,7 @@ import { toast } from "sonner";
 type StatusRow = { status: string; reason: string; count: number };
 type RunRow = {
   created_at: string;
-  payload: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
   result_status: string | null;
 };
 
@@ -49,7 +49,7 @@ export default function SeoRefreshProducerCard() {
     queryFn: async (): Promise<RunRow[]> => {
       const { data, error } = await supabase
         .from("auto_heal_log")
-        .select("created_at, payload, result_status")
+        .select("created_at, metadata, result_status")
         .eq("action_type", "seo_refresh_queue_producer_run")
         .order("created_at", { ascending: false })
         .limit(8);
@@ -174,7 +174,7 @@ export default function SeoRefreshProducerCard() {
                 </div>
               ) : (
                 runs.map((r, i) => {
-                  const p = (r.payload ?? {}) as Record<string, unknown>;
+                  const p = (r.metadata ?? {}) as Record<string, unknown>;
                   return (
                     <div key={i} className="px-3 py-2 text-xs flex items-center gap-3">
                       <span className="text-muted-foreground tabular-nums">
