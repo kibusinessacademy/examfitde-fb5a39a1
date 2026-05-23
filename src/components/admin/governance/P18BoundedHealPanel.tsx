@@ -38,6 +38,9 @@ import {
   requestP18Heal,
   type LedgerRow,
 } from '@/lib/governance/p18-heal-executor.functions';
+import { bridgeP18DriftToGil } from '@/lib/governance/p18-gil-bridge.client';
+
+
 
 const SEV_TONE: Record<DriftSignal['severity'], string> = {
   block: 'bg-status-bg-subtle-danger text-status-fg-danger',
@@ -224,6 +227,12 @@ function BoundedHealRow({
   const [reason, setReason] = useState('');
   const [pendingAction, setPendingAction] = useState<HealAction | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bridgeReason, setBridgeReason] = useState('');
+  const [bridgeBusy, setBridgeBusy] = useState(false);
+  const canBridge =
+    !!ledgerRow &&
+    ['detected', 'escalated', 'heal_requested', 'healed', 'rejected'].includes(ledgerRow.status);
+
 
   async function handleRecord() {
     setBusy(true);
@@ -324,8 +333,58 @@ function BoundedHealRow({
               </div>
             </details>
           )}
+
+          {canBridge && (
+            <details className="text-xs border-t border-border-default pt-2">
+              <summary className="cursor-pointer text-fg-muted">
+                Als GIL-Signal übernehmen (P18 → Growth Intelligence)
+              </summary>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="md:col-span-2">
+                  <Label className="text-xs">Reason (≥ 8 Zeichen)</Label>
+                  <Textarea
+                    rows={2}
+                    value={bridgeReason}
+                    onChange={(e) => setBridgeReason(e.target.value)}
+                    placeholder="z. B. Strategischer Kontext fuer naechstes Executive-Briefing."
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={bridgeBusy || bridgeReason.trim().length < 8}
+                    onClick={async () => {
+                      setBridgeBusy(true);
+                      try {
+                        const res = await bridgeP18DriftToGil(
+                          signal.idempotency_key,
+                          bridgeReason,
+                        );
+                        toast.success(
+                          res.result === 'created'
+                            ? 'GIL-Signal erstellt'
+                            : 'GIL-Signal existierte bereits (idempotent)',
+                        );
+                        setBridgeReason('');
+                      } catch (e) {
+                        toast.error('Bridge fehlgeschlagen', {
+                          description: (e as Error).message,
+                        });
+                      } finally {
+                        setBridgeBusy(false);
+                      }
+                    }}
+                  >
+                    {bridgeBusy ? '…' : 'Als GIL-Signal übernehmen'}
+                  </Button>
+                </div>
+              </div>
+            </details>
+          )}
         </>
       )}
+
     </li>
   );
 }
