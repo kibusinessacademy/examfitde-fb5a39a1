@@ -40,16 +40,25 @@ function collectFiles(args) {
 
 const files = collectFiles(args);
 
-// Dynamic import des TS-Modules — Node 22 unterstützt --experimental-strip-types
-const reviewModuleUrl = pathToFileURL(
-  path.resolve(process.cwd(), 'src/lib/governance/architecture-review.ts'),
-).href;
-
+// Bundle architecture-review.ts on the fly via esbuild (avoids Node TS loader edge cases)
 let reviewArchitecture;
 try {
-  ({ reviewArchitecture } = await import(reviewModuleUrl));
+  const esbuild = await import('esbuild');
+  const entry = path.resolve(process.cwd(), 'src/lib/governance/architecture-review.ts');
+  const result = await esbuild.build({
+    entryPoints: [entry],
+    bundle: true,
+    format: 'esm',
+    platform: 'node',
+    target: 'node20',
+    write: false,
+    logLevel: 'silent',
+  });
+  const code = result.outputFiles[0].text;
+  const dataUrl = 'data:text/javascript;base64,' + Buffer.from(code).toString('base64');
+  ({ reviewArchitecture } = await import(dataUrl));
 } catch (err) {
-  console.error('❌ Failed to load architecture-review.ts. Run with: node --experimental-strip-types …');
+  console.error('❌ Failed to load architecture-review.ts');
   console.error(err?.message ?? err);
   process.exit(2);
 }
