@@ -258,6 +258,9 @@ export default function ArchitecturePage() {
         <TabsContent value="p18" className="mt-4">
           <P18ForensicsPanel />
         </TabsContent>
+        <TabsContent value="p18heal" className="mt-4">
+          <P18BoundedHealPanel />
+        </TabsContent>
       </Tabs>
     </div>
   );
