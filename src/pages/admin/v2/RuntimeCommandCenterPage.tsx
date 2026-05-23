@@ -107,18 +107,12 @@ export default function RuntimeCommandCenterPage() {
         </TabsContent>
 
 
-        <TabsContent value="observability" className="mt-4">
-          <PlaceholderCard
-            title="AI Observability"
-            hint="Modellgesundheit, Scope-Violations, Grounding-Miss, Drift. Wire-in folgt im nächsten Cut über `admin_get_ai_observability_summary` + `v_ai_model_health`."
-          />
+        <TabsContent value="observability" className="mt-4 space-y-4">
+          <AiObservabilityCard />
         </TabsContent>
 
-        <TabsContent value="intervention" className="mt-4">
-          <PlaceholderCard
-            title="Intervention Loop"
-            hint="Outcomes & Policy-Impact aus `v_recommendation_policy_effectiveness`. Folgecut bringt Effectiveness-Drilldown + Safe-Actions (Rollback, Disable Policy) mit Reason-Pflichtfeld + Audit."
-          />
+        <TabsContent value="intervention" className="mt-4 space-y-4">
+          <RecommendationPolicyEffectivenessCard />
         </TabsContent>
 
         <TabsContent value="safe_actions" className="mt-4 space-y-4">
