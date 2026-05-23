@@ -126,14 +126,27 @@ Deno.serve(async (req) => {
 
 
     {
-      const { data: exact } = await adminClient
+      // Strategy 0: canonical_slug match (SSOT — preferred path, frontend uses it).
+      const { data: canon } = await adminClient
+        .from("products")
+        .select("id, slug, title, certification_id, canonical_slug")
+        .eq("canonical_slug", productSlug)
+        .eq("status", "active")
+        .maybeSingle();
+      if (canon) {
+        product = canon;
+        recoveryStrategy = "canonical_slug";
+      }
+
+      // Strategy 1 (fallback for legacy URLs): exact match on legacy slug.
+      const { data: exact } = product ? { data: null } : await adminClient
         .from("products")
         .select("id, slug, title, certification_id")
         .eq("slug", productSlug)
         .eq("status", "active")
         .maybeSingle();
 
-      if (exact) {
+      if (!product && exact) {
         product = exact;
       } else {
         // Pull all active product slugs (~few hundred rows) and run recovery
