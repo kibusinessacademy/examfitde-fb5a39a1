@@ -67,13 +67,14 @@ export const KNOWN_COLLECTOR_SOURCES: readonly CollectorSource[] = [
   },
   {
     source_key: 'rss',
-    label: 'RSS Collector (planned)',
+    label: 'RSS / Atom Collector',
     kind: 'rss',
-    enabled: false,
+    enabled: true,
     allowed_signal_types: ['press_mention', 'competitor_release'],
     default_severity: 'info',
-    notes: 'Reserviert für Cut 2 (RSS-Auto). In Cut 1 deaktiviert.',
+    notes: 'P20 Cut 2 — review-first. Items land in gil_signal_intake.',
   },
+
   {
     source_key: 'semrush',
     label: 'Semrush API (planned)',
