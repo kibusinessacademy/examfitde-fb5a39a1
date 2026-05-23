@@ -13,6 +13,7 @@ import { BentoDemoGrid } from "@/components/landing/v2/BentoDemoGrid";
 import { NotAnotherCourseSection } from "@/components/landing/v2/NotAnotherCourseSection";
 import { TrustPillars } from "@/components/landing/v2/TrustPillars";
 import { BerufeShowcase } from "@/components/landing/v2/BerufeShowcase";
+import { MobileCourseFinder } from "@/components/landing/v2/MobileCourseFinder";
 import { FAQSection, FAQ_ITEMS } from "@/components/landing/v2/FAQSection";
 import { FinalCTASection } from "@/components/landing/v2/FinalCTASection";
 
@@ -57,6 +58,7 @@ export default function HomePageV2() {
       />
       <div className="lp-v2 min-h-screen">
         <PremiumHero />
+        <MobileCourseFinder />
         <StoryScrollSection />
         <ReadinessRevealScene />
         <WhyNotChatGPTSection />
