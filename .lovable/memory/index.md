@@ -252,3 +252,4 @@ B2C-Pricing SSOT: 24,90 € / 12 Monate, einheitlich für ALLE EXAM_FIRST-Pakete
 
 
 
+- [P2 Bronze-Drain Canary + P2.5 Active-Job-Reconciliation v1](mem://architektur/ops/p2-bronze-drain-canary-and-p25-reconcile-v1) — v_bronze_drain_candidates oldest-first + admin_bronze_drain_canary_dispatch(5) + v_bronze_drain_wave_status + BronzeDrainWaveCard. v_active_job_reconciliation (6 Klassen) + admin_active_job_reconcile_dispatch (default dry-run) mit hartem Re-Enqueue-Contract (attempts=0, parent_job_id, requeue_reason, enqueue_source). Baseline 2026-05-23: 28 bronze eligible, 79 RETRYABLE_STUCK, 2 DAG_SUPERSEDED, 0 STALE.
