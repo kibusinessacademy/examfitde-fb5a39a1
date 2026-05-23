@@ -1,100 +1,108 @@
-# P2 Bronze-Drain Canary → P2.5 Active-Job-Reconciliation
+## Ziel
 
-Strikte Reihenfolge laut Auftrag. P5 ist explizit **nicht** Teil dieses Cuts — startet erst nach Tail-Stabilisierung.
+Aus dem Recovery-Symptomfix wird die strukturelle Lösung:
+- **Eine** öffentliche Identity pro Produkt (`canonical_slug`)
+- Alle Altlinks → 301 → canonical
+- Nur canonical liefert dauerhaft 200
+- Tägliche Funnel-Verifikation aller 191 sellable Pakete inkl. echter Stripe-Sessions
 
-## Cut 1 — P2 Bronze-Drain Canary (Build)
+## Phase 1 — `products.canonical_slug` als Read-Side-SSOT
 
-### 1a Audit-Contracts registrieren
-In `ops_audit_contract`:
-- `bronze_drain_wave` — required_keys: wave_id, package_id, repair_vector, enqueue_source, idempotency_key, result_status
-- `bronze_drain_wave_summary` — wave_id, total_candidates, dispatched, skipped, skip_reasons
-- `active_job_reconciled` — job_id, package_id, reason, prev_status, new_status
-- `active_job_cancelled_superseded` — job_id, package_id, reason, downstream_step
+### DB-Schema (Migration, ein Concern)
 
-### 1b SSOT-View `v_bronze_drain_candidates`
-Oldest-first Liste mit Eligibility-Flags. Filter im Body:
-- `cp.status = 'building'`
-- `feature_flags->'bronze'->>'requires_review' = 'true'`
-- `manual_bypass != 'true'` UND kein `admin_force_building_at`
-- kein `processing` Job auf Paket
-- kein aktiver `package_elite_harden` mit `meta.bronze_repair=true`
-- kein aktiver Bronze-Guard-Block-Loop in letzten 30min (audit-basiert)
+```sql
+-- 1. Helper: deterministische, stabile, ASCII-normalisierte Ableitung
+--    aus products.slug (nicht aus title — title-Drift verboten).
+--    Frozen contract: ä→ae, ö→oe, ü→ue, ß→ss, NFKD strip, UUID-Suffix weg,
+--    /-_ → -, doppelte - kollabiert, lowercase, trim.
+CREATE OR REPLACE FUNCTION public.fn_derive_canonical_slug(_raw text)
+RETURNS text LANGUAGE sql IMMUTABLE …;
 
-Spalten: `package_id, title, priority, bronze_score, repair_attempts, last_repair_at, oldest_signal_at, eligible (bool), skip_reason`.
+-- 2. STORED generated column (SSOT für Routing/Checkout/Tracking/SEO)
+ALTER TABLE public.products
+  ADD COLUMN canonical_slug text
+  GENERATED ALWAYS AS (public.fn_derive_canonical_slug(slug)) STORED;
 
-### 1c RPC `admin_bronze_drain_canary_dispatch(p_batch_size int default 5, p_wave_id uuid default gen_random_uuid())`
-- admin-gated via `has_role(auth.uid(),'admin')`, `SECURITY DEFINER`
-- selektiert TOP `p_batch_size` aus `v_bronze_drain_candidates WHERE eligible=true` ORDER BY oldest_signal_at
-- ruft pro Paket bestehende `admin_bronze_targeted_repair_dispatch(pkg)` auf (keine neue Repair-Logik)
-- schreibt pro Dispatch `auto_heal_log` action_type=`bronze_drain_wave` mit wave_id, repair_vector (aus RPC-Result), idempotency_key
-- schreibt Skips analog mit `result_status='skipped'`
-- schreibt Summary-Audit `bronze_drain_wave_summary` am Ende
-- Returns: `{wave_id, dispatched, skipped[], details[]}`
+-- 3. Unique-Index auf active Produkte. Bricht bei Kollision → Audit + Fix
+CREATE UNIQUE INDEX ux_products_canonical_slug_active
+  ON public.products(canonical_slug) WHERE status='active';
+```
 
-### 1d View `v_bronze_drain_wave_status`
-Aggregiert auto_heal_log + job_queue pro wave_id: dispatched, completed, failed, tail_released (post-bronze step done), avg_runtime_s, bronze_remaining (gesamt eligible).
+Falls Index bricht: kollidierende active Slugs zuerst manuell trennen (würde sehr selten passieren — Recovery-Smoke sah keine).
 
-### 1e RPC `admin_get_bronze_drain_waves(p_limit int default 10)`
-Letzte N Waves mit Status für UI.
+### Read-Side SSOT
 
-### 1f UI `BronzeDrainWaveCard` (`/admin/v2/heal`, Sektion 4)
-- "Canary starten (5)" Button → `admin_bronze_drain_canary_dispatch`
-- Tabelle: aktuelle + letzte Waves mit dispatched/completed/failed/tail_released/avg_runtime
-- Counter: bronze_remaining
-- window.confirm vor Dispatch
-- Polling 15s
+- `v_public_sellable_courses`: zusätzlich `canonical_slug` exposen (legacy `slug` bleibt für eine Übergangsphase).
+- Alle App-Reads (`ProductPage`, `PersonaLandingPage`, `DynamicProductLandingPage`, `BerufeShowcase`, Sitemap-Generator) lesen `canonical_slug`.
+- `create-product-checkout` Edge Function nimmt `canonical_slug` als bevorzugten Lookup; Recovery bleibt Fallback.
 
-## Cut 2 — Beobachtungs-Hinweise (Doku)
-Card zeigt Stop-Conditions als Hinweis-Banner (failed-spike, duplicate repair jobs, queue pressure delta). Keine Auto-Stops in diesem Cut — bewusst manueller Gate.
+### Routing + 301 (SPA)
 
-## Cut 3 — P2.5 Active-Job-Reconciliation
+- Neue Komponente `<CanonicalSlugRedirect>` an Top-Level der Produktrouten:
+  Wenn `urlSlug !== canonical_slug` → `<Navigate to=… replace />` + `<meta name="prerender-status-code" content="301">` + Audit `commerce_canonical_redirect`.
+- Hosting: `_redirects`/`vercel.json` regeln nur statische Edge-Cases — Lovable-Hosting kennt kein Server-301; UI-Navigate ist die SSOT für Now. Vercel-Migration kann später echte 301 setzen (Runbook bereits vorhanden).
 
-### 3a SSOT-View `v_active_job_reconciliation`
-Pro pending/processing Job in `job_queue`:
-- `class`: HEALTHY_ACTIVE / STALE_PROCESSING / ORPHANED_ACTIVE / DAG_SUPERSEDED / RETRYABLE_STUCK / TERMINAL_DRIFT
-- Logik:
-  - HEALTHY: status='processing' AND `last_heartbeat_at > now()-5min`
-  - STALE: 'processing' AND heartbeat NULL/älter 10min
-  - ORPHANED: package_step `status='done'` für payload.step_key
-  - DAG_SUPERSEDED: downstream-Step bereits `done` (via `step_dag_edges`)
-  - RETRYABLE_STUCK: 'pending' AND `run_after < now()-30min` AND attempts<max_attempts AND no active sibling
-  - TERMINAL_DRIFT: attempts≥max_attempts AND status='pending' (wird vom Drift-Cron terminalisiert — nur Read-only Klassifikation)
+### SEO-Konsolidierung
 
-### 3b RPC `admin_active_job_reconcile_dispatch(p_dry_run bool default true, p_max_actions int default 50)`
-Pro Klasse:
-- **STALE_PROCESSING** → reset auf `pending`, `locked_at=null, locked_by=null, attempts=attempts` (nicht erhöht), Audit `active_job_reconciled` reason='zombie_processing'
-- **ORPHANED_ACTIVE** + **DAG_SUPERSEDED** → `status='cancelled', error='superseded'`. Audit `active_job_cancelled_superseded`
-- **RETRYABLE_STUCK** → neuer Job-Insert mit Re-Enqueue-Contract:
-  - `attempts=0`
-  - `parent_job_id=alt.id`
-  - `meta = jsonb_build_object('requeue_reason','retryable_stuck_reconcile','enqueue_source','active_job_reconcile','parent_job_id',alt.id)`
-  - Idempotency-Key: `requeue:active_job_reconcile:<old_id>`
-  - Alter Job → `status='cancelled', error='reconciled_requeue'`
-  - Bronze-Lock-Check via `fn_is_bronze_locked`
-- TERMINAL_DRIFT/HEALTHY → no-op
+- `<link rel="canonical">` (Helmet) → IMMER `canonical_slug`-URL.
+- `og:url`, JSON-LD `@id`, Breadcrumbs → IMMER canonical.
+- Sitemap-Generator: nur canonical_slug-URLs ausgeben, niemals Legacy.
+- Internal Links (`BerufeShowcase`, Persona-Pages, Pillars) → canonical_slug.
 
-`p_dry_run=true` (Default): nur Klassifikation + would-do, kein Write. UI nutzt zuerst dry_run.
+### Tracking-/Analytics-Konsolidierung
 
-### 3c UI `ActiveJobReconciliationCard`
-Im Heal-Cockpit unter BronzeDrainWaveCard. Zeigt Klassen-Counts + "Dry Run"-Button + "Apply (max 50)"-Button. Klassen-Tabelle mit Top-10 Beispielen.
+- `conversion_events`: `metadata.product_slug` und Edge-Function-Audit nur canonical schreiben.
+- Recovery-Audit (`checkout_slug_recovered`) bleibt — markiert Drift, der durch externen Link kommt.
 
-## Cut 4 — P5 LWK-Wave (NICHT in diesem PR)
-P5 erst nach manueller Freigabe wenn Canary stabil + ACTIVE_JOBS bereinigt. Wird als eigener Cut geplant.
+## Phase 2 — Daily Funnel Smoke (P0.2)
 
-## Files (geplant)
-- `supabase/migrations/<ts>_p2_bronze_drain_canary.sql` (1a-1e)
-- `supabase/migrations/<ts2>_p25_active_job_reconciliation.sql` (3a-3b)
-- `src/hooks/useBronzeDrainWaves.ts`
-- `src/components/admin/heal/BronzeDrainWaveCard.tsx`
-- `src/hooks/useActiveJobReconciliation.ts`
-- `src/components/admin/heal/ActiveJobReconciliationCard.tsx`
-- Edit `src/pages/admin/v2/HealCockpitPage.tsx` (oder entsprechende Heal-Page) zur Einbindung
-- `mem://architektur/ops/p2-bronze-drain-canary-and-p25-reconcile-v1.md`
+### Architektur
 
-## Verbote (im Cut hart respektiert)
-- Keine WIP-Cap-Erhöhung
-- Keine Building-Demotion
-- Kein globaler Queue-Purge
-- Keine Parallel-Dispatch aller Bronze
-- Keine neue Repair-Logik (existing `admin_bronze_targeted_repair_dispatch`)
-- Re-Enqueue-Contract: attempts=0 + parent_job_id + requeue_reason + enqueue_source — Pflicht bei jedem Insert in Cut 3
+- **Edge Function** `funnel-smoke-daily` (service-role only):
+  1. Lädt alle 191 aus `v_public_sellable_courses`
+  2. Pro Slug: GET `/paket/<canonical_slug>` (status check) → POST `create-product-checkout` mit Test-Identität → erwartet `cs_live_*` Stripe Session URL
+  3. Schreibt Ergebnis in neue Tabelle `funnel_smoke_runs` (run_id, slug, phase, success, duration_ms, error_code)
+  4. Aggregat-Audit `funnel_smoke_run_summary` mit Success-Rate
+  5. **Stripe-Cleanup**: Erzeugte Sessions sind unbezahlt und expiren nach 24h automatisch — kein DB-Cleanup nötig; aber Smoke-Identität bekommt `metadata.smoke_run_id` damit Stripe Dashboard sie als Smoke-Traffic erkennt.
+
+- **Test-User**: bestehender `e2e+grant@examfit-smoke.local` (Test-Fixture-Contract konform).
+
+- **Cron**: `pg_cron` 1×/Tag 04:30 UTC ruft Edge Function via `net.http_post`. Audit-Kontrakt registriert.
+
+- **Alert**: Wenn `success_rate < 100%` → Pflicht-Audit `funnel_smoke_alert` + Eintrag in `heal_alert_notifications` (existierende Outbox).
+
+### UI
+
+- Card `FunnelSmokeCard` im Heal-Cockpit: letzte 7 Runs, Success-Rate, Top-Failed-Slugs, broken-slug-snapshot, Re-Run-Button.
+
+## Architectural Continuity Guard
+
+Pflichtcheck vor Migration: dies erfüllt
+- **EXTEND_EXISTING** (generated column statt neuer Spalte)
+- **NO_PARALLEL_SYSTEMS** (`canonical_slug` ersetzt `slug` als SSOT, Legacy bleibt nur als Bridge)
+- **AUDITABLE_MUTATIONS** (Recovery + Redirect + Smoke alle in `auto_heal_log`)
+- **GOVERNANCE_BEFORE_AUTOMATION** (Cron erst nach Smoke validierter Edge-Function)
+
+## Tests
+
+- Neue Vitest: `fn_derive_canonical_slug` Eigenschaftstabelle (Umlaut, UUID-Suffix, doppelte Bindestriche, leading/trailing).
+- Vitest: `<CanonicalSlugRedirect>` rendert Navigate bei Drift, no-op bei match.
+- Deno: `funnel-smoke-daily` Smoke-Mode mit 3 Slugs (CI), Full-Mode 191 nur via Cron.
+- Bestehender 191-Slug-Smoke wird Teil der Edge Function.
+
+## Rollout
+
+1. Migration `canonical_slug` + Unique-Index (Approval-Pflicht).
+2. Edge-Function-Updates (`create-product-checkout`, neuer `funnel-smoke-daily`).
+3. UI-Updates: Read-Side, `<CanonicalSlugRedirect>`, Helmet, Sitemap, BerufeShowcase.
+4. Cron + UI-Card.
+5. Memory + Doku.
+
+## Akzeptanz
+
+- Alle 191 active Produkte haben einen unique `canonical_slug`
+- Aufruf eines Legacy-Slugs landet client-side auf canonical (Navigate replace)
+- Sitemap enthält ausschließlich canonical
+- `<link rel="canonical">` zeigt immer auf canonical
+- Daily-Smoke 191/191 grün; <100% triggert Alert
+- Recovery-Bridge bleibt funktional als Defense-in-Depth
