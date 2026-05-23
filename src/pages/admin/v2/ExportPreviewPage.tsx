@@ -199,20 +199,17 @@ export default function ExportPreviewPage() {
     setExporting(true);
     try {
       const accepted = Array.from(selected);
-      const rejected = data.file_count - accepted.length;
-      const blob = await buildFilteredZip(data, selected);
-      // download
+      const { blob, filename } = await downloadFilteredZip(data.package_id, accepted);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `export-${data.package_id}-filtered.zip`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
-      await emitExportFilteredAudit(data.package_id, accepted, rejected);
-      toast.success(`ZIP exportiert: ${accepted.length} Dateien`);
+      const rejected = data.file_count - accepted.length;
+      toast.success(`ZIP exportiert: ${accepted.length} angenommen, ${rejected} verworfen`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       toast.error(`Export fehlgeschlagen: ${msg}`);
@@ -263,10 +260,23 @@ export default function ExportPreviewPage() {
             </div>
           )}
           {data && (
-            <div className="text-xs text-muted-foreground flex gap-4">
-              <span>Dateien: <strong>{data.file_count}</strong></span>
-              <span>Größe: <strong>{humanBytes(data.total_bytes)}</strong></span>
-              <span>Quelle: <span className="font-mono">{data.export_path}</span></span>
+            <div className="space-y-2">
+              <div className="text-xs text-muted-foreground flex flex-wrap gap-4">
+                <span>Dateien: <strong>{data.file_count}</strong></span>
+                <span>Größe: <strong>{humanBytes(data.total_bytes)}</strong></span>
+                <span>Inline-Limit: <strong>{humanBytes(data.inline_limit_bytes)}</strong></span>
+                <span>Quelle: <span className="font-mono">{data.export_path}</span></span>
+                <span>Hash: <span className="font-mono">{data.export_hash.slice(0, 12)}…</span></span>
+                <span>Cache: <strong>{data.cache_hit ? "hit" : "miss"}</strong></span>
+              </div>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  „Manifest neu laden" erzeugt einen frischen Export-Stand und invalidiert den Cache.
+                  Re-Export läuft serverseitig über den gespeicherten Original-ZIP — Binärdateien
+                  werden hier nicht inline gehalten.
+                </AlertDescription>
+              </Alert>
             </div>
           )}
         </CardContent>
@@ -306,7 +316,7 @@ export default function ExportPreviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 h-[70vh]">
-              <FilePreview file={picked} />
+              <FilePreview file={picked} inlineLimit={data.inline_limit_bytes} />
             </CardContent>
           </Card>
         </div>
