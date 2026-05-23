@@ -60,6 +60,22 @@ export interface ArchitectureProposal {
   rlsStatus?: 'on' | 'not_applicable' | 'off';
   usesHasRole?: boolean;
   hasHiddenState?: boolean;
+
+  // ── v1.3 Healability + Event-Coupling ──────────────────────────────
+  /** Healability-Profil — required für Schreibpfade (HEALABILITY_IS_REQUIRED). */
+  healability?: {
+    replayable?: boolean;
+    recoverable?: boolean;
+    auditable?: boolean;
+    observable?: boolean;
+    drift_detectable?: boolean;
+  };
+  /** event_types / intent_keys, die das Vorhaben emittiert */
+  emits_events?: string[];
+  /** event_types / intent_keys, die das Vorhaben konsumiert */
+  consumes_events?: string[];
+  /** wird Cross-Domain-Coupling als Bridge ausgewiesen? */
+  isBridgeAdapter?: boolean;
 }
 
 export type Severity = 'block' | 'warn' | 'info';
@@ -382,6 +398,66 @@ export function reviewArchitecture(proposal: ArchitectureProposal): Architecture
     });
   }
 
+  // ── v1.3: HEALABILITY_IS_REQUIRED ──────────────────────────────────
+  // Jedes System mit Schreib-/Mutationspfad muss vollständig heilbar sein.
+  const writesAnything =
+    proposal.kind === 'table' ||
+    proposal.kind === 'rpc' ||
+    proposal.kind === 'edge_function' ||
+    proposal.kind === 'queue' ||
+    proposal.kind === 'cron' ||
+    (proposal.proposed_tables ?? []).length > 0 ||
+    (proposal.proposed_jobs ?? []).length > 0;
+  if (writesAnything) {
+    const h = proposal.healability ?? {};
+    const missing: string[] = [];
+    if (!h.replayable) missing.push('replayable');
+    if (!h.recoverable) missing.push('recoverable');
+    if (!h.auditable) missing.push('auditable');
+    if (!h.observable) missing.push('observable');
+    if (!h.drift_detectable) missing.push('drift_detectable');
+    if (missing.length > 0) {
+      const isHardMiss = missing.length >= 3 || missing.includes('auditable') || missing.includes('drift_detectable');
+      findings.push({
+        rule: 'HEALABILITY_IS_REQUIRED',
+        severity: isHardMiss ? 'block' : 'warn',
+        message: `Healability unvollständig — fehlt: ${missing.join(', ')}.`,
+        evidence: `kind="${proposal.kind}" hat Mutationspfad, aber healability=${JSON.stringify(h)}. Nicht heilbare Systeme produzieren unbeobachtbaren Drift.`,
+        matched_known_systems: [AUDIT_SSOT, AUDIT_REGISTRY].filter(Boolean),
+        recommended_reuse_path:
+          'Replay über append-only Events; Recovery über bestehende Reaper/Heal-RPCs; Audit via fn_emit_audit; Drift-Signal als View (v_*_drift / Ratio).',
+        migration_strategy: [
+          '1) Replay-Pfad definieren (deterministischer State oder Event-Log).',
+          '2) Recovery-Pfad benennen (Reaper / Re-Run / Rollback-RPC).',
+          '3) Audit-Contract registrieren (fn_emit_audit + ops_audit_contract).',
+          '4) Observability-Card im Heal-Cockpit andocken.',
+          '5) Drift-Signal als View / Ratio publizieren.',
+        ],
+      });
+    }
+  }
+
+  // ── v1.3: EVENT_DRIVEN_BY_DEFAULT ──────────────────────────────────
+  // Cross-Domain-Coupling ohne Event-Contract ist Coupling.
+  const crossesDomains = (proposal.touches?.length ?? 0) >= 2;
+  const emitsAny = (proposal.emits_events?.length ?? 0) + (proposal.consumes_events?.length ?? 0) > 0;
+  if (crossesDomains && !emitsAny && !proposal.isBridgeAdapter) {
+    findings.push({
+      rule: 'EVENT_DRIVEN_BY_DEFAULT',
+      severity: 'warn',
+      message: 'Cross-Domain-Coupling ohne Event-Contract — bevorzuge registrierte Events.',
+      evidence: `touches=${JSON.stringify(proposal.touches ?? [])} crossen Domains, aber emits_events/consumes_events sind leer und isBridgeAdapter=false.`,
+      matched_known_systems: [CONVERSION_SSOT, KNOWN_SYSTEMS.find((s) => s.name === 'notification_events')!, KNOWN_SYSTEMS.find((s) => s.name === 'system_intents')!].filter(Boolean) as KnownSystem[],
+      recommended_reuse_path:
+        'Cross-Domain via conversion_events (Marketing-Funnel), notification_events (User-Touch), system_intents (Runtime) oder fn_emit_audit (Governance) — nicht via Direct-FK.',
+      migration_strategy: [
+        '1) event_type / intent_key definieren und in passender SSOT registrieren.',
+        '2) Producer schreibt Event; Consumer liest.',
+        '3) Falls echte Bridge-View nötig: isBridgeAdapter=true und View/Trigger explizit ausweisen.',
+      ],
+    });
+  }
+
   const duplication_risk = findings.filter((f) =>
     (['SSOT_FIRST', 'EXTEND_EXISTING', 'NO_PARALLEL_SYSTEMS', 'BRIDGE_DONT_FORK'] as ArchitectureRuleId[]).includes(f.rule),
   );
@@ -394,6 +470,8 @@ export function reviewArchitecture(proposal: ArchitectureProposal): Architecture
         'SECURITY_INHERITS',
         'NO_AUTONOMOUS_PRODUCTION_WRITES',
         'NO_HIDDEN_STATE',
+        'HEALABILITY_IS_REQUIRED',
+        'EVENT_DRIVEN_BY_DEFAULT',
       ] as ArchitectureRuleId[]
     ).includes(f.rule),
   );

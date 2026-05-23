@@ -1,0 +1,13 @@
+{
+  "$schema": "../../../../docs/architecture-proposal.schema.json",
+  "_comment": "v1.3 Beispiel: Mutationspfad ohne Healability — wird durch HEALABILITY_IS_REQUIRED geblockt.",
+  "kind": "rpc",
+  "name": "admin_silent_mutation",
+  "purpose": "Schreibender RPC ohne Replay/Recovery/Audit/Drift — bewusst Negativ-Beispiel.",
+  "tags": ["ops"],
+  "hasAuditContract": false,
+  "hasStopCondition": true,
+  "hasEligibilityGate": true,
+  "rlsStatus": "not_applicable",
+  "usesHasRole": true
+}
