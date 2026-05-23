@@ -445,24 +445,19 @@ export default function LessonPlayer() {
       />
 
       <div className="container mx-auto px-4 py-6">
-        <StepIndicator 
-          currentStep={lesson.step} 
-          lessonTitle={lesson.title} 
-        />
+        <StepIndicator currentStep={lesson.step} />
 
-        <PageExplainer
-          title="Wie funktioniert diese Lektion?"
-          description="Jede Lektion folgt einem didaktischen Schritt: Einstieg, Verstehen, Anwenden, Wiederholen oder Mini-Check. Bei Mini-Checks bekommst du sofort Feedback zu deinem Lernstand. Ab 80% gilt das Lernziel als gemeistert."
-          actions={[
-            '"Abschließen" – Markiert die Lektion als erledigt und schaltet die nächste frei',
-            'Mini-Check am Ende prüft dein Wissen – bei < 80% kannst du wiederholen',
-            'Navigation unten → Wechsle zur vorherigen oder nächsten Lektion',
-          ]}
-          tips={[
-            'Du musst die vorherige Lektion abschließen, bevor die nächste freigeschaltet wird',
-            'Der Fortschrittsbalken oben zeigt deinen Modulfortschritt',
-            'Bei H5P-Inhalten wird dein Score automatisch erfasst',
-          ]}
+        <LessonHero
+          rawTitle={lesson.title}
+          content={lesson.content}
+          competencyCode={competency.code}
+          competencyTitle={competency.title}
+          courseTitle={course.title}
+          step={lesson.step}
+          lessonNumber={getCurrentLessonIndex() + 1}
+          totalLessons={siblingLessons.length}
+          examRelevanceScore={null}
+          isCompleted={!!progress?.completed}
         />
 
         {/* Humor Intro */}
