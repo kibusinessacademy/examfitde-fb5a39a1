@@ -242,6 +242,11 @@ export default function ArchitecturePage() {
       </div>
 
       {review && <ReviewResult review={review} />}
+        </TabsContent>
+        <TabsContent value="runtime" className="mt-4">
+          <RuntimePreflightPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
