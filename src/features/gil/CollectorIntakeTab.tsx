@@ -85,8 +85,10 @@ export default function CollectorIntakeTab() {
 
   return (
     <div className="space-y-4">
+      <RssCollectorCard />
       <Card>
         <CardHeader>
+
           <CardTitle className="text-base">Signal-Collector — Paste-Import (Review-First)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
