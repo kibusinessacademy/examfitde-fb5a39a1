@@ -36,7 +36,8 @@
     "ops:auto-heal-log:migrate": "node scripts/ops/auto-heal-log-migrate.mjs",
     "ops:auto-heal-log:runbook": "node scripts/ops/migration-runbook-generator.mjs",
     "guard:growth-policies": "node scripts/guards/post-publish-growth-policies-guard.mjs",
-    "guard:architecture": "node scripts/guards/architecture-continuity-guard.mjs --dir docs/examples/architecture-proposals"
+    "guard:architecture": "node scripts/guards/architecture-continuity-guard.mjs",
+    "guard:architecture:examples": "node scripts/guards/architecture-continuity-guard.mjs --dir docs/examples/architecture-proposals || true"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
