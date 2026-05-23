@@ -80,7 +80,7 @@ export default function GrowthIntelligencePage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Textarea
-                placeholder="Reason (≥ 8 Zeichen) — z.B. „Quartals-Briefing für Vertriebs-Sync"."
+                placeholder={'Reason (≥ 8 Zeichen) — z.B. „Quartals-Briefing für Vertriebs-Sync".'}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={2}
