@@ -518,6 +518,18 @@ export default function LessonPlayer() {
           />
         )}
 
+        <LessonTutorBox
+          context={{
+            curriculumId: course.curriculum_id,
+            competencyId: lesson.competency_id,
+            lessonId: lesson.id,
+            stepKey: lesson.step,
+            competencyCode: competency.code,
+            competencyTitle: competency.title,
+          }}
+        />
+
+
         <LessonNavigation
           prevLesson={prevLesson}
           nextLesson={nextLesson}
