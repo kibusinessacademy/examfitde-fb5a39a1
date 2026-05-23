@@ -172,12 +172,15 @@ Deno.serve(async (req) => {
             },
           });
           logStep("Slug recovery ambiguous", { slug: productSlug, count: rec.candidates.length });
+          // Return 200 with structured payload so the client can render a
+          // friendly UI fallback (Stripe-Funnel würde bei 4xx hart abbrechen).
           return new Response(JSON.stringify({
             ok: false,
             error: "Mehrere Produkte passen zu diesem Link. Bitte wähle das Paket erneut über die Produktseite.",
             error_code: "slug_ambiguous",
+            candidates: rec.candidates.map((c) => ({ slug: c.slug, url: `/paket/${c.slug}` })),
           }), {
-            status: 409,
+            status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
