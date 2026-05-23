@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import {
   type ArchitectureReview,
   type RuleFinding,
 } from '@/lib/governance/architecture-review';
+import { runtimePlanToProposal, type RuntimeActionPlan } from '@/lib/governance/runtime-proposal-adapter';
 import { ShieldCheck, AlertTriangle, Ban, Info } from 'lucide-react';
 
 const KIND_OPTIONS: { value: ProposalKind; label: string }[] = [
@@ -109,13 +111,21 @@ export default function ArchitecturePage() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       <header>
-        <h1 className="text-3xl font-bold text-fg-default">Architectural Continuity Guard <span className="text-base text-fg-muted font-normal">v1.1</span></h1>
+        <h1 className="text-3xl font-bold text-fg-default">Architectural Continuity Guard <span className="text-base text-fg-muted font-normal">v1.2</span></h1>
         <p className="text-fg-muted mt-2 max-w-3xl">
           Pflichtcheck VOR neuen Tabellen, RPCs, Edge Functions, Queues oder Registries.
           Prinzipien: <strong>reuse vor rebuild · bridge vor duplicate · extend vor replace · consistency vor speed.</strong>
           {' '}Output ist immer ein Vorschlag — keine autonomen Production-Writes.
         </p>
       </header>
+
+      <Tabs defaultValue="proposal">
+        <TabsList>
+          <TabsTrigger value="proposal">Proposal Review</TabsTrigger>
+          <TabsTrigger value="runtime">Runtime Preflight</TabsTrigger>
+        </TabsList>
+        <TabsContent value="proposal" className="mt-4">
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
@@ -232,6 +242,11 @@ export default function ArchitecturePage() {
       </div>
 
       {review && <ReviewResult review={review} />}
+        </TabsContent>
+        <TabsContent value="runtime" className="mt-4">
+          <RuntimePreflightPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -412,6 +427,152 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div>
       <h3 className="text-sm font-semibold text-fg-default mb-2">{title}</h3>
       {children}
+    </div>
+  );
+}
+
+// ─── Runtime Preflight Panel (v1.2) ─────────────────────────────────
+function RuntimePreflightPanel() {
+  const [actionType, setActionType] = useState('');
+  const [targetType, setTargetType] = useState<ProposalKind>('rpc');
+  const [targetName, setTargetName] = useState('');
+  const [description, setDescription] = useState('');
+  const [plannedTables, setPlannedTables] = useState('');
+  const [plannedJobs, setPlannedJobs] = useState('');
+  const [plannedEvents, setPlannedEvents] = useState('');
+  const [plannedAuditActions, setPlannedAuditActions] = useState('');
+  const [tags, setTags] = useState('');
+  const [touches, setTouches] = useState('');
+  const [hasAudit, setHasAudit] = useState(false);
+  const [hasStop, setHasStop] = useState(false);
+  const [hasGate, setHasGate] = useState(false);
+  const [review, setReview] = useState<ArchitectureReview | null>(null);
+
+  const plan: RuntimeActionPlan = useMemo(
+    () => ({
+      action_type: actionType.trim(),
+      target_type: targetType,
+      target_name: targetName.trim(),
+      description: description.trim(),
+      planned_tables: csv(plannedTables),
+      planned_jobs: csv(plannedJobs),
+      planned_events: csv(plannedEvents),
+      planned_audit_actions: csv(plannedAuditActions),
+      tags: csv(tags),
+      touches: csv(touches),
+      governance: {
+        hasAuditContract: hasAudit,
+        hasStopCondition: hasStop,
+        hasEligibilityGate: hasGate,
+        usesHasRole: true,
+        rlsStatus: 'not_applicable',
+      },
+    }),
+    [actionType, targetType, targetName, description, plannedTables, plannedJobs, plannedEvents, plannedAuditActions, tags, touches, hasAudit, hasStop, hasGate],
+  );
+
+  const canRun = actionType.length > 1 && targetName.length > 1;
+  const run = () => setReview(reviewArchitecture(runtimePlanToProposal(plan)));
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <Card className="lg:col-span-1">
+        <CardHeader>
+          <CardTitle className="text-base">Runtime Preflight</CardTitle>
+          <CardDescription>
+            Wandelt eine geplante Runtime-/Safe-Action in eine ArchitectureProposal um und
+            führt den Continuity-Guard darauf aus. Reine Vorab-Prüfung — keine Mutation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-xs text-fg-muted">
+          <div>
+            Adapter: <code className="font-mono">runtimePlanToProposal</code> · Engine:{' '}
+            <code className="font-mono">reviewArchitecture</code>
+          </div>
+          <div>
+            Pflicht: <strong>action_type</strong> + <strong>target_name</strong>. Optional:
+            geplante Tabellen, Jobs, Events, Audit-Actions, Tags, Touches.
+          </div>
+          <div>
+            Bridge-Intent: View/RPC mit ≥2 Touches wird als Brücke gewertet, nicht als Duplikat.
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">Geplante Runtime-Action</CardTitle>
+          <CardDescription>
+            Nur Mapping + Review. Kein DB-Write, keine Execution.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>action_type</Label>
+              <Input value={actionType} onChange={(e) => setActionType(e.target.value)} placeholder="z.B. enqueue_seo_wave" />
+            </div>
+            <div>
+              <Label>target_type</Label>
+              <Select value={targetType} onValueChange={(v) => setTargetType(v as ProposalKind)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {KIND_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label>target_name</Label>
+            <Input value={targetName} onChange={(e) => setTargetName(e.target.value)} placeholder="z.B. job_queue oder neuer_outbox" />
+          </div>
+          <div>
+            <Label>Beschreibung</Label>
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Was soll die Action bewirken?" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border-default">
+            <div><Label className="text-xs">planned_tables</Label>
+              <Input value={plannedTables} onChange={(e) => setPlannedTables(e.target.value)} /></div>
+            <div><Label className="text-xs">planned_jobs</Label>
+              <Input value={plannedJobs} onChange={(e) => setPlannedJobs(e.target.value)} /></div>
+            <div><Label className="text-xs">planned_events</Label>
+              <Input value={plannedEvents} onChange={(e) => setPlannedEvents(e.target.value)} /></div>
+            <div><Label className="text-xs">planned_audit_actions</Label>
+              <Input value={plannedAuditActions} onChange={(e) => setPlannedAuditActions(e.target.value)} /></div>
+            <div><Label className="text-xs">tags</Label>
+              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="email, queue" /></div>
+            <div><Label className="text-xs">touches</Label>
+              <Input value={touches} onChange={(e) => setTouches(e.target.value)} placeholder="learner_course_grants, notification_events" /></div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 pt-2 border-t border-border-default">
+            <ToggleRow label="Audit-Contract" checked={hasAudit} onChange={setHasAudit} />
+            <ToggleRow label="Stop-Condition" checked={hasStop} onChange={setHasStop} />
+            <ToggleRow label="Eligibility-Gate" checked={hasGate} onChange={setHasGate} />
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={run} disabled={!canRun} className="flex-1">
+              Runtime Preflight ausführen
+            </Button>
+            <CopyButton
+              value={() => JSON.stringify(plan, null, 2)}
+              variant="button"
+              label="Plan als JSON"
+              toastLabel="Plan-JSON kopiert"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {review && (
+        <div className="lg:col-span-3">
+          <ReviewResult review={review} />
+        </div>
+      )}
     </div>
   );
 }
