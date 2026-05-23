@@ -40,3 +40,21 @@ Erfolgreiche Recovery loggt `checkout_slug_recovered` mit `original_slug`, `reso
 - Nur `status='active'` Produkte sind Recovery-Kandidaten
 - Mehrere Matches → fail-closed (kein Silent-Pick), Audit-Pflicht
 - `v_sellable_and_deliverable` Hard-Gate downstream unverändert (kein Bypass)
+
+## v1.1 — UI-Soft-Fail statt Hard-404 (2026-05-23)
+
+`create-product-checkout` antwortet bei `product_not_found` und `slug_ambiguous` jetzt mit **HTTP 200 + `ok:false`**, damit der Browser-Funnel nicht mit einem rohen "non-2xx Functions error" abbricht.
+
+Neue Felder in `CheckoutResult` (siehe `src/lib/checkout/startProductCheckout.ts`):
+
+- `error_code: "product_not_found" | "slug_ambiguous" | "already_entitled"`
+- `original_slug`, `suggested_slug`, `suggested_url`, `fallback_url`
+- `candidates: { slug, url }[]` (für ambiguous)
+
+`suggestClosestSlug(input, rows)` (in `_shared/slug-normalize.ts`) wählt token-basiert den nächsten aktiven Produkt-Slug (≥ 1 Token shared, Score = Zeichen geteilter Tokens). Garbage-Inputs → `null`.
+
+UI-Handler in `ProductDetailPage` / `PersonaLandingPage` / `DynamicProductLandingPage` zeigen Toast und navigieren auf `suggested_url || fallback_url || /berufe`. Audit `checkout_product_not_found_redirect` via `fn_emit_audit`.
+
+Tests:
+- `supabase/functions/create-product-checkout/slug-recovery_test.ts` — 13 Deno-Tests (inkl. 4× `suggestClosestSlug`).
+- `src/lib/checkout/__tests__/startProductCheckout.test.ts` — 7 Vitest-Tests: 5 Beispielpakete arrival-at-Stripe + 2 Error-Paths (product_not_found, slug_ambiguous).

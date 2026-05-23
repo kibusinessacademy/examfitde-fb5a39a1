@@ -14,7 +14,7 @@
 import Stripe from "https://esm.sh/stripe@14.21.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
-import { recoverProductSlug, normalizeSlug } from "../_shared/slug-normalize.ts";
+import { recoverProductSlug, normalizeSlug, suggestClosestSlug } from "../_shared/slug-normalize.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[CREATE-PRODUCT-CHECKOUT] ${step}`, details ? JSON.stringify(details) : '');
@@ -122,6 +122,8 @@ Deno.serve(async (req) => {
     let product: { id: string; slug: string; title: string; certification_id: string | null } | null = null;
     let recoveryStrategy: string = "exact";
     let recoveryAuditNote: Record<string, unknown> | null = null;
+    let allActiveCandidates: { id: string; slug: string }[] = [];
+
 
     {
       const { data: exact } = await adminClient
@@ -142,6 +144,7 @@ Deno.serve(async (req) => {
           .eq("status", "active");
 
         const rows = (candidates ?? []).map((r) => ({ id: r.id, slug: r.slug }));
+        allActiveCandidates = rows;
         const rec = recoverProductSlug(productSlug, rows);
 
         if (rec.matched) {
@@ -169,12 +172,15 @@ Deno.serve(async (req) => {
             },
           });
           logStep("Slug recovery ambiguous", { slug: productSlug, count: rec.candidates.length });
+          // Return 200 with structured payload so the client can render a
+          // friendly UI fallback (Stripe-Funnel würde bei 4xx hart abbrechen).
           return new Response(JSON.stringify({
             ok: false,
             error: "Mehrere Produkte passen zu diesem Link. Bitte wähle das Paket erneut über die Produktseite.",
             error_code: "slug_ambiguous",
+            candidates: rec.candidates.map((c) => ({ slug: c.slug, url: `/paket/${c.slug}` })),
           }), {
-            status: 409,
+            status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
@@ -211,6 +217,7 @@ Deno.serve(async (req) => {
 
     if (!product) {
       logStep("Product not found after recovery", { slug: productSlug });
+      const suggestion = suggestClosestSlug(productSlug, allActiveCandidates);
       await adminClient.from("auto_heal_log").insert({
         action_type: "checkout_slug_unresolved",
         target_type: "products",
@@ -220,11 +227,23 @@ Deno.serve(async (req) => {
           user_id: user.id,
           product_slug: productSlug,
           normalized_input: normalizeSlug(productSlug),
+          suggested_slug: suggestion?.slug ?? null,
           source: "create-product-checkout",
         },
       });
-      return new Response(JSON.stringify({ error: "Product not found" }), {
-        status: 404,
+      // 200 + ok:false → client kann eine verständliche Meldung zeigen und
+      // den Nutzer auf eine Vorschlagsseite weiterleiten, statt den Funnel
+      // mit einem rohen "non-2xx" abzubrechen.
+      return new Response(JSON.stringify({
+        ok: false,
+        error: "Komplettpaket nicht gefunden.",
+        error_code: "product_not_found",
+        original_slug: productSlug,
+        suggested_slug: suggestion?.slug ?? null,
+        suggested_url: suggestion ? `/paket/${suggestion.slug}` : null,
+        fallback_url: "/berufe",
+      }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

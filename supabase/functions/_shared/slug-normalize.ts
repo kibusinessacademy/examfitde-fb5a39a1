@@ -121,3 +121,44 @@ export function recoverProductSlug(
 
   return { matched: null, strategy: "miss", candidates: [] };
 }
+
+/**
+ * Best-effort closest-slug suggestion for the *miss* case.
+ *
+ * Picks the active row whose normalized slug shares the longest prefix with the
+ * normalized input, with a soft minimum overlap (≥ 4 chars) to avoid garbage
+ * suggestions like "any first product". Returns `null` when nothing meaningful
+ * overlaps. Used to power UI fallback redirects (e.g. "Komplettpaket nicht
+ * gefunden — meintest du …?").
+ */
+export function suggestClosestSlug(
+  input: string | null | undefined,
+  rows: ReadonlyArray<{ id: string; slug: string }>,
+): { id: string; slug: string; overlap: number } | null {
+  const norm = normalizeSlug(input);
+  if (!norm || rows.length === 0) return null;
+  const inputTokens = norm.split("-").filter(Boolean);
+  if (inputTokens.length === 0) return null;
+
+  let best: { id: string; slug: string; overlap: number } | null = null;
+  for (const r of rows) {
+    const candNorm = normalizeSlug(r.slug);
+    if (!candNorm) continue;
+    const candTokens = candNorm.split("-").filter(Boolean);
+    let sharedTokens = 0;
+    const max = Math.min(inputTokens.length, candTokens.length);
+    while (sharedTokens < max && inputTokens[sharedTokens] === candTokens[sharedTokens]) {
+      sharedTokens++;
+    }
+    if (sharedTokens === 0) continue;
+    // Score by total chars of shared tokens (longer tokens = stronger signal).
+    const overlap = inputTokens.slice(0, sharedTokens).join("-").length;
+    if (overlap < 4) continue;
+    if (!best || overlap > best.overlap) {
+      best = { id: r.id, slug: r.slug, overlap };
+    }
+  }
+  return best;
+}
+
+

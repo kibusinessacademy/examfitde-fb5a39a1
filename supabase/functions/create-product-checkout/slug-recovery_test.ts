@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { normalizeSlug, recoverProductSlug } from "../_shared/slug-normalize.ts";
+import { normalizeSlug, recoverProductSlug, suggestClosestSlug } from "../_shared/slug-normalize.ts";
 
 const ROWS = [
   { id: "p-anlagen", slug: "anlagenmechaniker-in-für-sanitär--heizungs--und-klimatechnik-ef7ba3bf" },
@@ -60,4 +60,30 @@ Deno.test("recover: uuid_suffix_strip strategy when input has no uuid", () => {
   const r = recoverProductSlug("kaufmann-im-einzelhandel", rows);
   assertEquals(r.matched?.id, "x");
   assertEquals(r.strategy, "uuid_suffix_strip");
+});
+
+Deno.test("suggestClosestSlug: typo in beruf → nearest active product", () => {
+  // Mehrere Beispielpakete: Empfehlung muss auf das tokenweise nächste fallen.
+  const s = suggestClosestSlug("industriekaufmann-bueromanagement", ROWS);
+  assertEquals(s?.id, "p-industrie");
+});
+
+Deno.test("suggestClosestSlug: short prefix match suggests fisi", () => {
+  const s = suggestClosestSlug("fachinformatiker-systemintegration-mobile", ROWS);
+  assertEquals(s?.id, "p-fisi");
+});
+
+Deno.test("suggestClosestSlug: short prefix match suggests fisi", () => {
+  const s = suggestClosestSlug("fachinformatiker-system", ROWS);
+  assertEquals(s?.id, "p-fisi");
+});
+
+Deno.test("suggestClosestSlug: garbage input → null (kein willkürlicher Treffer)", () => {
+  const s = suggestClosestSlug("zzz", ROWS);
+  assertEquals(s, null);
+});
+
+Deno.test("suggestClosestSlug: empty/null input → null", () => {
+  assertEquals(suggestClosestSlug("", ROWS), null);
+  assertEquals(suggestClosestSlug(null, ROWS), null);
 });

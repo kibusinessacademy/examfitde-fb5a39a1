@@ -98,6 +98,45 @@ function BundleDetailPageComponent() {
 
     const result = await startProductCheckout(productSlug, { source: `bundle_${source}` });
 
+    // ── Strukturierter Fehlerpfad: Product not found / ambiguous ──
+    // Statt rohem "non-2xx" → freundliche Meldung + Redirect auf Vorschlag
+    // oder Kurs-Übersicht. Der Funnel bricht nicht ab, der Nutzer landet
+    // auf einer kaufbaren Seite.
+    if (result.error_code === "product_not_found") {
+      const target = result.suggested_url || result.fallback_url || "/berufe";
+      toast({
+        title: "Komplettpaket nicht gefunden",
+        description: result.suggested_slug
+          ? "Wir leiten dich auf das passende Paket weiter."
+          : "Wir leiten dich zur Kursübersicht weiter, dort findest du das richtige Paket.",
+      });
+      void supabase.rpc("fn_emit_audit", {
+        _action_type: "checkout_product_not_found_redirect",
+        _target_type: "checkout",
+        _target_id: productSlug,
+        _result_status: "redirected",
+        _payload: {
+          product_slug: productSlug,
+          suggested_slug: result.suggested_slug ?? null,
+          target_url: target,
+          source: `bundle_${source}`,
+        },
+        _trigger_source: "bundle_cta",
+      } as never);
+      navigate(target);
+      return;
+    }
+
+    if (result.error_code === "slug_ambiguous") {
+      const target = result.candidates?.[0]?.url ?? "/berufe";
+      toast({
+        title: "Bitte Paket erneut wählen",
+        description: "Mehrere Pakete passen zu diesem Link. Wir leiten dich zur Auswahl weiter.",
+      });
+      navigate(target);
+      return;
+    }
+
     if (!result.ok || !result.checkout_url) {
       // Hard-fail toast + Audit (kein navigate('/shop')-Fallback mehr)
       toast({
@@ -117,7 +156,7 @@ function BundleDetailPageComponent() {
       } as never);
     }
     // bei Erfolg führt startProductCheckout selbst den Stripe-Redirect aus
-  }, [slug, pkgCtx, product?.slug]);
+  }, [slug, pkgCtx, product?.slug, navigate]);
 
   // Post-Login Auto-Resume: ?intent=checkout (gesetzt vom Auth-Gate in startProductCheckout)
   // triggert nach erfolgreichem Login automatisch den Stripe-Checkout. One-shot via Strip-Param.
