@@ -61,3 +61,24 @@ Deno.test("recover: uuid_suffix_strip strategy when input has no uuid", () => {
   assertEquals(r.matched?.id, "x");
   assertEquals(r.strategy, "uuid_suffix_strip");
 });
+
+Deno.test("suggestClosestSlug: typo in beruf → nearest active product", () => {
+  // Mehrere Beispielpakete: Empfehlung muss auf das tokenweise nächste fallen.
+  const s = suggestClosestSlug("industriekauffrau-buero", ROWS);
+  assertEquals(s?.id, "p-industrie");
+});
+
+Deno.test("suggestClosestSlug: short prefix match suggests fisi", () => {
+  const s = suggestClosestSlug("fachinformatiker-system", ROWS);
+  assertEquals(s?.id, "p-fisi");
+});
+
+Deno.test("suggestClosestSlug: garbage input → null (kein willkürlicher Treffer)", () => {
+  const s = suggestClosestSlug("zzz", ROWS);
+  assertEquals(s, null);
+});
+
+Deno.test("suggestClosestSlug: empty/null input → null", () => {
+  assertEquals(suggestClosestSlug("", ROWS), null);
+  assertEquals(suggestClosestSlug(null, ROWS), null);
+});
