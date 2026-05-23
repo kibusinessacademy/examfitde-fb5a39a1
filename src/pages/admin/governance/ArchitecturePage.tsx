@@ -111,7 +111,7 @@ export default function ArchitecturePage() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       <header>
-        <h1 className="text-3xl font-bold text-fg-default">Architectural Continuity Guard <span className="text-base text-fg-muted font-normal">v1.2</span></h1>
+        <h1 className="text-3xl font-bold text-fg-default">Architectural Continuity Guard <span className="text-base text-fg-muted font-normal">v1.3</span></h1>
         <p className="text-fg-muted mt-2 max-w-3xl">
           Pflichtcheck VOR neuen Tabellen, RPCs, Edge Functions, Queues oder Registries.
           Prinzipien: <strong>reuse vor rebuild · bridge vor duplicate · extend vor replace · consistency vor speed.</strong>
