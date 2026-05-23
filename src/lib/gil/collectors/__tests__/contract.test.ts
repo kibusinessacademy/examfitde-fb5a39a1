@@ -8,13 +8,14 @@ import {
 } from '../contract';
 
 describe('GIL Collector Contract — pure', () => {
-  it('exposes Cut-1 sources with manual_paste enabled and rss/semrush disabled', () => {
+  it('Cut-2 sources: manual_paste/competitor_paste/rss enabled, semrush disabled', () => {
     const map = new Map(KNOWN_COLLECTOR_SOURCES.map((s) => [s.source_key, s]));
     expect(map.get('manual_paste')?.enabled).toBe(true);
     expect(map.get('competitor_paste')?.enabled).toBe(true);
-    expect(map.get('rss')?.enabled).toBe(false);
+    expect(map.get('rss')?.enabled).toBe(true);
     expect(map.get('semrush')?.enabled).toBe(false);
   });
+
 
   it('rejects reserved source keys (p18, manual)', () => {
     const r1 = normalizeCollectorItem('p18', { title: 'whatever' });
