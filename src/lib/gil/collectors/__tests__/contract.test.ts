@@ -8,13 +8,14 @@ import {
 } from '../contract';
 
 describe('GIL Collector Contract — pure', () => {
-  it('exposes Cut-1 sources with manual_paste enabled and rss/semrush disabled', () => {
+  it('Cut-2 sources: manual_paste/competitor_paste/rss enabled, semrush disabled', () => {
     const map = new Map(KNOWN_COLLECTOR_SOURCES.map((s) => [s.source_key, s]));
     expect(map.get('manual_paste')?.enabled).toBe(true);
     expect(map.get('competitor_paste')?.enabled).toBe(true);
-    expect(map.get('rss')?.enabled).toBe(false);
+    expect(map.get('rss')?.enabled).toBe(true);
     expect(map.get('semrush')?.enabled).toBe(false);
   });
+
 
   it('rejects reserved source keys (p18, manual)', () => {
     const r1 = normalizeCollectorItem('p18', { title: 'whatever' });
@@ -27,12 +28,13 @@ describe('GIL Collector Contract — pure', () => {
 
   it('rejects unknown sources and disabled sources', () => {
     const u = normalizeCollectorItem('does_not_exist', { title: 'x' });
-    const d = normalizeCollectorItem('rss', { title: 'New release' });
+    const d = normalizeCollectorItem('semrush', { title: 'serp drop' });
     expect(u.ok).toBe(false);
     expect(d.ok).toBe(false);
     if (!u.ok) expect(u.reason).toBe('unknown_source');
     if (!d.ok) expect(d.reason).toBe('source_disabled');
   });
+
 
   it('rejects invalid titles and unknown signal_types', () => {
     const t = normalizeCollectorItem('manual_paste', { title: 'a' });

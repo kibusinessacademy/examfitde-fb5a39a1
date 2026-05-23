@@ -178,3 +178,99 @@ export function parsePasteToRawItems(text: string): CollectorRawItem[] {
   }
   return items;
 }
+
+// ---------------------------------------------------------------------------
+// P20 Cut 2 — RSS feeds + collector trigger
+// ---------------------------------------------------------------------------
+
+export interface RssFeedRow {
+  id: string;
+  feed_url: string;
+  label: string;
+  category: string | null;
+  default_signal_type: string;
+  default_severity: 'info' | 'warning' | 'critical';
+  tags: string[];
+  enabled: boolean;
+  last_run_at: string | null;
+  last_run_result: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export async function listRssFeeds(): Promise<RssFeedRow[]> {
+  const { data, error } = await rpc('admin_gil_list_rss_feeds');
+  if (error) throw error;
+  return (data ?? []) as RssFeedRow[];
+}
+
+export async function addRssFeed(
+  input: {
+    feed_url: string;
+    label: string;
+    category?: string;
+    default_signal_type: string;
+    tags?: string[];
+  },
+  reason: string,
+): Promise<string> {
+  if (reason.trim().length < 8) throw new Error('Reason ≥ 8 Zeichen erforderlich');
+  const { data, error } = await rpc('admin_gil_add_rss_feed', {
+    p_feed_url: input.feed_url.trim(),
+    p_label: input.label.trim(),
+    p_category: input.category?.trim() ?? null,
+    p_default_signal_type: input.default_signal_type,
+    p_tags: input.tags ?? [],
+    p_reason: reason.trim(),
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function setRssFeedEnabled(
+  feed_id: string,
+  enabled: boolean,
+  reason: string,
+): Promise<boolean> {
+  if (reason.trim().length < 8) throw new Error('Reason ≥ 8 Zeichen erforderlich');
+  const { data, error } = await rpc('admin_gil_set_rss_feed_enabled', {
+    p_feed_id: feed_id,
+    p_enabled: enabled,
+    p_reason: reason.trim(),
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export interface RssCollectorRunSummary {
+  scanned_sources: number;
+  fetched_items: number;
+  inserted: number;
+  skipped_duplicate: number;
+  failed_sources: number;
+  per_feed: Array<{
+    feed_id: string;
+    label: string;
+    fetched: number;
+    inserted: number;
+    duplicates: number;
+    error?: string;
+  }>;
+}
+
+/**
+ * Trigger the gil-rss-collector edge function. The function itself enforces
+ * admin-role + reason ≥ 8. Writes only into gil_signal_intake (status=pending).
+ */
+export async function runGilRssCollector(
+  reason: string,
+  feed_id?: string,
+): Promise<RssCollectorRunSummary> {
+  if (reason.trim().length < 8) throw new Error('Reason ≥ 8 Zeichen erforderlich');
+  const { data, error } = await supabase.functions.invoke('gil-rss-collector', {
+    body: { reason: reason.trim(), feed_id: feed_id ?? null },
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error((data as { error?: string })?.error ?? 'collector_failed');
+  return (data as { summary: RssCollectorRunSummary }).summary;
+}
+
