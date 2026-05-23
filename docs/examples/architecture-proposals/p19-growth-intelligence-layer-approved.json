@@ -1,0 +1,38 @@
+{
+  "kind": "platform_pillar",
+  "name": "P19 Growth Intelligence Layer",
+  "intent": "Shared knowledge base + 6 typed agents + CMO synthesis for competitive/market intelligence — bounded, audit-only writes.",
+  "verdict": "approved",
+  "reuse_strategy": [
+    {
+      "rule": "SSOT_FIRST",
+      "decision": "Reuse fn_emit_audit + ops_audit_contract + auto_heal_log as the single audit SSOT — no new audit table.",
+      "evidence": "supabase/migrations/20260523_p19* uses fn_emit_audit and registers 4 contracts in ops_audit_contract."
+    },
+    {
+      "rule": "BRIDGE_DONT_FORK",
+      "decision": "seo_intelligence agent is complementary to the existing SEO pipeline (Cut B/C); it produces insights, never overwrites SEO content nodes.",
+      "evidence": "src/lib/gil/contracts.ts allowedInsightTypes for seo_intelligence is observation-only."
+    },
+    {
+      "rule": "EXTEND_EXISTING",
+      "decision": "Extend has_role gate + service_role RPC pattern (cf. P18 Cut 2/3, lane-health RPC).",
+      "evidence": "supabase migration GRANT/REVOKE matches established pattern."
+    }
+  ],
+  "bounded_actions": [
+    "admin_record_market_signal (service_role)",
+    "admin_record_agent_insight (service_role)",
+    "admin_record_growth_briefing (service_role)",
+    "admin_run_executive_briefing (admin gate, audit-only)"
+  ],
+  "explicit_no_go": [
+    "Autonomous schema/code mutation by any GIL agent",
+    "Client-side AI calls (only via executive-agent edge function with service_role)",
+    "Second audit/queue/content/governance structure"
+  ],
+  "tests": [
+    "src/lib/gil/__tests__/contracts.test.ts (contracts, pipeline stages, act whitelist, manifest)"
+  ],
+  "memory_ref": "mem://architektur/governance/p19-growth-intelligence-layer-v1"
+}
