@@ -217,6 +217,7 @@ Deno.serve(async (req) => {
 
     if (!product) {
       logStep("Product not found after recovery", { slug: productSlug });
+      const suggestion = suggestClosestSlug(productSlug, allActiveCandidates);
       await adminClient.from("auto_heal_log").insert({
         action_type: "checkout_slug_unresolved",
         target_type: "products",
@@ -226,11 +227,23 @@ Deno.serve(async (req) => {
           user_id: user.id,
           product_slug: productSlug,
           normalized_input: normalizeSlug(productSlug),
+          suggested_slug: suggestion?.slug ?? null,
           source: "create-product-checkout",
         },
       });
-      return new Response(JSON.stringify({ error: "Product not found" }), {
-        status: 404,
+      // 200 + ok:false → client kann eine verständliche Meldung zeigen und
+      // den Nutzer auf eine Vorschlagsseite weiterleiten, statt den Funnel
+      // mit einem rohen "non-2xx" abzubrechen.
+      return new Response(JSON.stringify({
+        ok: false,
+        error: "Komplettpaket nicht gefunden.",
+        error_code: "product_not_found",
+        original_slug: productSlug,
+        suggested_slug: suggestion?.slug ?? null,
+        suggested_url: suggestion ? `/paket/${suggestion.slug}` : null,
+        fallback_url: "/berufe",
+      }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
