@@ -246,6 +246,7 @@ const EventInspectorPage = lazyRetry(() => import('@/pages/tools/EventInspectorP
 
 // Governance — Architectural Continuity Guard
 const ArchitecturePage = lazyRetry(() => import('@/pages/admin/governance/ArchitecturePage'));
+const PlatformConsciencePage = lazyRetry(() => import('@/pages/admin/PlatformConsciencePage'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -581,6 +582,7 @@ const AppRoutes = () => {
           <Route path="ops/funnel" element={<AdminTrafficFunnelPage />} />
           <Route path="observatory" element={<StripeObservatoryPage />} />
           <Route path="runtime" element={<RuntimeCommandCenterPage />} />
+          <Route path="platform-conscience" element={<PlatformConsciencePage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
