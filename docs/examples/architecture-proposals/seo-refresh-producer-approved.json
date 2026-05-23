@@ -1,0 +1,53 @@
+{
+  "title": "SEO Knowledge OS Cut B — Refresh Queue Producer",
+  "intent": "Activate the existing seo_refresh_queue with a deterministic bridge producer sourced exclusively from v_seo_content_node_ssot. No new queue, no new content table, no AI augmentation.",
+  "actions": [
+    {
+      "kind": "function",
+      "name": "fn_enqueue_seo_refresh_candidates",
+      "purpose": "Deterministic producer over the SSOT view; idempotent per (content_type, content_id, reason, day).",
+      "writes_to": ["public.seo_refresh_queue"],
+      "reads_from": ["public.v_seo_content_node_ssot", "public.seo_refresh_queue"]
+    },
+    {
+      "kind": "function",
+      "name": "admin_enqueue_seo_refresh_candidates",
+      "purpose": "Admin-gated wrapper that returns scanned/enqueued/skipped/by_reason/sample_nodes.",
+      "security": "SECURITY DEFINER + has_role admin gate"
+    },
+    {
+      "kind": "audit_contract",
+      "action_type": "seo_refresh_queue_producer_run",
+      "owner_module": "seo_knowledge_os",
+      "required_keys": ["scanned", "enqueued", "skipped_existing"]
+    },
+    {
+      "kind": "cron",
+      "name": "seo-refresh-queue-producer-daily",
+      "schedule": "41 3 * * *",
+      "command": "SELECT public.fn_enqueue_seo_refresh_candidates(50);"
+    },
+    {
+      "kind": "ui_card",
+      "path": "src/components/admin/growth/SeoRefreshProducerCard.tsx",
+      "mounted_at": "/admin/v2/growth → Audit tab"
+    }
+  ],
+  "reuse_candidates": [
+    "public.seo_refresh_queue (existing queue — extended via producer, never duplicated)",
+    "public.v_seo_content_node_ssot (Cut A SSOT view)",
+    "public.fn_emit_audit + ops_audit_contract (existing audit SSOT)",
+    "auto_heal_log (audit log read-back for UI)"
+  ],
+  "bridge_targets": [
+    "v_seo_content_node_ssot → seo_refresh_queue (1-to-N, reason-typed)"
+  ],
+  "duplication_risk": "none — no new queue, no new content table, no shadow audit",
+  "governance_risk": "low — producer is service_role only, admin wrapper enforces has_role",
+  "migration_strategy": "additive only; existing producers and consumers untouched",
+  "recommended_extension_points": [
+    "Add reason-specific consumers downstream (Cut C will route via seo_refresh_queue)",
+    "Future: extend reasons (e.g. internal_link_drift) without schema change"
+  ],
+  "verdict": "approved"
+}
