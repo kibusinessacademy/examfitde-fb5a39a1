@@ -1,17 +1,18 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { 
-  LayoutDashboard, Package, ListChecks, Menu, X, 
+import {
+  LayoutDashboard, Package, ListChecks, Menu, X,
   LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Heart, Gauge,
-  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp, Webhook, Cpu
+  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp, Webhook, Cpu, Eye
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 
-/** SSOT: 9 operative areas — Runtime Command Center als AI-Control-Plane neben Heal Hub */
+/** SSOT: 10 operative areas — Platform Conscience Hub als Read-only-Einstieg über die drei Säulen. */
 const NAV_ITEMS = [
   { to: '/admin/cockpit', label: 'Cockpit', icon: Gauge },
+  { to: '/admin/platform-conscience', label: 'Conscience', icon: Eye },
   { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
   { to: '/admin/studio', label: 'Kurse', icon: Package },
   { to: '/admin/heal', label: 'Heal Hub', icon: Heart },
