@@ -19,6 +19,7 @@ import {
 } from '@/features/gil/useGrowthIntelligence';
 import { GIL_AGENT_CONTRACTS, GIL_AGENT_KINDS } from '@/lib/gil/contracts';
 import { createManualMarketSignal } from '@/lib/governance/p18-gil-bridge.client';
+import CollectorIntakeTab from '@/features/gil/CollectorIntakeTab';
 
 
 function severityVariant(s: string): 'default' | 'secondary' | 'destructive' {
@@ -73,6 +74,7 @@ export default function GrowthIntelligencePage() {
         <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="briefing">Executive Briefing</TabsTrigger>
           <TabsTrigger value="signals">Signal-Feed</TabsTrigger>
+          <TabsTrigger value="intake">Collector Intake</TabsTrigger>
           <TabsTrigger value="competitors">Competitor-Radar</TabsTrigger>
           <TabsTrigger value="agents">Agenten-Übersicht</TabsTrigger>
         </TabsList>
