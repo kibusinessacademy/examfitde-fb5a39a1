@@ -26,7 +26,9 @@ import {
 import { runtimePlanToProposal, type RuntimeActionPlan } from '@/lib/governance/runtime-proposal-adapter';
 import { deriveSemanticRuntimeGraph } from '@/lib/governance/semantic-runtime-graph';
 import { runP18Cut1, type DriftSignal, type DriftSeverity } from '@/lib/governance/p18-orchestrator';
+import { runP18DetectionForArchitectureReview, type P18ReviewHookResult } from '@/lib/governance/p18-review-hook';
 import P18BoundedHealPanel from '@/components/admin/governance/P18BoundedHealPanel';
+import { useToast } from '@/hooks/use-toast';
 import { ShieldCheck, AlertTriangle, Ban, Info } from 'lucide-react';
 
 const KIND_OPTIONS: { value: ProposalKind; label: string }[] = [
@@ -108,8 +110,35 @@ export default function ArchitecturePage() {
     ],
   );
 
+  const { toast } = useToast();
+  const [hookResult, setHookResult] = useState<P18ReviewHookResult | null>(null);
+
   const canRun = name.length > 1 && purpose.length > 5;
-  const runReview = () => setReview(reviewArchitecture(proposal));
+  const runReview = async () => {
+    const r = reviewArchitecture(proposal);
+    setReview(r);
+    setHookResult(null);
+    // P18 Auto-Trigger: architecture-review-done
+    try {
+      const hook = await runP18DetectionForArchitectureReview(r);
+      setHookResult(hook);
+      if (hook.triggered && hook.recorded_keys.length > 0) {
+        toast({
+          title: 'P18 detection recorded',
+          description: `${hook.recorded_keys.length} Drift-Signal(e) idempotent ins Ledger geschrieben.`,
+        });
+      } else if (hook.errors.length > 0) {
+        toast({
+          title: 'P18 detection partial',
+          description: `${hook.errors.length} Fehler beim Ledger-Write — siehe Konsole.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (e) {
+      // Hook darf UI nicht blockieren
+      console.error('[P18 Hook]', e);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
@@ -233,7 +262,7 @@ export default function ArchitecturePage() {
               </Select>
             </div>
             <div className="flex gap-2">
-              <Button onClick={runReview} disabled={!canRun} className="flex-1">
+              <Button onClick={() => { void runReview(); }} disabled={!canRun} className="flex-1">
                 Architecture Review ausführen
               </Button>
               <CopyButton
@@ -246,6 +275,21 @@ export default function ArchitecturePage() {
           </CardContent>
         </Card>
       </div>
+
+      {hookResult && (
+        <div className="rounded-md border border-border bg-surface-subtle p-3 text-xs text-fg-muted">
+          <strong className="text-fg-default">P18 Auto-Trigger</strong>
+          {' · '}
+          {hookResult.triggered
+            ? `${hookResult.recorded_keys.length} Drift-Signal(e) idempotent recorded`
+            : hookResult.reason === 'approved_no_findings'
+              ? 'Approved ohne Findings — kein Ledger-Write (no noise)'
+              : 'Keine Signale klassifiziert'}
+          {hookResult.errors.length > 0 && (
+            <span className="ml-2 text-status-fg-danger">· {hookResult.errors.length} RPC-Fehler</span>
+          )}
+        </div>
+      )}
 
       {review && <ReviewResult review={review} />}
         </TabsContent>

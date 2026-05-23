@@ -1,6 +1,5 @@
 import { Activity, Gauge, ShieldCheck, Workflow, Radar, Sparkles, Shield, ListChecks, AlertCircle, Undo2, Brain } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminPageHeader } from "@/components/admin/v2/AdminPageHeader";
 import AiEvalRunsCard from "@/features/admin/components/AiEvalRunsCard";
@@ -13,6 +12,8 @@ import RuntimeReversiblePoliciesCard from "@/features/admin/components/RuntimeRe
 import RuntimeDryRunCard from "@/features/admin/components/RuntimeDryRunCard";
 import RuntimeIntelligenceCard from "@/features/admin/components/RuntimeIntelligenceCard";
 import RuntimeRecommendationsCard from "@/features/admin/components/RuntimeRecommendationsCard";
+import AiObservabilityCard from "@/features/admin/components/AiObservabilityCard";
+import RecommendationPolicyEffectivenessCard from "@/features/admin/components/RecommendationPolicyEffectivenessCard";
 
 /**
  * AI Runtime Command Center v1
@@ -105,18 +106,12 @@ export default function RuntimeCommandCenterPage() {
         </TabsContent>
 
 
-        <TabsContent value="observability" className="mt-4">
-          <PlaceholderCard
-            title="AI Observability"
-            hint="Modellgesundheit, Scope-Violations, Grounding-Miss, Drift. Wire-in folgt im nächsten Cut über `admin_get_ai_observability_summary` + `v_ai_model_health`."
-          />
+        <TabsContent value="observability" className="mt-4 space-y-4">
+          <AiObservabilityCard />
         </TabsContent>
 
-        <TabsContent value="intervention" className="mt-4">
-          <PlaceholderCard
-            title="Intervention Loop"
-            hint="Outcomes & Policy-Impact aus `v_recommendation_policy_effectiveness`. Folgecut bringt Effectiveness-Drilldown + Safe-Actions (Rollback, Disable Policy) mit Reason-Pflichtfeld + Audit."
-          />
+        <TabsContent value="intervention" className="mt-4 space-y-4">
+          <RecommendationPolicyEffectivenessCard />
         </TabsContent>
 
         <TabsContent value="safe_actions" className="mt-4 space-y-4">
@@ -132,15 +127,3 @@ export default function RuntimeCommandCenterPage() {
   );
 }
 
-function PlaceholderCard({ title, hint }: { title: string; hint: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{hint}</p>
-      </CardContent>
-    </Card>
-  );
-}
