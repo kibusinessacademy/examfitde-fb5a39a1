@@ -46,7 +46,7 @@ export function usePlatformConscienceSummary() {
   return useQuery<PlatformConscienceSummary>({
     queryKey: ["admin", "platform-conscience-summary"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_get_platform_conscience_summary");
+      const { data, error } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: unknown; error: unknown }>)("admin_get_platform_conscience_summary");
       if (error) throw error;
       return data as unknown as PlatformConscienceSummary;
     },
