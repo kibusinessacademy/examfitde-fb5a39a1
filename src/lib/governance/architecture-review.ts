@@ -60,6 +60,22 @@ export interface ArchitectureProposal {
   rlsStatus?: 'on' | 'not_applicable' | 'off';
   usesHasRole?: boolean;
   hasHiddenState?: boolean;
+
+  // ── v1.3 Healability + Event-Coupling ──────────────────────────────
+  /** Healability-Profil — required für Schreibpfade (HEALABILITY_IS_REQUIRED). */
+  healability?: {
+    replayable?: boolean;
+    recoverable?: boolean;
+    auditable?: boolean;
+    observable?: boolean;
+    drift_detectable?: boolean;
+  };
+  /** event_types / intent_keys, die das Vorhaben emittiert */
+  emits_events?: string[];
+  /** event_types / intent_keys, die das Vorhaben konsumiert */
+  consumes_events?: string[];
+  /** wird Cross-Domain-Coupling als Bridge ausgewiesen? */
+  isBridgeAdapter?: boolean;
 }
 
 export type Severity = 'block' | 'warn' | 'info';
