@@ -188,6 +188,10 @@ export default function GrowthIntelligencePage() {
           )}
         </TabsContent>
 
+        {/* Collector Intake (P20 Cut 1) */}
+        <TabsContent value="intake" className="space-y-3">
+          <CollectorIntakeTab />
+        </TabsContent>
 
         {/* Competitor-Radar */}
         <TabsContent value="competitors" className="space-y-2">
