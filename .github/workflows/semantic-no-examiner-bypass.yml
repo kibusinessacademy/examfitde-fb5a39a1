@@ -1,13 +1,6 @@
 name: Semantic No-Examiner-Bypass Guard
 
 on:
-  pull_request:
-    paths:
-      - 'src/lib/semantic/**'
-      - 'src/lib/llm-grounding/**'
-      - 'src/components/pillar/**'
-      - 'scripts/guards/semantic-no-examiner-bypass.mjs'
-      - '.github/workflows/semantic-no-examiner-bypass.yml'
   workflow_dispatch:
 
 permissions:

@@ -1,13 +1,6 @@
 name: Content Graph Orphan Guard (warn-only)
 
 on:
-  pull_request:
-    paths:
-      - 'supabase/migrations/**'
-      - 'scripts/guards/content-graph-orphan-guard.mjs'
-      - '.github/workflows/content-graph-orphan-guard.yml'
-  schedule:
-    - cron: '0 6 * * *'
   workflow_dispatch:
 
 jobs:

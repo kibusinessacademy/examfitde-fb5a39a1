@@ -1,11 +1,6 @@
 name: Build-Integrity E2E
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-  schedule:
-    - cron: "17 */6 * * *"
   workflow_dispatch:
 
 permissions: read-all

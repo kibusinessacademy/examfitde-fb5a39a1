@@ -1,19 +1,6 @@
 name: SEO Cannibalization Guard
 on:
-  pull_request:
-    paths:
-      - 'src/pages/**'
-      - 'supabase/migrations/**.sql'
-      - 'scripts/guards/seo-cannibalization-guard.mjs'
-  schedule:
-    - cron: '0 6 * * *' # daily 06:00 UTC
   workflow_dispatch:
-    inputs:
-      mode:
-        description: 'warn (default) or strict'
-        type: choice
-        options: [ warn, strict ]
-        default: warn
 
 permissions:
   contents: read

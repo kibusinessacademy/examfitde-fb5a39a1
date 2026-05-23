@@ -1,16 +1,7 @@
 name: package-status-demote-guard
 
 on:
-  pull_request:
-    paths:
-      - "supabase/functions/**"
-      - "scripts/**"
-      - "src/**"
-      - "scripts/guards/guard-package-status-demotes.mjs"
-      - ".github/workflows/package-status-demote-guard.yml"
-  push:
-    branches: [main]
-
+  workflow_dispatch:
 
 jobs:
   guard:

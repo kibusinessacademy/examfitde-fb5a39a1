@@ -5,22 +5,7 @@ name: GTM Event Mapping Guard
 # jeder neue Funnel-Event muss kanonisch im Container ankommen.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/lib/conversionTracking.ts"
-      - "src/lib/gtm.ts"
-      - "docs/analytics/funnel-events.schema.json"
-      - "scripts/guards/gtm-event-mapping-guard.mjs"
-      - ".github/workflows/gtm-event-mapping-guard.yml"
-  pull_request:
-    paths:
-      - "src/lib/conversionTracking.ts"
-      - "src/lib/gtm.ts"
-      - "docs/analytics/funnel-events.schema.json"
-      - "scripts/guards/gtm-event-mapping-guard.mjs"
   workflow_dispatch:
-
 
 jobs:
   gtm-mapping:

@@ -1,9 +1,7 @@
 name: Release Train
 
 on:
-  push:
-    tags: [ "v*.*.*" ]
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

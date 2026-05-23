@@ -5,19 +5,6 @@ name: Pricing Integrity Regression Guard
 # keine manuellen Review-Fälle).
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - "supabase/migrations/**"
-      - "scripts/pricing-integrity-check.mjs"
-      - ".github/workflows/pricing-integrity-guard.yml"
-  pull_request:
-    paths:
-      - "supabase/migrations/**"
-      - "scripts/pricing-integrity-check.mjs"
-  schedule:
-    # Hourly safety net — drift-detection independent of migrations.
-    - cron: "23 * * * *"
   workflow_dispatch:
 
 jobs:

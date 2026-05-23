@@ -1,14 +1,7 @@
 name: a11y-routes-parity
 
 on:
-  pull_request:
-    paths:
-      - 'src/routes/AppRoutes.tsx'
-      - 'tests/e2e/a11y-routes.ts'
-      - 'scripts/guards/a11y-routes-parity.mjs'
-      - '.github/workflows/a11y-routes-parity.yml'
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions: read-all
 

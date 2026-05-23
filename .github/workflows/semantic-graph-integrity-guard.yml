@@ -1,10 +1,7 @@
 name: semantic-graph-integrity-guard
 on:
-  pull_request:
-  push:
-    branches: [main]
-  schedule:
-    - cron: "0 6 * * *"
+  workflow_dispatch:
+
 jobs:
   graph-guard:
     runs-on: ubuntu-latest

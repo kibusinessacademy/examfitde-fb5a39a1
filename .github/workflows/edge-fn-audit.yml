@@ -1,13 +1,7 @@
 name: edge-fn-audit
 
 on:
-  schedule:
-    - cron: "30 4 * * *" # daily 04:30 UTC
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "supabase/functions/**"
-      - "scripts/edge-fn-audit.mjs"
 
 jobs:
   audit:

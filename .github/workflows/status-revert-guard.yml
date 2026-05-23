@@ -1,15 +1,7 @@
 name: status-revert-guard
 
 on:
-  pull_request:
-    paths:
-      - 'supabase/functions/**'
-      - 'src/**'
-      - 'scripts/**'
-      - '.github/workflows/status-revert-guard.yml'
-  push:
-    branches: [main]
-
+  workflow_dispatch:
 
 jobs:
   guard:

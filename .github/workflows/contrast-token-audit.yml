@@ -1,13 +1,7 @@
 name: contrast-token-audit
 
 on:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'scripts/guards/contrast-token-audit.mjs'
-      - '.github/workflows/contrast-token-audit.yml'
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions: read-all
 

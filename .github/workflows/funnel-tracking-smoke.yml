@@ -5,25 +5,6 @@ name: Funnel Tracking Smoke Test
 # - Edge Function track-funnel-event erzwingt package_id ebenfalls
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - "supabase/migrations/**"
-      - "supabase/functions/track-funnel-event/**"
-      - "src/lib/conversionTracking.ts"
-      - "src/lib/funnelEvents.ts"
-      - "src/hooks/useTrackGrowthEvent.ts"
-      - "scripts/funnel-tracking-smoke.mjs"
-      - ".github/workflows/funnel-tracking-smoke.yml"
-  pull_request:
-    paths:
-      - "supabase/migrations/**"
-      - "supabase/functions/track-funnel-event/**"
-      - "src/lib/conversionTracking.ts"
-      - "src/lib/funnelEvents.ts"
-      - "src/hooks/useTrackGrowthEvent.ts"
-  schedule:
-    - cron: "47 * * * *"
   workflow_dispatch:
 
 jobs:

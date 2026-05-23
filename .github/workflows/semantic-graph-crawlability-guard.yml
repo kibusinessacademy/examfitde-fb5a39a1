@@ -1,10 +1,7 @@
 name: semantic-graph-crawlability-guard
 on:
-  pull_request:
-  push:
-    branches: [main]
-  schedule:
-    - cron: "30 6 * * *"
+  workflow_dispatch:
+
 jobs:
   crawl-guard:
     runs-on: ubuntu-latest

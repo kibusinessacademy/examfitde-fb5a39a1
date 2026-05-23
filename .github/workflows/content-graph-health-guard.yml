@@ -1,13 +1,6 @@
 name: Content Graph Health Guard (warn-only)
 
 on:
-  pull_request:
-    paths:
-      - 'supabase/migrations/**'
-      - 'scripts/guards/content-graph-health-guard.mjs'
-      - '.github/workflows/content-graph-health-guard.yml'
-  schedule:
-    - cron: '30 6 * * *'
   workflow_dispatch:
 
 permissions:

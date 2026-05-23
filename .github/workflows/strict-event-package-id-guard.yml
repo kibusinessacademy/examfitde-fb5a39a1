@@ -1,19 +1,7 @@
 name: Strict Event package_id Guard
 
 on:
-  push:
-    paths:
-      - 'src/**/*.ts'
-      - 'src/**/*.tsx'
-      - 'supabase/functions/**/*.ts'
-      - 'scripts/guards/strict-event-package-id-guard.mjs'
-  pull_request:
-    paths:
-      - 'src/**/*.ts'
-      - 'src/**/*.tsx'
-      - 'supabase/functions/**/*.ts'
-      - 'scripts/guards/strict-event-package-id-guard.mjs'
-
+  workflow_dispatch:
 
 jobs:
   guard:

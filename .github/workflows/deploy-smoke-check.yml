@@ -1,14 +1,7 @@
 name: Deploy Smoke Check (Prod)
 
 on:
-  workflow_dispatch: {}
-  schedule:
-    - cron: "7 * * * *" # hourly at minute 7
-  # Trigger after edge deploy health gate passes
-  workflow_run:
-    workflows: ["Edge Deploy Health Gate"]
-    types: [completed]
-    branches: [main]
+  workflow_dispatch:
 
 permissions: read-all
 

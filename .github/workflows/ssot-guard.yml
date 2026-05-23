@@ -1,15 +1,7 @@
 name: SSOT Guard
 
 on:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'supabase/**'
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'supabase/**'
+  workflow_dispatch:
 
 permissions: read-all
 

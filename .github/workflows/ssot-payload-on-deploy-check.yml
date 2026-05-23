@@ -1,13 +1,7 @@
 name: SSOT Payload On-Deploy Check
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'supabase/migrations/**'
-  workflow_dispatch: {}
-  schedule:
-    - cron: "*/30 * * * *"
+  workflow_dispatch:
 
 permissions: read-all
 

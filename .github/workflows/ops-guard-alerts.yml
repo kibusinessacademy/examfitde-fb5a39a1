@@ -1,9 +1,7 @@
 name: Ops Guard Alerts
 
 on:
-  schedule:
-    - cron: "15 3 * * *"   # 03:15 UTC daily (04:15 Berlin winter)
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

@@ -2,15 +2,6 @@ name: empty-courses-backfill
 
 on:
   workflow_dispatch:
-    inputs:
-      limit:
-        description: "Max courses to backfill (0 = all)"
-        required: false
-        default: "0"
-      dry_run:
-        description: "Dry run (list only, no RPC calls)"
-        required: false
-        default: "false"
 
 permissions: read-all
 

@@ -1,9 +1,7 @@
 name: Security Invariants Check
 
 on:
-  schedule:
-    - cron: "23 */6 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

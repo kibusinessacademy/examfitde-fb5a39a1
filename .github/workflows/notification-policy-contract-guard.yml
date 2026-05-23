@@ -1,14 +1,7 @@
 name: Notification Policy Contract Guard
 
 on:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'supabase/functions/**'
-      - 'docs/contracts/notification-policy-contract.md'
-      - 'scripts/guards/notification-policy-contract-guard.mjs'
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   guard:

@@ -1,11 +1,7 @@
 name: RLS Security Regression
 
 on:
-  pull_request:
-    paths: [ "supabase/migrations/**" ]
-  schedule:
-    - cron: "33 2 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

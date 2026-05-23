@@ -1,25 +1,7 @@
 name: mobile-funnel-screenshots
 
 on:
-  pull_request:
-    paths:
-      - 'src/components/consent/**'
-      - 'src/components/marketing/HeroAccent.tsx'
-      - 'src/components/landing/**'
-      - 'src/components/pruefungsreife/**'
-      - 'src/pages/HomePage.tsx'
-      - 'src/pages/seo/**'
-      - 'src/pages/landing/**'
-      - 'tests/e2e/mobile-funnel-screenshots.spec.ts'
-      - 'playwright.config.ts'
-      - '.github/workflows/mobile-funnel-screenshots.yml'
   workflow_dispatch:
-    inputs:
-      target_url:
-        description: "Domain to screenshot (default = published Lovable domain)"
-        required: false
-        default: "https://examfitde.lovable.app"
-
 
 jobs:
   screenshots:

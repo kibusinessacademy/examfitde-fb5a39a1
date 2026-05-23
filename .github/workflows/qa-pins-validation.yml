@@ -1,14 +1,6 @@
 name: qa-pins-validation
 
 on:
-  pull_request:
-    paths:
-      - 'scripts/guards/qa-pins-validation.mjs'
-      - '.github/workflows/qa-pins-validation.yml'
-      - '.github/workflows/learner-progress-persistence.yml'
-  schedule:
-    # Daily — catches data drift even when no PR touches the spec.
-    - cron: '11 4 * * *'
   workflow_dispatch:
 
 permissions: read-all

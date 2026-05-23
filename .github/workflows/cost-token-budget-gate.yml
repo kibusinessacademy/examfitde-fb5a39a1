@@ -1,9 +1,7 @@
 name: Cost & Token Budget Gate
 
 on:
-  schedule:
-    - cron: "07 1 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

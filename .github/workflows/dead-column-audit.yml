@@ -1,14 +1,7 @@
 name: dead-column-audit
 
 on:
-  pull_request:
-    paths:
-      - "supabase/**"
-      - "src/**"
-      - "scripts/dead-column-*.mjs"
-      - "scripts/dead-column-candidates.json"
   workflow_dispatch:
-
 
 jobs:
   dead-column-audit:

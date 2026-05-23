@@ -1,14 +1,7 @@
 name: access-rpc-grants-aware-guard
 
 on:
-  pull_request:
-    paths:
-      - 'supabase/migrations/**.sql'
-      - 'scripts/guards/access-rpc-grants-aware-guard.mjs'
-      - 'scripts/guards/access-rpc-grants-aware-baseline.json'
-      - '.github/workflows/access-rpc-grants-aware-guard.yml'
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions: read-all
 

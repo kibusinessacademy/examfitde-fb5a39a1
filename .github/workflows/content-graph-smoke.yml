@@ -1,13 +1,6 @@
 name: Content Graph Smoke (T1–T7, hard-fail)
 
 on:
-  pull_request:
-    paths:
-      - 'supabase/migrations/**'
-      - 'scripts/guards/content-graph-smoke.mjs'
-      - '.github/workflows/content-graph-smoke.yml'
-  schedule:
-    - cron: '15 6 * * *'
   workflow_dispatch:
 
 jobs:

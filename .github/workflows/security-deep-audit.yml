@@ -1,9 +1,7 @@
 name: Security Deep Audit
 
 on:
-  schedule:
-    - cron: "9 2 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

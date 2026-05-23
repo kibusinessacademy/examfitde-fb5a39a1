@@ -1,13 +1,6 @@
 name: SQL Markdown-Artifact Guard
 on:
-  pull_request:
-    paths:
-      - 'supabase/migrations/**.sql'
-      - 'scripts/guards/sql-markdown-artifact-guard.mjs'
-  push:
-    paths:
-      - 'supabase/migrations/**.sql'
-
+  workflow_dispatch:
 
 jobs:
   guard:

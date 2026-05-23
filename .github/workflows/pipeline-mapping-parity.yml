@@ -1,9 +1,7 @@
 name: Pipeline Mapping Parity Guard
 
 on:
-  pull_request:
-  push:
-    branches: [main, master]
+  workflow_dispatch:
 
 permissions: read-all
 

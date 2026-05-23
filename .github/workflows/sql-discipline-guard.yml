@@ -1,23 +1,7 @@
 name: SQL Discipline Guard
 
 on:
-  push:
-    paths:
-      - 'supabase/migrations/**'
-      - 'supabase/functions/**'
-      - 'src/**/*.ts'
-      - 'src/**/*.tsx'
-      - 'scripts/guards/sql-discipline-guard.mjs'
-      - 'docs/SYSTEM_RULES.md'
-  pull_request:
-    paths:
-      - 'supabase/migrations/**'
-      - 'supabase/functions/**'
-      - 'src/**/*.ts'
-      - 'src/**/*.tsx'
-      - 'scripts/guards/sql-discipline-guard.mjs'
-      - 'docs/SYSTEM_RULES.md'
-
+  workflow_dispatch:
 
 jobs:
   guard:

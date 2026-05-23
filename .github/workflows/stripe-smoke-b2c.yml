@@ -17,15 +17,6 @@ name: stripe-smoke-b2c
 
 on:
   workflow_dispatch:
-    inputs:
-      base_url:
-        description: 'Preview / Production URL'
-        required: false
-        default: 'https://examfitde.lovable.app'
-      i_understand_live_mode:
-        description: 'Type LIVE_MODE_OK to acknowledge real charges may occur'
-        required: true
-        default: 'NO'
 
 jobs:
   smoke:

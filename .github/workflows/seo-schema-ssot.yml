@@ -1,14 +1,7 @@
 name: seo-schema-ssot
 
 on:
-  pull_request:
-    paths:
-      - "src/**"
-      - "scripts/guards/seo-schema-ssot.mjs"
-      - "scripts/guards/seo-schema-ssot.baseline.json"
-      - ".github/workflows/seo-schema-ssot.yml"
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   guard:

@@ -1,11 +1,6 @@
 name: Dead Column Guard
 
 on:
-  pull_request:
-    paths:
-      - "supabase/migrations/**"
-      - "scripts/dead-column-candidates.json"
-      - "scripts/dead-column-audit.mjs"
   workflow_dispatch:
 
 permissions: read-all

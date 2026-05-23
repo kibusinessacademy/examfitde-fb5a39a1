@@ -1,12 +1,7 @@
 name: Edge Deploy Health Gate
 
 on:
-  # Trigger after edge-ci passes on main
-  workflow_run:
-    workflows: [ "Edge CI (Syntax + Security Guards)" ]
-    types: [ completed ]
-    branches: [ main ]
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

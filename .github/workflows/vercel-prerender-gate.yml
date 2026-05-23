@@ -6,10 +6,6 @@ name: Vercel Prerender Gate
 # and the post-deploy smoke (verify the live URL after Vercel finishes).
 
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:

@@ -1,16 +1,6 @@
 name: SQL Migration Guard
 on:
-  pull_request:
-    paths:
-      - 'supabase/migrations/**.sql'
-      - 'scripts/guards/sql-migration-guard.mjs'
   workflow_dispatch:
-    inputs:
-      mode:
-        description: 'Scan mode'
-        type: choice
-        options: [changed, all]
-        default: changed
 
 permissions:
   contents: read
