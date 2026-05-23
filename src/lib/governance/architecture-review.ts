@@ -224,9 +224,14 @@ export function reviewArchitecture(proposal: ArchitectureProposal): Architecture
   }
 
   // SSOT_FIRST + EXTEND_EXISTING: starkes Reuse-Signal
-  const ssotMatch = reuse.find(
-    (s) => s.kind === proposal.kind || (s.kind === 'table' && proposal.kind === 'view'),
-  );
+  // Bridge-Intent: View/RPC mit ≥2 touches gilt als Bridge, nicht als Duplikat
+  const isBridgeIntent =
+    (proposal.kind === 'view' || proposal.kind === 'rpc') && (proposal.touches?.length ?? 0) >= 2;
+  const ssotMatch = isBridgeIntent
+    ? undefined
+    : reuse.find(
+        (s) => s.kind === proposal.kind || (s.kind === 'table' && proposal.kind === 'view'),
+      );
   if (ssotMatch) {
     findings.push({
       rule: 'EXTEND_EXISTING',

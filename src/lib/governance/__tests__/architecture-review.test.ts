@@ -116,8 +116,9 @@ describe('architecture-review v1.1', () => {
 
   it('Core hat keine Supabase-Imports', async () => {
     const fs = await import('node:fs');
+    const path = await import('node:path');
     const src = fs.readFileSync(
-      new URL('../architecture-review.ts', import.meta.url),
+      path.resolve(process.cwd(), 'src/lib/governance/architecture-review.ts'),
       'utf8',
     );
     expect(src).not.toMatch(/@\/integrations\/supabase/);
