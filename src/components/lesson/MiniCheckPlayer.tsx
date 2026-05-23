@@ -8,6 +8,11 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import ProactiveHelpHints from '@/components/support/ProactiveHelpHints';
+import MiniCheckTutorFeedback, {
+  type MiniCheckTutorContext,
+  type MiniCheckTutorResult,
+  type MiniCheckWrongItem,
+} from './MiniCheckTutorFeedback';
 
 export interface MiniCheckQuestion {
   id: string;
@@ -32,23 +37,35 @@ interface MiniCheckPlayerProps {
   lessonId?: string | null;
   certificationId?: string | null;
   competenceId?: string | null;
+  // Tutor-Feedback v1: optional, fail-closed wenn unvollständig
+  curriculumId?: string | null;
+  competencyCode?: string | null;
+  competencyTitle?: string | null;
+  stepKey?: string | null;
   onCompleted?: (score: number, maxScore: number) => void;
 }
 
 interface QuestionResult {
   questionId: string;
+  questionText: string;
   selectedIndex: number;
-  isCorrect: boolean;
+  selectedText: string;
   correctIndex: number;
+  correctText: string;
+  isCorrect: boolean;
   explanation: string;
 }
 
-export default function MiniCheckPlayer({ 
-  content, 
+export default function MiniCheckPlayer({
+  content,
   lessonId,
   certificationId,
   competenceId,
-  onCompleted 
+  curriculumId,
+  competencyCode,
+  competencyTitle,
+  stepKey,
+  onCompleted,
 }: MiniCheckPlayerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -120,11 +137,16 @@ export default function MiniCheckPlayer({
   const finishAnswer = (result: { is_correct: boolean; correct_index: number; explanation: string }) => {
     setHasAnswered(true);
 
+    const correctOption = currentQuestion.options[result.correct_index];
+    const selectedOption = currentQuestion.options[selectedIndex!];
     setResults(prev => [...prev, {
       questionId: currentQuestion.id,
+      questionText: currentQuestion.text,
       selectedIndex: selectedIndex!,
-      isCorrect: result.is_correct,
+      selectedText: selectedOption?.text ?? '',
       correctIndex: result.correct_index,
+      correctText: correctOption?.text ?? '',
+      isCorrect: result.is_correct,
       explanation: result.explanation,
     }]);
 
@@ -212,60 +234,92 @@ export default function MiniCheckPlayer({
     const passed = scorePercent >= passingScore;
     const { correct, total } = getScore();
 
+    const wrongItems: MiniCheckWrongItem[] = results
+      .filter(r => !r.isCorrect)
+      .map(r => ({
+        questionId: r.questionId,
+        questionText: r.questionText,
+        selectedText: r.selectedText,
+        correctText: r.correctText,
+        explanation: r.explanation,
+      }));
+
+    const tutorContext: MiniCheckTutorContext = {
+      curriculumId: curriculumId ?? null,
+      competencyId: competenceId ?? null,
+      lessonId: lessonId ?? null,
+      stepKey: stepKey ?? 'mini_check',
+      competencyCode: competencyCode ?? null,
+      competencyTitle: competencyTitle ?? null,
+    };
+
+    const tutorResult: MiniCheckTutorResult = {
+      passed,
+      scorePercent,
+      correct,
+      total,
+      wrongItems,
+    };
+
     return (
-      <Card className="glass-card" data-testid="minicheck-result">
-        <CardContent className="p-8 text-center space-y-6">
-          <div className={cn(
-            "w-20 h-20 rounded-full mx-auto flex items-center justify-center",
-            passed ? "bg-green-500/20" : "bg-amber-500/20"
-          )}>
-            {passed ? (
-              <Trophy className="h-10 w-10 text-green-500" />
-            ) : (
-              <RotateCcw className="h-10 w-10 text-amber-500" />
-            )}
-          </div>
-
-          <div>
-            <h3 className="text-2xl font-bold mb-2">
-              {passed ? 'Großartig!' : 'Noch nicht ganz...'}
-            </h3>
-            <p className="text-muted-foreground">
-              {passed 
-                ? 'Du hast den Mini-Check bestanden!' 
-                : `Du brauchst mindestens ${passingScore}% um zu bestehen.`}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="text-4xl font-bold" data-testid="minicheck-result-score">
-              {correct} / {total}
+      <div className="space-y-6">
+        <Card className="glass-card" data-testid="minicheck-result">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className={cn(
+              "w-20 h-20 rounded-full mx-auto flex items-center justify-center",
+              passed ? "bg-green-500/20" : "bg-amber-500/20"
+            )}>
+              {passed ? (
+                <Trophy className="h-10 w-10 text-green-500" />
+              ) : (
+                <RotateCcw className="h-10 w-10 text-amber-500" />
+              )}
             </div>
-            <Progress value={scorePercent} className="h-3" />
-            <p className="text-sm text-muted-foreground">
-              {scorePercent}% richtig
-            </p>
-          </div>
 
-          {!passed && (
-            <Button onClick={handleRetry} variant="outline" className="gap-2">
-              <RotateCcw className="h-4 w-4" />
-              Erneut versuchen
-            </Button>
-          )}
+            <div>
+              <h3 className="text-2xl font-bold mb-2">
+                {passed ? 'Großartig!' : 'Noch nicht ganz...'}
+              </h3>
+              <p className="text-muted-foreground">
+                {passed
+                  ? 'Du hast den Mini-Check bestanden!'
+                  : `Du brauchst mindestens ${passingScore}% um zu bestehen.`}
+              </p>
+            </div>
 
-          {/* Humor after result */}
-          {certificationId && (
-            <SurfaceHumorCard
-              certificationId={certificationId}
-              surface="minicheck_result"
-              competenceId={competenceId}
-              lessonId={lessonId}
-              variant="inline"
-            />
-          )}
-        </CardContent>
-      </Card>
+            <div className="space-y-2">
+              <div className="text-4xl font-bold" data-testid="minicheck-result-score">
+                {correct} / {total}
+              </div>
+              <Progress value={scorePercent} className="h-3" />
+              <p className="text-sm text-muted-foreground">
+                {scorePercent}% richtig
+              </p>
+            </div>
+
+            {!passed && (
+              <Button onClick={handleRetry} variant="outline" className="gap-2">
+                <RotateCcw className="h-4 w-4" />
+                Erneut versuchen
+              </Button>
+            )}
+
+            {/* Humor after result */}
+            {certificationId && (
+              <SurfaceHumorCard
+                certificationId={certificationId}
+                surface="minicheck_result"
+                competenceId={competenceId}
+                lessonId={lessonId}
+                variant="inline"
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* MiniCheck Tutor Feedback v1 — fail-closed wenn Kontext unvollständig */}
+        <MiniCheckTutorFeedback context={tutorContext} result={tutorResult} />
+      </div>
     );
   }
 

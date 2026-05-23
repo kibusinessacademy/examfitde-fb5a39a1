@@ -17,6 +17,10 @@ interface LessonContentProps {
   lessonId?: string;
   certificationId?: string | null;
   competenceId?: string | null;
+  curriculumId?: string | null;
+  competencyCode?: string | null;
+  competencyTitle?: string | null;
+  stepKey?: string | null;
   onH5PCompleted?: (score?: number, maxScore?: number) => void;
   onH5PProgress?: (progress: number) => void;
   onMiniCheckCompleted?: (score: number, maxScore: number) => void;
@@ -112,12 +116,16 @@ function ContentPlaceholder({
   );
 }
 
-export default function LessonContent({ 
-  content, 
+export default function LessonContent({
+  content,
   h5pContentId,
   lessonId,
   certificationId,
   competenceId,
+  curriculumId,
+  competencyCode,
+  competencyTitle,
+  stepKey,
   onH5PCompleted,
   onH5PProgress,
   onMiniCheckCompleted
@@ -163,6 +171,10 @@ export default function LessonContent({
             lessonId={lessonId}
             certificationId={certificationId}
             competenceId={competenceId}
+            curriculumId={curriculumId}
+            competencyCode={competencyCode}
+            competencyTitle={competencyTitle}
+            stepKey={stepKey}
             onCompleted={onMiniCheckCompleted}
           />
         );
@@ -233,11 +245,15 @@ export default function LessonContent({
     }
     
     return (
-      <MiniCheckPlayer 
+      <MiniCheckPlayer
         content={source}
         lessonId={lessonId}
-            certificationId={certificationId}
-            competenceId={competenceId}
+        certificationId={certificationId}
+        competenceId={competenceId}
+        curriculumId={curriculumId}
+        competencyCode={competencyCode}
+        competencyTitle={competencyTitle}
+        stepKey={stepKey}
         onCompleted={onMiniCheckCompleted}
       />
     );
@@ -258,6 +274,10 @@ export default function LessonContent({
             lessonId={lessonId}
             certificationId={certificationId}
             competenceId={competenceId}
+            curriculumId={curriculumId}
+            competencyCode={competencyCode}
+            competencyTitle={competencyTitle}
+            stepKey={stepKey}
             onCompleted={onMiniCheckCompleted}
           />
         </div>

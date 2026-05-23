@@ -484,6 +484,10 @@ export default function LessonPlayer() {
               lessonId={lesson.id}
               certificationId={certificationId}
               competenceId={lesson.competency_id}
+              curriculumId={course.curriculum_id}
+              competencyCode={competency.code}
+              competencyTitle={competency.title}
+              stepKey={lesson.step}
               onH5PCompleted={handleH5PCompleted}
               onH5PProgress={handleH5PProgress}
               onMiniCheckCompleted={handleMiniCheckCompleted}
