@@ -581,3 +581,174 @@ function RuntimePreflightPanel() {
     </div>
   );
 }
+
+// ─── Runtime Graph Panel (v1.3) ─────────────────────────────────────
+function RuntimeGraphPanel() {
+  const graph = useMemo(() => deriveSemanticRuntimeGraph(), []);
+  const { nodes, edges, metrics } = graph;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <Card className="lg:col-span-1">
+        <CardHeader>
+          <CardTitle className="text-base">Semantic Runtime Graph</CardTitle>
+          <CardDescription>
+            Pure derivation aus <code className="font-mono">known-systems.ts</code>. Keine DB-Reads, kein State.
+            Reine semantische Sicht auf Plattform-Topologie.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <Stat label="Nodes" value={metrics.total_nodes} />
+            <Stat label="Edges" value={metrics.total_edges} />
+            <Stat label="Neighbor" value={metrics.total_neighbor_edges} />
+            <Stat label="Audit-Edges" value={metrics.total_audit_edges} />
+            <Stat label="Orphans" value={metrics.orphans.length} />
+            <Stat label="Cross-Domain" value={metrics.cross_domain_coupling.length} />
+          </div>
+          <div>
+            <Label className="text-xs">Domains</Label>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {Object.entries(metrics.domains).sort().map(([d, n]) => (
+                <Badge key={d} variant="outline" className="text-[10px] font-mono">{d}: {n}</Badge>
+              ))}
+            </div>
+          </div>
+          <CopyButton
+            value={() => JSON.stringify({ nodes, edges, metrics }, null, 2)}
+            variant="button"
+            label="Graph als JSON"
+            toastLabel="Runtime-Graph kopiert"
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">Plattform-Hubs &amp; Cascade-Risks</CardTitle>
+          <CardDescription>Welche Systeme sind zentral, welche kaskadieren am weitesten?</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <Section title={`Hubs (${metrics.hubs.length})`}>
+            {metrics.hubs.length === 0 ? (
+              <p className="text-sm text-fg-muted">Keine Hub-Systeme erkannt.</p>
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {metrics.hubs.map((h) => (
+                  <li key={h.node} className="flex items-center justify-between gap-2">
+                    <span className="font-mono">{h.node}</span>
+                    <Badge variant="secondary" className="text-[10px]">degree {h.degree}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          <Section title={`Cascade-Risks (${metrics.cascade_risks.length})`}>
+            {metrics.cascade_risks.length === 0 ? (
+              <p className="text-sm text-fg-muted">Keine signifikante Cascade-Reach.</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {metrics.cascade_risks.map((r) => (
+                  <li key={r.node} className="border-l-2 border-border-default pl-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono">{r.node}</span>
+                      <Badge variant="destructive" className="text-[10px]">reach {r.downstream_reach}</Badge>
+                    </div>
+                    <div className="text-xs text-fg-muted mt-0.5">
+                      → {r.downstream_sample.join(', ')}{r.downstream_reach > r.downstream_sample.length ? ' …' : ''}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          <Section title={`Unhealable / Partially-Healable (${metrics.unhealable.length})`}>
+            {metrics.unhealable.length === 0 ? (
+              <p className="text-sm text-fg-muted">Alle Systeme vollständig heilbar.</p>
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {metrics.unhealable.slice(0, 10).map((u) => (
+                  <li key={u.node} className="flex items-center justify-between gap-2">
+                    <span className="font-mono">{u.node}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px]">score {u.score}/5</Badge>
+                      <span className="text-xs text-fg-muted">{u.missing.join(', ')}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+
+          <Section title={`Cross-Domain-Coupling (${metrics.cross_domain_coupling.length})`}>
+            {metrics.cross_domain_coupling.length === 0 ? (
+              <p className="text-sm text-fg-muted">Keine direkten Cross-Domain-Edges.</p>
+            ) : (
+              <ul className="space-y-1 text-sm">
+                {metrics.cross_domain_coupling.slice(0, 12).map((c, i) => (
+                  <li key={i} className="text-xs">
+                    <span className="font-mono">{c.from}</span>
+                    <span className="text-fg-muted"> ({c.from_domain}) → </span>
+                    <span className="font-mono">{c.to}</span>
+                    <span className="text-fg-muted"> ({c.to_domain})</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-3">
+        <CardHeader>
+          <CardTitle className="text-base">Alle Nodes ({nodes.length})</CardTitle>
+          <CardDescription>Sortiert nach Name. Healability-Score, Domain, Degree.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-fg-muted">
+                <tr className="border-b border-border-default">
+                  <th className="text-left py-1 px-2">Name</th>
+                  <th className="text-left py-1 px-2">Kind</th>
+                  <th className="text-left py-1 px-2">Domain</th>
+                  <th className="text-left py-1 px-2">Owner</th>
+                  <th className="text-right py-1 px-2">in</th>
+                  <th className="text-right py-1 px-2">out</th>
+                  <th className="text-right py-1 px-2">heal</th>
+                  <th className="text-left py-1 px-2">drift?</th>
+                </tr>
+              </thead>
+              <tbody>
+                {nodes.map((n) => (
+                  <tr key={n.name} className="border-b border-border-default/50">
+                    <td className="py-1 px-2 font-mono">{n.name}</td>
+                    <td className="py-1 px-2">{n.kind}</td>
+                    <td className="py-1 px-2">{n.domain ?? '—'}</td>
+                    <td className="py-1 px-2">{n.ownership ?? '—'}</td>
+                    <td className="py-1 px-2 text-right">{n.degree_in}</td>
+                    <td className="py-1 px-2 text-right">{n.degree_out}</td>
+                    <td className={`py-1 px-2 text-right ${n.healability_score < 5 ? 'text-status-fg-warning' : ''}`}>{n.healability_score}/5</td>
+                    <td className="py-1 px-2">{n.has_drift_signal ? '✓' : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="border border-border-default rounded-md p-2">
+      <div className="text-[10px] text-fg-muted uppercase tracking-wide">{label}</div>
+      <div className="text-lg font-mono text-fg-default">{value}</div>
+    </div>
+  );
+}
+
