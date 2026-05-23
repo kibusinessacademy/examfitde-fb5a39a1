@@ -20,6 +20,7 @@ import LessonHero from '@/components/lesson/LessonHero';
 import PageExplainer from '@/components/admin/PageExplainer';
 import LessonContent from '@/components/lesson/LessonContent';
 import LessonNavigation from '@/components/lesson/LessonNavigation';
+import LessonTutorBox from '@/components/lesson/LessonTutorBox';
 import { LearningGoalFeedback } from '@/components/course/LearningGoalFeedback';
 
 interface Lesson {
