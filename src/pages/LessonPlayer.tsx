@@ -527,6 +527,22 @@ export default function LessonPlayer() {
           onComplete={() => completeLesson()}
           onNavigate={navigateToLesson}
         />
+
+        <div className="max-w-4xl mx-auto mt-10">
+          <PageExplainer
+            title="So funktioniert der Lernweg"
+            description="Jede Lektion durchläuft mehrere Schritte (Einstieg, Verstehen, Anwenden, Wiederholen, Mini-Check). Mini-Checks geben Feedback zu deinem Lernstand. Ab 80% gilt ein Lernziel als gemeistert."
+            actions={[
+              '„Als abgeschlossen markieren" schließt den aktuellen Schritt ab',
+              'Mini-Check prüft dein Wissen – bei < 80% kannst du wiederholen',
+              'Über die Navigation wechselst du zum vorherigen oder nächsten Schritt',
+            ]}
+            tips={[
+              'Vorherige Schritte müssen abgeschlossen sein, bevor der nächste freischaltet',
+              'Bei H5P-Inhalten wird dein Score automatisch erfasst',
+            ]}
+          />
+        </div>
       </div>
     </div>
   );
