@@ -160,12 +160,13 @@ function FilePreview({ file, inlineLimit }: { file: ManifestFile | null; inlineL
 
 export default function ExportPreviewPage() {
   const { packageId } = useParams<{ packageId: string }>();
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ["export-manifest", packageId],
-    queryFn: () => fetchExportManifest(packageId!),
+    queryKey: ["export-manifest", packageId, refreshTick],
+    queryFn: () => fetchExportManifest(packageId!, { refresh: refreshTick > 0 }),
     enabled: !!packageId,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 
   const tree = useMemo(() => (data ? buildTree(data.files) : null), [data]);
@@ -173,6 +174,8 @@ export default function ExportPreviewPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [picked, setPicked] = useState<ManifestFile | null>(null);
   const [exporting, setExporting] = useState(false);
+
+  const handleRefresh = () => { setRefreshTick((n) => n + 1); refetch(); };
 
   // initialize selection: all non-blocked
   useMemo(() => {
@@ -229,7 +232,7 @@ export default function ExportPreviewPage() {
             <p className="text-xs text-muted-foreground mt-1 font-mono">{packageId}</p>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <Button size="sm" variant="outline" onClick={handleRefresh} disabled={isFetching}>
               <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? "animate-spin" : ""}`} />
               Manifest neu laden
             </Button>
