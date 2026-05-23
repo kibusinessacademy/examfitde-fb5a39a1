@@ -247,6 +247,9 @@ export default function ArchitecturePage() {
         <TabsContent value="runtime" className="mt-4">
           <RuntimePreflightPanel />
         </TabsContent>
+        <TabsContent value="graph" className="mt-4">
+          <RuntimeGraphPanel />
+        </TabsContent>
       </Tabs>
     </div>
   );
