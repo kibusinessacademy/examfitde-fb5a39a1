@@ -24,6 +24,7 @@ import {
   type RuleFinding,
 } from '@/lib/governance/architecture-review';
 import { runtimePlanToProposal, type RuntimeActionPlan } from '@/lib/governance/runtime-proposal-adapter';
+import { deriveSemanticRuntimeGraph } from '@/lib/governance/semantic-runtime-graph';
 import { ShieldCheck, AlertTriangle, Ban, Info } from 'lucide-react';
 
 const KIND_OPTIONS: { value: ProposalKind; label: string }[] = [
