@@ -137,6 +137,18 @@ export default function LessonPlayer() {
 
       setLesson(lessonData);
 
+      // Fetch competency (learner-facing label SSOT)
+      if (lessonData.competency_id) {
+        const { data: compData } = await supabase
+          .from('competencies')
+          .select('code, title')
+          .eq('id', lessonData.competency_id)
+          .maybeSingle();
+        if (compData) setCompetency({ code: compData.code ?? null, title: compData.title ?? null });
+      } else {
+        setCompetency({ code: null, title: null });
+      }
+
       // Fetch module
       const { data: moduleData } = await supabase
         .from('modules')
