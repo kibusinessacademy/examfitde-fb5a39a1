@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { HelmetProvider } from "react-helmet-async";
 import PlatformConsciencePage from "@/pages/admin/PlatformConsciencePage";
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -50,11 +51,13 @@ const SUMMARY = {
 function renderHub() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter>
-        <PlatformConsciencePage />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <HelmetProvider>
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <PlatformConsciencePage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </HelmetProvider>,
   );
 }
 
