@@ -204,9 +204,10 @@ describe('P18 Cut 2 — Audit-Metadata enthält keine Raw-Payloads / Secrets', (
 });
 
 describe('P18 Cut 2/3 — Static Pureness Guards', () => {
-  const policySrc = readFileSync(new URL('../p18-heal-policy.ts', import.meta.url), 'utf8');
-  const orchestratorSrc = readFileSync(new URL('../p18-orchestrator.ts', import.meta.url), 'utf8');
-  const executorSrc = readFileSync(new URL('../p18-heal-executor.functions.ts', import.meta.url), 'utf8');
+  const dir = resolve(process.cwd(), 'src/lib/governance');
+  const policySrc = readFileSync(resolve(dir, 'p18-heal-policy.ts'), 'utf8');
+  const orchestratorSrc = readFileSync(resolve(dir, 'p18-orchestrator.ts'), 'utf8');
+  const executorSrc = readFileSync(resolve(dir, 'p18-heal-executor.functions.ts'), 'utf8');
 
   it('p18-heal-policy.ts hat KEINEN Supabase-Import', () => {
     expect(policySrc).not.toMatch(/from\s+['"]@\/integrations\/supabase\/client['"]/);
