@@ -227,6 +227,12 @@ function BoundedHealRow({
   const [reason, setReason] = useState('');
   const [pendingAction, setPendingAction] = useState<HealAction | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bridgeReason, setBridgeReason] = useState('');
+  const [bridgeBusy, setBridgeBusy] = useState(false);
+  const canBridge =
+    !!ledgerRow &&
+    ['detected', 'escalated', 'heal_requested', 'healed', 'rejected'].includes(ledgerRow.status);
+
 
   async function handleRecord() {
     setBusy(true);
