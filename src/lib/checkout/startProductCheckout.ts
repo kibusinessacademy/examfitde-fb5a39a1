@@ -20,6 +20,18 @@ export interface CheckoutResult {
   price_id?: string | null;
   stripe_price_id?: string | null;
   error?: string;
+  /**
+   * Stable machine-code for UI handling. Currently emitted:
+   *   - "product_not_found"  → unbekannter Slug (mit suggested_url/fallback_url)
+   *   - "slug_ambiguous"     → mehrere Treffer (mit candidates[])
+   *   - "already_entitled"   → User hat den Kurs bereits
+   */
+  error_code?: "product_not_found" | "slug_ambiguous" | "already_entitled" | string;
+  original_slug?: string | null;
+  suggested_slug?: string | null;
+  suggested_url?: string | null;
+  fallback_url?: string | null;
+  candidates?: { slug: string; url: string }[];
   already_entitled?: boolean;
 }
 
