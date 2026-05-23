@@ -279,6 +279,8 @@ Deno.serve(async (req) => {
         success,
         failed,
         success_rate_pct: Number(successRate.toFixed(2)),
+        catalog_count: catalogCount ?? 0,
+        catalog_drift_count: catalogDriftCount,
         duration_ms: durationTotalMs,
         results,
       }),
