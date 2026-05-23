@@ -1,0 +1,4 @@
+{
+  "_comment": "Bekannte Memory-Refs, die NICHT in known-systems.ts gehören (Detail-Funktionen, lokale Helfer, Trigger, Views unterhalb der SSOT-Ebene). Pflegen, wenn neue SSOTs geboren werden.",
+  "allowed": []
+}
