@@ -3,6 +3,9 @@
  * (Safe-Action / Scaffold / Auto-Heal-Dispatch) in eine ArchitectureProposal
  * um, damit reviewArchitecture() darauf läuft.
  *
+ * v1.3: Healability + Event-Coupling werden mitgeführt, damit
+ * HEALABILITY_IS_REQUIRED und EVENT_DRIVEN_BY_DEFAULT greifen können.
+ *
  * Pure function. Keine Mutation, kein Supabase-Import, kein DB-Write.
  */
 
@@ -34,6 +37,18 @@ export interface RuntimeActionPlan {
     usesHasRole?: boolean;
     hasHiddenState?: boolean;
   };
+  /** v1.3 — Healability-Profil des Plans */
+  healability?: {
+    replayable?: boolean;
+    recoverable?: boolean;
+    auditable?: boolean;
+    observable?: boolean;
+    drift_detectable?: boolean;
+  };
+  /** v1.3 — Cross-Domain-Coupling */
+  emits_events?: string[];
+  consumes_events?: string[];
+  isBridgeAdapter?: boolean;
 }
 
 const VALID_KINDS: ReadonlySet<ProposalKind> = new Set([
@@ -44,7 +59,6 @@ function inferKind(plan: RuntimeActionPlan): ProposalKind {
   if (plan.target_type && VALID_KINDS.has(plan.target_type as ProposalKind)) {
     return plan.target_type as ProposalKind;
   }
-  // Heuristik aus Inventar
   if ((plan.planned_jobs ?? []).length > 0) return 'queue';
   if ((plan.planned_audit_actions ?? []).length > 0) return 'audit_log';
   if ((plan.planned_events ?? []).length > 0) return 'table';
@@ -82,5 +96,9 @@ export function runtimePlanToProposal(plan: RuntimeActionPlan): ArchitectureProp
     rlsStatus: plan.governance?.rlsStatus ?? 'not_applicable',
     usesHasRole: plan.governance?.usesHasRole ?? true,
     hasHiddenState: plan.governance?.hasHiddenState ?? false,
+    healability: plan.healability ?? undefined,
+    emits_events: sort(plan.emits_events),
+    consumes_events: sort(plan.consumes_events),
+    isBridgeAdapter: plan.isBridgeAdapter ?? false,
   };
 }
