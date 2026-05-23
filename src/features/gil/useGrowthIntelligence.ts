@@ -29,7 +29,7 @@ export function useGilBriefings(limit = 10) {
   return useQuery({
     queryKey: ['gil', 'briefings', limit],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('admin_get_growth_briefings' as never, { p_limit: limit });
+      const { data, error } = await supabase.rpc('admin_get_growth_briefings' as never, ({ p_limit: limit });
       if (error) throw error;
       return data ?? [];
     },
@@ -40,7 +40,7 @@ export function useGilSignals(limit = 50, severity?: string) {
   return useQuery({
     queryKey: ['gil', 'signals', limit, severity ?? 'all'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('admin_get_market_signals' as never, {
+      const { data, error } = await supabase.rpc('admin_get_market_signals' as never, ({
         p_limit: limit,
         p_severity: severity ?? null,
       });
@@ -65,7 +65,7 @@ export function useGilInsights(agentKind?: GilAgentKind, limit = 50) {
   return useQuery({
     queryKey: ['gil', 'insights', agentKind ?? 'all', limit],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('admin_get_agent_insights' as never, {
+      const { data, error } = await supabase.rpc('admin_get_agent_insights' as never, ({
         p_agent_kind: agentKind ?? null,
         p_limit: limit,
       });
@@ -80,7 +80,7 @@ export function useTriggerExecutiveBriefing() {
   return useMutation({
     mutationFn: async ({ reason, dryRun }: { reason: string; dryRun?: boolean }) => {
       // 1) audit-only RPC (admin gate + reason validation)
-      const { error: auditErr } = await supabase.rpc('admin_run_executive_briefing' as never, {
+      const { error: auditErr } = await supabase.rpc('admin_run_executive_briefing' as never, ({
         p_reason: reason,
         p_dry_run: dryRun ?? false,
       });
