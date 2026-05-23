@@ -79,6 +79,7 @@ export default function LessonPlayer() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [miniCheckKey, setMiniCheckKey] = useState(0);
   const [progressionBlocked, setProgressionBlocked] = useState<{ blocked: boolean; reason?: string; prevLessonId?: string } | null>(null);
+  const [competency, setCompetency] = useState<{ code: string | null; title: string | null }>({ code: null, title: null });
   const { syncMiniCheckResult } = useMiniCheckMasterySync();
   const certificationId = useCertificationFromCurriculum(course?.curriculum_id);
 
