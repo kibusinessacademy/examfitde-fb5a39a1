@@ -76,16 +76,44 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // ── Pull sellable catalog ──
+    // ── Pull the actually-checkoutable set ──
+    // SSOT for "user can complete a checkout today" is v_sellable_and_deliverable
+    // (joins published + delivery_ready + product_public + has_stripe_price).
+    // v_public_sellable_courses is the *catalog* set — wider, includes packages
+    // visible in /berufe but blocked downstream by the deliverable gate.
+    // We test the inner set; the gap is reported as drift KPI.
     const { data: rows, error: rowErr } = await admin
-      .from("v_public_sellable_courses")
-      .select("product_id, product_slug, canonical_slug")
-      .eq("is_sellable", true);
-    if (rowErr) throw new Error(`load sellable: ${rowErr.message}`);
+      .from("v_sellable_and_deliverable")
+      .select("course_package_id, product_id, product_slug")
+      .eq("is_sellable_and_deliverable", true);
+    if (rowErr) throw new Error(`load sellable_and_deliverable: ${rowErr.message}`);
 
-    let targets = (rows ?? []).filter(
-      (r) => r.canonical_slug && r.product_id,
-    ) as Array<{ product_id: string; product_slug: string; canonical_slug: string }>;
+    // Pull canonical_slug for each row from products
+    const productIds = (rows ?? []).map((r) => r.product_id).filter(Boolean) as string[];
+    const { data: prodRows } = await admin
+      .from("products")
+      .select("id, canonical_slug, slug")
+      .in("id", productIds.length ? productIds : ["00000000-0000-0000-0000-000000000000"]);
+    const slugByProductId = new Map(
+      (prodRows ?? []).map((p) => [p.id, p.canonical_slug ?? p.slug]),
+    );
+
+    let targets = (rows ?? [])
+      .map((r) => ({
+        product_id: r.product_id as string,
+        product_slug: r.product_slug as string,
+        canonical_slug: slugByProductId.get(r.product_id as string) ?? r.product_slug,
+      }))
+      .filter((t) => !!t.canonical_slug && !!t.product_id) as Array<{
+        product_id: string; product_slug: string; canonical_slug: string;
+      }>;
+
+    // Catalog-vs-deliverable drift KPI
+    const { count: catalogCount } = await admin
+      .from("v_public_sellable_courses")
+      .select("*", { count: "exact", head: true })
+      .eq("is_sellable", true);
+    const catalogDriftCount = (catalogCount ?? 0) - targets.length;
 
     if (mode === "sample") {
       const n = Math.max(1, Math.min(50, body.n ?? 5));
