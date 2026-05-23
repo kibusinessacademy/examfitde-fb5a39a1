@@ -346,7 +346,7 @@ function BoundedHealRow({
                     rows={2}
                     value={bridgeReason}
                     onChange={(e) => setBridgeReason(e.target.value)}
-                    placeholder="z. B. „Strategischer Kontext für nächstes Executive-Briefing"."
+                    placeholder="z. B. Strategischer Kontext fuer naechstes Executive-Briefing."
                   />
                 </div>
                 <div className="flex items-end">
