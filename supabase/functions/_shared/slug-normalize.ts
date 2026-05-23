@@ -137,20 +137,22 @@ export function suggestClosestSlug(
 ): { id: string; slug: string; overlap: number } | null {
   const norm = normalizeSlug(input);
   if (!norm || rows.length === 0) return null;
+  const inputTokens = norm.split("-").filter(Boolean);
+  if (inputTokens.length === 0) return null;
 
   let best: { id: string; slug: string; overlap: number } | null = null;
   for (const r of rows) {
     const candNorm = normalizeSlug(r.slug);
     if (!candNorm) continue;
-    let i = 0;
-    const max = Math.min(norm.length, candNorm.length);
-    while (i < max && norm[i] === candNorm[i]) i++;
-    // Trim partial-token overlap back to the previous "-" so we don't claim
-    // "industriekauf" matches "industriemechaniker".
-    let overlap = i;
-    while (overlap > 0 && norm[overlap - 1] !== "-" && overlap < norm.length) {
-      overlap--;
+    const candTokens = candNorm.split("-").filter(Boolean);
+    let sharedTokens = 0;
+    const max = Math.min(inputTokens.length, candTokens.length);
+    while (sharedTokens < max && inputTokens[sharedTokens] === candTokens[sharedTokens]) {
+      sharedTokens++;
     }
+    if (sharedTokens === 0) continue;
+    // Score by total chars of shared tokens (longer tokens = stronger signal).
+    const overlap = inputTokens.slice(0, sharedTokens).join("-").length;
     if (overlap < 4) continue;
     if (!best || overlap > best.overlap) {
       best = { id: r.id, slug: r.slug, overlap };
@@ -158,4 +160,5 @@ export function suggestClosestSlug(
   }
   return best;
 }
+
 
