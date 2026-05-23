@@ -198,7 +198,7 @@ export default function LessonContent({
   }
 
   // Text/HTML content
-  if (contentData.type === 'text' && (contentData.html || contentData.sections)) {
+  if (contentData.type === 'text' && (contentData.html != null || contentData.sections != null)) {
     return (
       <div className="space-y-4">
         <LessonSections content={contentData} />
@@ -250,7 +250,7 @@ export default function LessonContent({
       return (
         <div className="space-y-8">
           {/* Render structured sections (or html fallback) first if present */}
-          {(contentData.html || contentData.sections) && (
+          {(contentData.html != null || contentData.sections != null) && (
             <LessonSections content={contentData} />
           )}
           <MiniCheckPlayer
