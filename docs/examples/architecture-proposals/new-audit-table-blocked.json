@@ -1,0 +1,11 @@
+{
+  "kind": "audit_log",
+  "name": "marketing_audit_log",
+  "purpose": "Eigene Audit-Tabelle für Marketing-Aktionen, getrennt von auto_heal_log.",
+  "tags": ["audit", "marketing", "log"],
+  "proposed_tables": ["marketing_audit_log"],
+  "proposed_audit_actions": ["marketing_campaign_started", "marketing_campaign_paused"],
+  "hasAuditContract": false,
+  "rlsStatus": "on",
+  "usesHasRole": true
+}
