@@ -231,10 +231,10 @@ describe('P18 Cut 2/3 — Static Pureness Guards', () => {
     for (const c of rpcCalls) expect(allowed.has(c)).toBe(true);
   });
 
-  it('p18-heal-executor schreibt NICHT direkt in known-systems.ts (kein fs/fs-promises Import)', () => {
+  it('p18-heal-executor schreibt NICHT direkt in known-systems.ts (kein fs/fs-promises Import, kein writeFile)', () => {
     expect(executorSrc).not.toMatch(/from\s+['"]node:fs/);
-    expect(executorSrc).not.toMatch(/known-systems\.ts/);
-    expect(executorSrc).not.toMatch(/writeFile/);
+    expect(executorSrc).not.toMatch(/from\s+['"]fs['"]/);
+    expect(executorSrc).not.toMatch(/writeFile|writeFileSync|appendFile/);
   });
 
   it('keine "heal_all" / "auto_fix_all" Symbole', () => {
