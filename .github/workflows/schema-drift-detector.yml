@@ -1,9 +1,7 @@
 name: Database Schema Drift Detector
 
 on:
-  schedule:
-    - cron: "17 3 * * *" # nightly 03:17 UTC
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

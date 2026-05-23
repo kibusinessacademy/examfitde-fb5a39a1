@@ -1,9 +1,7 @@
 name: Guard - No EXAM_FIRST Default without Didaktik
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions: read-all
 

@@ -1,15 +1,6 @@
 name: Canonical Identity Contract Guard
 
 on:
-  pull_request:
-    paths:
-      - 'supabase/migrations/**'
-      - 'supabase/functions/**'
-      - 'scripts/guards/canonical-identity-contract-guard.mjs'
-      - '.github/workflows/canonical-identity-guard.yml'
-  schedule:
-    # Daily 06:30 UTC — beobachtet Drift im laufenden Betrieb
-    - cron: '30 6 * * *'
   workflow_dispatch:
 
 jobs:

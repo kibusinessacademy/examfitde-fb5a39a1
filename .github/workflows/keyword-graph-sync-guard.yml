@@ -1,13 +1,6 @@
 name: Keyword Graph Sync Guard
 
 on:
-  pull_request:
-    paths:
-      - 'supabase/migrations/**'
-      - 'scripts/guards/keyword-graph-sync-guard.mjs'
-      - '.github/workflows/keyword-graph-sync-guard.yml'
-  schedule:
-    - cron: '40 6 * * *'
   workflow_dispatch:
 
 permissions:

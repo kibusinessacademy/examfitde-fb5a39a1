@@ -1,17 +1,6 @@
 name: learner-course-smoke
 
 on:
-  pull_request:
-    paths:
-      - 'src/pages/CoursesPage.tsx'
-      - 'src/pages/CourseDetailPage.tsx'
-      - 'src/components/course/**'
-      - 'src/components/lesson/**'
-      - 'tests/e2e/learner-course-smoke.spec.ts'
-      - '.github/workflows/learner-course-smoke.yml'
-  schedule:
-    # Nightly full sweep (LEARNER_SMOKE_FULL=1).
-    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions: read-all

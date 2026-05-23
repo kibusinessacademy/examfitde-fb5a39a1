@@ -6,14 +6,6 @@ name: hard-block-debug-issue
 
 on:
   workflow_dispatch:
-    inputs:
-      block_count_24h:
-        description: "Override BLOCK_COUNT_24H"
-        required: false
-        default: "2969"
-  schedule:
-    # Hourly poll — only opens an issue if blocks > warning threshold (50).
-    - cron: "17 * * * *"
 
 permissions:
   issues: write

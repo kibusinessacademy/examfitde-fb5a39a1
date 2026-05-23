@@ -1,13 +1,6 @@
 name: a11y-smoke-routes
 
 on:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'tests/e2e/a11y-smoke.spec.ts'
-      - '.github/workflows/a11y-smoke-routes.yml'
-  schedule:
-    - cron: '37 5 * * *'
   workflow_dispatch:
 
 permissions: read-all

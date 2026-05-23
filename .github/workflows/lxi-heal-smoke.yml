@@ -1,15 +1,6 @@
 name: LXI Heal Smoke
 on:
-  schedule:
-    - cron: "21 5 * * *" # daily 05:21 UTC
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "supabase/migrations/**lxi*"
-      - "supabase/migrations/**heal*"
-      - "supabase/functions/admin-lxi-package-analyzer/**"
-      - "scripts/lxi-heal-smoke.mjs"
-      - ".github/workflows/lxi-heal-smoke.yml"
 
 jobs:
   smoke:

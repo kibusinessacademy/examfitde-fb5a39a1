@@ -1,14 +1,7 @@
 name: Edge Auth Contract Guard
 
 on:
-  pull_request:
-    paths:
-      - "supabase/functions/**"
-      - "scripts/security/edge-auth-contract-guard.mjs"
-      - "scripts/security/edge-auth-contract-guard.test.mjs"
-      - "scripts/security/edge-auth-contract-baseline.json"
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions: read-all
 

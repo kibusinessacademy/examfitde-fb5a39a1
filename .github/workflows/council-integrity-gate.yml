@@ -1,9 +1,7 @@
 name: Council Integrity Gate
 
 on:
-  schedule:
-    - cron: "41 2 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

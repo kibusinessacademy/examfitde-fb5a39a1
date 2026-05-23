@@ -5,18 +5,7 @@ name: b2c-ssot-server-smoke
 # nur synthetischer Order→Trigger→8-Artefakte-Pfad inkl. Idempotenz-Re-Run.
 
 on:
-  push:
-    paths:
-      - 'supabase/functions/stripe-webhook/**'
-      - 'supabase/functions/stripe-webhook-smoke/**'
-      - 'supabase/functions/create-product-checkout/**'
-      - 'supabase/functions/b2c-ssot-smoke/**'
-      - 'scripts/b2c-ssot-server-smoke.mjs'
-      - 'scripts/stripe-webhook-smoke.mjs'
-      - '.github/workflows/b2c-ssot-server-smoke.yml'
   workflow_dispatch:
-  schedule:
-    - cron: '17 */6 * * *' # alle 6h
 
 jobs:
   smoke:

@@ -7,27 +7,6 @@ name: Funnel Integrity Regression Guard
 #   - attribution_quality   (persona/source_page-Coverage)
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - "supabase/migrations/**"
-      - "scripts/funnel-integrity-check.mjs"
-      - ".github/workflows/funnel-integrity-guard.yml"
-      - "src/lib/conversionTracking.ts"
-      - "src/lib/funnelEvents.ts"
-      - "src/hooks/useTrackGrowthEvent.ts"
-      - "supabase/functions/track-funnel-event/**"
-  pull_request:
-    paths:
-      - "supabase/migrations/**"
-      - "scripts/funnel-integrity-check.mjs"
-      - "src/lib/conversionTracking.ts"
-      - "src/lib/funnelEvents.ts"
-      - "src/hooks/useTrackGrowthEvent.ts"
-      - "supabase/functions/track-funnel-event/**"
-  schedule:
-    # stündlich, 19. Minute (Versatz zu pricing-guard)
-    - cron: "19 * * * *"
   workflow_dispatch:
 
 jobs:

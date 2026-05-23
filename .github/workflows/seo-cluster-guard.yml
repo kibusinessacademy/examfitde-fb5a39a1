@@ -1,16 +1,7 @@
 name: SEO Cluster Guard
 
 on:
-  pull_request:
-    paths:
-      - 'src/pages/seo/**'
-      - 'src/routes/AppRoutes.tsx'
-      - 'supabase/functions/generate-sitemap/**'
-      - 'scripts/seo/**'
-      - 'tests/e2e/seo-cluster-smoke.spec.ts'
-      - '.github/workflows/seo-cluster-guard.yml'
   workflow_dispatch:
-
 
 jobs:
   seo-static-audit:

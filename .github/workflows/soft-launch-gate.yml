@@ -14,21 +14,6 @@ name: Soft Launch Gate
 
 on:
   workflow_dispatch:
-    inputs:
-      target:
-        description: "Named target: production | preview | local"
-        required: false
-        default: "preview"
-        type: choice
-        options: [ production, preview, local ]
-      base_url:
-        description: "Override base URL (wins over `target`)"
-        required: false
-        default: ""
-  repository_dispatch:
-    types: [ soft_launch_gate ]
-  # Auto-trigger after a successful deployment so each Publish runs the gate.
-  deployment_status:
 
 permissions: read-all
 

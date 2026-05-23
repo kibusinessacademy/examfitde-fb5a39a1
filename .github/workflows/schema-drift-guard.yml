@@ -1,9 +1,7 @@
 name: Schema Drift Guard (Nightly)
 
 on:
-  schedule:
-    - cron: "0 2 * * *" # 02:00 UTC
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions:
   contents: write

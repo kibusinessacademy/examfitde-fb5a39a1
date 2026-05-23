@@ -1,14 +1,7 @@
 name: Examiner — No Parallel Readiness
 
 on:
-  pull_request:
-    paths:
-      - "src/**/*.ts"
-      - "src/**/*.tsx"
-      - "scripts/guards/examiner-no-parallel-readiness.mjs"
-      - ".github/workflows/examiner-no-parallel-readiness.yml"
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   guard:

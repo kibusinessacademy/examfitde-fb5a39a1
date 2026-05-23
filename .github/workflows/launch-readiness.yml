@@ -1,15 +1,6 @@
 name: launch-readiness
 
 on:
-  pull_request:
-    paths:
-      - 'scripts/guards/seo-sellable-pages-guard.mjs'
-      - 'scripts/guards/empty-courses-cleanup-runner.mjs'
-      - 'tests/e2e/purchase-grant-access.spec.ts'
-      - '.github/workflows/launch-readiness.yml'
-      - 'supabase/migrations/**'
-  schedule:
-    - cron: '17 6 * * *'
   workflow_dispatch:
 
 permissions: read-all

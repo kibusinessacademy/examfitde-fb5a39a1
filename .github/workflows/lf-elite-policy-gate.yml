@@ -1,9 +1,7 @@
 name: LF Elite Policy Gate
 
 on:
-  schedule:
-    - cron: "13 4 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

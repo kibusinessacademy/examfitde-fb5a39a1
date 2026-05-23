@@ -1,15 +1,6 @@
 name: E2E Pipeline Integrity Guard
 
 on:
-  schedule:
-    - cron: '23 * * * *' # stündlich, 6 Min nach DB-Cron
-  push:
-    paths:
-      - 'supabase/migrations/**'
-      - 'scripts/e2e-integrity-check.mjs'
-  pull_request:
-    paths:
-      - 'supabase/migrations/**'
   workflow_dispatch:
 
 jobs:

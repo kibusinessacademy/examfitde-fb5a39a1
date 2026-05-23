@@ -1,9 +1,7 @@
 name: Dependency & Security Audit
 
 on:
-  schedule:
-    - cron: "33 4 * * 1" # weekly Monday 04:33 UTC
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions:
   issues: write

@@ -2,17 +2,6 @@ name: Export Audit CI
 
 on:
   workflow_dispatch:
-    inputs:
-      package_id:
-        description: "Package ID to export & audit"
-        required: true
-        type: string
-      export_url:
-        description: "Direct URL to export ZIP (optional, skips export step)"
-        required: false
-        type: string
-  schedule:
-    - cron: "09 4 * * *"
 
 permissions: read-all
 

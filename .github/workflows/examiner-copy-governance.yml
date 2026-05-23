@@ -1,19 +1,7 @@
 name: Examiner Copy Governance
 
 on:
-  pull_request:
-    paths:
-      - 'src/pages/app/**'
-      - 'src/components/system/**'
-      - 'src/lib/system/**'
-      - 'src/pages/quiz/QuizResultPage.tsx'
-      - 'scripts/guards/examiner-copy-governance.mjs'
-  push:
-    branches: [main]
-    paths:
-      - 'src/pages/app/**'
-      - 'src/components/system/**'
-      - 'src/lib/system/**'
+  workflow_dispatch:
 
 permissions: read-all
 

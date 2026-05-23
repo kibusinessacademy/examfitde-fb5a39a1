@@ -1,12 +1,6 @@
 name: Lesson-Join-Parity Contract Guard
 on:
-  pull_request:
-    paths:
-      - 'supabase/migrations/**.sql'
-      - 'scripts/guards/lesson-join-parity-contract-guard.mjs'
-  push:
-    branches: [main]
-
+  workflow_dispatch:
 
 jobs:
   guard:

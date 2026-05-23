@@ -1,19 +1,6 @@
 name: course-publish-guard
 
 on:
-  pull_request:
-    paths:
-      - 'supabase/migrations/**'
-      - 'scripts/guards/course-publish-guard-test.mjs'
-      - '.github/workflows/course-publish-guard.yml'
-  push:
-    branches: [ main ]
-    paths:
-      - 'supabase/migrations/**'
-      - 'scripts/guards/course-publish-guard-test.mjs'
-      - '.github/workflows/course-publish-guard.yml'
-  schedule:
-    - cron: '37 4 * * *' # nightly 04:37 UTC
   workflow_dispatch:
 
 permissions: read-all

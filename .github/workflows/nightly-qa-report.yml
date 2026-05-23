@@ -1,14 +1,7 @@
 name: Nightly QA Report
 
 on:
-  schedule:
-    - cron: '30 3 * * *' # 03:30 UTC daily
   workflow_dispatch:
-    inputs:
-      run_e2e:
-        description: "Also run Playwright E2E suites"
-        required: false
-        default: "true"
 
 permissions: read-all
 

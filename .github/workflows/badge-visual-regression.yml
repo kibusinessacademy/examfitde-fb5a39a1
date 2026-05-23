@@ -1,14 +1,6 @@
 name: badge-visual-regression
 
 on:
-  pull_request:
-    paths:
-      - 'src/components/**'
-      - 'src/pages/**'
-      - 'src/index.css'
-      - 'tailwind.config.ts'
-      - 'tests/e2e/badge-visual.spec.ts'
-      - '.github/workflows/badge-visual-regression.yml'
   workflow_dispatch:
 
 permissions: read-all

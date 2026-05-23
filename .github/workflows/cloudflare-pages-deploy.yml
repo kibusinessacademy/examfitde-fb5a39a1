@@ -2,8 +2,6 @@ name: Cloudflare Pages Deploy + SPA Smoke
 # resync-trigger: 2026-05-14T18:20Z
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 concurrency:

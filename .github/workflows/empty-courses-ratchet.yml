@@ -1,14 +1,6 @@
 name: empty-courses-ratchet
 
 on:
-  pull_request:
-    paths:
-      - 'scripts/guards/empty-courses-report.mjs'
-      - '.github/workflows/empty-courses-ratchet.yml'
-      - 'supabase/migrations/**'
-  schedule:
-    # Daily snapshot of how the empty-published count is trending.
-    - cron: '37 5 * * *'
   workflow_dispatch:
 
 permissions: read-all

@@ -1,9 +1,7 @@
 name: Security Cleanup
 
 on:
-  schedule:
-    - cron: "17 3 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

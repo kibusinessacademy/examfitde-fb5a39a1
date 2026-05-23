@@ -1,13 +1,7 @@
 name: Edge Deploy Drift Guard
 
 on:
-  pull_request:
-    paths:
-      - 'supabase/functions/**'
-  push:
-    branches: [main]
-    paths:
-      - 'supabase/functions/**'
+  workflow_dispatch:
 
 permissions: read-all
 

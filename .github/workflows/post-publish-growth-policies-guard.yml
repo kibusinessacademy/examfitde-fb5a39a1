@@ -1,15 +1,7 @@
 name: Post-Publish Growth Policies Guard
 
 on:
-  pull_request:
-    paths:
-      - 'supabase/functions/post-publish-growth-worker/**'
-      - 'supabase/migrations/**'
-      - 'scripts/guards/post-publish-growth-policies-guard.mjs'
-      - '.github/workflows/post-publish-growth-policies-guard.yml'
-  schedule:
-    - cron: '17 */6 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
   guard:

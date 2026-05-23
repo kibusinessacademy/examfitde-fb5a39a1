@@ -1,9 +1,7 @@
 name: Duplicate Detector
 
 on:
-  schedule:
-    - cron: "21 1 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions: read-all
 

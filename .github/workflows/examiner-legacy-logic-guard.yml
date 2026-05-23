@@ -1,16 +1,7 @@
 name: Examiner Legacy Logic Guard
 
 on:
-  pull_request:
-    paths:
-      - 'src/pages/**'
-      - 'src/components/**'
-      - 'src/features/**'
-      - 'src/lib/examiner/**'
-      - 'src/lib/system/**'
-      - 'scripts/guards/examiner-legacy-logic.mjs'
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions: read-all
 

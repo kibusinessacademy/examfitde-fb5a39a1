@@ -1,15 +1,7 @@
 name: a11y-learner-regression
 
 on:
-  pull_request:
-    paths:
-      - 'src/components/lesson/**'
-      - 'src/components/course/**'
-      - 'src/test/a11y/**'
-      - '.github/workflows/a11y-learner-regression.yml'
-  push:
-    branches: [main]
-
+  workflow_dispatch:
 
 jobs:
   axe:

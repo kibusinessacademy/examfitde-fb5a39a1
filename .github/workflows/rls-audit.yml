@@ -1,19 +1,7 @@
 name: RLS Audit (warn-only)
 
 on:
-  pull_request:
-    paths:
-      - "supabase/migrations/**"
-      - "scripts/security/rls-audit*.mjs"
-      - "scripts/security/rls-audit-baseline.json"
-      - ".github/workflows/rls-audit.yml"
   workflow_dispatch:
-    inputs:
-      ratchet:
-        description: "Run in RATCHET mode (fail on risky/added)"
-        required: false
-        default: "false"
-
 
 jobs:
   audit:

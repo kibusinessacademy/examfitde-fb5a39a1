@@ -1,19 +1,7 @@
 name: mobile-banner-cta-overlap
 
 on:
-  pull_request:
-    paths:
-      - 'src/components/consent/**'
-      - 'src/components/landing/beruf/BerufStickyCta.tsx'
-      - 'src/components/landing/bundle/BundleStickyCta.tsx'
-      - 'src/components/marketing/StickyCTA.tsx'
-      - 'src/components/product/StickyProductBar.tsx'
-      - 'src/components/shop/StickyPurchaseBar.tsx'
-      - 'src/hooks/useConsentBannerVisible.ts'
-      - 'tests/e2e/mobile-banner-cta-overlap.spec.ts'
-      - 'playwright.config.ts'
-      - '.github/workflows/mobile-banner-cta-overlap.yml'
-
+  workflow_dispatch:
 
 jobs:
   overlap:

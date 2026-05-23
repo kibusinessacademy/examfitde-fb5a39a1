@@ -1,17 +1,7 @@
 name: Publish Fanout Completeness Guard
 
 on:
-  push:
-    paths:
-      - 'scripts/guards/publish-fanout-completeness-guard.mjs'
-      - '.github/workflows/publish-fanout-completeness-guard.yml'
-  pull_request:
-    paths:
-      - 'scripts/guards/publish-fanout-completeness-guard.mjs'
-      - '.github/workflows/publish-fanout-completeness-guard.yml'
-  schedule:
-    - cron: '17 */6 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
   guard:
