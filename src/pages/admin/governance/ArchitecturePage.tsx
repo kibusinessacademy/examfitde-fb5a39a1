@@ -276,6 +276,21 @@ export default function ArchitecturePage() {
         </Card>
       </div>
 
+      {hookResult && (
+        <div className="rounded-md border border-border bg-surface-subtle p-3 text-xs text-fg-muted">
+          <strong className="text-fg-default">P18 Auto-Trigger</strong>
+          {' · '}
+          {hookResult.triggered
+            ? `${hookResult.recorded_keys.length} Drift-Signal(e) idempotent recorded`
+            : hookResult.reason === 'approved_no_findings'
+              ? 'Approved ohne Findings — kein Ledger-Write (no noise)'
+              : 'Keine Signale klassifiziert'}
+          {hookResult.errors.length > 0 && (
+            <span className="ml-2 text-status-fg-danger">· {hookResult.errors.length} RPC-Fehler</span>
+          )}
+        </div>
+      )}
+
       {review && <ReviewResult review={review} />}
         </TabsContent>
         <TabsContent value="runtime" className="mt-4">
