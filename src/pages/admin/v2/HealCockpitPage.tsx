@@ -96,6 +96,8 @@ import { StuckPatternsCard } from "@/components/admin/heal/cards/StuckPatternsCa
 import { AutoPublishRetryCard } from "@/components/admin/heal/cards/AutoPublishRetryCard";
 import { ManualRetryAuditCard } from "@/components/admin/heal/cards/ManualRetryAuditCard";
 import { BronzeQuarantineCard } from "@/components/admin/heal/cards/BronzeQuarantineCard";
+import { BronzeDrainWaveCard } from "@/components/admin/heal/cards/BronzeDrainWaveCard";
+import { ActiveJobReconciliationCard } from "@/components/admin/heal/cards/ActiveJobReconciliationCard";
 import { PreHeartbeatKillRiskCard } from "@/components/admin/heal/cards/PreHeartbeatKillRiskCard";
 import { PreHeartbeatKillForensicsCard } from "@/components/admin/heal/cards/PreHeartbeatKillForensicsCard";
 import { AggregateStateDiffCard } from "@/components/admin/heal/cards/AggregateStateDiffCard";
@@ -417,6 +419,8 @@ export default function HealCockpitPage() {
             <AutoPublishRetryCard />
             <ManualRetryAuditCard />
             <BronzeQuarantineCard />
+            <BronzeDrainWaveCard />
+            <ActiveJobReconciliationCard />
             <HealStatusCard />
             <SoftDriftMcRepairCard />
             <JobTypeWorkerAuditCard />
