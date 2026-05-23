@@ -335,3 +335,130 @@ function BriefingList({ title, items }: { title: string; items: any }) {
     </div>
   );
 }
+
+function ManualSignalForm() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [title, setTitle] = useState('');
+  const [summary, setSummary] = useState('');
+  const [signalType, setSignalType] = useState('manual_observation');
+  const [severity, setSeverity] = useState<'info' | 'warning' | 'critical'>('info');
+  const [source, setSource] = useState('manual');
+  const [tags, setTags] = useState('');
+  const [reason, setReason] = useState('');
+
+  const submit = async () => {
+    if (reason.trim().length < 8) {
+      toast.error('Reason muss ≥ 8 Zeichen haben.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const tagList = tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      await createManualMarketSignal({
+        title,
+        summary,
+        signal_type: signalType,
+        severity,
+        source,
+        tags: tagList,
+        reason,
+      });
+      toast.success('Signal angelegt');
+      setTitle('');
+      setSummary('');
+      setReason('');
+      setTags('');
+      qc.invalidateQueries({ queryKey: ['gil'] });
+      setOpen(false);
+    } catch (e) {
+      toast.error('Fehler beim Anlegen', { description: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <Card>
+        <CardContent className="py-3 flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Signal manuell anlegen (kein Auto-Collector — Reason ≥ 8 Zeichen Pflicht).
+          </p>
+          <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+            Manuelles Signal
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Manuelles Signal anlegen</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs">Titel</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Kurztitel" />
+          </div>
+          <div>
+            <Label className="text-xs">Quelle</Label>
+            <Input
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              placeholder="manual / press / partner …"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Signal-Type</Label>
+            <Input
+              value={signalType}
+              onChange={(e) => setSignalType(e.target.value)}
+              placeholder="manual_observation"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Severity</Label>
+            <select
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value as 'info' | 'warning' | 'critical')}
+            >
+              <option value="info">info</option>
+              <option value="warning">warning</option>
+              <option value="critical">critical</option>
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">Tags (Komma-getrennt)</Label>
+            <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="z. B. b2b, partnership" />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">Summary (optional)</Label>
+            <Textarea rows={2} value={summary} onChange={(e) => setSummary(e.target.value)} />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">Reason (≥ 8 Zeichen, Pflicht)</Label>
+            <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
+            Abbrechen
+          </Button>
+          <Button size="sm" onClick={submit} disabled={busy || reason.trim().length < 8 || title.trim().length < 3}>
+            {busy ? '…' : 'Signal anlegen'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
