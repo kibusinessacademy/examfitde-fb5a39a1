@@ -114,22 +114,132 @@ Deno.serve(async (req) => {
       logStep("idempotency check failed (non-fatal)", { error: String(idemErr) });
     }
 
-    // ── Load product ──
-    const { data: product, error: productError } = await adminClient
-      .from("products")
-      .select("id, slug, title, certification_id")
-      .eq("slug", productSlug)
-      .eq("status", "active")
-      .single();
+    // ── Load product (with slug recovery bridge) ──
+    // Strategy: exact → uuid_suffix_strip → normalized → prefix.
+    // Ambiguous matches fail-closed with audit so we never silently checkout
+    // the wrong course. Original input is also looked up against
+    // v_public_sellable_courses as a final safety net.
+    let product: { id: string; slug: string; title: string; certification_id: string | null } | null = null;
+    let recoveryStrategy: string = "exact";
+    let recoveryAuditNote: Record<string, unknown> | null = null;
 
-    if (productError || !product) {
-      logStep("Product not found", { slug: productSlug, error: productError?.message });
+    {
+      const { data: exact } = await adminClient
+        .from("products")
+        .select("id, slug, title, certification_id")
+        .eq("slug", productSlug)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (exact) {
+        product = exact;
+      } else {
+        // Pull all active product slugs (~few hundred rows) and run recovery
+        // in-memory. Cheaper than full-text/like and deterministic.
+        const { data: candidates } = await adminClient
+          .from("products")
+          .select("id, slug, title, certification_id")
+          .eq("status", "active");
+
+        const rows = (candidates ?? []).map((r) => ({ id: r.id, slug: r.slug }));
+        const rec = recoverProductSlug(productSlug, rows);
+
+        if (rec.matched) {
+          product = (candidates ?? []).find((r) => r.id === rec.matched!.id) ?? null;
+          recoveryStrategy = rec.strategy;
+          recoveryAuditNote = {
+            original_slug: productSlug,
+            normalized_input: normalizeSlug(productSlug),
+            resolved_product_id: rec.matched.id,
+            resolved_slug: rec.matched.slug,
+            strategy: rec.strategy,
+          };
+        } else if (rec.strategy === "ambiguous") {
+          await adminClient.from("auto_heal_log").insert({
+            action_type: "checkout_slug_ambiguous",
+            target_type: "products",
+            target_id: null,
+            result_status: "blocked",
+            metadata: {
+              user_id: user.id,
+              product_slug: productSlug,
+              normalized_input: normalizeSlug(productSlug),
+              candidates: rec.candidates.map((c) => ({ id: c.id, slug: c.slug })),
+              source: "create-product-checkout",
+            },
+          });
+          logStep("Slug recovery ambiguous", { slug: productSlug, count: rec.candidates.length });
+          return new Response(JSON.stringify({
+            ok: false,
+            error: "Mehrere Produkte passen zu diesem Link. Bitte wähle das Paket erneut über die Produktseite.",
+            error_code: "slug_ambiguous",
+          }), {
+            status: 409,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Final safety net: try v_public_sellable_courses (in case caller
+        // passed a public-course slug rather than a product slug).
+        if (!product) {
+          const { data: pubMatch } = await adminClient
+            .from("v_public_sellable_courses")
+            .select("product_id, product_slug")
+            .or(`product_slug.eq.${productSlug},product_slug.eq.${normalizeSlug(productSlug)}`)
+            .limit(2);
+          if (pubMatch && pubMatch.length === 1 && pubMatch[0].product_id) {
+            const { data: byId } = await adminClient
+              .from("products")
+              .select("id, slug, title, certification_id")
+              .eq("id", pubMatch[0].product_id)
+              .eq("status", "active")
+              .maybeSingle();
+            if (byId) {
+              product = byId;
+              recoveryStrategy = "sellable_view";
+              recoveryAuditNote = {
+                original_slug: productSlug,
+                resolved_product_id: byId.id,
+                resolved_slug: byId.slug,
+                strategy: "sellable_view",
+              };
+            }
+          }
+        }
+      }
+    }
+
+    if (!product) {
+      logStep("Product not found after recovery", { slug: productSlug });
+      await adminClient.from("auto_heal_log").insert({
+        action_type: "checkout_slug_unresolved",
+        target_type: "products",
+        target_id: null,
+        result_status: "miss",
+        metadata: {
+          user_id: user.id,
+          product_slug: productSlug,
+          normalized_input: normalizeSlug(productSlug),
+          source: "create-product-checkout",
+        },
+      });
       return new Response(JSON.stringify({ error: "Product not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    logStep("Product loaded", { id: product.id, title: product.title });
+    if (recoveryAuditNote) {
+      await adminClient.from("auto_heal_log").insert({
+        action_type: "checkout_slug_recovered",
+        target_type: "products",
+        target_id: product.id,
+        result_status: "success",
+        metadata: { ...recoveryAuditNote, source: "create-product-checkout" },
+      });
+      logStep("Product slug recovered", recoveryAuditNote);
+    } else {
+      logStep("Product loaded", { id: product.id, title: product.title, strategy: recoveryStrategy });
+    }
 
     // ── Resolve package_id + persona (SSOT: product → curriculum → published package) ──
     let resolvedPackageId: string | null = null;
