@@ -268,3 +268,265 @@ function PendingRow({
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// P20 Cut 2 — RSS Collector card
+// ---------------------------------------------------------------------------
+
+function RssCollectorCard() {
+  const qc = useQueryClient();
+  const feedsQ = useQuery({ queryKey: ['gil', 'rss-feeds'], queryFn: listRssFeeds });
+
+  const [reason, setReason] = useState('');
+  const [busyFeedId, setBusyFeedId] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+  const [lastRun, setLastRun] = useState<RssCollectorRunSummary | null>(null);
+
+  // Add-feed inline form
+  const [showAdd, setShowAdd] = useState(false);
+  const [feedUrl, setFeedUrl] = useState('');
+  const [feedLabel, setFeedLabel] = useState('');
+  const [feedCategory, setFeedCategory] = useState('');
+  const [feedSignalType, setFeedSignalType] = useState('press_mention');
+  const [feedTags, setFeedTags] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const handleRun = async (feedId?: string) => {
+    if (reason.trim().length < 8) {
+      toast.error('Reason muss ≥ 8 Zeichen haben.');
+      return;
+    }
+    setRunning(true);
+    if (feedId) setBusyFeedId(feedId);
+    try {
+      const summary = await runGilRssCollector(reason, feedId);
+      setLastRun(summary);
+      toast.success(
+        `RSS-Run · scanned ${summary.scanned_sources} · inserted ${summary.inserted} · dup ${summary.skipped_duplicate} · failed ${summary.failed_sources}`,
+      );
+      qc.invalidateQueries({ queryKey: ['gil', 'rss-feeds'] });
+      qc.invalidateQueries({ queryKey: ['gil', 'intake'] });
+    } catch (e) {
+      toast.error('RSS-Collector fehlgeschlagen', { description: (e as Error).message });
+    } finally {
+      setRunning(false);
+      setBusyFeedId(null);
+    }
+  };
+
+  const handleToggle = async (row: RssFeedRow) => {
+    if (reason.trim().length < 8) {
+      toast.error('Reason muss ≥ 8 Zeichen haben.');
+      return;
+    }
+    setBusyFeedId(row.id);
+    try {
+      await setRssFeedEnabled(row.id, !row.enabled, reason);
+      toast.success(row.enabled ? 'Feed deaktiviert' : 'Feed aktiviert');
+      qc.invalidateQueries({ queryKey: ['gil', 'rss-feeds'] });
+    } catch (e) {
+      toast.error('Toggle fehlgeschlagen', { description: (e as Error).message });
+    } finally {
+      setBusyFeedId(null);
+    }
+  };
+
+  const handleAdd = async () => {
+    if (reason.trim().length < 8) {
+      toast.error('Reason muss ≥ 8 Zeichen haben.');
+      return;
+    }
+    if (!/^https?:\/\//i.test(feedUrl.trim())) {
+      toast.error('Feed-URL muss http(s) sein.');
+      return;
+    }
+    if (feedLabel.trim().length < 2) {
+      toast.error('Label ≥ 2 Zeichen.');
+      return;
+    }
+    setAdding(true);
+    try {
+      const tags = feedTags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      await addRssFeed(
+        {
+          feed_url: feedUrl.trim(),
+          label: feedLabel.trim(),
+          category: feedCategory.trim() || undefined,
+          default_signal_type: feedSignalType,
+          tags,
+        },
+        reason,
+      );
+      toast.success('Feed angelegt');
+      setFeedUrl('');
+      setFeedLabel('');
+      setFeedCategory('');
+      setFeedTags('');
+      setShowAdd(false);
+      qc.invalidateQueries({ queryKey: ['gil', 'rss-feeds'] });
+    } catch (e) {
+      toast.error('Anlegen fehlgeschlagen', { description: (e as Error).message });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">RSS / Atom Collector — review-first</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div>
+          <Label className="text-xs">Reason (≥ 8 Zeichen, Pflicht für jeden Run / Feed-Toggle / Neuanlage)</Label>
+          <Input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder='z.B. "RSS-Sweep KW21"'
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            disabled={running || (feedsQ.data?.filter((f) => f.enabled).length ?? 0) === 0}
+            onClick={() => handleRun()}
+          >
+            {running && !busyFeedId ? 'Läuft…' : 'RSS Collector starten (alle aktiven Feeds)'}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setShowAdd((v) => !v)}>
+            {showAdd ? 'Schließen' : 'Feed anlegen'}
+          </Button>
+        </div>
+
+        {showAdd && (
+          <div className="rounded-md border p-3 space-y-2 bg-muted/30">
+            <div className="grid gap-2 md:grid-cols-2">
+              <div>
+                <Label className="text-xs">Feed-URL (http/https, kein localhost/private IP)</Label>
+                <Input value={feedUrl} onChange={(e) => setFeedUrl(e.target.value)} placeholder="https://example.com/feed.xml" />
+              </div>
+              <div>
+                <Label className="text-xs">Label</Label>
+                <Input value={feedLabel} onChange={(e) => setFeedLabel(e.target.value)} placeholder="z.B. Heise Bildung" />
+              </div>
+              <div>
+                <Label className="text-xs">Category (optional)</Label>
+                <Input value={feedCategory} onChange={(e) => setFeedCategory(e.target.value)} placeholder="z.B. edutech" />
+              </div>
+              <div>
+                <Label className="text-xs">Default signal_type</Label>
+                <select
+                  className="w-full h-9 rounded-md border bg-background px-2 text-sm"
+                  value={feedSignalType}
+                  onChange={(e) => setFeedSignalType(e.target.value)}
+                >
+                  <option value="press_mention">press_mention</option>
+                  <option value="competitor_release">competitor_release</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs">Tags (komma-separiert)</Label>
+                <Input value={feedTags} onChange={(e) => setFeedTags(e.target.value)} placeholder="b2b, edtech" />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button size="sm" disabled={adding} onClick={handleAdd}>
+                {adding ? 'Speichern…' : 'Feed speichern'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {feedsQ.isLoading ? (
+            <Skeleton className="h-20 w-full" />
+          ) : (feedsQ.data?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Noch keine RSS-Feeds. Über „Feed anlegen" hinzufügen.
+            </p>
+          ) : (
+            (feedsQ.data ?? []).map((row) => (
+              <div key={row.id} className="rounded-md border p-3 text-sm space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={row.enabled ? 'default' : 'secondary'}>
+                    {row.enabled ? 'enabled' : 'disabled'}
+                  </Badge>
+                  <Badge variant="outline">{row.default_signal_type}</Badge>
+                  <Badge variant="outline">{row.default_severity}</Badge>
+                  {row.category && <Badge variant="secondary">{row.category}</Badge>}
+                  <span className="font-medium">{row.label}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {row.last_run_at ? `last: ${new Date(row.last_run_at).toLocaleString()}` : 'nie gelaufen'}
+                  </span>
+                </div>
+                <a
+                  href={row.feed_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-primary underline break-all"
+                >
+                  {row.feed_url}
+                </a>
+                {row.last_run_result && (
+                  <pre className="text-[10px] text-muted-foreground bg-muted/40 rounded p-2 overflow-auto">
+                    {JSON.stringify(row.last_run_result, null, 2)}
+                  </pre>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!row.enabled || running}
+                    onClick={() => handleRun(row.id)}
+                  >
+                    {busyFeedId === row.id && running ? 'Läuft…' : 'Nur diesen Feed laufen lassen'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busyFeedId === row.id}
+                    onClick={() => handleToggle(row)}
+                  >
+                    {row.enabled ? 'Deaktivieren' : 'Aktivieren'}
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {lastRun && (
+          <div className="rounded-md border bg-muted/30 p-3 text-xs">
+            <p className="font-medium mb-1">Letzter Run</p>
+            <p>
+              scanned: <strong>{lastRun.scanned_sources}</strong> · fetched:{' '}
+              <strong>{lastRun.fetched_items}</strong> · inserted (pending):{' '}
+              <strong>{lastRun.inserted}</strong> · duplicates:{' '}
+              <strong>{lastRun.skipped_duplicate}</strong> · failed:{' '}
+              <strong>{lastRun.failed_sources}</strong>
+            </p>
+            {lastRun.per_feed.length > 0 && (
+              <ul className="mt-2 space-y-0.5">
+                {lastRun.per_feed.map((f) => (
+                  <li key={f.feed_id} className="font-mono">
+                    {f.label}: fetched {f.fetched}, inserted {f.inserted}, dup {f.duplicates}
+                    {f.error ? ` · error: ${f.error}` : ''}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-2 text-muted-foreground">
+              Alle neuen Items landen <strong>pending</strong> in „Pending Review" — Promotion nach{' '}
+              <code>gil_market_signals</code> nur via manuellem Approve.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
