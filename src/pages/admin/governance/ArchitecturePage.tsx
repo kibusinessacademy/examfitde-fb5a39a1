@@ -110,8 +110,35 @@ export default function ArchitecturePage() {
     ],
   );
 
+  const { toast } = useToast();
+  const [hookResult, setHookResult] = useState<P18ReviewHookResult | null>(null);
+
   const canRun = name.length > 1 && purpose.length > 5;
-  const runReview = () => setReview(reviewArchitecture(proposal));
+  const runReview = async () => {
+    const r = reviewArchitecture(proposal);
+    setReview(r);
+    setHookResult(null);
+    // P18 Auto-Trigger: architecture-review-done
+    try {
+      const hook = await runP18DetectionForArchitectureReview(r);
+      setHookResult(hook);
+      if (hook.triggered && hook.recorded_keys.length > 0) {
+        toast({
+          title: 'P18 detection recorded',
+          description: `${hook.recorded_keys.length} Drift-Signal(e) idempotent ins Ledger geschrieben.`,
+        });
+      } else if (hook.errors.length > 0) {
+        toast({
+          title: 'P18 detection partial',
+          description: `${hook.errors.length} Fehler beim Ledger-Write — siehe Konsole.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (e) {
+      // Hook darf UI nicht blockieren
+      console.error('[P18 Hook]', e);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
