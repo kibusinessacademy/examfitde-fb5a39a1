@@ -171,6 +171,10 @@ export default function LessonContent({
             lessonId={lessonId}
             certificationId={certificationId}
             competenceId={competenceId}
+            curriculumId={curriculumId}
+            competencyCode={competencyCode}
+            competencyTitle={competencyTitle}
+            stepKey={stepKey}
             onCompleted={onMiniCheckCompleted}
           />
         );
@@ -241,11 +245,15 @@ export default function LessonContent({
     }
     
     return (
-      <MiniCheckPlayer 
+      <MiniCheckPlayer
         content={source}
         lessonId={lessonId}
-            certificationId={certificationId}
-            competenceId={competenceId}
+        certificationId={certificationId}
+        competenceId={competenceId}
+        curriculumId={curriculumId}
+        competencyCode={competencyCode}
+        competencyTitle={competencyTitle}
+        stepKey={stepKey}
         onCompleted={onMiniCheckCompleted}
       />
     );
@@ -266,6 +274,10 @@ export default function LessonContent({
             lessonId={lessonId}
             certificationId={certificationId}
             competenceId={competenceId}
+            curriculumId={curriculumId}
+            competencyCode={competencyCode}
+            competencyTitle={competencyTitle}
+            stepKey={stepKey}
             onCompleted={onMiniCheckCompleted}
           />
         </div>
