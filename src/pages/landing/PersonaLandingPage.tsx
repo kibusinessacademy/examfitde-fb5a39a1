@@ -158,7 +158,19 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
         source: "persona_landing",
         persona_type: (config as any)?.persona ?? null,
       });
-      if (!result.ok) {
+      if (result.error_code === "product_not_found") {
+        const target = result.suggested_url || result.fallback_url || "/berufe";
+        toast.error(
+          result.suggested_slug
+            ? "Komplettpaket nicht gefunden — wir leiten dich auf das passende Paket weiter."
+            : "Komplettpaket nicht gefunden — wir leiten dich zur Kursübersicht.",
+        );
+        navigate(target);
+      } else if (result.error_code === "slug_ambiguous") {
+        const target = result.candidates?.[0]?.url ?? "/berufe";
+        toast.error("Bitte Paket erneut wählen — wir leiten dich zur Auswahl weiter.");
+        navigate(target);
+      } else if (!result.ok) {
         toast.error(result.error ?? "Checkout konnte nicht gestartet werden.");
       } else if (result.already_entitled) {
         toast.info("Du hast bereits Zugriff auf dieses Produkt.");
