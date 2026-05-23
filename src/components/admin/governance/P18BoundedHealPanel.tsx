@@ -333,8 +333,58 @@ function BoundedHealRow({
               </div>
             </details>
           )}
+
+          {canBridge && (
+            <details className="text-xs border-t border-border-default pt-2">
+              <summary className="cursor-pointer text-fg-muted">
+                Als GIL-Signal übernehmen (P18 → Growth Intelligence)
+              </summary>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="md:col-span-2">
+                  <Label className="text-xs">Reason (≥ 8 Zeichen)</Label>
+                  <Textarea
+                    rows={2}
+                    value={bridgeReason}
+                    onChange={(e) => setBridgeReason(e.target.value)}
+                    placeholder="z. B. „Strategischer Kontext für nächstes Executive-Briefing"."
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={bridgeBusy || bridgeReason.trim().length < 8}
+                    onClick={async () => {
+                      setBridgeBusy(true);
+                      try {
+                        const res = await bridgeP18DriftToGil(
+                          signal.idempotency_key,
+                          bridgeReason,
+                        );
+                        toast.success(
+                          res.result === 'created'
+                            ? 'GIL-Signal erstellt'
+                            : 'GIL-Signal existierte bereits (idempotent)',
+                        );
+                        setBridgeReason('');
+                      } catch (e) {
+                        toast.error('Bridge fehlgeschlagen', {
+                          description: (e as Error).message,
+                        });
+                      } finally {
+                        setBridgeBusy(false);
+                      }
+                    }}
+                  >
+                    {bridgeBusy ? '…' : 'Als GIL-Signal übernehmen'}
+                  </Button>
+                </div>
+              </div>
+            </details>
+          )}
         </>
       )}
+
     </li>
   );
 }
