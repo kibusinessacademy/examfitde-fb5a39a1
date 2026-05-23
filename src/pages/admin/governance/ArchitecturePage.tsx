@@ -111,13 +111,21 @@ export default function ArchitecturePage() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       <header>
-        <h1 className="text-3xl font-bold text-fg-default">Architectural Continuity Guard <span className="text-base text-fg-muted font-normal">v1.1</span></h1>
+        <h1 className="text-3xl font-bold text-fg-default">Architectural Continuity Guard <span className="text-base text-fg-muted font-normal">v1.2</span></h1>
         <p className="text-fg-muted mt-2 max-w-3xl">
           Pflichtcheck VOR neuen Tabellen, RPCs, Edge Functions, Queues oder Registries.
           Prinzipien: <strong>reuse vor rebuild · bridge vor duplicate · extend vor replace · consistency vor speed.</strong>
           {' '}Output ist immer ein Vorschlag — keine autonomen Production-Writes.
         </p>
       </header>
+
+      <Tabs defaultValue="proposal">
+        <TabsList>
+          <TabsTrigger value="proposal">Proposal Review</TabsTrigger>
+          <TabsTrigger value="runtime">Runtime Preflight</TabsTrigger>
+        </TabsList>
+        <TabsContent value="proposal" className="mt-4">
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
