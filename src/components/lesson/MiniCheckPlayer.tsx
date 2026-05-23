@@ -8,6 +8,11 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import ProactiveHelpHints from '@/components/support/ProactiveHelpHints';
+import MiniCheckTutorFeedback, {
+  type MiniCheckTutorContext,
+  type MiniCheckTutorResult,
+  type MiniCheckWrongItem,
+} from './MiniCheckTutorFeedback';
 
 export interface MiniCheckQuestion {
   id: string;
@@ -32,14 +37,22 @@ interface MiniCheckPlayerProps {
   lessonId?: string | null;
   certificationId?: string | null;
   competenceId?: string | null;
+  // Tutor-Feedback v1: optional, fail-closed wenn unvollständig
+  curriculumId?: string | null;
+  competencyCode?: string | null;
+  competencyTitle?: string | null;
+  stepKey?: string | null;
   onCompleted?: (score: number, maxScore: number) => void;
 }
 
 interface QuestionResult {
   questionId: string;
+  questionText: string;
   selectedIndex: number;
-  isCorrect: boolean;
+  selectedText: string;
   correctIndex: number;
+  correctText: string;
+  isCorrect: boolean;
   explanation: string;
 }
 
