@@ -237,6 +237,8 @@ Deno.serve(async (req) => {
         success,
         failed,
         success_rate_pct: Number(successRate.toFixed(2)),
+        catalog_count: catalogCount ?? 0,
+        catalog_drift_count: catalogDriftCount,
         failed_slugs: results
           .filter((r) => !r.success)
           .slice(0, 50)
