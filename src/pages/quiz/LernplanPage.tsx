@@ -265,7 +265,7 @@ export default function LernplanPage() {
                   })
                 }
               >
-                <Link to={`/bundle/${mapping.bundleSlug}`}>Bundle ansehen</Link>
+                <Link to={`/paket/${mapping.bundleSlug}`}>Bundle ansehen</Link>
               </Button>
             </CardContent>
           </Card>
