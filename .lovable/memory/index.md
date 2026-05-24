@@ -283,3 +283,4 @@ B2C-Pricing SSOT: 24,90 € / 12 Monate, einheitlich für ALLE EXAM_FIRST-Pakete
 
 
 
+- [Cutover Control Plane v1](mem://architektur/seo/cutover-control-plane-v1) — admin-cutover-control Edge Fn (GSC submit/status, Route-HTML-Smoke) + CutoverPanel Tab in Leitstelle + scripts/seo/route-html-verify.mjs + .github/workflows/post-deploy-go-status.yml + docs/runbooks/cutover-rollback.md. Audit cutover_* nach auto_heal_log.metadata.
