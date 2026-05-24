@@ -378,9 +378,9 @@ export default function PersonaLandingPage({ personaType }: PersonaLandingProps)
             <span className="text-muted-foreground">·</span>
             <Link to="/pruefungstraining-azubis" className="text-sm text-primary hover:underline">Für Azubis</Link>
             <span className="text-muted-foreground">·</span>
-            <Link to="/pruefungstraining-sachkunde" className="text-sm text-primary hover:underline">Sachkunde</Link>
+            <Link to="/sachkunde" className="text-sm text-primary hover:underline">Sachkunde</Link>
             <span className="text-muted-foreground">·</span>
-            <Link to="/pruefungstraining-fachwirt" className="text-sm text-primary hover:underline">Fachwirt</Link>
+            <Link to="/fachwirt" className="text-sm text-primary hover:underline">Fachwirt</Link>
             <span className="text-muted-foreground">·</span>
             <Link to="/pruefungstraining-studium" className="text-sm text-primary hover:underline">Studium</Link>
           </div>

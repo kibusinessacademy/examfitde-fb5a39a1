@@ -587,7 +587,7 @@ function DebriefState({ onRestart }: { onRestart: () => void }) {
           Nächste Frage
         </button>
         <Link
-          to="/oral-exam"
+          to="/muendliche-pruefung"
           className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-sm font-medium transition"
           style={{
             background:
