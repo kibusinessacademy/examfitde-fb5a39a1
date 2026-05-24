@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { prereqDone } from "../_shared/prereq-done.ts";
 import { markFirstHeartbeat } from "../_shared/first-heartbeat.ts";
+import { assertAdmin } from "../_shared/edgeAuthContract.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
