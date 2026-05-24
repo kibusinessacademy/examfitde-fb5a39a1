@@ -42,8 +42,10 @@ DECLARE
   v_run2 jsonb;
 BEGIN
   SELECT id INTO v_curr_id FROM curricula LIMIT 1;
-  IF v_curr_id IS NULL THEN
-    RAISE EXCEPTION 'Test prerequisite missing: no curricula';
+  SELECT id INTO v_curr_id FROM curricula ORDER BY id LIMIT 1;
+  SELECT id INTO v_curr_id2 FROM curricula ORDER BY id OFFSET 1 LIMIT 1;
+  IF v_curr_id IS NULL OR v_curr_id2 IS NULL THEN
+    RAISE EXCEPTION 'Test prerequisite missing: need >=2 curricula';
   END IF;
 
   -- Fixture 1: recovered package — quality_report present, job completed
@@ -63,7 +65,7 @@ BEGIN
   INSERT INTO course_packages(id, title, status, curriculum_id, package_key,
                               quality_report, council_approved)
   VALUES (v_pkg_stuck, '__verifier_smoke_stuck__', 'building',
-          v_curr_id, 'verifier_smoke_stuck_' || extract(epoch from now())::bigint,
+          v_curr_id2, 'verifier_smoke_stuck_' || extract(epoch from now())::bigint,
           NULL, false);
 
   INSERT INTO job_queue(id, job_type, status, package_id, payload, last_error, created_at)
