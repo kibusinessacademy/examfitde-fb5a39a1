@@ -475,7 +475,7 @@ export function LeadQuizRunner({ slug }: Props) {
                     })
                   }
                 >
-                  <Link to={`/bundle/${mapping.bundleSlug}`}>
+                  <Link to={`/paket/${mapping.bundleSlug}`}>
                     Bundle ansehen <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>

@@ -34,7 +34,7 @@ export default function PruefungsreifeCheckPage() {
   const questions = diagnostic.questions;
 
   const contextLabel = isBerufContext ? slug?.replace(/-/g, " ") ?? null : null;
-  const primaryHref = isBerufContext ? `/bundle/${slug}` : "/shop";
+  const primaryHref = isBerufContext ? `/paket/${slug}` : "/shop";
   const secondaryHref = isBerufContext ? `/berufe/${slug}` : "/berufe";
 
   const { track } = useTrackGrowthEvent();

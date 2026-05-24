@@ -497,8 +497,9 @@ export function getBerufUrl(slug: string | null | undefined, product?: 'lernkurs
     return '/berufe';
   }
   if (!product) return `/berufe/${slug}`;
-  // Single-product strategy: alle Produkt-URLs führen zum Bundle.
-  return `/bundle/${slug}`;
+  // Single-product strategy: kanonisch auf /paket/:slug (prerenderte Route);
+  // /bundle/* ist Legacy-Alias mit Redirect — direkt verlinken vermeidet Vercel-404.
+  return `/paket/${slug}`;
 }
 
 export function getIHKPruefungUrl(slug: string) {

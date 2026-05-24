@@ -81,7 +81,9 @@ export default function BerufDetailPage() {
   const examConfig = getExamTarget(duration);
   const seo = SEO_TEMPLATES.beruf(title, kammerLabel, examConfig.label);
 
-  const bundleHref = `/bundle/${slug}`;
+  // Direkt auf kanonische, prerenderte Route — vermeidet Vercel 404 falls
+  // SPA-Fallback für /bundle/* nicht greift (siehe Memory hosting-spa-fallback).
+  const bundleHref = `/paket/${slug}`;
   const quizHref = `/pruefungscheck?source=beruf&slug=${encodeURIComponent(slug)}`;
 
   const faqs = [
