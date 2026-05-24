@@ -53,9 +53,10 @@ BEGIN
           jsonb_build_object('overall_score', 88, 'verdict', 'PASS'),
           true);
 
-  INSERT INTO job_queue(id, job_type, status, package_id, payload, created_at, completed_at)
+  INSERT INTO job_queue(id, job_type, status, package_id, payload, result, created_at, completed_at)
   VALUES (v_job_recovered, 'package_quality_council', 'completed',
-          v_pkg_recovered, jsonb_build_object('curriculum_id', v_curr_id, 'package_id', v_pkg_recovered), v_dispatched_at, v_dispatched_at + interval '10 minutes');
+          v_pkg_recovered, jsonb_build_object('curriculum_id', v_curr_id, 'package_id', v_pkg_recovered),
+          jsonb_build_object('ok', true), v_dispatched_at, v_dispatched_at + interval '10 minutes');
 
   -- Fixture 2: stuck package — no quality_report, job failed, dispatched >60min ago
   INSERT INTO course_packages(id, title, status, curriculum_id, package_key,
