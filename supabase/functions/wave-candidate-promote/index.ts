@@ -1,24 +1,37 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { assertAdmin } from "../_shared/edgeAuthContract.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Auth gate — admin / service-role / internal-secret only
+  const auth = await assertAdmin(req, "wave-candidate-promote");
+  if (!auth.ok) {
+    return new Response(JSON.stringify({ error: auth.reason }), {
+      status: auth.status,
+      headers: { ...corsHeaders, "content-type": "application/json" },
+    });
+  }
+
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const INTERNAL_SECRET = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
-    const { limit = 2, run_factory = false } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const rawLimit = Number(body.limit ?? 2);
+    // Bound 1..20 to prevent amplification
+    const limit = Number.isFinite(rawLimit) ? Math.min(20, Math.max(1, Math.floor(rawLimit))) : 2;
+    const run_factory = body.run_factory === true;
 
-    // Step 1: Promote wave candidates → curricula + courses + intake
     const { data: promoted, error: promoteErr } = await sb.rpc("promote_wave_candidates_to_factory", {
       p_limit: limit,
     });
@@ -27,14 +40,12 @@ Deno.serve(async (req) => {
     const items = promoted?.items || [];
     const enrichResults: Record<string, unknown>[] = [];
 
-    // Step 2: Enrich each new curriculum (generate learning fields via AI)
     for (const item of items) {
       if (!item.curriculum_id) continue;
 
       console.log(`[wave-promote] Enriching curriculum ${item.curriculum_id} (${item.canonical_title})`);
 
       try {
-        const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || SERVICE_ROLE_KEY;
         const res = await fetch(
           `${SUPABASE_URL}/functions/v1/generate-curriculum-content`,
           {
@@ -42,7 +53,7 @@ Deno.serve(async (req) => {
             headers: {
               "Content-Type": "application/json",
               "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-              "x-internal-secret": internalSecret,
+              "x-internal-secret": INTERNAL_SECRET,
             },
             body: JSON.stringify({ curriculum_id: item.curriculum_id }),
           },
@@ -61,7 +72,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 3: Verify enrichment — only proceed to factory if learning fields exist
     const readyForFactory: string[] = [];
     for (const item of items) {
       if (!item.curriculum_id) continue;
@@ -84,18 +94,16 @@ Deno.serve(async (req) => {
       totalPromoted: items.length,
     };
 
-    // Step 4: Optionally trigger autonomous factory (only if we have enriched curricula)
     if (run_factory && readyForFactory.length > 0) {
       try {
-        const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || SERVICE_ROLE_KEY;
         const res = await fetch(
           `${SUPABASE_URL}/functions/v1/admin-run-autonomous-factory`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-internal-secret": internalSecret,
-              "x-job-runner-key": internalSecret,
+              "x-internal-secret": INTERNAL_SECRET,
+              "x-job-runner-key": INTERNAL_SECRET,
             },
             body: JSON.stringify({}),
           },
@@ -110,7 +118,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
+    console.error("[wave-candidate-promote] error:", e);
+    return new Response(JSON.stringify({ error: "internal_error" }), {
       status: 500,
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
