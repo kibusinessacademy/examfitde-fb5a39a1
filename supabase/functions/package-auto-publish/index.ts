@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { prereqDone } from "../_shared/prereq-done.ts";
 import { markFirstHeartbeat } from "../_shared/first-heartbeat.ts";
+import { assertAdmin } from "../_shared/edgeAuthContract.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -39,6 +40,10 @@ async function notify(sb: any, title: string, body: string, category: string, se
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
+
+  // ── Fail-closed auth gate (internal secret / service-role / admin JWT) ──
+  const auth = await assertAdmin(req, "package-auto-publish");
+  if (!auth.ok) return json({ error: auth.reason }, auth.status);
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const body = await req.json().catch(() => ({}));
