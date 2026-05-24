@@ -203,7 +203,8 @@ export default function LernplanPage() {
                   })
                 }
               >
-                <Link to={`/bundle/${mapping.bundleSlug}`}>
+                <Link to={`/paket/${mapping.bundleSlug}`}>
+
                   <ShoppingCart className="mr-2 h-4 w-4" />
                   Komplettpaket (24,90 €)
                 </Link>
