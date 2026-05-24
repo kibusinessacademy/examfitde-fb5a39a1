@@ -55,7 +55,7 @@ BEGIN
 
   INSERT INTO job_queue(id, job_type, status, package_id, payload, created_at, completed_at)
   VALUES (v_job_recovered, 'package_quality_council', 'completed',
-          v_pkg_recovered, '{}'::jsonb, v_dispatched_at, v_dispatched_at + interval '10 minutes');
+          v_pkg_recovered, jsonb_build_object('curriculum_id', v_curr_id, 'package_id', v_pkg_recovered), v_dispatched_at, v_dispatched_at + interval '10 minutes');
 
   -- Fixture 2: stuck package — no quality_report, job failed, dispatched >60min ago
   INSERT INTO course_packages(id, title, status, curriculum_id, package_key,
@@ -66,7 +66,7 @@ BEGIN
 
   INSERT INTO job_queue(id, job_type, status, package_id, payload, last_error, created_at)
   VALUES (v_job_stuck, 'package_quality_council', 'failed',
-          v_pkg_stuck, '{}'::jsonb, 'council validator timeout', v_dispatched_at);
+          v_pkg_stuck, jsonb_build_object('curriculum_id', v_curr_id, 'package_id', v_pkg_stuck), 'council validator timeout', v_dispatched_at);
 
   -- Dispatch audit rows (this is what the verifier reads)
   INSERT INTO auto_heal_log(action_type, target_id, target_type, result_status, metadata, created_at)
