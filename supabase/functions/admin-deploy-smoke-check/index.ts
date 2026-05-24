@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     if (req.method !== "POST") return jsonResp({ error: "METHOD_NOT_ALLOWED" }, 405);
 
     const internalSecret = req.headers.get("x-job-runner-key") ?? req.headers.get("x-internal-secret") ?? "";
-    const expectedSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || mustEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const expectedSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
     if (!internalSecret || internalSecret !== expectedSecret) {
       return jsonResp({ error: "UNAUTHORIZED" }, 401);
     }
