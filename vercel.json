@@ -78,4 +78,5 @@
     { "source": "/assets/:path*", "destination": "/assets/:path*" },
     { "source": "/sitemaps/:path*", "destination": "/sitemaps/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
