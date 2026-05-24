@@ -175,8 +175,15 @@ BEGIN
     RAISE WARNING 'TEST C FAIL: job_queue rows were mutated';
     v_failures := v_failures + 1;
   END IF;
-  IF v_jq_count_after <> v_jq_count_before THEN
-    RAISE WARNING 'TEST C FAIL: job_queue gained/lost rows (no integrity dispatch invariant)';
+  -- "No integrity dispatch" invariant: verifier itself must not enqueue any
+  -- new job for our test packages. (Total job_queue count can drift from
+  -- unrelated triggers, so we scope to our fixtures.)
+  IF EXISTS (
+    SELECT 1 FROM job_queue
+    WHERE package_id IN (v_pkg_recovered, v_pkg_stuck)
+      AND id NOT IN (v_job_recovered, v_job_stuck)
+  ) THEN
+    RAISE WARNING 'TEST C FAIL: verifier dispatched a new job for a test package';
     v_failures := v_failures + 1;
   END IF;
 
