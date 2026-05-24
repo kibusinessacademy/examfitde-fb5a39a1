@@ -17,6 +17,7 @@ BEGIN;
 DO $$
 DECLARE
   v_curr_id uuid;
+  v_curr_id2 uuid;
   v_pkg_recovered uuid := gen_random_uuid();
   v_pkg_stuck uuid := gen_random_uuid();
   v_job_recovered uuid := gen_random_uuid();
