@@ -41,7 +41,7 @@ async function emitAudit(
       target_id: payload.target_id ?? null,
       target_type: payload.target_type ?? "system",
       result_status: payload.result_status,
-      details: payload.details,
+      metadata: payload.details,
     });
   } catch (err) {
     console.error("audit emit failed", err);
