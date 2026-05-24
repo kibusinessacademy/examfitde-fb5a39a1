@@ -30,8 +30,8 @@ const DEFAULT_ROUTES = [
   "/berufe/industriekaufmann-frau",
   "/pruefungstraining-azubis",
   "/blog",
-  "/aevo-pruefung",
-  "/fiae-pruefung",
+  "/aevo-pruefungsvorbereitung",
+  "/fiae-pruefungsvorbereitung",
 ];
 const ROUTES = args.routes
   ? String(args.routes).split(",").map((s) => s.trim()).filter(Boolean)
