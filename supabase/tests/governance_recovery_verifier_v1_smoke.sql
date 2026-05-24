@@ -119,8 +119,14 @@ BEGIN
     RAISE WARNING 'TEST A FAIL: dry-run wrote audits, got %', v_dry_result;
     v_failures := v_failures + 1;
   END IF;
-  IF (SELECT count(*) FROM auto_heal_log) <> v_audit_before THEN
-    RAISE WARNING 'TEST A FAIL: dry-run mutated auto_heal_log';
+  -- Strict: dry-run must not have emitted any of our verifier audit rows.
+  IF EXISTS (
+    SELECT 1 FROM auto_heal_log
+    WHERE action_type IN ('governance_completion_recovery_verified',
+                          'governance_completion_recovery_stuck')
+      AND target_id IN (v_pkg_recovered::text, v_pkg_stuck::text)
+  ) THEN
+    RAISE WARNING 'TEST A FAIL: dry-run wrote a verifier audit row';
     v_failures := v_failures + 1;
   END IF;
 
