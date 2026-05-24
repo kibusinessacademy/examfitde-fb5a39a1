@@ -411,7 +411,7 @@ Deno.serve(async (req) => {
     // ── Trigger post-publish Learner E2E (non-blocking) ──
     try {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
       const triggerRes = await fetch(`${supabaseUrl}/functions/v1/ops-trigger-learner-e2e`, {
         method: "POST",
         headers: {
