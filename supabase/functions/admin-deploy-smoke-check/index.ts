@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
   if (url.searchParams.get("health") === "1") {
     // Auth-first: require shared secret even for health probe to avoid version fingerprinting.
     const probeSecret = req.headers.get("x-job-runner-key") ?? req.headers.get("x-internal-secret") ?? "";
-    const expected = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const expected = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
     if (!probeSecret || probeSecret !== expected) {
       return jsonResp({ ok: true });
     }
