@@ -68,12 +68,18 @@ export default function CutoverPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('auto_heal_log')
-        .select('id, created_at, action_type, result_status, details')
+        .select('id, created_at, action_type, result_status, metadata')
         .like('action_type', 'cutover_%')
         .order('created_at', { ascending: false })
         .limit(20);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as Array<{
+        id: string;
+        created_at: string;
+        action_type: string;
+        result_status: string;
+        metadata: unknown;
+      }>;
     },
     refetchInterval: 30_000,
   });
