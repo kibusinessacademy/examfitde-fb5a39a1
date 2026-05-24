@@ -1,6 +1,6 @@
 ---
 name: P1.1 Governance Recovery Verifier v1
-description: Audit-only verifier — proves whether governance completion recovery actually wrote quality_report. No requeues, no status changes.
+description: Audit-only verifier — proves whether governance completion recovery actually wrote quality_report. No requeues, no status changes. Dry-run mode + SQL smoke test.
 type: feature
 ---
 
@@ -26,3 +26,13 @@ type: feature
 - Kein Auto-Requeue, kein Publish, kein Integrity-Dispatch, keine Statusänderung an course_packages oder job_queue.
 - Keine Audit-Spam: pro (package_id, job_id, classification) genau ein Eintrag.
 - View nur service_role, RPC nur authenticated+admin.
+
+## Dry-Run Mode (P1.1b)
+- `fn_verify_governance_completion_recovery(p_dry_run boolean DEFAULT false)` — no signature break (cron call ohne Args funktioniert weiter).
+- Dry-run gibt `would_verify` / `would_stuck` zurück, schreibt 0 Audit-Rows.
+- Live-Modus unverändert.
+
+## Smoke-Test
+- `supabase/tests/governance_recovery_verifier_v1_smoke.sql` (BEGIN/ROLLBACK).
+- Deckt: recovered+stuck classification, no-mutation invariant (course_packages+job_queue Hashes), no-integrity-dispatch (keine neuen Jobs für Test-Pakete), no duplicate audit spam (2nd run ⇒ skipped_duplicate≥2), dry-run ⇒ keine Verifier-Audit-Rows.
+- Lokaler Lauf 2026-05-24 grün gegen Live-DB.
