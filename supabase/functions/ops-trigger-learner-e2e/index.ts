@@ -32,10 +32,9 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "Use POST" }, origin);
 
   // ── Auth: internal-only (job-runner key) ──
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || serviceRoleKey;
+  const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
   const callerKey = req.headers.get("x-job-runner-key") ?? "";
-  if (!callerKey || callerKey !== internalSecret) {
+  if (!internalSecret || !callerKey || callerKey !== internalSecret) {
     return json(401, { error: "Unauthorized" }, origin);
   }
 

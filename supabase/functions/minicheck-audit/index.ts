@@ -65,8 +65,8 @@ async function authenticateRequest(
 
   // 1. Internal edge-to-edge / cron via dedicated header
   const jobRunnerKey = req.headers.get("x-job-runner-key");
-  const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || supabaseServiceKey;
-  if (jobRunnerKey && jobRunnerKey === internalSecret) {
+  const internalSecret = Deno.env.get("EDGE_INTERNAL_SHARED_SECRET") || "";
+  if (internalSecret && jobRunnerKey && jobRunnerKey === internalSecret) {
     return { authorized: true, source: "internal" };
   }
 

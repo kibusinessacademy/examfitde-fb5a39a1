@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: msg });
-    return json(500, { ok: false, error: msg }, origin);
+    console.error("[berufski-bundle-checkout]", error);
+    return json(500, { ok: false, error: "Checkout konnte nicht gestartet werden. Bitte erneut versuchen." }, origin);
   }
 });
