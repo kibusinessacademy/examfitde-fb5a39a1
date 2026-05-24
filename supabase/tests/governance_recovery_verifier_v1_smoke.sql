@@ -51,7 +51,7 @@ BEGIN
   -- Fixture 1: recovered package — quality_report present, job completed
   INSERT INTO course_packages(id, title, status, curriculum_id, package_key,
                               quality_report, council_approved)
-  VALUES (v_pkg_recovered, '__verifier_smoke_recovered__', 'building',
+  VALUES (v_pkg_recovered, '__verifier_smoke_recovered__', 'archived',
           v_curr_id, 'verifier_smoke_recovered_' || extract(epoch from now())::bigint,
           jsonb_build_object('overall_score', 88, 'verdict', 'PASS'),
           true);
@@ -64,7 +64,7 @@ BEGIN
   -- Fixture 2: stuck package — no quality_report, job failed, dispatched >60min ago
   INSERT INTO course_packages(id, title, status, curriculum_id, package_key,
                               quality_report, council_approved)
-  VALUES (v_pkg_stuck, '__verifier_smoke_stuck__', 'building',
+  VALUES (v_pkg_stuck, '__verifier_smoke_stuck__', 'archived',
           v_curr_id2, 'verifier_smoke_stuck_' || extract(epoch from now())::bigint,
           NULL, false);
 
