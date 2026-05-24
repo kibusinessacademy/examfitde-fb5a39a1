@@ -77,6 +77,5 @@
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/assets/:path*", "destination": "/assets/:path*" },
     { "source": "/sitemaps/:path*", "destination": "/sitemaps/:path*" },
-    { "source": "/:path*", "destination": "/index.html" }
-  ]
+    { "source": "/(.*)", "destination": "/index.html" }
 }
