@@ -42,8 +42,8 @@ const DEFAULT_ROUTES = [
   '/berufe/industriekaufmann-frau',
   '/pruefungstraining-azubis',
   '/blog',
-  '/aevo-pruefung',
-  '/fiae-pruefung',
+  '/aevo-pruefungsvorbereitung',
+  '/fiae-pruefungsvorbereitung',
 ].join('\n');
 
 async function callCutover(action: string, payload: Record<string, unknown> = {}) {
