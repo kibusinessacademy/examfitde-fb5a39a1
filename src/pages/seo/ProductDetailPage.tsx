@@ -50,7 +50,7 @@ function BundleDetailPageComponent() {
       package_id: pkgCtx.package_id,
       curriculum_id: pkgCtx.curriculum_id,
       persona: pkgCtx.persona,
-      source_page: `/bundle/${slug}`,
+      source_page: `/paket/${slug}`,
       metadata: { bundle_slug: slug, beruf: beruf.title },
     });
   }, [product?.curriculum_id, pkgCtx?.package_id, slug]);
@@ -70,7 +70,7 @@ function BundleDetailPageComponent() {
   const handleCheckoutStart = useCallback(async (source: string) => {
     trackConversion({ event: 'cta_click', source, label: 'bundle_checkout_start' });
     trackConversion({ event: 'checkout_start', source, label: slug });
-    const sourcePage = `/bundle/${slug}`;
+    const sourcePage = `/paket/${slug}`;
     trackFunnel('cta_clicked', {
       package_id: pkgCtx?.package_id ?? null,
       curriculum_id: pkgCtx?.curriculum_id ?? null,
