@@ -35,7 +35,7 @@ export function TopicMapNav() {
           <li><Link to="/muendliche-pruefung" className="hover:text-foreground transition-colors">Mündliche Prüfung</Link></li>
           <li><Link to="/lernplan-pruefung" className="hover:text-foreground transition-colors">Lernplan</Link></li>
           <li><Link to="/probepruefung" className="hover:text-foreground transition-colors">Probeprüfung</Link></li>
-          <li><Link to="/pruefungsfehler" className="hover:text-foreground transition-colors">Häufige Fehler</Link></li>
+          <li><Link to="/themen" className="hover:text-foreground transition-colors">Häufige Fehler</Link></li>
         </ul>
       </div>
       <div>

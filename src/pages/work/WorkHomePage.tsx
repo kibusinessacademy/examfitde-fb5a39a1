@@ -18,7 +18,7 @@ export default function WorkHomePage() {
         </p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <Link to="/work/buy" className="inline-flex items-center rounded-xl bg-primary px-6 py-3 text-primary-foreground font-medium hover:opacity-90">
+          <Link to="/berufe" className="inline-flex items-center rounded-xl bg-primary px-6 py-3 text-primary-foreground font-medium hover:opacity-90">
             Berufe ansehen
           </Link>
           <a href={BRAND.parent} target="_blank" rel="noopener noreferrer" className="inline-flex items-center rounded-xl border px-6 py-3 font-medium hover:bg-muted">

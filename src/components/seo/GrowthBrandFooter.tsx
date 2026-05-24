@@ -104,7 +104,7 @@ export function GrowthBrandFooter({
           <ul className="space-y-1 text-muted-foreground">
             <li><Link to="/muendliche-pruefung" className="hover:text-foreground hover:underline">Mündliche Prüfung</Link></li>
             <li><Link to="/lernplan-pruefung" className="hover:text-foreground hover:underline">Lernplan</Link></li>
-            <li><Link to="/pruefungsfehler" className="hover:text-foreground hover:underline">Häufige Fehler</Link></li>
+            <li><Link to="/themen" className="hover:text-foreground hover:underline">Häufige Fehler</Link></li>
             <li><Link to="/themen" className="hover:text-foreground hover:underline font-medium">Alle Themen →</Link></li>
           </ul>
         </div>
