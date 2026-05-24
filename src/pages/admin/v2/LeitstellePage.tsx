@@ -38,6 +38,7 @@ const AuditPanel = lazy(() => import('@/components/admin/enterprise/AuditPanel')
 const SystemPanel = lazy(() => import('@/components/admin/enterprise/SystemPanel'));
 const IntegrationHub = lazy(() => import('@/components/admin/enterprise/IntegrationHub'));
 const SalesDemoPanel = lazy(() => import('@/components/admin/enterprise/SalesDemoPanel'));
+const CutoverPanel = lazy(() => import('@/components/admin/command/CutoverPanel'));
 
 const RepairExhaustedAlert = lazy(() => import('@/components/admin/cards/RepairExhaustedAlert').then(m => ({ default: m.RepairExhaustedAlert })));
 const SmartNextBestAction = lazy(() => import('@/components/admin/leitstelle/SmartNextBestAction').then(m => ({ default: m.SmartNextBestAction })));
@@ -196,6 +197,7 @@ export default function LeitstellePage() {
           <TabsTrigger value="audit" className="text-xs flex-1 min-w-0 gap-1"><FileText className="h-3 w-3 hidden sm:block" />Audit</TabsTrigger>
           <TabsTrigger value="system" className="text-xs flex-1 min-w-0 gap-1"><Server className="h-3 w-3 hidden sm:block" />System</TabsTrigger>
           <TabsTrigger value="demo" className="text-xs flex-1 min-w-0 gap-1"><Target className="h-3 w-3 hidden sm:block" />Demo</TabsTrigger>
+          <TabsTrigger value="cutover" className="text-xs flex-1 min-w-0 gap-1"><Globe className="h-3 w-3 hidden sm:block" />Cutover</TabsTrigger>
         </TabsList>
 
         {/* Enterprise Tabs */}
@@ -208,6 +210,7 @@ export default function LeitstellePage() {
         <TabsContent value="audit"><Suspense fallback={<Skeleton className="h-64" />}><AuditPanel /></Suspense></TabsContent>
         <TabsContent value="system"><Suspense fallback={<Skeleton className="h-64" />}><SystemPanel /></Suspense></TabsContent>
         <TabsContent value="demo"><Suspense fallback={<Skeleton className="h-64" />}><SalesDemoPanel /></Suspense></TabsContent>
+        <TabsContent value="cutover"><Suspense fallback={<Skeleton className="h-64" />}><CutoverPanel /></Suspense></TabsContent>
 
         {/* Original Overview Content */}
         <TabsContent value="overview" className="space-y-6">
