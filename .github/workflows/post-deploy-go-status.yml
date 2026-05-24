@@ -1,0 +1,108 @@
+name: Post-Deploy Go-Status
+
+# Liefert nach einem (Vercel-)Deploy einen GO/BLOCKED-Status für die kritischen
+# Routen und protokolliert das Ergebnis als Step Summary + Artifact.
+#
+# Trigger:
+#   - workflow_dispatch (manuell, mit Host-Override)
+#   - repository_dispatch (event_type=vercel-deploy-success) — Vercel kann das
+#     via GitHub-API bei Production-Deploys feuern
+#   - schedule (jede Stunde) als Drift-Wächter
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Host (z.B. https://examfit.de oder https://examfit.vercel.app)"
+        required: false
+        default: "https://examfit.de"
+      routes:
+        description: "Komma-separierte Routen (leer = Default-Set)"
+        required: false
+        default: ""
+  repository_dispatch:
+    types: [vercel-deploy-success]
+  schedule:
+    - cron: "0 * * * *"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  go-status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Resolve host & routes
+        id: cfg
+        run: |
+          HOST="${{ github.event.inputs.host || github.event.client_payload.host || 'https://examfit.de' }}"
+          ROUTES="${{ github.event.inputs.routes || github.event.client_payload.routes || '' }}"
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+          echo "routes=$ROUTES" >> "$GITHUB_OUTPUT"
+
+      - name: Run route-html-verify
+        id: smoke
+        continue-on-error: true
+        run: |
+          set +e
+          ARGS="--host=${{ steps.cfg.outputs.host }}"
+          if [ -n "${{ steps.cfg.outputs.routes }}" ]; then
+            ARGS="$ARGS --routes=${{ steps.cfg.outputs.routes }}"
+          fi
+          node scripts/seo/route-html-verify.mjs $ARGS | tee verify.log
+          CODE=${PIPESTATUS[0]}
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
+          if [ "$CODE" = "0" ]; then
+            echo "verdict=GO" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=BLOCKED" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+
+      - name: Step summary
+        run: |
+          {
+            echo "## Post-Deploy Go-Status"
+            echo ""
+            echo "- **Host:** \`${{ steps.cfg.outputs.host }}\`"
+            echo "- **Verdict:** **${{ steps.smoke.outputs.verdict }}**"
+            echo ""
+            echo '```'
+            tail -n 80 verify.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload verify log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-go-status-${{ steps.smoke.outputs.verdict }}-${{ github.run_id }}
+          path: verify.log
+          retention-days: 30
+
+      - name: Open issue on BLOCKED (only on dispatch + schedule)
+        if: steps.smoke.outputs.verdict == 'BLOCKED' && github.event_name != 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const host = "${{ steps.cfg.outputs.host }}";
+            const log = require('fs').readFileSync('verify.log', 'utf8').slice(-3000);
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[CUTOVER] Post-Deploy BLOCKED — ${host}`,
+              labels: ['cutover', 'blocked', 'auto'],
+              body: `Post-Deploy Go-Status hat **BLOCKED** geliefert für \`${host}\`.\n\n\`\`\`\n${log}\n\`\`\``,
+            });
+
+      - name: Fail if BLOCKED
+        if: steps.smoke.outputs.verdict == 'BLOCKED'
+        run: exit 1
