@@ -325,7 +325,7 @@ export default function CutoverPanel() {
                       <details className="mt-2">
                         <summary className="cursor-pointer text-muted-foreground">Details</summary>
                         <pre className="mt-2 overflow-auto text-xs">
-                          {JSON.stringify(row.details, null, 2)}
+                          {JSON.stringify(row.metadata, null, 2)}
                         </pre>
                       </details>
                     </div>
