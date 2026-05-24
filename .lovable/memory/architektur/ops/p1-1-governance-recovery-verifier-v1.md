@@ -1,6 +1,6 @@
 ---
 name: P1.1 Governance Recovery Verifier v1
-description: Audit-only verifier — proves whether governance completion recovery actually wrote quality_report. No requeues, no status changes.
+description: Audit-only verifier — proves whether governance completion recovery actually wrote quality_report. No requeues, no status changes. Dry-run mode + SQL smoke test.
 type: feature
 ---
 
