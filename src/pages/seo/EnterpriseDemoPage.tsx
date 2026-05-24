@@ -212,8 +212,8 @@ export default function EnterpriseDemoPage() {
             <p className="text-muted-foreground mt-3">
               Die meisten Kunden starten mit einem Pilot für einen Ausbildungsjahrgang. In 5 Minuten zeigen wir Ihnen, wie das bei Ihnen aussehen könnte.
             </p>
-            <Button size="lg" className="mt-6 gap-2 text-base rounded-xl px-10">
-              <Play className="h-5 w-5" /> Jetzt Demo buchen
+            <Button size="lg" className="mt-6 gap-2 text-base rounded-xl px-10" asChild>
+              <a href={demoBookingUrl}><Play className="h-5 w-5" /> Jetzt Demo buchen</a>
             </Button>
             <p className="text-xs text-muted-foreground mt-3">Kostenlos · 15 Minuten · Unverbindlich</p>
           </div>
