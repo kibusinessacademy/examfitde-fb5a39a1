@@ -41,7 +41,7 @@ DECLARE
 
   v_run2 jsonb;
 BEGIN
-  SELECT id INTO v_curr_id FROM curricula LIMIT 1;
+  
   SELECT id INTO v_curr_id FROM curricula ORDER BY id LIMIT 1;
   SELECT id INTO v_curr_id2 FROM curricula ORDER BY id OFFSET 1 LIMIT 1;
   IF v_curr_id IS NULL OR v_curr_id2 IS NULL THEN
@@ -70,7 +70,7 @@ BEGIN
 
   INSERT INTO job_queue(id, job_type, status, package_id, payload, last_error, created_at)
   VALUES (v_job_stuck, 'package_quality_council', 'failed',
-          v_pkg_stuck, jsonb_build_object('curriculum_id', v_curr_id, 'package_id', v_pkg_stuck), 'council validator timeout', v_dispatched_at);
+          v_pkg_stuck, jsonb_build_object('curriculum_id', v_curr_id2, 'package_id', v_pkg_stuck), 'council validator timeout', v_dispatched_at);
 
   -- Dispatch audit rows (this is what the verifier reads)
   INSERT INTO auto_heal_log(action_type, target_id, target_type, result_status, metadata, created_at)
