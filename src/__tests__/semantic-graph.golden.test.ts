@@ -117,3 +117,54 @@ describe("examiner isolation", () => {
     }
   });
 });
+
+/* ---- W1 Cut 1 — Semantic Gravity additions ---- */
+
+const W1_SNAP: KnowledgeGraphSnapshot = {
+  snapshot_at: "2026-05-25T00:00:00.000Z",
+  entities: [
+    { id: "b1", key: "fisi", name: "FISI", kind: "beruf" },
+    { id: "p1", key: "fisi-ap1", name: "AP1", kind: "pruefung", beruf_id: "b1", form: "schriftlich" },
+    { id: "k1", key: "netzwerk", name: "Netz", kind: "kompetenz", beruf_id: "b1" },
+    { id: "lp1", key: "netz-pfad", name: "Netzpfad", kind: "lernpfad", beruf_id: "b1", step_ids: ["k1"] },
+    { id: "kp1", key: "fisi-to-bsc", name: "FISI→B.Sc.", kind: "karrierepfad", from_beruf_id: "b1", pathway: "studium" },
+    { id: "tt1", key: "tutor-net", name: "Tutor Netz", kind: "tutor_topic", kompetenz_id: "k1", rag_topic_key: "net" },
+    { id: "oet1", key: "oet-netz", name: "Mündlich Netz Topic", kind: "oral_exam_topic", pruefung_id: "p1" },
+    { id: "faq1", key: "faq-fisi-1", name: "Wie schwer ist AP1?", kind: "faq", anchor_entity_id: "b1", question: "Wie schwer?", answer: "Mittel." },
+  ],
+  edges: [
+    { from: "b1", to: "p1", kind: "beruf_has_pruefung" },
+    { from: "k1", to: "lp1", kind: "kompetenz_has_lernpfad" },
+    { from: "b1", to: "kp1", kind: "beruf_has_karrierepfad" },
+    { from: "k1", to: "tt1", kind: "kompetenz_has_tutor_topic" },
+    { from: "p1", to: "oet1", kind: "pruefung_has_oral_exam_topic" },
+    { from: "b1", to: "faq1", kind: "entity_has_faq" },
+    // duplicate, must dedupe:
+    { from: "k1", to: "tt1", kind: "kompetenz_has_tutor_topic" },
+  ],
+};
+
+describe("W1 semantic gravity resolvers", () => {
+  const g = buildKnowledgeGraph(W1_SNAP);
+
+  it("relatedLernpfade resolves via kompetenz", () => {
+    expect(relatedLernpfade(g, "k1").map((e) => e.key)).toEqual(["netz-pfad"]);
+  });
+
+  it("relatedKarrierepfade only on berufe", () => {
+    expect(relatedKarrierepfade(g, "b1").map((e) => e.key)).toEqual(["fisi-to-bsc"]);
+    expect(relatedKarrierepfade(g, "k1")).toEqual([]);
+  });
+
+  it("relatedTutorTopics deduplicates", () => {
+    expect(relatedTutorTopics(g, "k1").map((e) => e.key)).toEqual(["tutor-net"]);
+  });
+
+  it("relatedOralExamTopics anchored to pruefung", () => {
+    expect(relatedOralExamTopics(g, "p1").map((e) => e.key)).toEqual(["oet-netz"]);
+  });
+
+  it("relatedFaqs polymorphic anchor", () => {
+    expect(relatedFaqs(g, "b1").map((e) => e.key)).toEqual(["faq-fisi-1"]);
+  });
+});
