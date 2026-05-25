@@ -7,9 +7,10 @@
  *  - Berufs-KI (WorkforceOS) → /berufs-ki
  *  - 8 weitere Module (siehe modules.ts)
  *
- * Legacy-Domains examfit.de, www.examfit.de, examfitwork.de, berufski.de sind
- * AUSSCHLIESSLICH 301-Redirect-Shells (noindex). Keine SEO-Authority, keine
- * separaten Brand-URLs, keine sameAs-Entities. www.berufos.com → berufos.com.
+ * Legacy-Domain examfit.de (+ www) ist AUSSCHLIESSLICH 301-Redirect-Shell
+ * (noindex). Keine SEO-Authority, keine separaten Brand-URLs, keine sameAs-
+ * Entities. www.berufos.com → berufos.com. examfitwork.de/berufski.de existieren
+ * NICHT (niemals registriert) — keine Referenzen aufbauen.
  */
 export const BERUFOS = {
   name: "BerufOS",
@@ -29,10 +30,6 @@ export const BERUFOS = {
     legacy: [
       { host: "examfit.de", module: "examfit", role: "LearningOS" },
       { host: "www.examfit.de", module: "examfit", role: "LearningOS" },
-      { host: "examfitwork.de", module: "berufs-ki", role: "WorkforceOS" },
-      { host: "www.examfitwork.de", module: "berufs-ki", role: "WorkforceOS" },
-      { host: "berufski.de", module: "berufs-ki", role: "WorkforceOS" },
-      { host: "www.berufski.de", module: "berufs-ki", role: "WorkforceOS" },
     ],
   },
 
@@ -50,7 +47,7 @@ export const BERUFOS = {
     noreply: "noreply@berufos.com",
     billing: "billing@berufos.com",
     /** Legacy-Adressen bleiben als Forwarding-Aliases (kein outbound). */
-    legacy: ["support@examfit.de", "noreply@examfitwork.de"],
+    legacy: ["support@examfit.de"],
   },
 
   /** Tonalitäts-Marker für Copy-Guardrails. */
@@ -85,7 +82,7 @@ export function statusLabel(s: BerufosModuleStatus): string {
   return s === "live" ? "Live" : s === "preview" ? "Preview" : "In Entwicklung";
 }
 
-/** True wenn host eine Legacy-Domain ist (examfit.de, examfitwork.de, ...). */
+/** True wenn host eine Legacy-Domain ist (examfit.de + www nur). */
 export function isLegacyDomain(host: string | undefined | null): boolean {
   if (!host) return false;
   const h = host.toLowerCase().replace(/^www\./, "");

@@ -1,6 +1,8 @@
 # Project Memory
 
 ## Core
+BerufOS = einzige Plattform-Authority (berufos.com Apex). Einzige Legacy-Redirect-Domain: examfit.de. examfitwork.de / berufski.de existieren NICHT — niemals als Redirect/sameAs/Legacy referenzieren.
+
 Examiner Foundation FROZEN (v1.0.0, Phase 8.9b): Readiness/Verdict/Confidence/Evidence Producer NUR in src/lib/examiner/**. Surfaces lesen ausschließlich useExaminerConsciousness(). Guards: copy-governance + legacy-logic + no-parallel-readiness + release-certification. Ausnahmen NUR in docs/exceptions/examiner-legacy-exceptions.md.
 Pillar/SRO/SEO/LLM SSOT: src/lib/semantic/** (P1) + src/lib/llm-grounding/** (P2+) + src/components/pillar/**. Diese Layer dürfen Examiner-Handover NUR lesen — nie readiness/confidence/verdict/severity selbst berechnen. Guard: semantic-no-examiner-bypass.mjs.
 SSOT: roles in user_roles table, never on profiles. Use has_role().

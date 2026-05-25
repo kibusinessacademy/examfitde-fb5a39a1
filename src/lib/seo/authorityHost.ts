@@ -3,8 +3,9 @@
  *
  * SSOT: Nur `berufos.com` und `www.berufos.com` sind SEO-autoritative Hosts.
  * Alle anderen Hostnamen (Lovable-Preview, Vercel-Preview, localhost, Legacy
- * `examfit.de`, `examfitwork.de`, `berufski.de`) MÜSSEN noindex,nofollow tragen
- * und canonical auf `https://berufos.com${pathname}` setzen.
+ * `examfit.de`) MÜSSEN noindex,nofollow tragen und canonical auf
+ * `https://berufos.com${pathname}` setzen. examfitwork.de / berufski.de
+ * existieren NICHT — keine Referenzen aufbauen.
  *
  * Hardcut: 2026-05-25 — ExamFit.de wird Legacy-Redirect-Domain. BerufOS ist die
  * einzige Plattform-Authority. Siehe mem://strategie/ssot-strategic-north-star-v1
@@ -28,8 +29,7 @@ export function isSeoAuthorityHost(hostname: string): boolean {
 /**
  * True wenn der Host noindex bekommen MUSS. Praktisch: alles außer
  * den 2 Authority-Hosts. Inkludiert explizit localhost, *.lovable.app,
- * *.vercel.app, id-preview--*, *.lovableproject.com, examfit.de,
- * examfitwork.de, berufski.de.
+ * *.vercel.app, id-preview--*, *.lovableproject.com, examfit.de.
  */
 export function shouldNoindexHost(hostname: string): boolean {
   return !isSeoAuthorityHost(hostname);

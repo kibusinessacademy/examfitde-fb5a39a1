@@ -9,7 +9,7 @@ type: feature
 ## SSOT
 - **Einzige Authority-Property:** `https://berufos.com/`
 - **Sitemap:** `https://berufos.com/sitemap.xml`
-- **Legacy passiv:** `examfit.de`, `examfitwork.de`, `berufski.de` bleiben in GSC archiviert (NICHT löschen — Google muss 301-Redirects noch sehen), kein Sitemap-Submit, keine Crawl-Aktion.
+- **Legacy passiv:** nur `examfit.de` (bleibt in GSC archiviert — Google muss 301-Redirects noch sehen — kein Sitemap-Submit, keine Crawl-Aktion). examfitwork.de / berufski.de existieren NICHT (niemals registriert).
 
 ## Verification
 - Methode: META-Tag (DNS optional als zusätzliche Sicherung).
