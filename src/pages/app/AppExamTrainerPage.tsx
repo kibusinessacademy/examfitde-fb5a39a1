@@ -11,6 +11,7 @@ import {
 import { DramaturgyInline } from "@/components/system/DramaturgyChip";
 import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
 import { ExaminerBiographyCard } from "@/components/system/ExaminerBiographyCard";
+import { LearnerRecommendationStrip } from "@/components/recommendations/LearnerRecommendationStrip";
 
 /**
  * Phase 5.7 — Exam-Trainer als simulierte Prüfungssituation.
@@ -329,6 +330,13 @@ export default function AppExamTrainerPage() {
             <p className="mt-2 text-center text-[11px] text-muted-foreground">
               Stille Diagnostik · Zeitdruck als Beobachtungsfaktor
             </p>
+
+            <LearnerRecommendationStrip
+              sourceEntityKind="app_exam_trainer"
+              sourceEntitySlug="exam_pre"
+              examForm="schriftlich"
+              limit={3}
+            />
           </motion.section>
         )}
 
