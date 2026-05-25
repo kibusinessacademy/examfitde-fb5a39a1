@@ -1,27 +1,15 @@
 import { Link } from "react-router-dom";
 import { Briefcase, ChevronRight } from "lucide-react";
-import { useActiveCourse } from "@/contexts/ActiveCourseContext";
+import { useOsBeruf } from "@/lib/os/os-identity";
 
 /**
  * BerufIdentityChip — sichtbarer Identity-Token: das System kennt deinen Beruf.
  *
  * Klein, ruhig, immer klickbar. Default-Ziel: /berufe (Auswahl/Wechsel).
- * Konsumiert ActiveCourseContext; fällt auf "Beruf wählen" zurück, wenn keiner
- * gewählt ist.
  */
-
-function useSafeActive(): { title: string | null } {
-  try {
-    const ctx = useActiveCourse();
-    return { title: ctx?.course?.title ?? null };
-  } catch {
-    return { title: null };
-  }
-}
-
 export function BerufIdentityChip({ to = "/berufe" }: { to?: string } = {}) {
-  const { title } = useSafeActive();
-  const label = title ?? "Beruf wählen";
+  const beruf = useOsBeruf();
+  const label = beruf?.short ?? beruf?.label ?? "Beruf wählen";
 
   return (
     <Link
