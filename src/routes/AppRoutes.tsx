@@ -584,6 +584,7 @@ const AppRoutes = () => {
           <Route path="observatory" element={<StripeObservatoryPage />} />
           <Route path="runtime" element={<RuntimeCommandCenterPage />} />
           <Route path="platform-conscience" element={<PlatformConsciencePage />} />
+          <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
         </Route>
 
