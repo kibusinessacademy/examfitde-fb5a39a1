@@ -48,7 +48,7 @@ const SCHEDULE_TIERS: Record<string, { functions: string[]; bodies: Record<strin
   "seo-indexnow": {
     functions: ["seo-submit-indexnow"],
     bodies: {
-      "seo-submit-indexnow": JSON.stringify({ source: "cron", drain: true }),
+      "seo-submit-indexnow": JSON.stringify({ source: "cron", action: "drain_pending", limit: 200, chunk_size: 50 }),
     },
   },
   "seo-retry": {
