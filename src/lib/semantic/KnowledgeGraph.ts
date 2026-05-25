@@ -100,6 +100,11 @@ export class KnowledgeGraph {
       pruefungsstrategie: 0,
       oral_pattern: 0,
       industry_context: 0,
+      lernpfad: 0,
+      karrierepfad: 0,
+      tutor_topic: 0,
+      oral_exam_topic: 0,
+      faq: 0,
     } as Record<EntityKind, number>;
 
     let edgeCount = 0;
