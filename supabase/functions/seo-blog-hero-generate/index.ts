@@ -30,6 +30,8 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const aiKey = Deno.env.get("LOVABLE_API_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
+  const startedAt = Date.now();
+
 
   let body: { job_id?: string } = {};
   try { body = await req.json(); } catch { /* tolerate */ }
@@ -75,9 +77,17 @@ Deno.serve(async (req) => {
       _target_type: "blog_article",
       _target_id: blogId,
       _result_status: "noop",
-      _payload: { reason: "already_set", url: blog.hero_image_url },
+      _payload: {
+        blog_article_id: blogId,
+        blog_slug: blog.slug,
+        hero_image_url: blog.hero_image_url,
+        model: "google/gemini-2.5-flash-image",
+        duration_ms: Date.now() - startedAt,
+        reason: "already_set",
+      },
       _trigger_source: "seo-blog-hero-generate",
     });
+
     return json(200, { ok: true, skipped: "already_set" });
   }
 
@@ -166,11 +176,17 @@ Deno.serve(async (req) => {
     _target_id: blog.id,
     _result_status: "success",
     _payload: {
-      blog_slug: blog.slug, hero_image_url: publicUrl, mime, bytes: bin.byteLength,
+      blog_article_id: blog.id,
+      blog_slug: blog.slug,
+      hero_image_url: publicUrl,
       model: "google/gemini-2.5-flash-image",
+      duration_ms: Date.now() - startedAt,
+      mime,
+      bytes: bin.byteLength,
     },
     _trigger_source: "seo-blog-hero-generate",
   });
 
   return json(200, { ok: true, blog_article_id: blog.id, hero_image_url: publicUrl });
 });
+
