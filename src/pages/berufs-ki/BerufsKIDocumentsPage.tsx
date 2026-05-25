@@ -4,9 +4,10 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import {
-  listTemplates, listMyProfiles, upsertMyProfile, runDocument,
+  listTemplates, listMyProfiles, upsertMyProfile, runDocument, exportRun,
 } from "@/lib/document-agent/api";
 import type { DocTemplate, DocProfile, DocRunResult } from "@/lib/document-agent/types";
+import type { LayoutTemplate } from "@/lib/document-agent/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +16,17 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, FileText, ShieldCheck, Sparkles, Building2 } from "lucide-react";
+import { AlertTriangle, FileText, ShieldCheck, Sparkles, Building2, FileDown, Loader2 } from "lucide-react";
+
+const LAYOUT_OPTIONS: Array<{ value: LayoutTemplate; label: string }> = [
+  { value: "modern_corporate", label: "Modern Corporate" },
+  { value: "minimal_professional", label: "Minimal Professional" },
+  { value: "legal_style", label: "Legal Style" },
+  { value: "enterprise_clean", label: "Enterprise Clean" },
+  { value: "friendly_business", label: "Friendly Business" },
+];
 
 const RISK_BADGE: Record<string, string> = {
   low: "bg-status-bg-subtle-success text-status-fg-success",
