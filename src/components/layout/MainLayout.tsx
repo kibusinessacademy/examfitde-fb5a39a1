@@ -9,6 +9,7 @@ import { GraduationCap, LogOut, User, Menu, X, Download } from 'lucide-react';
 import { useState } from 'react';
 
 import { useNativeApp } from '@/hooks/useNativeApp';
+import { BerufOSPlatformBadge } from '@/components/berufos/BerufOSPlatformBadge';
 
 const NAV_ITEMS = [
   { to: '/berufe', label: 'Berufe' },
