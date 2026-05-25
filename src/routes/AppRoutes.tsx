@@ -633,6 +633,7 @@ const AppRoutes = () => {
           <Route path="ops/h5p" element={<AdminH5PUploadPage />} />
           <Route path="ops/h5p-smoke" element={<AdminH5PSmokePage />} />
           <Route path="ops/auth-email-smoke" element={<AuthEmailSmokeTestPage />} />
+          <Route path="founder-agents" element={<FounderAgentsPage />} />
           <Route path="ops/events" element={<AdminLearningEventsPage />} />
           <Route path="ops/access" element={<AdminAccessMatrixPage />} />
           <Route path="ops/orders" element={<AdminPaidOrdersOpsPage />} />
