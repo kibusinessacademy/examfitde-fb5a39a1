@@ -139,6 +139,18 @@ export default function AppExamTrainerPage() {
   const prevPhaseRef = useRef<DramaturgyPhase | null>(null);
   const followupIntervention = dramaturgy.interventions.find((i) => i.key === "deepen_followup");
 
+  // P-Completion 3 — adaptive exam plan (deterministic preview over a
+  // demo blueprint until the real per-curriculum blueprint is wired in).
+  const adaptivePlan = useAdaptiveExamPlan({
+    totalQuestions: EXAM.length * 4, // demo: 12 slots
+    difficultyDistribution: { easy: 4, medium: 6, hard: 2 },
+    weights: [
+      { competency_id: "k_struct", competency_key: "LF3.struct", weight: 0.35 },
+      { competency_id: "k_transfer", competency_key: "LF·transfer", weight: 0.35 },
+      { competency_id: "k_valuation", competency_key: "LF5.valuation", weight: 0.30 },
+    ],
+  });
+
   // ruhiger Sekunden-Tick im Exam
   useEffect(() => {
     if (phase !== "exam") return;
