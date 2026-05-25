@@ -1,8 +1,15 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ExternalLink, Sparkles } from "lucide-react";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { BERUFOS, statusLabel } from "@/lib/berufos/brand";
 import { BERUFOS_MODULES } from "@/lib/berufos/modules";
+import {
+  useBerufosModules,
+  BERUFOS_PERSONA_LABELS,
+  BERUFOS_PERSONA_ORDER,
+} from "@/lib/berufos/useBerufosModules";
+import type { BerufosPersona } from "@/lib/berufos/modules";
 import { BerufOSHeader } from "@/components/berufos/BerufOSHeader";
 import { BerufOSFooter } from "@/components/berufos/BerufOSFooter";
 import "@/components/berufos/berufos-theme.css";
@@ -11,12 +18,14 @@ import "@/components/berufos/berufos-theme.css";
  * BerufOS Plattform-Hub — Masterbrand-Landing.
  *
  * Ersetzt VibeOSLandingPage (Routes /vibeos und /platform redirecten hierher).
- * SSOT für Modul-Anzeige: BERUFOS_MODULES.
+ * SSOT für Modul-Anzeige: BERUFOS_MODULES. Persona-Filter via useBerufosModules.
  */
 export default function BerufOSHub() {
-  const live = BERUFOS_MODULES.filter((m) => m.status === "live");
-  const preview = BERUFOS_MODULES.filter((m) => m.status === "preview");
-  const planned = BERUFOS_MODULES.filter((m) => m.status === "planned");
+  const [persona, setPersona] = useState<BerufosPersona | null>(null);
+  const filtered = useBerufosModules(persona);
+  const live = filtered.filter((m) => m.status === "live");
+  const preview = filtered.filter((m) => m.status === "preview");
+  const planned = filtered.filter((m) => m.status === "planned");
 
   return (
     <div className="berufos min-h-screen">
