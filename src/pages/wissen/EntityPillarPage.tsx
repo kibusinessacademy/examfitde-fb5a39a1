@@ -103,7 +103,26 @@ export default function EntityPillarPage({ kind }: EntityPillarPageProps) {
           }}
           eyebrow={`Dein Einstieg in ${entity.name}`}
           className="mb-8"
+          telemetry={{
+            entity_kind: kind,
+            entity_slug: entity.key ?? entity.id,
+          }}
         />
+
+        {/* W1 Cut 3b — Semantic Recommendations.
+            Pillar pages have no learner weakness context yet, so we surface the
+            entity itself as the seed competency to expose related risks/oral
+            patterns/fehlerbilder deterministically. Authenticated learner pages
+            will pass real weak_kompetenz_ids in a follow-up wiring. */}
+        {kind === "kompetenz" ? (
+          <RecommendationStrip
+            graph={graph}
+            weakKompetenzIds={[entity.id]}
+            sourceEntityKind={kind}
+            sourceEntitySlug={entity.key ?? entity.id}
+            limit={3}
+          />
+        ) : null}
 
         <GroundingChunkList chunks={document.chunks} heading="Wissensbasis" />
 
