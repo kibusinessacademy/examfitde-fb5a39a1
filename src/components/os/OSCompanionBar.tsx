@@ -27,10 +27,17 @@ export default function OSCompanionBar() {
   const top = topRisks(1)[0];
   const urgent = top?.tone === "critical";
 
-  const message = useMemo(
-    () => companionMessageFor(pathname, { beruf: beruf?.short ?? beruf?.label ?? null, readiness, urgent }),
-    [pathname, beruf, readiness, urgent],
-  );
+  const message = useMemo(() => {
+    // Wenn ein Recalc gerade frisch ist (≤6s), priorisiert die Bar diesen Kontext.
+    const fresh = lastRecalc && Date.now() - lastRecalc.ts < 6000;
+    if (fresh) return recalcLineFor(lastRecalc!.message, beruf?.short ?? beruf?.label ?? null);
+    return companionMessageFor(pathname, {
+      beruf: beruf?.short ?? beruf?.label ?? null,
+      readiness,
+      urgent,
+    });
+  }, [pathname, beruf, readiness, urgent, lastRecalc]);
+
 
   const [pulse, setPulse] = useState(false);
   const [echo, setEcho] = useState(false);
