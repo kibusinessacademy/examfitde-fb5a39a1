@@ -183,6 +183,22 @@
       "@context": "https://schema.org",
       "@graph": [
         {
+          "@type": "Organization",
+          "@id": "https://berufos.com/#organization",
+          "name": "BerufOS",
+          "alternateName": "BerufOS — Das AI-Betriebssystem für Berufe",
+          "url": "https://berufos.com",
+          "description": "AI-native Workforce-Plattform: LearningOS (ExamFit), WorkforceOS (Berufs-KI), AgentOS, DocumentOS, WorkflowOS, SkillGraph, CareerOS, RecruitOS, IndustryOS, GovernanceOS.",
+          "sameAs": [
+            "https://examfit.de",
+            "https://examfitwork.de"
+          ],
+          "subOrganization": [
+            { "@id": "https://examfit.de/#organization" },
+            { "@type": "Organization", "name": "ExamFit@work", "url": "https://examfitwork.de" }
+          ]
+        },
+        {
           "@type": "EducationalOrganization",
           "@id": "https://examfit.de/#organization",
           "name": "ExamFit.de",
