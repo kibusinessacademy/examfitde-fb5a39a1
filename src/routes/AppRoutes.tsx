@@ -614,6 +614,7 @@ const AppRoutes = () => {
           <Route path="berufs-ki/evolution" element={<BerufsKIEvolutionPage />} />
           <Route path="berufs-ki/agents" element={<BerufsKIAgentsPage />} />
           <Route path="berufs-ki/control-center" element={<BerufsKIControlCenterPage />} />
+          <Route path="governance/profession-licenses" element={<ProfessionLicensesPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
