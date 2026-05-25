@@ -228,6 +228,7 @@ const BerufsKIControlCenterPage = lazyRetry(() => import('@/pages/admin/v2/Beruf
 const ProfessionLicensesPage = lazyRetry(() => import('@/pages/admin/v2/ProfessionLicensesPage'));
 const BerufsKIInboxPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIInboxPage'));
 const BerufsKIDocumentsPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIDocumentsPage'));
+const BerufsKIDocumentsReviewPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIDocumentsReviewPage'));
 const DocumentAgentTemplatesPage = lazyRetry(() => import('@/pages/admin/v2/DocumentAgentTemplatesPage'));
 
 
@@ -356,6 +357,8 @@ const AppRoutes = () => {
         <Route path="/prompts" element={<BerufsKIWorkbenchPage />} />
         <Route path="/berufs-ki/inbox" element={<BerufsKIInboxPage />} />
         <Route path="/berufs-ki/dokumente" element={<BerufsKIDocumentsPage />} />
+        <Route path="/berufs-ki/dokumente/review" element={<BerufsKIDocumentsReviewPage />} />
+
 
         {/* Legacy /berufski/* → 410 Gone */}
         <Route path="/berufski/*" element={<WorkGonePage />} />

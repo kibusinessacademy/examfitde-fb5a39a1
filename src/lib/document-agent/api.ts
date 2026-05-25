@@ -190,3 +190,98 @@ export async function listMyExports(runId?: string) {
   return data ?? [];
 }
 
+// ──────── Phase 3: Review & Approval ────────
+export type ReviewStatus = "pending" | "approved" | "rejected" | "needs_changes" | "cancelled";
+export type ReviewSeverity = "info" | "warning" | "critical";
+
+export interface ReviewListRow {
+  review_id: string;
+  run_id: string;
+  template_title: string;
+  template_category: string;
+  risk_level: "low" | "medium" | "high";
+  status: ReviewStatus;
+  organization_id: string | null;
+  requested_by: string;
+  reviewer_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  review_notes: string | null;
+  compliance_flags: unknown;
+  generated_excerpt: string;
+  comment_count: number;
+}
+
+export interface ReviewDetail {
+  review: {
+    id: string; run_id: string; status: ReviewStatus; risk_level: "low"|"medium"|"high";
+    requested_by: string; reviewer_id: string | null; organization_id: string | null;
+    review_notes: string | null; compliance_flags: unknown; reviewed_at: string | null;
+    created_at: string;
+  };
+  run: {
+    id: string; status: string; generated_document: string | null;
+    structured_sections: Record<string, unknown>; compliance_warnings: unknown;
+    quality_score: number | null; created_at: string;
+  };
+  template: {
+    id: string; title: string; category: string; risk_level: string; output_sections: string[];
+  };
+  comments: Array<{
+    id: string; review_id: string; section_key: string | null;
+    comment: string; severity: ReviewSeverity; created_by: string; created_at: string;
+  }>;
+}
+
+export async function requestReview(runId: string, notes?: string): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("doc_agent_request_review", {
+    _run_id: runId, _notes: notes ?? null,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function submitReviewDecision(
+  reviewId: string,
+  decision: "approved" | "rejected" | "needs_changes",
+  notes?: string,
+): Promise<{ ok: true; decision: string; run_status: string }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("doc_agent_submit_decision", {
+    _review_id: reviewId, _decision: decision, _notes: notes ?? null,
+  });
+  if (error) throw error;
+  return data as { ok: true; decision: string; run_status: string };
+}
+
+export async function addReviewComment(
+  reviewId: string, comment: string,
+  opts: { section_key?: string | null; severity?: ReviewSeverity } = {},
+): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("doc_agent_add_review_comment", {
+    _review_id: reviewId, _comment: comment,
+    _section_key: opts.section_key ?? null, _severity: opts.severity ?? "info",
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function listReviews(status?: ReviewStatus, limit = 50): Promise<ReviewListRow[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("doc_agent_list_reviews", {
+    _status: status ?? null, _limit: limit,
+  });
+  if (error) throw error;
+  return (data ?? []) as ReviewListRow[];
+}
+
+export async function getReviewDetail(reviewId: string): Promise<ReviewDetail> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("doc_agent_get_review", { _review_id: reviewId });
+  if (error) throw error;
+  return data as ReviewDetail;
+}
+
+

@@ -4,8 +4,9 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import {
-  listTemplates, listMyProfiles, upsertMyProfile, runDocument, exportRun,
+  listTemplates, listMyProfiles, upsertMyProfile, runDocument, exportRun, requestReview,
 } from "@/lib/document-agent/api";
+import { Link } from "react-router-dom";
 import type { DocTemplate, DocProfile, DocRunResult } from "@/lib/document-agent/types";
 import type { LayoutTemplate } from "@/lib/document-agent/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,7 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, FileText, ShieldCheck, Sparkles, Building2, FileDown, Loader2 } from "lucide-react";
+import { AlertTriangle, FileText, ShieldCheck, Sparkles, Building2, FileDown, Loader2, ClipboardCheck } from "lucide-react";
 
 const LAYOUT_OPTIONS: Array<{ value: LayoutTemplate; label: string }> = [
   { value: "modern_corporate", label: "Modern Corporate" },
@@ -161,6 +162,11 @@ export default function BerufsKIDocumentsPage() {
             Reviewfähig — niemals als „rechtssicher" garantiert.
           </p>
         </div>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/berufs-ki/dokumente/review">
+            <ClipboardCheck className="h-4 w-4 mr-2" /> Review-Inbox
+          </Link>
+        </Button>
       </header>
 
       <div className="grid lg:grid-cols-[300px,1fr,1fr] gap-4">
@@ -367,6 +373,17 @@ export default function BerufsKIDocumentsPage() {
                     <Button size="sm" variant="outline"
                       onClick={() => { navigator.clipboard.writeText(result.generated_document); toast({ title: "Kopiert" }); }}>
                       Kopieren
+                    </Button>
+                    <Button size="sm" variant="outline"
+                      onClick={async () => {
+                        try {
+                          await requestReview(result.run_id);
+                          toast({ title: "Review angefragt", description: "Das Dokument liegt jetzt in der Review-Inbox." });
+                        } catch (e) {
+                          toast({ title: "Review-Anfrage fehlgeschlagen", description: (e as Error).message, variant: "destructive" });
+                        }
+                      }}>
+                      <ClipboardCheck className="h-4 w-4 mr-1" /> Zur Freigabe einreichen
                     </Button>
                   </div>
 
