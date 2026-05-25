@@ -218,6 +218,7 @@ const WorkCorporatePage = lazyRetry(() => import('@/pages/work/WorkCorporatePage
 const BerufsKIHubPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIHubPage'));
 const BerufsKIWorkbenchPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIWorkbenchPage'));
 const BerufsKIWorkflowsPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIWorkflowsPage'));
+const BerufsKIQualityPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIQualityPage'));
 
 
 // Learner Pages
