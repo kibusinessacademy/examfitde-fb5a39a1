@@ -53,14 +53,14 @@ export function SemanticRelatedLinks({
   const total = competencies.length + risks.length + mistakes.length + oral.length + faqs.length;
   if (total === 0) return null;
 
-  const buckets: Array<{
+  const allBuckets: Array<{
     title: string;
     icon: keyof typeof ICONS;
     items: Array<{ id: string; name: string; href: string }>;
-  }> = ([
+  }> = [
     {
       title: "Kompetenzen",
-      icon: "kompetenz" as const,
+      icon: "kompetenz",
       items: competencies.map((c) => ({ id: c.id, name: c.name, href: `/wissen/kompetenz/${encodeURIComponent(c.key)}` })),
     },
     {
@@ -83,7 +83,8 @@ export function SemanticRelatedLinks({
       icon: "faq",
       items: faqs.map((f) => ({ id: f.id, name: f.name, href: `/wissen/faq/${encodeURIComponent(f.key)}` })),
     },
-  ].filter((b) => b.items.length > 0);
+  ];
+  const buckets = allBuckets.filter((b) => b.items.length > 0);
 
   return (
     <section className={`container max-w-5xl py-10 ${className ?? ""}`}>
