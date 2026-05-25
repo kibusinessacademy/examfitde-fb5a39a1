@@ -94,7 +94,13 @@ export default function EntityPillarPage({ kind }: EntityPillarPageProps) {
 
         <GroundingChunkList chunks={document.chunks} heading="Wissensbasis" />
 
+        {kind === "beruf" || kind === "pruefung" ? (
+          <ReadinessSignalBlock mode="product" contextLabel={entity.name} />
+        ) : null}
+
         <SemanticCrossLinks graph={graph} entity={entity} />
+
+        <SemanticRelatedLinks entityId={entity.id} />
       </main>
     </>
   );
