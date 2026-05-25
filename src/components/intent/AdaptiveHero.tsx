@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resolveIntent } from "@/lib/intent/router";
@@ -5,6 +6,7 @@ import {
   chooseAdaptiveCta,
   type AdaptiveCtaDecision,
 } from "@/lib/intent/adaptive-cta";
+import { recordAdaptiveCtaDecision } from "@/lib/intent/decision-telemetry";
 import type { IntentSignals, ResolvedIntent } from "@/lib/intent/types";
 
 interface Props {
@@ -19,6 +21,16 @@ interface Props {
   /** Optional eyebrow above the hero. */
   eyebrow?: string;
   className?: string;
+  /** Telemetry context — surfaces in adaptive_cta_decision metadata. */
+  telemetry?: {
+    entity_kind?: string;
+    entity_slug?: string;
+    persona?: string | null;
+    package_id?: string | null;
+    confidence?: number | null;
+    /** Default true — set false in unit/visual tests. */
+    enabled?: boolean;
+  };
 }
 
 const VARIANT_HEADLINE: Record<AdaptiveCtaDecision["variant"], string> = {
@@ -51,10 +63,47 @@ export function AdaptiveHero({
   onPrimary,
   eyebrow = "Dein nächster Schritt",
   className,
+  telemetry,
 }: Props) {
   const resolved = intent ?? resolveIntent(signals ?? {});
   const decision = chooseAdaptiveCta(resolved, signals ?? {}, extra ?? {});
   const headline = VARIANT_HEADLINE[decision.variant];
+
+  const firedRef = useRef(false);
+  useEffect(() => {
+    if (firedRef.current) return;
+    if (telemetry?.enabled === false) return;
+    firedRef.current = true;
+    recordAdaptiveCtaDecision({
+      decision,
+      intent: resolved,
+      signals: signals ?? {},
+      entity_kind: telemetry?.entity_kind,
+      entity_slug: telemetry?.entity_slug,
+      persona: telemetry?.persona,
+      package_id: telemetry?.package_id,
+      confidence: telemetry?.confidence,
+      phase: "rendered",
+    });
+  }, [decision, resolved, signals, telemetry]);
+
+  const handleClick = () => {
+    if (telemetry?.enabled !== false) {
+      recordAdaptiveCtaDecision({
+        decision,
+        intent: resolved,
+        signals: signals ?? {},
+        entity_kind: telemetry?.entity_kind,
+        entity_slug: telemetry?.entity_slug,
+        persona: telemetry?.persona,
+        package_id: telemetry?.package_id,
+        confidence: telemetry?.confidence,
+        phase: "clicked",
+      });
+    }
+    onPrimary?.(decision);
+  };
+
 
   return (
     <section
@@ -88,7 +137,7 @@ export function AdaptiveHero({
         <Button
           size="lg"
           className="rounded-xl"
-          onClick={() => onPrimary?.(decision)}
+          onClick={handleClick}
           data-cta="adaptive_hero_primary"
           data-cta-surface={decision.action_type}
         >
