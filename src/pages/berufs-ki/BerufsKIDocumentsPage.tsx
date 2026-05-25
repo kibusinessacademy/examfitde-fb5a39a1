@@ -36,7 +36,7 @@ export default function BerufsKIDocumentsPage() {
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [newProfile, setNewProfile] = useState({
     company_name: "", default_sender_name: "", default_sender_role: "",
-    address: "", contact_email: "", phone: "", default_signature: "",
+    address: "", contact_email: "", phone: "", website: "", default_signature: "",
   });
 
   useEffect(() => {
@@ -196,8 +196,9 @@ export default function BerufsKIDocumentsPage() {
                     onChange={(e) => setNewProfile({ ...newProfile, contact_email: e.target.value })} />
                   <Input placeholder="Telefon" value={newProfile.phone}
                     onChange={(e) => setNewProfile({ ...newProfile, phone: e.target.value })} />
-                  <Input placeholder="Website" value={newProfile.website ?? ""}
-                    onChange={(e) => setNewProfile({ ...newProfile, contact_email: newProfile.contact_email })} />
+                  <Input placeholder="Website" value={newProfile.website}
+                    onChange={(e) => setNewProfile({ ...newProfile, website: e.target.value })} />
+
                   <Textarea className="col-span-2" placeholder="Adresse" value={newProfile.address}
                     onChange={(e) => setNewProfile({ ...newProfile, address: e.target.value })} />
                   <Textarea className="col-span-2" placeholder="Signatur" value={newProfile.default_signature}

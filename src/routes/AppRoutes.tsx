@@ -227,6 +227,8 @@ const BerufsKIAgentsPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIAgen
 const BerufsKIControlCenterPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIControlCenterPage'));
 const ProfessionLicensesPage = lazyRetry(() => import('@/pages/admin/v2/ProfessionLicensesPage'));
 const BerufsKIInboxPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIInboxPage'));
+const BerufsKIDocumentsPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIDocumentsPage'));
+const DocumentAgentTemplatesPage = lazyRetry(() => import('@/pages/admin/v2/DocumentAgentTemplatesPage'));
 
 
 // Learner Pages
@@ -353,6 +355,7 @@ const AppRoutes = () => {
         <Route path="/berufs-ki/app" element={<BerufsKIWorkbenchPage />} />
         <Route path="/prompts" element={<BerufsKIWorkbenchPage />} />
         <Route path="/berufs-ki/inbox" element={<BerufsKIInboxPage />} />
+        <Route path="/berufs-ki/dokumente" element={<BerufsKIDocumentsPage />} />
 
         {/* Legacy /berufski/* → 410 Gone */}
         <Route path="/berufski/*" element={<WorkGonePage />} />
@@ -615,6 +618,7 @@ const AppRoutes = () => {
           <Route path="berufs-ki/agents" element={<BerufsKIAgentsPage />} />
           <Route path="berufs-ki/control-center" element={<BerufsKIControlCenterPage />} />
           <Route path="governance/profession-licenses" element={<ProfessionLicensesPage />} />
+          <Route path="berufs-ki/documents" element={<DocumentAgentTemplatesPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
