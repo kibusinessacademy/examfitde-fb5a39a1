@@ -3,6 +3,7 @@ import { ArrowRight, ExternalLink, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
+// keep import for invoke()
 import { toast } from "sonner";
 import { BERUFOS, statusLabel } from "@/lib/berufos/brand";
 import type { BerufosModule } from "@/lib/berufos/modules";
@@ -144,19 +145,11 @@ function PlannedWaitlist({ module }: { module: BerufosModule }) {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.from("email_delivery_queue").insert({
-        recipient_email: email,
-        template_key: `berufos_waitlist_${module.slug}`,
-        idempotency_key: `berufos_waitlist|${email}|${module.slug}`,
-        payload: {
-          module_slug: module.slug,
-          module_name: module.name,
-          source: "berufos_landing",
-        },
-      } as never);
-      if (error && !error.message.toLowerCase().includes("duplicate")) {
-        throw error;
-      }
+      const { data, error } = await supabase.functions.invoke("berufos-waitlist", {
+        body: { email, module_slug: module.slug },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       setSubmitted(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unbekannter Fehler";
