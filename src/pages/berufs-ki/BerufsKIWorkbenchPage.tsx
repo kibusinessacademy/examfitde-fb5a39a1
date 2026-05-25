@@ -20,6 +20,10 @@ import WorkflowRunner from "@/components/berufs-ki/WorkflowRunner";
 import SubmissionDialog from "@/components/berufs-ki/SubmissionDialog";
 import { BerufIdentityChip } from "@/components/os/BerufIdentityChip";
 import { useOsBeruf } from "@/lib/os/os-identity";
+import { UsageIntelligenceCard } from "@/components/berufs-ki/UsageIntelligenceCard";
+import { UpgradeRecommendationBanner } from "@/components/berufs-ki/UpgradeRecommendationBanner";
+import { LockedWorkflowPreview } from "@/components/berufs-ki/LockedWorkflowPreview";
+import { useAuth } from "@/hooks/useAuth";
 
 const CATEGORIES: WorkflowCategory[] = [
   "kommunikation", "analyse", "dokumentation", "organisation", "fach", "lernhilfe",
