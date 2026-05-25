@@ -201,6 +201,7 @@ const AdminRolesPage = lazyRetry(() => import('@/pages/admin/v2/AdminRolesPage')
 const AdminH5PUploadPage = lazyRetry(() => import('@/pages/admin/v2/AdminH5PUploadPage'));
 const AdminH5PSmokePage = lazyRetry(() => import('@/pages/admin/v2/AdminH5PSmokePage'));
 const AuthEmailSmokeTestPage = lazyRetry(() => import('@/pages/admin/v2/AuthEmailSmokeTestPage'));
+const FounderAgentsPage = lazyRetry(() => import('@/pages/admin/v2/FounderAgentsPage'));
 const AdminLearningEventsPage = lazyRetry(() => import('@/pages/admin/v2/AdminLearningEventsPage'));
 const AdminAccessMatrixPage = lazyRetry(() => import('@/pages/admin/v2/AdminAccessMatrixPage'));
 const AdminPaidOrdersOpsPage = lazyRetry(() => import('@/pages/admin/v2/AdminPaidOrdersOpsPage'));
@@ -632,6 +633,7 @@ const AppRoutes = () => {
           <Route path="ops/h5p" element={<AdminH5PUploadPage />} />
           <Route path="ops/h5p-smoke" element={<AdminH5PSmokePage />} />
           <Route path="ops/auth-email-smoke" element={<AuthEmailSmokeTestPage />} />
+          <Route path="founder-agents" element={<FounderAgentsPage />} />
           <Route path="ops/events" element={<AdminLearningEventsPage />} />
           <Route path="ops/access" element={<AdminAccessMatrixPage />} />
           <Route path="ops/orders" element={<AdminPaidOrdersOpsPage />} />

@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 /** SSOT: 10 operative areas — Platform Conscience Hub als Read-only-Einstieg über die drei Säulen. */
 const NAV_ITEMS = [
   { to: '/admin/cockpit', label: 'Cockpit', icon: Gauge },
+  { to: '/admin/founder-agents', label: 'Founder Agents', icon: Sparkles },
   { to: '/admin/platform-conscience', label: 'Conscience', icon: Eye },
   { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
   { to: '/admin/studio', label: 'Kurse', icon: Package },
