@@ -352,11 +352,24 @@ export default function BerufsKIDocumentsPage() {
                     {result.generated_document}
                   </pre>
                   <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" onClick={() => doExport("pdf")} disabled={exporting !== null}>
+                      {exporting === "pdf"
+                        ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        : <FileDown className="h-4 w-4 mr-1" />}
+                      PDF
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => doExport("docx")} disabled={exporting !== null}>
+                      {exporting === "docx"
+                        ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        : <FileDown className="h-4 w-4 mr-1" />}
+                      DOCX (M365)
+                    </Button>
                     <Button size="sm" variant="outline"
                       onClick={() => { navigator.clipboard.writeText(result.generated_document); toast({ title: "Kopiert" }); }}>
                       Kopieren
                     </Button>
                   </div>
+
                   <p className="text-xs text-muted-foreground border-t pt-3">
                     Dieses Dokument ist berufsbezogen, strukturiert und reviewfähig erstellt.
                     Bei rechtlich verbindlicher Nutzung ist eine fachliche oder juristische Prüfung erforderlich.
