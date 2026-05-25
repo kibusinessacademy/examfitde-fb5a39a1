@@ -24,7 +24,7 @@ import { ReadinessSignalBlock } from "@/components/semantic/ReadinessSignalBlock
 import { TrustLayerStrip } from "@/components/trust/TrustLayerStrip";
 import { AdaptiveHero } from "@/components/intent/AdaptiveHero";
 import { ConfidenceStatusStrip } from "@/components/intent/ConfidenceStatusStrip";
-import { resolveIntent } from "@/lib/intent/router";
+
 
 const BASE_URL = "https://examfitde.lovable.app";
 const PROVIDER = { name: "ExamFit", url: BASE_URL } as const;
