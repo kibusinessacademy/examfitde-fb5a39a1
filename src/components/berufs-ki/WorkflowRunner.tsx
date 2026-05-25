@@ -1,12 +1,25 @@
 /**
- * Berufs-KI WorkflowRunner — DRY component.
+ * Berufs-KI WorkflowRunner — Phase 3.
  *
- * Renders dynamic input form from WorkflowDefinition.input_schema and
- * displays the rendered output_text returned by the edge function.
- * Handles tier-lock and entitlement_required errors.
+ * - Dynamic input form from input_schema
+ * - Tier-lock UI for entitlement_required
+ * - Output-Contract Guard: zeigt fehlende Sektionen als Qualitätswarnung
+ * - Feedback (hilfreich / teilweise / nicht hilfreich) gebunden an Version
+ * - Reuse-Aktionen: kopieren, neu mit gleichen Inputs ausführen
  */
 import { useMemo, useState } from "react";
-import { Loader2, Lock, Sparkles } from "lucide-react";
+import {
+  CheckCircle2,
+  Copy,
+  Loader2,
+  Lock,
+  RefreshCw,
+  Sparkles,
+  ThumbsDown,
+  ThumbsUp,
+  AlertTriangle,
+  Minus,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { runWorkflow } from "@/lib/berufs-ki/api";
+import { recordRunFeedback, runWorkflow } from "@/lib/berufs-ki/api";
 import { CATEGORY_LABEL, lockMessage, tierLabel } from "@/lib/berufs-ki/copy";
 import type { WorkflowDefinition, WorkflowRunResult } from "@/lib/berufs-ki/types";
 import { useOsBeruf } from "@/lib/os/os-identity";
@@ -28,7 +41,6 @@ interface Props {
 
 function parseSections(text: string, sections: string[]): Array<{ heading: string; body: string }> | null {
   if (!text || sections.length === 0) return null;
-  // Normalize section keys → human labels for matching
   const labels = sections.map((s) => s.replace(/_/g, " "));
   const pattern = new RegExp(
     `(^|\\n)\\s*(?:#+\\s*|\\*\\*)?(${labels.map((l) => l.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")).join("|")})(?:\\*\\*|:)?\\s*\\n`,
@@ -64,6 +76,10 @@ export default function WorkflowRunner({ workflow, onClose }: Props) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<WorkflowRunResult | null>(null);
   const [lockError, setLockError] = useState<string | null>(null);
+  const [rating, setRating] = useState<-1 | 0 | 1 | null>(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
 
   const sections = useMemo(
     () => (result ? parseSections(result.output_text, workflow.output_schema.sections ?? []) : null),
@@ -74,12 +90,18 @@ export default function WorkflowRunner({ workflow, onClose }: Props) {
     setInputs((prev) => ({ ...prev, [key]: val }));
   }
 
-  async function handleRun() {
+  async function handleRun(opts: { sourceRunId?: string } = {}) {
     setRunning(true);
     setResult(null);
     setLockError(null);
+    setRating(null);
+    setFeedbackText("");
+    setFeedbackOpen(false);
     try {
-      const res = await runWorkflow(workflow.slug, inputs, beruf?.slug);
+      const res = await runWorkflow(workflow.slug, inputs, {
+        beruf_slug: beruf?.slug,
+        source_run_id: opts.sourceRunId ?? null,
+      });
       setResult(res);
     } catch (e) {
       const err = e as Error & { code?: string; reason?: string };
@@ -93,6 +115,42 @@ export default function WorkflowRunner({ workflow, onClose }: Props) {
     }
   }
 
+  async function handleRate(value: -1 | 0 | 1) {
+    if (!result) return;
+    setRating(value);
+    if (value !== 1) {
+      setFeedbackOpen(true);
+    }
+    try {
+      await recordRunFeedback(result.run_id, value, value !== 1 ? feedbackText : undefined);
+      if (value === 1) toast.success("Danke für dein Feedback.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
+  async function handleSaveFeedback() {
+    if (!result || rating == null) return;
+    setFeedbackSaving(true);
+    try {
+      await recordRunFeedback(result.run_id, rating, feedbackText);
+      toast.success("Feedback gespeichert.");
+      setFeedbackOpen(false);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setFeedbackSaving(false);
+    }
+  }
+
+  function handleCopy() {
+    if (!result) return;
+    navigator.clipboard.writeText(result.output_text).then(
+      () => toast.success("Ergebnis kopiert."),
+      () => toast.error("Kopieren fehlgeschlagen."),
+    );
+  }
+
   const isLocked = workflow.tier_required !== "free";
   const ssotChips = [
     workflow.curriculum_id && { label: "Lernpaket-Bindung", icon: "📦" },
@@ -100,6 +158,10 @@ export default function WorkflowRunner({ workflow, onClose }: Props) {
     workflow.competency_id && { label: "Kompetenz-Bezug", icon: "🎯" },
     workflow.blueprint_id && { label: "Blueprint-Bezug", icon: "🧩" },
   ].filter(Boolean) as Array<{ label: string; icon: string }>;
+
+  const quality = result?.quality;
+  const showQualityWarning =
+    quality && (quality.completion_status === "partial" || quality.completion_status === "empty");
 
   return (
     <Card className="w-full">
@@ -115,6 +177,7 @@ export default function WorkflowRunner({ workflow, onClose }: Props) {
               {workflow.risk_level !== "low" && (
                 <Badge variant="outline" className="text-xs">Risiko: {workflow.risk_level}</Badge>
               )}
+              <Badge variant="outline" className="text-xs">v{workflow.version}</Badge>
             </div>
             <CardTitle className="text-xl">{workflow.title}</CardTitle>
             <p className="mt-2 text-sm text-muted-foreground">{workflow.description}</p>
@@ -182,7 +245,7 @@ export default function WorkflowRunner({ workflow, onClose }: Props) {
         ))}
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
-          <Button onClick={handleRun} disabled={running} size="lg">
+          <Button onClick={() => handleRun()} disabled={running} size="lg">
             {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
             {running ? "Berufs-KI arbeitet…" : "Workflow starten"}
           </Button>
@@ -213,13 +276,38 @@ export default function WorkflowRunner({ workflow, onClose }: Props) {
 
         {result && (
           <div className="mt-4 space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">Ergebnis</span>
+              {quality && quality.coverage_pct != null && (
+                <Badge variant="outline" className="text-xs">
+                  Abdeckung {quality.coverage_pct.toFixed(0)}%
+                </Badge>
+              )}
               <span className="ml-auto text-xs text-muted-foreground">
-                {result.model_used} · {(result.latency_ms / 1000).toFixed(1)}s
+                {result.model_used} · {(result.latency_ms / 1000).toFixed(1)}s · v{result.version_at_run ?? workflow.version}
               </span>
             </div>
+
+            {showQualityWarning && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-200">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <div className="font-medium">
+                      {quality?.completion_status === "empty"
+                        ? "Ergebnis wirkt unvollständig."
+                        : "Einige erwartete Abschnitte fehlen."}
+                    </div>
+                    {quality && quality.sections_missing.length > 0 && (
+                      <div className="mt-1 text-[11px] opacity-80">
+                        Fehlt: {quality.sections_missing.map((s) => s.replace(/_/g, " ")).join(", ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {sections ? (
               <div className="space-y-3">
@@ -235,6 +323,75 @@ export default function WorkflowRunner({ workflow, onClose }: Props) {
             ) : (
               <div className="rounded-lg border bg-muted/30 p-4">
                 <div className="whitespace-pre-wrap text-sm leading-relaxed">{result.output_text}</div>
+              </div>
+            )}
+
+            {/* Action bar: reuse + feedback */}
+            <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+              <Button size="sm" variant="outline" onClick={handleCopy}>
+                <Copy className="mr-1.5 h-3.5 w-3.5" /> Kopieren
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleRun({ sourceRunId: result.run_id })}
+                disabled={running}
+              >
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Erneut ausführen
+              </Button>
+
+              <div className="ml-auto flex items-center gap-1.5">
+                <span className="mr-1 text-xs text-muted-foreground">War das hilfreich?</span>
+                <Button
+                  size="sm"
+                  variant={rating === 1 ? "default" : "ghost"}
+                  onClick={() => handleRate(1)}
+                  aria-label="Hilfreich"
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={rating === 0 ? "default" : "ghost"}
+                  onClick={() => handleRate(0)}
+                  aria-label="Teilweise hilfreich"
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={rating === -1 ? "default" : "ghost"}
+                  onClick={() => handleRate(-1)}
+                  aria-label="Nicht hilfreich"
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {feedbackOpen && rating != null && rating !== 1 && (
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <Label className="text-xs">Was hat gefehlt? (optional)</Label>
+                <Textarea
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value.slice(0, 1000))}
+                  rows={3}
+                  placeholder="z. B. fehlende Risiko-Einschätzung, zu allgemein …"
+                  className="mt-1.5"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setFeedbackOpen(false)}>
+                    Später
+                  </Button>
+                  <Button size="sm" onClick={handleSaveFeedback} disabled={feedbackSaving}>
+                    {feedbackSaving ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Senden
+                  </Button>
+                </div>
               </div>
             )}
           </div>
