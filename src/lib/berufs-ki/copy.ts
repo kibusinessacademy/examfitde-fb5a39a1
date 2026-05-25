@@ -4,7 +4,7 @@
  * Berufs-KI ≠ ChatGPT-Klon. Sprache: warm, professionell, ergebnisorientiert.
  * „Die KI kennt deinen Beruf."
  */
-import type { WorkflowCategory } from "./types";
+import type { WorkflowCategory, WorkflowTier } from "./types";
 
 export const BERUFS_KI = {
   brand: {
@@ -23,6 +23,11 @@ export const BERUFS_KI = {
   workbench: {
     placeholder: "Was möchtest du erledigen?",
   },
+  tier: {
+    free: { label: "Kostenlos", short: "Free", color: "secondary" as const },
+    pro: { label: "Pro", short: "Pro", color: "default" as const },
+    business: { label: "Business", short: "Business", color: "default" as const },
+  } satisfies Record<WorkflowTier, { label: string; short: string; color: "secondary" | "default" }>,
 } as const;
 
 export const CATEGORY_LABEL: Record<WorkflowCategory, string> = {
@@ -42,3 +47,19 @@ export const CATEGORY_DESCRIPTION: Record<WorkflowCategory, string> = {
   fach: "Fachgespräche, Kundengespräche, Prüfungssituationen.",
   lernhilfe: "Themen verständlich auf deinem Niveau erklären.",
 };
+
+export function tierLabel(t: WorkflowTier): string {
+  return BERUFS_KI.tier[t].label;
+}
+
+export function lockMessage(tier: WorkflowTier, beruf?: string | null): string {
+  if (tier === "business") {
+    return "Business-Workflow — verfügbar mit Business-Lizenz für Teams.";
+  }
+  if (tier === "pro") {
+    return beruf
+      ? `Pro-Workflow — wird mit deinem ExamFit-Zugang für ${beruf} freigeschaltet.`
+      : "Pro-Workflow — verfügbar mit aktivem ExamFit-Lernpaket.";
+  }
+  return "";
+}
