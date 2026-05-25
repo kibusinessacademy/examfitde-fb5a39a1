@@ -149,3 +149,82 @@ export const GUARD_REASON_LABEL: Record<NonNullable<GuardReason>, string> = {
   agent_disabled_for_org: "Agent für Organisation deaktiviert",
   agent_tier_insufficient: "Agent erfordert höheren Tarif",
 };
+
+// ── Phase 7b: Admin Governance RPCs ──────────────────────────────────────
+
+export interface ProfessionContextRow {
+  profession_id: string;
+  profession_name: string;
+  allowed_agent_slugs: string[];
+  allowed_agent_categories: string[];
+  allowed_workflow_categories: string[];
+  governance_profile: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrgLicenseRow {
+  organization_id: string;
+  organization_name: string;
+  primary_profession_id: string | null;
+  primary_profession_name: string | null;
+  primary_tier: LicenseTier | null;
+  addon_count: number;
+  cooldown_until: string | null;
+}
+
+export interface GuardEventRow {
+  id: string;
+  organization_id: string | null;
+  profession_id: string | null;
+  agent_id: string | null;
+  workflow_slug: string | null;
+  allowed: boolean;
+  reason: string | null;
+  actor_id: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export async function adminListProfessionContexts(): Promise<ProfessionContextRow[]> {
+  const { data, error } = await sb.rpc("admin_list_profession_contexts");
+  if (error) throw error;
+  return (data ?? []) as ProfessionContextRow[];
+}
+
+export async function adminListOrgsWithLicenses(limit = 200): Promise<OrgLicenseRow[]> {
+  const { data, error } = await sb.rpc("admin_list_orgs_with_licenses", { _limit: limit });
+  if (error) throw error;
+  return (data ?? []) as OrgLicenseRow[];
+}
+
+export async function adminListProfessionGuardEvents(input: {
+  organization_id?: string | null;
+  only_denied?: boolean;
+  limit?: number;
+}): Promise<GuardEventRow[]> {
+  const { data, error } = await sb.rpc("admin_list_profession_guard_events", {
+    _organization_id: input.organization_id ?? null,
+    _only_denied: input.only_denied ?? true,
+    _limit: input.limit ?? 100,
+  });
+  if (error) throw error;
+  return (data ?? []) as GuardEventRow[];
+}
+
+export async function adminSwitchPrimaryProfession(input: {
+  organization_id: string;
+  new_profession_id: string;
+  force?: boolean;
+  cooldown_days?: number;
+}): Promise<{ ok: boolean; reason?: string; cooldown_until?: string; from?: string; to?: string }> {
+  const { data, error } = await sb.rpc("admin_switch_primary_profession", {
+    _organization_id: input.organization_id,
+    _new_profession_id: input.new_profession_id,
+    _force: input.force ?? false,
+    _cooldown_days: input.cooldown_days ?? 30,
+  });
+  if (error) throw error;
+  return data as { ok: boolean; reason?: string; cooldown_until?: string; from?: string; to?: string };
+}
+
