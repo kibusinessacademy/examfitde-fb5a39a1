@@ -44,6 +44,9 @@ module.exports = {
       "/admin/jobs/",
       "/admin/ops/queue/",
       "/admin/berufs-ki/",
+    ];
+
+
 
 
     function checkValue(node, value) {
