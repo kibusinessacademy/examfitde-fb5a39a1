@@ -57,10 +57,10 @@ export function SemanticRelatedLinks({
     title: string;
     icon: keyof typeof ICONS;
     items: Array<{ id: string; name: string; href: string }>;
-  }> = [
+  }> = ([
     {
       title: "Kompetenzen",
-      icon: "kompetenz",
+      icon: "kompetenz" as const,
       items: competencies.map((c) => ({ id: c.id, name: c.name, href: `/wissen/kompetenz/${encodeURIComponent(c.key)}` })),
     },
     {
