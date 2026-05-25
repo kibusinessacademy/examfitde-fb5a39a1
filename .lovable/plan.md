@@ -1,77 +1,87 @@
-# W1 — Authority + Conversion Convergence
+# Berufs-KI Activation & Convergence Sprint
 
-**Mission:** BerufOS erzeugt „semantic gravity" — Beruf, Prüfung, Kompetenz, Schwäche, Lernpfad, Produkt, Conversion sind als zusammenhängendes Ökosystem verstanden (von Google, Nutzer, AI).
+## Leitprinzip
+Kein Tiefenausbau. Aktivierung der vorhandenen 8 Phasen. **Revenue first, Convergence second, Polish never.**
+SSOT_FIRST · EXTEND_EXISTING · NO_PARALLEL_SYSTEMS · BRIDGE_DONT_FORK · FAIL_VISIBLE.
 
-W1 ist groß. Statt alles parallel zu reißen, baue ich es in **3 abgegrenzten Cuts** mit Smoke-Test + Memory-Update pro Cut. Cut 1 ist der einzige, der jetzt direkt umgesetzt wird — Cut 2 + 3 folgen nach Approval.
+## Sprint-Struktur (7 Cuts, sequenziell)
 
----
+```text
+BK-Act-1  Monetization Spine        (Phase A1+A2)   ← Start
+BK-Act-2  Revenue UX + Workbench    (Phase A3 + H)
+BK-Act-3  ExamFit Convergence       (Phase B1–B4)
+BK-Act-4  Profession Intelligence   (Phase C1–C3)
+BK-Act-5  Document Agent Activation (Phase D1–D4)
+BK-Act-6  Graph Materialization     (Phase E1–E3)
+BK-Act-7  Legacy Kill + Analytics   (Phase F + G)
+```
 
-## Cut 1 — Semantic Gravity Foundation (jetzt)
-
-Höchster Hebel, niedrigste Drift-Gefahr. Reine SSOT-Erweiterung + Read-Views, keine Producer-Mutationen.
-
-### 1.1 Semantic Graph erweitern (P0)
-Bestehender `src/lib/semantic` Graph deckt 10 Entity-Kinds ab (beruf, pruefung, lernfeld, kompetenz, risiko, fehlerbild, …). Fehlend für W1-Mission:
-- `lernpfad` — sequenzierter Pfad aus Kompetenzen → Produkt
-- `karrierepfad` — Beruf → Folge-Beruf / Weiterbildung
-- `tutor_topic` — Bridge Kompetenz → AI-Tutor-Kontext
-- `oral_exam_topic` — eigene Entity (heute nur als `oral_pattern` an Kompetenz)
-- `faq` — strukturierte FAQ-Knoten (für AI-Overview + Schema.org)
-
-Neue Edges:
-- `kompetenz_has_lernpfad`, `lernpfad_leads_to_produkt`
-- `beruf_has_karrierepfad`
-- `kompetenz_has_tutor_topic`
-- `pruefung_has_oral_exam_topic`
-- `entity_has_faq` (polymorph via from-id)
-
-**Golden-Tests** erweitern (Determinismus + Dedup + Examiner-Isolation bleibt hart).
-
-### 1.2 DB-Snapshot-Pipeline anpassen
-`semantic_graph_get_published()` RPC + Snapshot-Table um neue Kinds/Edges erweitern (additive Migration, keine Drops). Backfill: leer — Phase P5 Hook tolerant.
-
-### 1.3 Readiness als sichtbarer USP (Quick-Win)
-Bestehende `BerufReadinessBlock`-Komponente generalisieren zu `ReadinessSignalBlock` mit 3 Modi:
-- `landing` (heute), `product`, `learner`
-Einbau auf: Pillar-Pages (`/wissen/beruf/:key`), Produkt-Landing-Templates, Learner-Dashboard-Header. Reine Frontend-Arbeit, keine neuen Daten.
-
-### 1.4 Semantic Related Links (Quick-Win)
-Neue Komponente `<SemanticRelatedLinks entityId={…} kinds={…} />` — nutzt vorhandene `resolveTargets` + `relatedCompetencies`/`relatedMistakes`/`relatedOralPatterns`. Einbau am Fuß jeder Pillar/Satellite-Page. „Das könnte in deiner Prüfung drankommen".
-
-### Smoke + Memory
-- Vitest: Graph-Golden grün, neue Resolver-Tests
-- Memory-Leaf `architektur/semantic/w1-cut1-graph-extension-v1.md`
-- `mem://index.md` Core-Rule update
+Jeder Cut endet mit: Migration + Smoke + Audit-Contract + Memory-Update.
 
 ---
 
-## Cut 2 — Intent Routing + Trust Layer (nach Approval Cut 1)
+## Cut BK-Act-1 — Monetization Spine (dieser Sprint)
 
-- **Intent Classifier** (deterministisch, regex-first + optional Lovable-AI fallback): `intent_key ∈ {bestehen, schwer, durchgefallen, muendlich, ihk_fragen, lernplan, simulieren, unsicher, angst, weiterbildung}` → `persona × cta × produkt × funnel_path`
-- SSOT `src/lib/intent/router.ts` + Tests + DB-View `v_intent_routing_decisions`
-- **Trust Signals** Komponente `<TrustLayerStrip />` (prüfungsnah, Rahmenplan, KI-Grenzen, no-halluzination) als wiederverwendbares Band
+### Ziel
+Aus 6 generischen Free-Workflows entsteht eine **echte Tier-Matrix** mit hartem Gate. Keine Fake-Tiers, keine UI-only Locks.
 
-## Cut 3 — Internal Link Intelligence + Conversion Intelligence (nach Cut 2)
+### Scope
+1. **Tier-Erweiterung Seed-Workflows** (Migration)
+   - Bestehende 6 Workflows: `tier='free'` bleiben als Light-Variante (limitiert: 3 Runs/Tag, kein Export, kein Profession-Context).
+   - **6 neue Pro-Workflows** mit echten `curriculum_id` + `competency_ids` Bindings:
+     - `bilanzanalyse-erklaeren` (Bilanzbuchhalter)
+     - `fachgespraech-simulieren` (Industriekaufmann)
+     - `kundenreklamation-beantworten` (Industriekaufmann)
+     - `pruefungsgespraech-vorbereiten` (FISI)
+     - `geschaeftsvorfall-erklaeren` (Steuerfachangestellte)
+     - `buchungssatz-validieren` (Bilanzbuchhalter)
+   - **3 Business-Workflows**:
+     - `ausbildungsfeedback-generieren`
+     - `kompetenzluecken-aggregieren`
+     - `team-readiness-report`
 
-- Bidirektionale semantische Internal-Links via `seo_content_graph` Erweiterung (mündlich ↔ typische-fragen ↔ fallen ↔ readiness pro Beruf)
-- Conversion-Trigger-Engine (Prüfungsdatum, Mastery-Drop, Session-Abbruch, Streaks) → `conversion_triggers` SSOT + Reaktoren in bestehenden Funnel-Komponenten
-- FAQ-/Glossar-Generator aus Kompetenz-Graph (P2 AI-Retrieval)
-- Persona-spezifische Hero-Slots (Azubi/Betrieb/Institution)
+2. **Tier-Gate Hardening** (Edge + DB)
+   - SSOT `fn_workflow_tier_check(user_id, workflow_id)` → `{allowed, reason, upgrade_target}`.
+   - BEFORE-INSERT-Trigger auf `workflow_runs`: blockt bei `tier_violation` mit Audit-Mirror in `auto_heal_log` (action_type=`workflow_tier_blocked`).
+   - Edge-Function `berufs-ki-workflow-run` ruft Gate **vor** AI-Call, schreibt `tier_check_result` in `metadata`.
+
+3. **Daily-Limits & Export-Limits**
+   - View `v_workflow_daily_usage` (per user × workflow × day).
+   - Free: 3 Runs/Tag/Workflow. Pro: 50. Business: unlimited.
+   - Export-Flag `export_allowed` in `workflow_runs` (Free=false, Pro/Business=true).
+
+4. **Audit-Contract**
+   - Register: `workflow_tier_blocked`, `workflow_run_granted`, `workflow_seed_pro_v1`, `workflow_seed_business_v1`.
+   - Pflicht-Keys: `workflow_id`, `tier_required`, `tier_actual`, `user_id`.
+
+5. **Smoke-Test**
+   - `scripts/berufs-ki-tier-gate-smoke.mjs`: Free-User → Pro-Workflow → blocked. Pro-User → Pro-Workflow → granted. Free-User × 4 Runs → 4. Run blocked (limit).
+
+### Out-of-Scope für Cut 1
+- Revenue UX (Lock-Badges, Upgrade-CTAs) → Cut 2
+- Knowledge-Graph Edges → Cut 6
+- /berufski/* Legacy-Removal → Cut 7
+
+### Technische Details
+- Migration: 1 Datei, getrennt nach (a) Seeds, (b) Gate-Function, (c) Trigger, (d) View, (e) Audit-Contracts.
+- Edge: `supabase/functions/berufs-ki-workflow-run/index.ts` erweitert, **kein neuer Endpoint**.
+- Identity-Contract: jeder neue Workflow erhält stabilen `workflow_key` (immutable Trigger).
+- Architectural Continuity Check: vorab `/admin/governance/architecture` lesen → **EXTEND_EXISTING** (workflows-Tabelle), **NO_PARALLEL_SYSTEMS** (kein neuer Runner).
+
+### Definition of Done
+- 15 Workflows in DB (6 Free + 6 Pro + 3 Business), alle mit `curriculum_id` NOT NULL für Pro/Business.
+- Gate-Trigger aktiv, 3 Smoke-Cases grün.
+- 4 Audit-Contracts registriert.
+- Memory: `architektur/marketing/bk-monetization-spine-v1.md` + Index-Update.
 
 ---
 
-## Anti-Drift-Regeln (gelten für alle Cuts)
-- Examiner-Isolation: semantic darf NIE readiness/confidence/verdict berechnen
-- Keine neuen parallelen Systeme — alles erweitert bestehende SSOTs (`src/lib/semantic`, `seo_content_graph`, `course_packages`)
-- Architectural Continuity Guard vor jedem neuen Table/RPC
-- Audit über `fn_emit_audit` Pflicht für jeden Mutator
+## Bestätigung benötigt
 
-## Technical Details
-- Migration additive (CREATE TYPE … ADD VALUE; ALTER TABLE ADD COLUMN IF NOT EXISTS)
-- Neue Edge-Kinds als String-Union erweitert in `types.ts`
-- ENTITY_TO_PILLARS erweitert in `PillarTypes.ts`
-- Snapshot-RPC bleibt rückwärtskompatibel (neue Kinds = optional in Frontend-Konsumenten)
+Vor Start zwei Entscheidungen:
 
----
+1. **Curriculum-Bindings für Pro-Workflows**: Soll ich die 6 Berufe (Bilanzbuchhalter, Industriekaufmann, FISI, Steuerfachangestellte) per `package_key`-Lookup automatisch an die published Curricula binden, oder gibt es eine kuratierte Mapping-Tabelle die ich verwenden soll?
 
-**Nächster Schritt nach Approval:** Cut 1 in einem Rutsch (Graph-Erweiterung + Migration + Readiness/RelatedLinks Einbau + Tests + Memory). Cut 2 + 3 folgen je nach Feedback.
+2. **Tier-Source-of-Truth**: Nutze ich `entitlements.has_workflows_pro` / `has_workflows_business` als Gate-SSOT, oder soll ich auf `profession_licenses` (Phase 3-Tabelle) gaten? Empfehlung: **entitlements** (bereits B2C+B2B-fähig, license-template-aware aus S1).
+
+Bei "go" starte ich Cut BK-Act-1 direkt mit der Migration.
