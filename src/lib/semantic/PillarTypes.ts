@@ -55,4 +55,10 @@ export const ENTITY_TO_PILLARS: Readonly<Record<EntityKind, ReadonlyArray<Pillar
   pruefungsstrategie: ["pruefungsstrategie_pillar"],
   oral_pattern: ["muendliche_pruefung_pillar"],
   industry_context: [],
+  // W1 Cut 1 — no own pillar surface yet; consumed via satellites/resolvers.
+  lernpfad: [],
+  karrierepfad: [],
+  tutor_topic: [],
+  oral_exam_topic: ["muendliche_pruefung_pillar"],
+  faq: [],
 });
