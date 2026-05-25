@@ -223,11 +223,12 @@ export function PremiumHero() {
     trackConversion({
       event: "cta_click",
       source: "hero_v3",
-      label: "pruefungscheck_start",
-      ...(selected ? { metadata: { beruf_slug: selected.slug } } : {}),
+      label: selected ? `pruefungscheck_start:${selected.slug}` : "pruefungscheck_start",
     });
     navigate(targetHref);
   };
+
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
