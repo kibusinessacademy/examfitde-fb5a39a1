@@ -7,16 +7,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useSearchParams } from "react-router-dom";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Lock, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { listWorkflows } from "@/lib/berufs-ki/api";
-import { BERUFS_KI, CATEGORY_LABEL } from "@/lib/berufs-ki/copy";
+import { BERUFS_KI, CATEGORY_LABEL, tierLabel } from "@/lib/berufs-ki/copy";
 import type { WorkflowCategory, WorkflowDefinition } from "@/lib/berufs-ki/types";
 import WorkflowRunner from "@/components/berufs-ki/WorkflowRunner";
 import { BerufIdentityChip } from "@/components/os/BerufIdentityChip";
 import { useOsBeruf } from "@/lib/os/os-identity";
+
 
 const CATEGORIES: WorkflowCategory[] = [
   "kommunikation",
