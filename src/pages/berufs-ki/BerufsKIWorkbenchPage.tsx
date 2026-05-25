@@ -15,7 +15,7 @@ import { listWorkflows } from "@/lib/berufs-ki/api";
 import { BERUFS_KI, CATEGORY_LABEL } from "@/lib/berufs-ki/copy";
 import type { WorkflowCategory, WorkflowDefinition } from "@/lib/berufs-ki/types";
 import WorkflowRunner from "@/components/berufs-ki/WorkflowRunner";
-import BerufIdentityChip from "@/components/os/BerufIdentityChip";
+import { BerufIdentityChip } from "@/components/os/BerufIdentityChip";
 import { useOsBeruf } from "@/lib/os/os-identity";
 
 const CATEGORIES: WorkflowCategory[] = [
