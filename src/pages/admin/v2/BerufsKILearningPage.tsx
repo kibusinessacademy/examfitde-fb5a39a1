@@ -80,7 +80,7 @@ export default function BerufsKILearningPage() {
 
         <TabsContent value="clusters" className="mt-6">
           {clusters === null ? <Skel /> : clusters.length === 0 ? (
-            <Empty hint="Noch keine Cluster erkannt. Klicke „Cluster neu berechnen", sobald genug Submissions vorliegen." />
+            <Empty hint={'Noch keine Cluster erkannt. Klicke „Cluster neu berechnen", sobald genug Submissions vorliegen.'} />
           ) : (
             <div className="grid gap-3 lg:grid-cols-2">
               {clusters.map((c) => (
