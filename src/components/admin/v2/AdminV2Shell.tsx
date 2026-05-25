@@ -39,6 +39,8 @@ const SECONDARY_ITEMS = [
   { to: '/admin/berufs-ki/learning', label: 'Berufs-KI Learning', icon: Sparkles },
   { to: '/admin/berufs-ki/graph', label: 'Berufs-KI Graph', icon: Sparkles },
   { to: '/admin/berufs-ki/evolution', label: 'Berufs-KI Evolution', icon: Sparkles },
+  { to: '/admin/berufs-ki/agents', label: 'Berufs-KI Agenten', icon: Sparkles },
+  { to: '/admin/berufs-ki/control-center', label: 'AI Workforce Cockpit', icon: Sparkles },
 ] as const;
 
 

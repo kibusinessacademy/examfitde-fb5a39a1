@@ -223,6 +223,8 @@ const BerufsKIReviewPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIRevi
 const BerufsKILearningPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKILearningPage'));
 const BerufsKIGraphPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIGraphPage'));
 const BerufsKIEvolutionPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIEvolutionPage'));
+const BerufsKIAgentsPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIAgentsPage'));
+const BerufsKIControlCenterPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIControlCenterPage'));
 const BerufsKIInboxPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIInboxPage'));
 
 
@@ -609,6 +611,8 @@ const AppRoutes = () => {
           <Route path="berufs-ki/learning" element={<BerufsKILearningPage />} />
           <Route path="berufs-ki/graph" element={<BerufsKIGraphPage />} />
           <Route path="berufs-ki/evolution" element={<BerufsKIEvolutionPage />} />
+          <Route path="berufs-ki/agents" element={<BerufsKIAgentsPage />} />
+          <Route path="berufs-ki/control-center" element={<BerufsKIControlCenterPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
