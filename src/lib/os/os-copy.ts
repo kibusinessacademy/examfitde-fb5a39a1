@@ -89,3 +89,50 @@ export function companionMessageFor(
   // landing
   return ctx.beruf ? OS_TONE.companion.landingWithBeruf(ctx.beruf) : OS_TONE.companion.landing;
 }
+
+/* ============================================================
+ * Reaction Lines — was das System "sagt", wenn der Nutzer was tut.
+ * Verwendet von OSReactionLine. Kurz, persönlich, Ich-Form.
+ * ============================================================ */
+
+/** Antwort auf Beruf-Auswahl im Hero. */
+export function berufReactionLine(beruf: { label: string; short?: string }): string {
+  const name = beruf.short ?? beruf.label;
+  const variants = [
+    `${name} verstanden — ich richte schriftliche und mündliche Prüfung danach aus.`,
+    `${name} — ich kenne deine typischen Stolperstellen. 4 Minuten reichen, um sie zu finden.`,
+    `Alles klar, ${name}. Ich frage gleich nach Schwächen, nicht nach Wissen.`,
+  ];
+  // deterministisch über slug-ähnlichen label-hash, damit Wechsel nicht „blinkt"
+  const seed = name.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  return variants[seed % variants.length];
+}
+
+/** Tageszeit-bewusste Begrüßung. */
+export function greetingFor(d: Date = new Date()): string {
+  const h = d.getHours();
+  if (h < 5) return "Du bist spät dran";
+  if (h < 11) return "Guten Morgen";
+  if (h < 14) return "Hallo";
+  if (h < 18) return "Guten Nachmittag";
+  if (h < 22) return "Guten Abend";
+  return "Späte Stunde";
+}
+
+/** Nuancierte Recalc-Nachricht für die Companion-Bar. */
+export function recalcLineFor(message: string | undefined, beruf?: string | null): string {
+  if (!message) return OS_TONE.companion.recalcGeneric;
+  const m = message.toLowerCase();
+  if (m.includes("oral") || m.includes("mündlich"))
+    return "Ich richte das mündliche Profil neu aus.";
+  if (m.includes("score") || m.includes("readiness") || m.includes("prüfungsreife"))
+    return beruf
+      ? `Prüfungsreife für ${beruf} aktualisiert.`
+      : "Prüfungsreife aktualisiert.";
+  if (m.includes("schwäche") || m.includes("risk") || m.includes("risiko"))
+    return "Mir fällt eine neue Schwachstelle auf.";
+  if (m.includes("strategie") || m.includes("plan"))
+    return "Ich habe deine Strategie geschärft.";
+  return message;
+}
+

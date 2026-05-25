@@ -9,6 +9,9 @@ import { AnticipationCard } from '@/components/os/AnticipationCard';
 import { BerufIdentityChip } from '@/components/os/BerufIdentityChip';
 import { useSystemConsciousness, readinessLabel } from '@/lib/system/SystemConsciousness';
 import { useOsBeruf } from '@/lib/os/os-identity';
+import { greetingFor } from '@/lib/os/os-copy';
+import OSReactionLine from '@/components/os/OSReactionLine';
+
 
 function formatCents(cents: number, currency = 'EUR') {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(cents / 100);
@@ -23,9 +26,11 @@ function formatCents(cents: number, currency = 'EUR') {
  */
 export default function AppOverviewPage() {
   const { data, isLoading, error } = useAccountSummary();
-  const { readiness, topRisks } = useSystemConsciousness();
+  const { readiness, topRisks, lastRecalc } = useSystemConsciousness();
   const beruf = useOsBeruf();
   const [showAll, setShowAll] = useState(false);
+  const greeting = greetingFor();
+
 
   if (isLoading) {
     return (
@@ -79,7 +84,10 @@ export default function AppOverviewPage() {
       {/* Header — Identity statt Admin-Titel */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Heute</h1>
+          <p className="text-xs font-medium uppercase tracking-wide text-primary/80">
+            {greeting}{beruf?.short ? `, ${beruf.short}` : ''}
+          </p>
+          <h1 className="mt-0.5 text-2xl font-semibold text-foreground">Heute</h1>
           <p className="mt-1 text-sm text-muted-foreground leading-relaxed max-w-xl">
             {briefing}
           </p>
@@ -95,6 +103,16 @@ export default function AppOverviewPage() {
         action={primaryAction.action}
         icon={primaryAction.icon}
       />
+
+      {/* System-Reaktion auf jüngsten Recalc — typing-in unter der primären Karte */}
+      {lastRecalc && Date.now() - lastRecalc.ts < 60_000 && (
+        <OSReactionLine
+          text={lastRecalc.message}
+          cueKey={lastRecalc.id}
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground"
+        />
+      )}
+
 
       {/* Sekundäre Hinweise — max 2, ruhig */}
       <div className="grid gap-3 sm:grid-cols-2">
