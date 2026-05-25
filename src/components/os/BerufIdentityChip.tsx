@@ -10,17 +10,18 @@ import { useActiveCourse } from "@/contexts/ActiveCourseContext";
  * gewählt ist.
  */
 
-function useSafeActive() {
+function useSafeActive(): { title: string | null } {
   try {
-    return useActiveCourse();
+    const ctx = useActiveCourse();
+    return { title: ctx?.course?.title ?? null };
   } catch {
-    return { active: null } as { active: { title?: string | null } | null };
+    return { title: null };
   }
 }
 
 export function BerufIdentityChip({ to = "/berufe" }: { to?: string } = {}) {
-  const { active } = useSafeActive();
-  const label = active?.title ?? "Beruf wählen";
+  const { title } = useSafeActive();
+  const label = title ?? "Beruf wählen";
 
   return (
     <Link

@@ -21,20 +21,19 @@ import { useActiveCourse } from "@/contexts/ActiveCourseContext";
 
 const TYPING_MS = 260;
 
-function safeUseActiveCourse() {
+function safeUseActiveCourseTitle(): string | null {
   try {
-    return useActiveCourse();
+    const ctx = useActiveCourse();
+    return ctx?.course?.title ?? null;
   } catch {
-    return { active: null } as { active: { title?: string | null } | null };
+    return null;
   }
 }
 
 export default function OSCompanionBar() {
   const { pathname } = useLocation();
   const { readiness, lastRecalc, topRisks } = useSystemConsciousness();
-  const active = safeUseActiveCourse();
-
-  const beruf = active?.active?.title ?? null;
+  const beruf = safeUseActiveCourseTitle();
   const top = topRisks(1)[0];
   const urgent = top?.tone === "critical";
 
