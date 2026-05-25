@@ -10,7 +10,19 @@
  */
 
 import type { KnowledgeGraph } from "./KnowledgeGraph";
-import type { Fehlerbild, Kompetenz, OralPattern, Pruefung, Risiko, SemanticEntity } from "./types";
+import type {
+  Faq,
+  Fehlerbild,
+  Karrierepfad,
+  Kompetenz,
+  Lernpfad,
+  OralExamTopic,
+  OralPattern,
+  Pruefung,
+  Risiko,
+  SemanticEntity,
+  TutorTopic,
+} from "./types";
 
 /** Stable identity helper — sort by (kind, key, id). */
 function sortStable<T extends SemanticEntity>(items: ReadonlyArray<T>): ReadonlyArray<T> {
