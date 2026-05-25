@@ -7,16 +7,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useSearchParams } from "react-router-dom";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Lock, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { listWorkflows } from "@/lib/berufs-ki/api";
-import { BERUFS_KI, CATEGORY_LABEL } from "@/lib/berufs-ki/copy";
+import { BERUFS_KI, CATEGORY_LABEL, tierLabel } from "@/lib/berufs-ki/copy";
 import type { WorkflowCategory, WorkflowDefinition } from "@/lib/berufs-ki/types";
 import WorkflowRunner from "@/components/berufs-ki/WorkflowRunner";
 import { BerufIdentityChip } from "@/components/os/BerufIdentityChip";
 import { useOsBeruf } from "@/lib/os/os-identity";
+
 
 const CATEGORIES: WorkflowCategory[] = [
   "kommunikation",
@@ -107,27 +108,40 @@ export default function BerufsKIWorkbenchPage() {
             {error && <p className="text-sm text-destructive">Fehler: {error}</p>}
 
             <div className="space-y-2">
-              {filtered.map((w) => (
-                <button
-                  key={w.id}
-                  onClick={() => setActiveSlug(w.slug)}
-                  className={`w-full text-left rounded-lg border p-3 transition-all hover:border-primary hover:shadow-sm ${
-                    activeSlug === w.slug ? "border-primary bg-primary/5" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-[10px]">
-                      {CATEGORY_LABEL[w.category]}
-                    </Badge>
-                  </div>
-                  <div className="mt-1.5 text-sm font-medium leading-tight">{w.title}</div>
-                  <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{w.description}</div>
-                </button>
-              ))}
+              {filtered.map((w) => {
+                const locked = w.tier_required !== "free";
+                return (
+                  <button
+                    key={w.id}
+                    onClick={() => setActiveSlug(w.slug)}
+                    className={`w-full text-left rounded-lg border p-3 transition-all hover:border-primary hover:shadow-sm ${
+                      activeSlug === w.slug ? "border-primary bg-primary/5" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-[10px]">
+                        {CATEGORY_LABEL[w.category]}
+                      </Badge>
+                      {locked && (
+                        <Badge variant="default" className="gap-1 text-[10px]">
+                          <Lock className="h-2.5 w-2.5" />
+                          {tierLabel(w.tier_required)}
+                        </Badge>
+                      )}
+                      {w.curriculum_id && (
+                        <span className="text-[10px] text-muted-foreground" aria-label="Lernpaket-Bindung">📦</span>
+                      )}
+                    </div>
+                    <div className="mt-1.5 text-sm font-medium leading-tight">{w.title}</div>
+                    <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{w.description}</div>
+                  </button>
+                );
+              })}
               {workflows && filtered.length === 0 && (
                 <p className="text-sm text-muted-foreground">Keine Workflows in dieser Kategorie.</p>
               )}
             </div>
+
           </aside>
 
           {/* Runner column */}

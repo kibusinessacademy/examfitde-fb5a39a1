@@ -33,7 +33,9 @@ const SECONDARY_ITEMS = [
   { to: '/admin/ops/events', label: 'Learning-Events', icon: Activity },
   { to: '/admin/ops/h5p', label: 'H5P', icon: Upload },
   { to: '/admin/ops/h5p-smoke', label: 'H5P Smoke', icon: Upload },
+  { to: '/admin/berufs-ki/workflows', label: 'Berufs-KI', icon: Sparkles },
 ] as const;
+
 
 interface Props {
   children: ReactNode;

@@ -43,7 +43,11 @@ module.exports = {
       "/admin/council/",
       "/admin/jobs/",
       "/admin/ops/queue/",
+      "/admin/berufs-ki/",
     ];
+
+
+
 
     function checkValue(node, value) {
       if (typeof value !== "string") return;
