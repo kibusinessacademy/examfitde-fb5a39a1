@@ -60,12 +60,22 @@ export interface WorkflowDefinition {
   version: number;
 }
 
+export interface WorkflowRunQuality {
+  coverage_pct: number | null;
+  completion_status: "complete" | "partial" | "empty" | "unknown";
+  sections_detected: string[];
+  sections_missing: string[];
+  quality_score: number;
+}
+
 export interface WorkflowRunResult {
   run_id: string;
   workflow: { slug: string; title: string; output_schema: WorkflowOutputSchema };
   output_text: string;
   model_used: string;
   latency_ms: number;
+  quality?: WorkflowRunQuality;
+  version_at_run?: number;
 }
 
 export interface WorkflowRunError {
@@ -95,4 +105,30 @@ export interface AdminWorkflowSummary {
   ok_rate: number;
   last_run_at: string | null;
   updated_at: string;
+}
+
+export interface AdminQualityRow {
+  workflow_id: string;
+  slug: string;
+  title: string;
+  category: WorkflowCategory;
+  tier_required: WorkflowTier;
+  is_active: boolean;
+  version: number;
+  runs_window: number;
+  ok_runs: number;
+  error_runs: number;
+  blocked_runs: number;
+  rate_limited_runs: number;
+  ok_rate: number;
+  error_rate: number;
+  avg_latency_ms: number;
+  avg_coverage_pct: number;
+  helpful_count: number;
+  partial_count: number;
+  unhelpful_count: number;
+  rating_score: number | null;
+  lock_blocked: number;
+  lock_conversions: number;
+  last_run_at: string | null;
 }
