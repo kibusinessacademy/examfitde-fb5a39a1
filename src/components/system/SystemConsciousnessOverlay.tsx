@@ -1,13 +1,8 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
-import { Brain, Radar } from "lucide-react";
-import {
-  daysSince,
-  readinessLabel,
-  riskToneClasses,
-  useSystemConsciousness,
-} from "@/lib/system/SystemConsciousness";
+import { Radar } from "lucide-react";
+import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 
 /**
  * Phase 5.8 — globaler System-Memory-Strip + stille Recalc-Toasts.
@@ -26,7 +21,7 @@ function isSurfaceRoute(pathname: string): boolean {
 
 export default function SystemConsciousnessOverlay() {
   const { pathname } = useLocation();
-  const { topRisks, readiness, lastRecalc, memory } = useSystemConsciousness();
+  const { lastRecalc } = useSystemConsciousness();
   const [recalcVisible, setRecalcVisible] = useState(false);
   const [lastShownId, setLastShownId] = useState<string | null>(null);
 
@@ -41,40 +36,11 @@ export default function SystemConsciousnessOverlay() {
 
   if (!isSurfaceRoute(pathname)) return null;
 
-  const top = topRisks(1)[0];
-  const latestMemory = memory[0];
-
+  // Top-Strip wird seit OS-Spine v1 von OSCompanionBar geführt — hier nur noch
+  // der ruhige Recalc-Toast (bottom).
   return (
     <>
-      {/* Persistenter System-Memory-Strip — top, mobile-first, hinter Headern */}
-      <div
-        className="pointer-events-none fixed inset-x-0 top-0 z-30 flex justify-center px-3 pt-[max(0.5rem,env(safe-area-inset-top))]"
-        aria-hidden={false}
-      >
-        <div className="pointer-events-auto flex max-w-2xl flex-1 items-center gap-2 rounded-full border border-border/50 bg-card/70 px-3 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur-md">
-          <Brain className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-          <span className="hidden shrink-0 font-medium text-foreground sm:inline">
-            {readiness}% · {readinessLabel(readiness)}
-          </span>
-          <span className="hidden h-3 w-px shrink-0 bg-border/60 sm:inline-block" />
-          {top && (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium ${riskToneClasses(
-                top.tone,
-              )}`}
-            >
-              <span className="h-1 w-1 rounded-full bg-current" aria-hidden />
-              {top.label}
-              <span className="opacity-60">· seit {daysSince(top.since)}d</span>
-            </span>
-          )}
-          {latestMemory && (
-            <span className="ml-auto hidden truncate text-[10px] text-muted-foreground/80 sm:inline">
-              {latestMemory.source}: {latestMemory.text}
-            </span>
-          )}
-        </div>
-      </div>
+
 
       {/* Recalc-Toast — bottom, ruhig, kein Notification-Feeling */}
       <AnimatePresence>

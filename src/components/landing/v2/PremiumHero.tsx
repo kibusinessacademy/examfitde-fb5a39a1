@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardCheck, ArrowRight, Sparkles, Brain, Mic, Target, BarChart3, PlayCircle, Search } from "lucide-react";
 import { trackConversion } from "@/lib/seo-tracking";
+import { writeOsBeruf } from "@/lib/os/os-identity";
+import { OS_TONE } from "@/lib/os/os-copy";
 
 /**
  * Premium Hero v3 — "Prüfungsreife, nicht Technik".
@@ -234,14 +236,16 @@ export function PremiumHero() {
     e.preventDefault();
     // Enter on search → if exactly one match, select & route; else route to /berufe with query
     if (filteredBerufe.length === 1) {
-      setSelected(filteredBerufe[0]);
+      const b = filteredBerufe[0];
+      setSelected(b);
+      const short = b.label.split("/")[0].trim();
+      writeOsBeruf({ slug: b.slug, label: b.label, short });
       trackConversion({
         event: "cta_click",
         source: "hero_v3",
-        label: `pruefungscheck_search_enter:${filteredBerufe[0].slug}`,
-
+        label: `pruefungscheck_search_enter:${b.slug}`,
       });
-      navigate(`/pruefungscheck/${filteredBerufe[0].slug}`);
+      navigate(`/pruefungscheck/${b.slug}`);
     } else if (query.trim()) {
       navigate(`/berufe?q=${encodeURIComponent(query.trim())}`);
     } else {
@@ -264,7 +268,7 @@ export function PremiumHero() {
             transition={{ duration: 0.5 }}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Prüfungssimulation mit KI-Unterstützung
+            {OS_TONE.hero.eyebrow}
           </motion.span>
 
           <motion.h1
@@ -273,8 +277,8 @@ export function PremiumHero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
           >
-            Finde heraus,{" "}
-            <span className="lp-gradient-text">wie prüfungsreif du wirklich bist.</span>
+            Sag mir deinen Beruf —{" "}
+            <span className="lp-gradient-text">ich richte deine Prüfung aus.</span>
           </motion.h1>
 
           <motion.p
@@ -283,7 +287,7 @@ export function PremiumHero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
           >
-            Trainiere mit <strong className="text-[var(--lp-text)] font-semibold">schriftlichen und mündlichen Prüfungssimulationen</strong>, erkenne deine Schwächen und bereite dich gezielt auf deine Prüfung vor.
+            {OS_TONE.hero.sublineCore}
           </motion.p>
 
           {/* Beruf/Prüfung-Selector — direkt im Hero */}
@@ -296,7 +300,7 @@ export function PremiumHero() {
             transition={{ duration: 0.6, delay: 0.22 }}
           >
             <label htmlFor="hero-beruf-search" className="block text-xs font-medium text-[var(--lp-text-2)] mb-2">
-              Welchen Beruf oder welche Prüfung bereitest du vor?
+              Welchen Beruf bereitest du vor? Ich richte alles danach aus.
             </label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--lp-text-3)]" aria-hidden />
@@ -328,12 +332,18 @@ export function PremiumHero() {
                         role="option"
                         aria-selected={isActive}
                         onClick={() => {
-                          setSelected(isActive ? null : b);
+                          const next = isActive ? null : b;
+                          setSelected(next);
+                          if (next) {
+                            const short = next.label.split("/")[0].trim();
+                            writeOsBeruf({ slug: next.slug, label: next.label, short });
+                          } else {
+                            writeOsBeruf(null);
+                          }
                           trackConversion({
                             event: "cta_click",
                             source: "hero_v3",
                             label: `beruf_chip_select:${b.slug}`,
-
                           });
                         }}
                         className={`text-xs sm:text-sm px-3 py-1.5 rounded-full border transition ${
@@ -378,8 +388,8 @@ export function PremiumHero() {
             >
               <ClipboardCheck className="w-5 h-5 mr-2" />
               {selected
-                ? `Prüfungscheck für ${selected.label.split("/")[0].trim()} starten`
-                : "Kostenlosen Prüfungscheck starten"}
+                ? OS_TONE.hero.primaryCtaWithBeruf(selected.label.split("/")[0].trim())
+                : OS_TONE.hero.primaryCta}
               <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-0.5" />
             </button>
             <a href="#demos" className="contents">
