@@ -1,9 +1,22 @@
-# Cloudflare Pages SPA fallback
+# Cloudflare Pages / Vercel SPA fallback + Legacy-Domain-Redirects.
 # Per-route prerendered HTML (dist/<path>/index.html) is served verbatim if it exists.
 # All other paths fall through to the SPA shell.
+#
+# Hardcut to BerufOS: 2026-05-25. Legacy domains (examfit.de, examfitwork.de,
+# berufski.de) are 301-redirected to berufos.com on Cloudflare/Vercel.
+# NOTE: Lovable hosting ignores _redirects — these activate only on the
+# Vercel/Cloudflare migration (see docs/runbooks/vercel-migration.md).
 
-# Commerce-Naming-Migration: /bundle/* → /paket/* (301 auf Cloudflare/Vercel,
-# auf Lovable-Hosting ignoriert — dort übernimmt BundleToPaketRedirect client-seitig).
+# Legacy-Domain → BerufOS-Module
+https://examfit.de/*       https://berufos.com/examfit/:splat       301!
+https://www.examfit.de/*   https://berufos.com/examfit/:splat       301!
+https://examfitwork.de/*   https://berufos.com/berufs-ki/:splat     301!
+https://www.examfitwork.de/*  https://berufos.com/berufs-ki/:splat  301!
+https://berufski.de/*      https://berufos.com/berufs-ki/:splat     301!
+https://www.berufski.de/*  https://berufos.com/berufs-ki/:splat     301!
+
+# Commerce-Naming-Migration: /bundle/* → /paket/* (on Cloudflare/Vercel,
+# ignored on Lovable hosting — BundleToPaketRedirect handles it client-side).
 /bundle/*    /paket/:splat    301
 /bundle      /paket           301
 
