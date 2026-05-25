@@ -33,9 +33,14 @@ agent_unknown · profession_missing · tier_insufficient · agent_not_in_profess
 - Tier-Ordnung standard < pro < enterprise.
 - Tarif `enterprise` deckt `pro` deckt `standard`.
 
-## Offen (Phase 7b/c)
-- Cooldown-Enforcement im Switch-RPC
+## Phase 7b (live)
+- Cooldown-Enforcement: `admin_switch_primary_profession(_org,_new_prof,_force,_cooldown_days=30)` setzt `last_primary_switch_at`+`primary_switch_cooldown_until`, blockt non-force innerhalb Cooldown (`reason=cooldown_active`). Audit jeden Switch in `profession_guard_events(reason='primary_switch', metadata={from,to,forced})`.
+- Admin-RPCs (admin|support): `admin_list_orgs_with_licenses`, `admin_list_profession_contexts`, `admin_list_profession_guard_events`.
+- Seed-Contexts: fachinformatiker_systemintegration, industriekaufmann, bilanzbuchhalter (idempotent via UPSERT).
+- UI `/admin/governance/profession-licenses`: Org-Liste mit Primary/Addon/Cooldown-Badges, Detail: Primary-Switch (Cooldown vs Force), Add-on-Vergabe, Agent-Toggle+Tier, Guard-Event-Feed, SSOT-Context-Grid.
+
+## Offen (Phase 7c)
 - Workflow-Scope Hard-Check (aktuell soft)
-- Admin-UI /admin/governance/profession-licenses
-- Seed `profession_contexts` für aktive Berufe
 - Wiring in Dokumenten-Agent / SOP / Recruiting wenn Module existieren
+- Profession-Context CRUD-Editor im Admin-UI (aktuell read-only display, Insert via API direkt)
+
