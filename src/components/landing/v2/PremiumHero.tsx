@@ -236,14 +236,16 @@ export function PremiumHero() {
     e.preventDefault();
     // Enter on search → if exactly one match, select & route; else route to /berufe with query
     if (filteredBerufe.length === 1) {
-      setSelected(filteredBerufe[0]);
+      const b = filteredBerufe[0];
+      setSelected(b);
+      const short = b.label.split("/")[0].trim();
+      writeOsBeruf({ slug: b.slug, label: b.label, short });
       trackConversion({
         event: "cta_click",
         source: "hero_v3",
-        label: `pruefungscheck_search_enter:${filteredBerufe[0].slug}`,
-
+        label: `pruefungscheck_search_enter:${b.slug}`,
       });
-      navigate(`/pruefungscheck/${filteredBerufe[0].slug}`);
+      navigate(`/pruefungscheck/${b.slug}`);
     } else if (query.trim()) {
       navigate(`/berufe?q=${encodeURIComponent(query.trim())}`);
     } else {
