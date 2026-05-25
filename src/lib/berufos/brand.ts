@@ -1,35 +1,38 @@
 /**
- * BerufOS Masterbrand SSOT v2.
+ * BerufOS Masterbrand SSOT v3 (P8 — Primary-Domain-Cutover 2026-05-25).
  *
- * BerufOS ist die AI-native Workforce-Plattform-Dachmarke. Darunter leben:
- *  - ExamFit (LearningOS)   — examfit.de (Legacy-Domain, später Redirect)
- *  - Berufs-KI (WorkforceOS) — examfitwork.de (Legacy-Domain, später Redirect)
+ * BerufOS ist die einzige Plattform-Authority. Sub-Brands sind Module unter
+ * berufos.com/<slug>, NICHT mehr eigene Domains:
+ *  - ExamFit (LearningOS)   → /examfit
+ *  - Berufs-KI (WorkforceOS) → /berufs-ki
  *  - 8 weitere Module (siehe modules.ts)
  *
- * Migration: examfit.de + examfitwork.de werden 301-Redirect-Domains auf
- * berufos.com/<modul>/* nach M5-Lock. Bis dahin: Parallelbetrieb mit Bridge.
- *
- * Diese SSOT ersetzt die VibeOS-Masterbrand-Strategie vollständig.
+ * Legacy-Domains examfit.de, www.examfit.de, examfitwork.de, berufski.de sind
+ * AUSSCHLIESSLICH 301-Redirect-Shells (noindex). Keine SEO-Authority, keine
+ * separaten Brand-URLs, keine sameAs-Entities. www.berufos.com → berufos.com.
  */
 export const BERUFOS = {
   name: "BerufOS",
   tagline: "Das AI-Betriebssystem für Berufe.",
   subline:
     "BerufOS verbindet Lernen, Arbeit, Agenten, Dokumente, Workflows und Kompetenzen in einer zentralen AI-native Plattform.",
-  /** Primäre Plattform-Domain. SSOT für Canonicals + Org-JSON-LD. */
+  /** Primäre Plattform-Domain (Apex). SSOT für Canonicals + Org-JSON-LD. */
   domain: "https://berufos.com",
   hubPath: "/berufos",
 
-  /** Domain-Topologie für Brücken, Canonicals & Redirect-Logik (M5). */
+  /** Domain-Topologie. Authority = apex only; www = canonical-redirect. */
   domains: {
     primary: "berufos.com",
-    /** Hosts, die als „Authority“ gelten (kein noindex). */
-    authority: ["berufos.com", "www.berufos.com", "examfit.de", "www.examfit.de"],
-    /** Legacy/Sub-Brand-Domains — werden in M5 auf berufos.com/<modul> redirected. */
+    /** SEO-autoritative Hosts. www.berufos.com ist 301 → apex, aber bleibt indexierbar als alias. */
+    authority: ["berufos.com", "www.berufos.com"],
+    /** Reine Redirect-Shells (noindex, 301 → berufos.com/<modul>). */
     legacy: [
       { host: "examfit.de", module: "examfit", role: "LearningOS" },
+      { host: "www.examfit.de", module: "examfit", role: "LearningOS" },
       { host: "examfitwork.de", module: "berufs-ki", role: "WorkforceOS" },
+      { host: "www.examfitwork.de", module: "berufs-ki", role: "WorkforceOS" },
       { host: "berufski.de", module: "berufs-ki", role: "WorkforceOS" },
+      { host: "www.berufski.de", module: "berufs-ki", role: "WorkforceOS" },
     ],
   },
 
@@ -40,12 +43,13 @@ export const BERUFOS = {
     subBrands: ["ExamFit", "ExamFit@work"],
   },
 
-  /** Email-SSOT für transactional + support. */
+  /** Email-SSOT für transactional + support. Legacy-Adressen nur als Aliases. */
   email: {
     from: "BerufOS <hello@berufos.com>",
     support: "support@berufos.com",
     noreply: "noreply@berufos.com",
-    /** Legacy-Adressen bleiben parallel aktiv bis M4-Lock. */
+    billing: "billing@berufos.com",
+    /** Legacy-Adressen bleiben als Forwarding-Aliases (kein outbound). */
     legacy: ["support@examfit.de", "noreply@examfitwork.de"],
   },
 
@@ -56,19 +60,19 @@ export const BERUFOS = {
     prefer: ["Plattform", "Betriebssystem", "Runtime", "Governance", "Berufslogik", "Kompetenz"],
   },
 
-  /** Sub-Brands, die unter BerufOS leben — eigene SSOTs bleiben unangetastet. */
+  /** Sub-Brands leben jetzt als Module unter berufos.com — keine eigenen Domains mehr. */
   subBrands: {
     examfit: {
       name: "ExamFit",
       role: "LearningOS",
-      domain: "https://examfit.de",
+      domain: "https://berufos.com/examfit",
       moduleSlug: "examfit",
       promise: "Bestehe deine Prüfung mit System.",
     },
     berufsKi: {
       name: "Berufs-KI",
       role: "WorkforceOS",
-      domain: "https://examfitwork.de",
+      domain: "https://berufos.com/berufs-ki",
       moduleSlug: "berufs-ki",
       promise: "AI-Agenten für echte Arbeitsprozesse.",
     },

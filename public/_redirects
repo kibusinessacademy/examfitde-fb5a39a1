@@ -7,7 +7,11 @@
 # NOTE: Lovable hosting ignores _redirects — these activate only on the
 # Vercel/Cloudflare migration (see docs/runbooks/vercel-migration.md).
 
-# Legacy-Domain → BerufOS-Module
+# P8 — Primary-Domain-Cutover (2026-05-25).
+# www.berufos.com → berufos.com (Apex ist die einzige Authority).
+https://www.berufos.com/*  https://berufos.com/:splat               301!
+
+# Legacy-Domain → BerufOS-Module (301, noindex via meta + X-Robots-Tag).
 https://examfit.de/*       https://berufos.com/examfit/:splat       301!
 https://www.examfit.de/*   https://berufos.com/examfit/:splat       301!
 https://examfitwork.de/*   https://berufos.com/berufs-ki/:splat     301!
