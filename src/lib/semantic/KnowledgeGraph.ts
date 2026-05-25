@@ -113,6 +113,14 @@ export class KnowledgeGraph {
 
     return { entities: this.byId.size, edges: edgeCount, by_kind: byKind };
   }
+
+  /** Re-export the deterministic snapshot for SSOT consumers (engines, tests). */
+  toSnapshot(): KnowledgeGraphSnapshot {
+    const entities = Array.from(this.byId.values());
+    const edges: SemanticEdge[] = [];
+    for (const list of this.outgoing.values()) edges.push(...list);
+    return { entities, edges, snapshot_at: this.snapshot_at };
+  }
 }
 
 /** Convenience builder. */
