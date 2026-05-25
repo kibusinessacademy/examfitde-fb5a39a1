@@ -60,7 +60,7 @@ const DEFAULTS: Record<
       { name: "Kundenkommunikation", value: 41 },
     ],
     nextActionLabel: "Nächste Aktion",
-    nextActionBody: "MiniCheck »Kundenkommunikation" – 8 Fragen, ~6 Min.",
+    nextActionBody: "MiniCheck zu Kundenkommunikation – 8 Fragen, ~6 Min.",
   },
   product: {
     eyebrow: "Was du in diesem Kurs erreichst",
