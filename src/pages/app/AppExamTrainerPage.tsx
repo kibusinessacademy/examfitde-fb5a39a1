@@ -12,6 +12,8 @@ import { DramaturgyInline } from "@/components/system/DramaturgyChip";
 import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
 import { ExaminerBiographyCard } from "@/components/system/ExaminerBiographyCard";
 import { LearnerRecommendationStrip } from "@/components/recommendations/LearnerRecommendationStrip";
+import { AdaptiveExamPlanCard } from "@/components/exam/AdaptiveExamPlanCard";
+import { useAdaptiveExamPlan } from "@/hooks/useAdaptiveExamPlan";
 
 /**
  * Phase 5.7 — Exam-Trainer als simulierte Prüfungssituation.
@@ -136,6 +138,18 @@ export default function AppExamTrainerPage() {
   const dramaturgy = useExamDramaturgy(elapsedRatio);
   const prevPhaseRef = useRef<DramaturgyPhase | null>(null);
   const followupIntervention = dramaturgy.interventions.find((i) => i.key === "deepen_followup");
+
+  // P-Completion 3 — adaptive exam plan (deterministic preview over a
+  // demo blueprint until the real per-curriculum blueprint is wired in).
+  const adaptivePlan = useAdaptiveExamPlan({
+    totalQuestions: EXAM.length * 4, // demo: 12 slots
+    difficultyDistribution: { easy: 4, medium: 6, hard: 2 },
+    weights: [
+      { competency_id: "k_struct", competency_key: "LF3.struct", weight: 0.35 },
+      { competency_id: "k_transfer", competency_key: "LF·transfer", weight: 0.35 },
+      { competency_id: "k_valuation", competency_key: "LF5.valuation", weight: 0.30 },
+    ],
+  });
 
   // ruhiger Sekunden-Tick im Exam
   useEffect(() => {
@@ -337,8 +351,10 @@ export default function AppExamTrainerPage() {
               examForm="schriftlich"
               limit={3}
             />
+            <AdaptiveExamPlanCard plan={adaptivePlan} className="mt-4" />
           </motion.section>
         )}
+
 
         {/* EXAM FLOW */}
         {phase === "exam" && (
