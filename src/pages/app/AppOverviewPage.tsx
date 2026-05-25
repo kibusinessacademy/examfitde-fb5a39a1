@@ -11,6 +11,7 @@ import { useSystemConsciousness, readinessLabel } from '@/lib/system/SystemConsc
 import { useOsBeruf } from '@/lib/os/os-identity';
 import { greetingFor } from '@/lib/os/os-copy';
 import OSReactionLine from '@/components/os/OSReactionLine';
+import { LearnerRecommendationStrip } from '@/components/recommendations/LearnerRecommendationStrip';
 
 
 function formatCents(cents: number, currency = 'EUR') {
@@ -135,6 +136,13 @@ export default function AppOverviewPage() {
           icon={<Brain className="h-3.5 w-3.5" />}
         />
       </div>
+
+      {/* P-Completion 1 — Empfehlungen aus echten Schwächen */}
+      <LearnerRecommendationStrip
+        sourceEntityKind="app_overview"
+        sourceEntitySlug="app_start"
+        limit={3}
+      />
 
       {/* Konto-Drilldown — bewusst kollabiert, nie Default */}
       <div>
