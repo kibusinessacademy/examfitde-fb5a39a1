@@ -26,7 +26,13 @@ export type EntityKind =
   | "pruefungsform"
   | "pruefungsstrategie"
   | "oral_pattern"
-  | "industry_context";
+  | "industry_context"
+  // W1 Cut 1 — Semantic Gravity additions
+  | "lernpfad"
+  | "karrierepfad"
+  | "tutor_topic"
+  | "oral_exam_topic"
+  | "faq";
 
 export interface SemanticEntityBase<K extends EntityKind = EntityKind> {
   /** Stable UUID or canonical key. Never derived from title. */
