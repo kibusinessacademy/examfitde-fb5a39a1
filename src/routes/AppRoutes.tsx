@@ -355,6 +355,11 @@ const AppRoutes = () => {
         <Route path="/work/corporate" element={<WorkCorporatePage />} />
 
         {/* Berufs-KI — eigenständige Produktlinie */}
+        {/* VibeOS Masterbrand */}
+        <Route path="/vibeos" element={<VibeOSLandingPage />} />
+        <Route path="/platform" element={<VibeOSLandingPage />} />
+
+        {/* Berufs-KI — eigenständige Produktlinie */}
         <Route path="/berufs-ki" element={<BerufsKIHubPage />} />
         <Route path="/berufs-ki/app" element={<BerufsKIWorkbenchPage />} />
         <Route path="/prompts" element={<BerufsKIWorkbenchPage />} />
