@@ -103,34 +103,25 @@ export interface AdminWorkflowUpsert {
 
 export async function adminUpsertWorkflow(payload: AdminWorkflowUpsert) {
   const { id, ...rest } = payload;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tbl = supabase.from("berufs_ki_workflow_definitions") as any;
   if (id) {
-    const { error } = await (supabase.from("berufs_ki_workflow_definitions") as ReturnType<typeof supabase.from> & {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      update: (v: any) => any;
-    })
-      .update(rest)
-      .eq("id", id);
+    const { error } = await tbl.update(rest).eq("id", id);
     if (error) throw error;
     return id;
   }
-  const { data, error } = await (supabase.from("berufs_ki_workflow_definitions") as ReturnType<typeof supabase.from> & {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    insert: (v: any) => any;
-  })
-    .insert(rest)
-    .select("id")
-    .single();
+  const { data, error } = await tbl.insert(rest).select("id").single();
   if (error) throw error;
   return (data as { id: string }).id;
 }
 
 export async function adminToggleWorkflow(id: string, is_active: boolean) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase.from("berufs_ki_workflow_definitions") as any)
-    .update({ is_active })
-    .eq("id", id);
+  const tbl = supabase.from("berufs_ki_workflow_definitions") as any;
+  const { error } = await tbl.update({ is_active }).eq("id", id);
   if (error) throw error;
 }
+
 
 export async function adminGetWorkflowFull(id: string) {
   const { data, error } = await supabase
