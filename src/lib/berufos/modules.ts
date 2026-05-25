@@ -6,6 +6,11 @@
  * sammeln Waitlist (email_delivery_queue mit template_key=berufos_waitlist_<slug>).
  *
  * Verboten: neue Modul-Slugs außerhalb dieser Datei. Architecture-Guard prüft.
+ *
+ * Slug-Convention (Masterbrand-Migration M1, 2026-05-25):
+ *   examfit, berufs-ki, agents, documents, workflows, skills, career, recruit,
+ *   industries, governance. Alte Slugs (learning, workforce, industry) bleiben
+ *   via BERUFOS_SLUG_ALIASES + resolveModuleSlug() funktional.
  */
 import {
   GraduationCap,
@@ -51,7 +56,7 @@ export interface BerufosModule {
 
 export const BERUFOS_MODULES: readonly BerufosModule[] = [
   {
-    slug: "learning",
+    slug: "examfit",
     name: "ExamFit",
     category: "LearningOS",
     tagline: "Prüfungen bestehen. Kompetenzen aufbauen.",
@@ -71,7 +76,7 @@ export const BERUFOS_MODULES: readonly BerufosModule[] = [
     personas: ["azubi", "fachkraft"],
   },
   {
-    slug: "workforce",
+    slug: "berufs-ki",
     name: "Berufs-KI",
     category: "WorkforceOS",
     tagline: "Produktiver arbeiten mit berufsspezifischer KI.",
@@ -197,7 +202,7 @@ export const BERUFOS_MODULES: readonly BerufosModule[] = [
     personas: ["recruiter", "betrieb"],
   },
   {
-    slug: "industry",
+    slug: "industries",
     name: "IndustryOS",
     category: "Branchenmodule",
     tagline: "Branchen-spezifische Operating Systems.",
@@ -238,8 +243,23 @@ export const BERUFOS_MODULES: readonly BerufosModule[] = [
 
 export const BERUFOS_MODULE_SLUGS = BERUFOS_MODULES.map((m) => m.slug);
 
+/**
+ * Legacy-Slug-Aliase aus der Pre-Migration-Ära.
+ * /berufos/learning → /berufos/examfit, etc. — gelöst über resolveModuleSlug().
+ */
+export const BERUFOS_SLUG_ALIASES: Record<string, string> = {
+  learning: "examfit",
+  workforce: "berufs-ki",
+  industry: "industries",
+};
+
+export function resolveModuleSlug(slug: string): string {
+  return BERUFOS_SLUG_ALIASES[slug] ?? slug;
+}
+
 export function getModule(slug: string): BerufosModule | undefined {
-  return BERUFOS_MODULES.find((m) => m.slug === slug);
+  const canonical = resolveModuleSlug(slug);
+  return BERUFOS_MODULES.find((m) => m.slug === canonical);
 }
 
 export function modulesForPersona(persona?: BerufosPersona | null): readonly BerufosModule[] {

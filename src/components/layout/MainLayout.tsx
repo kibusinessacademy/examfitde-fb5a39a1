@@ -219,6 +219,11 @@ export default function MainLayout() {
             </div>
           </div>
 
+          {/* BerufOS Masterbrand-Bridge (M2) */}
+          <div className="pt-6 border-t border-border">
+            <BerufOSPlatformBadge />
+          </div>
+
           {/* IHK/HWK Disclaimer */}
           <div className="pt-6 text-center">
             <p className="text-xs text-muted-foreground">
