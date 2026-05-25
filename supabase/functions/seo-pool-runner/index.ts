@@ -109,11 +109,11 @@ Deno.serve(async (req) => {
   }
 
   // 2) Dispatch (limited concurrency)
-  const results: Array<{ job_id: string; ok: boolean; status: number; error?: string }> = [];
+  const results: Array<{ job_id: string; job_type: string; ok: boolean; status: number; error?: string }> = [];
   for (let i = 0; i < jobs.length; i += DISPATCH_CONCURRENCY) {
     const chunk = jobs.slice(i, i + DISPATCH_CONCURRENCY);
     const settled = await Promise.all(
-      chunk.map((j) => dispatchOne(supabaseUrl, serviceKey, j.id)),
+      chunk.map((j) => dispatchOne(supabaseUrl, serviceKey, j)),
     );
     results.push(...settled);
   }
@@ -131,9 +131,10 @@ Deno.serve(async (req) => {
       claimed: jobs.length,
       dispatched_ok: okCount,
       dispatched_failed: failCount,
-      results: results.map((r) => ({ job_id: r.job_id, ok: r.ok, status: r.status, error: r.error })),
+      results: results.map((r) => ({ job_id: r.job_id, job_type: r.job_type, ok: r.ok, status: r.status, error: r.error })),
     },
   });
+
 
   return new Response(
     JSON.stringify({ ok: true, claimed: jobs.length, dispatched: okCount, failed: failCount, results }),
