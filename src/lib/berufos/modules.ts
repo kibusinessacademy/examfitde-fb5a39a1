@@ -65,7 +65,7 @@ export const BERUFOS_MODULES: readonly BerufosModule[] = [
     status: "live",
     icon: GraduationCap,
     accent: "petrol",
-    href: "https://examfit.de",
+    href: "/examfit",
     features: [
       { title: "Lernkurse", body: "Kompetenzbasiert, prüfungsausgerichtet." },
       { title: "Mini-Checks", body: "Schwachstellen-Diagnose in 4 Minuten." },
@@ -94,6 +94,7 @@ export const BERUFOS_MODULES: readonly BerufosModule[] = [
     ],
     personas: ["fachkraft", "betrieb"],
   },
+
   {
     slug: "agents",
     name: "AgentOS",

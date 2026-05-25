@@ -50,17 +50,17 @@
     <!-- End Google Tag Manager -->
 
     <!-- Primary Meta Tags -->
-    <title>ExamFit.de – IHK-Prüfung bestehen | Prüfungstraining</title>
-    <meta name="title" content="ExamFit.de – IHK-Prüfung bestehen | Prüfungstraining" />
-    <meta name="description" content="Bestehe IHK-, AEVO-, Bilanzbuchhalter- oder FIAE-Prüfung mit adaptivem Lernplan, prüfungsnahen Simulationen und KI-Tutor mit Quellenangaben.">
-    <meta name="author" content="ExamFit.de" />
+    <title>BerufOS – Das AI-Betriebssystem für Berufe</title>
+    <meta name="title" content="BerufOS – Das AI-Betriebssystem für Berufe" />
+    <meta name="description" content="BerufOS verbindet Lernen (ExamFit), Arbeit (Berufs-KI), Agenten, Dokumente, Workflows, Kompetenzen und Governance in einer AI-native Plattform für Berufe.">
+    <meta name="author" content="BerufOS" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-    <meta name="keywords" content="IHK Prüfung, IHK Prüfungsvorbereitung, Ausbildung, Azubi, Prüfungstrainer, Lernkurs, mündliche Prüfung, Abschlussprüfung" />
+    <meta name="keywords" content="BerufOS, AI Betriebssystem Berufe, Workforce Intelligence, ExamFit, Berufs-KI, AgentOS, Kompetenzgraph, IHK Prüfung" />
     <meta name="googlebot" content="index, follow" />
     <meta name="google" content="notranslate" />
 
-    <!-- Google Search Console site verification (Apex examfit.de only) -->
-    <meta name="google-site-verification" content="6mdZbyRinkmrkctLsFMNKIOvd0VceQ2PJ6yCerVjErQ" />
+    <!-- Google Search Console site verification (Apex berufos.com) -->
+    <!-- TODO P7: neuen Verification-Token nach GSC-Property-Anlage einsetzen -->
 
     <!-- Geo Tags for German Market -->
     <meta name="geo.region" content="DE" />
@@ -73,16 +73,17 @@
       Per-Route canonical/hreflang wird via @/components/seo/SEOHead gesetzt.
       Geschützte Routen + Non-Authority-Hosts werden via
       @/components/seo/RouteNoindex auf noindex,nofollow gesetzt + Canonical
-      auf https://examfit.de${pathname} normalisiert.
+      auf https://berufos.com${pathname} normalisiert.
     -->
 
     <!--
       SEO Authority Guard (Pre-Hydration Fallback)
-      SSOT: mem://constraints/hosting-and-seo-authority-topology-v1
-      Nur examfit.de + www.examfit.de sind SEO-autoritativ. Auf JEDEM anderen
-      Host (lovable.app, vercel.app, id-preview--*, localhost, Legacy):
+      SSOT: src/lib/seo/authorityHost.ts
+      Nur berufos.com + www.berufos.com sind SEO-autoritativ. Auf JEDEM anderen
+      Host (lovable.app, vercel.app, id-preview--*, localhost, examfit.de,
+      examfitwork.de, berufski.de):
         - robots = noindex,nofollow,noarchive,nosnippet
-        - canonical → https://examfit.de${pathname} (Tracking-Params gestrippt)
+        - canonical → https://berufos.com${pathname} (Tracking-Params gestrippt)
       Minimal, ohne React/Router/Supabase. Läuft vor Hydration. RouteNoindex
       übernimmt nach Hydration und reagiert auf Client-Navigation.
     -->
@@ -90,7 +91,7 @@
       (function () {
         try {
           var host = (window.location.hostname || '').toLowerCase().trim();
-          var AUTHORITY = ['examfit.de', 'www.examfit.de'];
+          var AUTHORITY = ['berufos.com', 'www.berufos.com'];
           if (AUTHORITY.indexOf(host) !== -1) return;
 
           var robots = document.querySelector('meta[name="robots"]');
@@ -105,7 +106,7 @@
           if (path.length > 1 && path.charAt(path.length - 1) === '/') {
             path = path.slice(0, -1);
           }
-          var canonHref = 'https://examfit.de' + path;
+          var canonHref = 'https://berufos.com' + path;
           var existing = document.querySelector('link[rel="canonical"]');
           if (existing) {
             existing.setAttribute('href', canonHref);
@@ -120,6 +121,7 @@
     </script>
 
 
+
     <!-- Theme & PWA -->
     <meta name="theme-color" content="#0F3D3E" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)" />
@@ -127,10 +129,11 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="ExamFit" />
-    <meta name="application-name" content="ExamFit.de" />
+    <meta name="apple-mobile-web-app-title" content="BerufOS" />
+    <meta name="application-name" content="BerufOS" />
     <meta name="msapplication-TileColor" content="#0F3D3E" />
     <meta name="msapplication-config" content="/browserconfig.xml" />
+
 
     <!-- Favicons & Icons -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -150,23 +153,14 @@
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://examfit.de/" />
-    
-    
-    <meta property="og:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/57be523c-901d-4f67-a473-2ca6bd73275c/id-preview-10d33ef5--ad51e8f9-6cff-41cf-9723-b4e49dbcd9db.lovable.app-1778246434268.png">
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="ExamFit – IHK-Prüfungsvorbereitung mit KI" />
+    <meta property="og:url" content="https://berufos.com/" />
     <meta property="og:locale" content="de_DE" />
-    <meta property="og:site_name" content="ExamFit.de" />
+    <meta property="og:site_name" content="BerufOS" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:url" content="https://examfit.de/" />
-    
-    
-    <meta name="twitter:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/57be523c-901d-4f67-a473-2ca6bd73275c/id-preview-10d33ef5--ad51e8f9-6cff-41cf-9723-b4e49dbcd9db.lovable.app-1778246434268.png">
-    <meta name="twitter:image:alt" content="ExamFit – IHK-Prüfungsvorbereitung mit KI" />
+    <meta name="twitter:url" content="https://berufos.com/" />
+
 
     <!-- Preconnect for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -177,7 +171,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" /></noscript>
 
-    <!-- Structured Data -->
+    <!-- Structured Data — BerufOS Masterbrand (Hardcut 2026-05-25) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -188,108 +182,81 @@
           "name": "BerufOS",
           "alternateName": "BerufOS — Das AI-Betriebssystem für Berufe",
           "url": "https://berufos.com",
-          "description": "AI-native Workforce-Plattform: LearningOS (ExamFit), WorkforceOS (Berufs-KI), AgentOS, DocumentOS, WorkflowOS, SkillGraph, CareerOS, RecruitOS, IndustryOS, GovernanceOS.",
+          "description": "AI-native Workforce-Intelligence-Plattform: ExamFit (LearningOS), Berufs-KI (WorkforceOS), AgentOS, DocumentOS, WorkflowOS, SkillGraph, CareerOS, RecruitOS, IndustryOS, GovernanceOS.",
+          "areaServed": { "@type": "Country", "name": "Germany" },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer service",
+            "availableLanguage": "German",
+            "email": "support@berufos.com"
+          },
           "sameAs": [
             "https://examfit.de",
             "https://examfitwork.de"
           ],
           "subOrganization": [
-            { "@id": "https://examfit.de/#organization" },
-            { "@type": "Organization", "name": "ExamFit@work", "url": "https://examfitwork.de" }
-          ]
-        },
-        {
-          "@type": "EducationalOrganization",
-          "@id": "https://examfit.de/#organization",
-          "name": "ExamFit.de",
-          "legalName": "ExamFit.de",
-          "url": "https://examfit.de",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "https://examfit.de/logo.png",
-            "width": 512,
-            "height": 512
-          },
-          "description": "KI-gestützte IHK-Prüfungsvorbereitung für Auszubildende in Deutschland",
-          "foundingDate": "2023-01-01",
-          "areaServed": {
-            "@type": "Country",
-            "name": "Germany"
-          },
-          "contactPoint": {
-            "@type": "ContactPoint",
-            "contactType": "customer service",
-            "availableLanguage": "German",
-            "email": "support@examfit.de"
-          },
-          "sameAs": [
-            "https://www.linkedin.com/company/examfit",
-            "https://examfit.de"
+            { "@type": "Brand", "@id": "https://berufos.com/examfit#brand", "name": "ExamFit", "description": "LearningOS — Prüfungen bestehen, Kompetenzen aufbauen.", "url": "https://berufos.com/examfit" },
+            { "@type": "Brand", "@id": "https://berufos.com/berufs-ki#brand", "name": "Berufs-KI", "description": "WorkforceOS — berufsspezifische AI-Workflows & SOPs.", "url": "https://berufos.com/berufs-ki" }
           ],
-          "knowsAbout": [
-            "IHK-Prüfungsvorbereitung",
-            "Ausbildereignungsprüfung (AEVO)",
-            "Fachwirt-Prüfungen",
-            "Meisterprüfungen",
-            "Bilanzbuchhalter-Prüfung",
-            "Fachinformatiker Anwendungsentwicklung",
-            "Sachkundeprüfung §34a",
-            "Adaptive Lernpfade",
-            "KI-Tutor mit Strict-RAG"
-          ],
-          "slogan": "IHK-Prüfung sicher bestehen — mit KI-gestütztem Prüfungstraining"
-        },
-        {
-          "@type": "Service",
-          "@id": "https://examfit.de/#service",
-          "serviceType": "Online-Prüfungstraining",
-          "provider": { "@id": "https://examfit.de/#organization" },
-          "areaServed": { "@type": "Country", "name": "Germany" },
-          "audience": {
-            "@type": "EducationalAudience",
-            "educationalRole": "Auszubildende, Fachwirte, Meister, Sachkunde-Prüflinge"
-          },
-          "hasOfferCatalog": {
-            "@type": "OfferCatalog",
-            "name": "ExamFit Prüfungstrainings",
-            "itemListElement": [
-              { "@type": "OfferCatalog", "name": "IHK-Abschlussprüfungen" },
-              { "@type": "OfferCatalog", "name": "AEVO" },
-              { "@type": "OfferCatalog", "name": "Bilanzbuchhalter" },
-              { "@type": "OfferCatalog", "name": "Fachinformatiker AE" },
-              { "@type": "OfferCatalog", "name": "Wirtschaftsfachwirt" }
-            ]
-          }
+          "slogan": "Das AI-Betriebssystem für Berufe."
         },
         {
           "@type": "WebSite",
-          "@id": "https://examfit.de/#website",
-          "name": "ExamFit",
-          "url": "https://examfit.de",
-          "description": "IHK-Prüfungsvorbereitung mit KI-Unterstützung",
-          "publisher": {
-            "@id": "https://examfit.de/#organization"
-          },
+          "@id": "https://berufos.com/#website",
+          "name": "BerufOS",
+          "url": "https://berufos.com",
+          "description": "AI-native Workforce Intelligence Platform.",
+          "publisher": { "@id": "https://berufos.com/#organization" },
           "potentialAction": {
             "@type": "SearchAction",
             "target": {
               "@type": "EntryPoint",
-              "urlTemplate": "https://examfit.de/suche?q={search_term_string}"
+              "urlTemplate": "https://berufos.com/suche?q={search_term_string}"
             },
             "query-input": "required name=search_term_string"
           },
           "inLanguage": "de-DE"
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://berufos.com/examfit#app",
+          "name": "ExamFit — LearningOS",
+          "applicationCategory": "EducationalApplication",
+          "operatingSystem": "Web",
+          "url": "https://berufos.com/examfit",
+          "provider": { "@id": "https://berufos.com/#organization" },
+          "description": "Prüfungsvorbereitung mit AI-Tutor (Strict-RAG), Simulationen, Readiness-Score und kompetenzbasierten Lernkursen."
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://berufos.com/berufs-ki#app",
+          "name": "Berufs-KI — WorkforceOS",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web",
+          "url": "https://berufos.com/berufs-ki",
+          "provider": { "@id": "https://berufos.com/#organization" },
+          "description": "Berufs-Workflows, SOPs und Assistenz — strukturierte Ergebnisse statt Prompt-Bastelei."
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://berufos.com/agents#app",
+          "name": "AgentOS",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web",
+          "url": "https://berufos.com/agents",
+          "provider": { "@id": "https://berufos.com/#organization" },
+          "description": "Governance-first Agenten-Runtime mit HITL-Approval, Confidence-Gates und Multi-Agent-Flows."
         }
       ]
     }
     </script>
-    
-    
-  <meta property="og:title" content="ExamFit.de – IHK-Prüfung bestehen | Prüfungstraining">
-  <meta name="twitter:title" content="ExamFit.de – IHK-Prüfung bestehen | Prüfungstraining">
-  <meta property="og:description" content="Bestehe IHK-, AEVO-, Bilanzbuchhalter- oder FIAE-Prüfung mit adaptivem Lernplan, prüfungsnahen Simulationen und KI-Tutor mit Quellenangaben.">
-  <meta name="twitter:description" content="Bestehe IHK-, AEVO-, Bilanzbuchhalter- oder FIAE-Prüfung mit adaptivem Lernplan, prüfungsnahen Simulationen und KI-Tutor mit Quellenangaben.">
+
+    <meta property="og:title" content="BerufOS – Das AI-Betriebssystem für Berufe">
+    <meta name="twitter:title" content="BerufOS – Das AI-Betriebssystem für Berufe">
+    <meta property="og:description" content="BerufOS verbindet Lernen (ExamFit), Arbeit (Berufs-KI), Agenten, Dokumente, Workflows, Kompetenzen und Governance in einer AI-native Plattform für Berufe.">
+    <meta name="twitter:description" content="BerufOS verbindet Lernen (ExamFit), Arbeit (Berufs-KI), Agenten, Dokumente, Workflows, Kompetenzen und Governance in einer AI-native Plattform für Berufe.">
 </head>
+
 
   <body class="no-transitions">
     <!-- Google Tag Manager (noscript) -->

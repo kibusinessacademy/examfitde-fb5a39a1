@@ -356,11 +356,25 @@ const AppRoutes = () => {
         {/* /work/bundles/:bundleId entfernt 2026-05-17 (A4 dead-code, WorkBundleBuyPage gelöscht) */}
         <Route path="/work/corporate" element={<WorkCorporatePage />} />
 
-        {/* BerufOS Masterbrand (ersetzt VibeOS — alte Routes redirecten) */}
-        <Route path="/berufos" element={<BerufOSHub />} />
+        {/* BerufOS Masterbrand Hub — Legacy /berufos/* bleibt als Alias erreichbar.
+            Hardcut 2026-05-25: Module sind primär unter /<slug> erreichbar. */}
+        <Route path="/berufos" element={<Navigate to="/" replace />} />
         <Route path="/berufos/:slug" element={<BerufOSModulePage />} />
-        <Route path="/vibeos" element={<Navigate to="/berufos" replace />} />
-        <Route path="/platform" element={<Navigate to="/berufos" replace />} />
+        <Route path="/vibeos" element={<Navigate to="/" replace />} />
+        <Route path="/platform" element={<Navigate to="/" replace />} />
+
+        {/* BerufOS Module unter Root (kanonische URLs) */}
+        <Route path="/agents" element={<BerufOSModulePage slug="agents" />} />
+        <Route path="/documents" element={<BerufOSModulePage slug="documents" />} />
+        <Route path="/workflows" element={<BerufOSModulePage slug="workflows" />} />
+        <Route path="/skills" element={<BerufOSModulePage slug="skills" />} />
+        <Route path="/career" element={<BerufOSModulePage slug="career" />} />
+        <Route path="/recruit" element={<BerufOSModulePage slug="recruit" />} />
+        <Route path="/industries" element={<BerufOSModulePage slug="industries" />} />
+        <Route path="/governance" element={<BerufOSModulePage slug="governance" />} />
+
+        {/* /examfit = ExamFit LearningOS Marketing-Homepage (vorher /) */}
+        <Route path="/examfit" element={<HomePageV1Legacy />} />
 
         {/* Berufs-KI — eigenständige Produktlinie */}
         <Route path="/berufs-ki" element={<BerufsKIHubPage />} />
@@ -374,6 +388,7 @@ const AppRoutes = () => {
         {/* Legacy /berufski/* → 410 Gone */}
         <Route path="/berufski/*" element={<WorkGonePage />} />
         <Route path="/berufski" element={<WorkGonePage />} />
+
 
         {/* Enterprise Demo Landing */}
         <Route path="/enterprise-demo" element={<EnterpriseDemoPage />} />

@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ExamFit – Sitemap-Index
-  Static fallback served at https://examfit.de/sitemap.xml (HTTP 200).
-  Sub-sitemaps are generated dynamically by the `generate-sitemap` Edge Function
-  (Supabase project origin), since the custom domain does not proxy /functions/v1/*.
-  Refreshed by CI / nightly job; safe to commit.
+  BerufOS – Sitemap-Index (Hardcut 2026-05-25)
+  Static fallback served at https://berufos.com/sitemap.xml (HTTP 200).
+  Sub-sitemaps are generated dynamically by the `generate-sitemap` Edge Function.
+  Legacy host examfit.de → 301 to berufos.com on Cloudflare/Vercel.
 -->
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>

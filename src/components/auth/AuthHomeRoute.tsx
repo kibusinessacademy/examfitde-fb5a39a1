@@ -3,13 +3,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 
-const HomePage = lazy(() => import('@/pages/HomePageV2'));
+const BerufOSHub = lazy(() => import('@/pages/BerufOSHub'));
 
 /**
  * Route-level guard for /.
  * Authenticated users → /dashboard BEFORE any HomePage rendering.
- * Unauthenticated users → HomePage (marketing).
- * Prevents flicker, false tracking, and old-landing-page bleed.
+ * Unauthenticated users → BerufOSHub (Masterbrand — Hardcut 2026-05-25).
+ * Vorher: HomePageV2 (ExamFit-Marketing) — jetzt unter /examfit erreichbar.
  */
 export default function AuthHomeRoute() {
   const { user, loading } = useAuth();
@@ -34,7 +34,7 @@ export default function AuthHomeRoute() {
         </div>
       }
     >
-      <HomePage />
+      <BerufOSHub />
     </Suspense>
   );
 }

@@ -1,8 +1,10 @@
-# ExamFit.de Robots.txt
+# BerufOS.com Robots.txt
 # P6 Crawl Governance Layer — only SEO-Authority routes are crawlable
-# Last reviewed: 2026-05-21
+# Hardcut to BerufOS: 2026-05-25
 #
-# Canonical host: examfit.de (apex). www.examfit.de is a 301 redirect.
+# Canonical host: berufos.com (apex). www.berufos.com is a 301 redirect.
+# Legacy domains examfit.de, examfitwork.de, berufski.de are 301-redirect
+# targets — they are NOT crawled as independent properties.
 # All canonicals, sitemaps, IndexNow submissions and llms.txt point to apex only.
 
 # ───── Default ─────
@@ -114,15 +116,6 @@ Disallow: /org/
 Disallow: /partner/
 Disallow: /work
 Disallow: /search
-Disallow: /courses
-Disallow: /course/
-Disallow: /products
-Disallow: /product/
-Disallow: /category/
-Disallow: /learning/
-Disallow: /apprenticeship-course-detail/
-Disallow: /legal/
-Disallow: /user/
 
 User-agent: Slurp
 Allow: /
@@ -228,7 +221,7 @@ User-agent: MJ12bot
 Crawl-delay: 10
 
 # ───── Host preference ─────
-Host: examfit.de
+Host: berufos.com
 
 # ───── Sitemap ─────
-Sitemap: https://examfit.de/sitemap.xml
+Sitemap: https://berufos.com/sitemap.xml
