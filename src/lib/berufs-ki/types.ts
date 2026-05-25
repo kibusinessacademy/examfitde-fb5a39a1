@@ -15,6 +15,7 @@ export type WorkflowCategory =
   | "lernhilfe";
 
 export type WorkflowTier = "free" | "pro" | "business";
+export type WorkflowClass = "official" | "community_verified" | "blueprint_materialized" | "experimental";
 export type TargetRole = "azubi" | "fachkraft" | "ausbilder" | "teamleiter";
 export type RiskLevel = "low" | "medium" | "high";
 export type ComplianceLevel = "standard" | "sensitive" | "regulated";
@@ -58,6 +59,7 @@ export interface WorkflowDefinition {
   risk_level: RiskLevel;
   is_active: boolean;
   version: number;
+  workflow_class?: WorkflowClass;
 }
 
 export interface WorkflowRunQuality {

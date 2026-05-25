@@ -346,6 +346,7 @@ const AppRoutes = () => {
         {/* Berufs-KI — eigenständige Produktlinie */}
         <Route path="/berufs-ki" element={<BerufsKIHubPage />} />
         <Route path="/berufs-ki/app" element={<BerufsKIWorkbenchPage />} />
+        <Route path="/prompts" element={<BerufsKIWorkbenchPage />} />
         <Route path="/berufs-ki/inbox" element={<BerufsKIInboxPage />} />
 
         {/* Legacy /berufski/* → 410 Gone */}

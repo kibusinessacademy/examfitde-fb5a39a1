@@ -12,7 +12,7 @@ import type {
 } from "./types";
 
 const SELECT_COLS =
-  "id,slug,title,description,category,subcategory,curriculum_id,learning_field_id,competency_id,blueprint_id,competency_ids,target_roles,tier_required,input_schema,output_schema,model_recommendation,compliance_level,risk_level,is_active,version";
+  "id,slug,title,description,category,subcategory,curriculum_id,learning_field_id,competency_id,blueprint_id,competency_ids,target_roles,tier_required,input_schema,output_schema,model_recommendation,compliance_level,risk_level,is_active,version,workflow_class";
 
 export interface ListFilter {
   category?: WorkflowCategory;
