@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
         tokens_out: usage?.completion_tokens ?? null,
         latency_ms,
         status: "ok",
-        tier_at_run: "free",
+        tier_at_run: tierAtRun,
       })
       .select("id")
       .maybeSingle();
