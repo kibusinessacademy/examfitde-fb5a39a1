@@ -247,6 +247,7 @@ const EventInspectorPage = lazyRetry(() => import('@/pages/tools/EventInspectorP
 // Governance — Architectural Continuity Guard
 const ArchitecturePage = lazyRetry(() => import('@/pages/admin/governance/ArchitecturePage'));
 const PlatformConsciencePage = lazyRetry(() => import('@/pages/admin/PlatformConsciencePage'));
+const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
