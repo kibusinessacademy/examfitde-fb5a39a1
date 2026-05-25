@@ -14,7 +14,7 @@ export default function VibeOSLandingPage() {
       <SEOHead
         title="VibeOS — AI-native Operating Systems for Workforces"
         description="Die Plattform-Infrastruktur für Lernen, Arbeit, Agenten, Workflows und Berufsprozesse. Mit ExamFit (Learning OS) und Berufs-KI (Workforce OS)."
-        path="/vibeos"
+        canonical="/vibeos"
       />
 
       {/* Top Nav */}
