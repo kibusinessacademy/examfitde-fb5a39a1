@@ -369,7 +369,15 @@ export function PremiumHero() {
                 </Link>
               </li>
             </ul>
+
+            {/* System-Reaktion auf Beruf-Auswahl — typing-in */}
+            <OSReactionLine
+              text={selected ? berufReactionLine({ label: selected.label }) : null}
+              cueKey={selected?.slug}
+              className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--lp-aqua)]"
+            />
           </motion.form>
+
 
           <motion.div
             className="mt-5 flex flex-col sm:flex-row gap-3"
