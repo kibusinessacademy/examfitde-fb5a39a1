@@ -15,6 +15,7 @@ import { listWorkflows } from "@/lib/berufs-ki/api";
 import { BERUFS_KI, CATEGORY_LABEL, tierLabel } from "@/lib/berufs-ki/copy";
 import type { WorkflowCategory, WorkflowDefinition } from "@/lib/berufs-ki/types";
 import WorkflowRunner from "@/components/berufs-ki/WorkflowRunner";
+import SubmissionDialog from "@/components/berufs-ki/SubmissionDialog";
 import { BerufIdentityChip } from "@/components/os/BerufIdentityChip";
 import { useOsBeruf } from "@/lib/os/os-identity";
 
@@ -74,7 +75,10 @@ export default function BerufsKIWorkbenchPage() {
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">{BERUFS_KI.workbench.placeholder}</h1>
           </div>
-          <BerufIdentityChip />
+          <div className="flex items-center gap-2">
+            <SubmissionDialog />
+            <BerufIdentityChip />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
