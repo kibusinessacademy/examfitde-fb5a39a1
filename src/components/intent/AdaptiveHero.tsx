@@ -21,6 +21,16 @@ interface Props {
   /** Optional eyebrow above the hero. */
   eyebrow?: string;
   className?: string;
+  /** Telemetry context — surfaces in adaptive_cta_decision metadata. */
+  telemetry?: {
+    entity_kind?: string;
+    entity_slug?: string;
+    persona?: string | null;
+    package_id?: string | null;
+    confidence?: number | null;
+    /** Default true — set false in unit/visual tests. */
+    enabled?: boolean;
+  };
 }
 
 const VARIANT_HEADLINE: Record<AdaptiveCtaDecision["variant"], string> = {
