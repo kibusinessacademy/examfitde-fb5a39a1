@@ -61,6 +61,7 @@ export function filterWorkflows(
 export default function BerufsKIWorkbenchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const beruf = useOsBeruf();
+  const { user } = useAuth();
 
   const [activeCategory, setActiveCategory] = useState<WorkflowCategory | null>(
     (searchParams.get("category") as WorkflowCategory | null) ?? null,
@@ -70,6 +71,7 @@ export default function BerufsKIWorkbenchPage() {
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [workflows, setWorkflows] = useState<WorkflowDefinition[] | null>(null);
   const [activeSlug, setActiveSlug] = useState<string | null>(searchParams.get("w"));
+  const [previewSlug, setPreviewSlug] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
