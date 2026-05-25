@@ -75,8 +75,8 @@ Deno.serve(async (req) => {
       _target_type: "blog_article",
       _target_id: blogId,
       _result_status: "noop",
-      _metadata: { reason: "already_set", url: blog.hero_image_url },
-      _source: "seo-blog-hero-generate",
+      _payload: { reason: "already_set", url: blog.hero_image_url },
+      _trigger_source: "seo-blog-hero-generate",
     });
     return json(200, { ok: true, skipped: "already_set" });
   }
@@ -165,11 +165,11 @@ Deno.serve(async (req) => {
     _target_type: "blog_article",
     _target_id: blog.id,
     _result_status: "success",
-    _metadata: {
+    _payload: {
       blog_slug: blog.slug, hero_image_url: publicUrl, mime, bytes: bin.byteLength,
       model: "google/gemini-2.5-flash-image",
     },
-    _source: "seo-blog-hero-generate",
+    _trigger_source: "seo-blog-hero-generate",
   });
 
   return json(200, { ok: true, blog_article_id: blog.id, hero_image_url: publicUrl });

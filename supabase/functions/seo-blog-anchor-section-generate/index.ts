@@ -70,8 +70,8 @@ Deno.serve(async (req) => {
       _target_type: "blog_article",
       _target_id: blogId,
       _result_status: "noop",
-      _metadata: { reason: "already_present", count: existing.length },
-      _source: "seo-blog-anchor-section-generate",
+      _payload: { reason: "already_present", count: existing.length },
+      _trigger_source: "seo-blog-anchor-section-generate",
     });
     return json(200, { ok: true, skipped: "already_present", count: existing.length });
   }
@@ -114,8 +114,8 @@ Deno.serve(async (req) => {
       _target_type: "blog_article",
       _target_id: blogId,
       _result_status: "failed",
-      _metadata: { reason: "insufficient_candidates", count: candidates.length, threshold: TARGET_MIN },
-      _source: "seo-blog-anchor-section-generate",
+      _payload: { reason: "insufficient_candidates", count: candidates.length, threshold: TARGET_MIN },
+      _trigger_source: "seo-blog-anchor-section-generate",
     });
     return json(422, { error: "insufficient_candidates", count: candidates.length });
   }
@@ -149,8 +149,8 @@ Deno.serve(async (req) => {
     _target_type: "blog_article",
     _target_id: blog.id,
     _result_status: "success",
-    _metadata: { blog_slug: blog.slug, link_count: picked.length, sources: picked.map((p) => p.slug) },
-    _source: "seo-blog-anchor-section-generate",
+    _payload: { blog_slug: blog.slug, link_count: picked.length, sources: picked.map((p) => p.slug) },
+    _trigger_source: "seo-blog-anchor-section-generate",
   });
 
   return json(200, { ok: true, blog_article_id: blog.id, link_count: picked.length });
