@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resolveIntent } from "@/lib/intent/router";
@@ -5,6 +6,7 @@ import {
   chooseAdaptiveCta,
   type AdaptiveCtaDecision,
 } from "@/lib/intent/adaptive-cta";
+import { recordAdaptiveCtaDecision } from "@/lib/intent/decision-telemetry";
 import type { IntentSignals, ResolvedIntent } from "@/lib/intent/types";
 
 interface Props {
