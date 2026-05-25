@@ -597,6 +597,7 @@ const AppRoutes = () => {
           <Route path="platform-conscience" element={<PlatformConsciencePage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
+          <Route path="berufs-ki/quality" element={<BerufsKIQualityPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
