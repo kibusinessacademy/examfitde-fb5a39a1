@@ -26,6 +26,7 @@ import { ClarityTracker } from "@/components/analytics/ClarityTracker";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { SystemConsciousnessProvider } from "@/lib/system/SystemConsciousness";
 import SystemConsciousnessOverlay from "@/components/system/SystemConsciousnessOverlay";
+import OSCompanionBar from "@/components/os/OSCompanionBar";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -110,6 +111,7 @@ function AppChrome() {
       <OfflineIndicator />
       <Toaster />
       <Sonner />
+      <OSCompanionBar />
       <SystemConsciousnessOverlay />
       <AppRoutes />
       {showNativeTabBar ? <NativeTabBar /> : <MobileWebBottomNav />}
