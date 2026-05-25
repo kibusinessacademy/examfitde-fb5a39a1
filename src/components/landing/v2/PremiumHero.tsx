@@ -332,8 +332,8 @@ export function PremiumHero() {
                           trackConversion({
                             event: "cta_click",
                             source: "hero_v3",
-                            label: "beruf_chip_select",
-                            metadata: { beruf_slug: b.slug },
+                            label: `beruf_chip_select:${b.slug}`,
+
                           });
                         }}
                         className={`text-xs sm:text-sm px-3 py-1.5 rounded-full border transition ${
