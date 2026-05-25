@@ -21,6 +21,7 @@ import { GroundingChunkList } from "@/components/seo/GroundingChunkList";
 import { SemanticCrossLinks } from "@/components/seo/SemanticCrossLinks";
 import { SemanticRelatedLinks } from "@/components/semantic/SemanticRelatedLinks";
 import { ReadinessSignalBlock } from "@/components/semantic/ReadinessSignalBlock";
+import { TrustLayerStrip } from "@/components/trust/TrustLayerStrip";
 
 const BASE_URL = "https://examfitde.lovable.app";
 const PROVIDER = { name: "ExamFit", url: BASE_URL } as const;
@@ -97,6 +98,10 @@ export default function EntityPillarPage({ kind }: EntityPillarPageProps) {
         {kind === "beruf" || kind === "pruefung" ? (
           <ReadinessSignalBlock mode="product" contextLabel={entity.name} />
         ) : null}
+
+        <div className="mt-8">
+          <TrustLayerStrip preset="product" />
+        </div>
 
         <SemanticCrossLinks graph={graph} entity={entity} />
 

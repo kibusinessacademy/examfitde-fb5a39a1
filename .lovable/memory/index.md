@@ -34,6 +34,7 @@ B2C-Pricing SSOT: 24,90 € / 12 Monate, einheitlich für ALLE EXAM_FIRST-Pakete
 
 
 ## Memories
+- [W1 Cut 2 Intent Routing + Trust Layer v1](mem://architektur/semantic/w1-cut2-intent-routing-trust-layer-v1) — IntentKind SSOT (16) + deterministic router (regex+readiness-fallback, no AI) + ctaFor mapping + 10 TrustSignals + 5 Presets + AdaptiveCta + TrustLayerStrip. Examiner-isolated. Wired in EntityPillarPage.
 - [BerufOS P7 GSC Consolidation v1](mem://architektur/marketing/berufos-p7-gsc-consolidation-v1) — neuer META-Token in index.html, post-publish Runner scripts/seo/gsc-berufos-onboard.mjs, einzige Property berufos.com, Legacy passiv
 
 - [E3e.5 Cornerstone Blog Score v1](mem://architektur/seo/e3e-5-cornerstone-blog-score-v1) — composite cornerstone_score (depth/faq/quality/hero/anchor/winner/views/perf) ersetzt naive word_count-Proxy im ptcb-Arm von v_seo_bridge_candidates_v1. v_cornerstone_blog_score + admin_get_cornerstone_blog_score_summary. Baseline 2026-05-25: avg 0.174, p90 0.344, top 0.40 — 0/256 ≥0.60 min_sim. Pilot pillar_to_cornerstone_blog bleibt OFF (Human-Gate); Aktivierung erst nach Perf-Backfill oder Content-Enrichment Top-30.
