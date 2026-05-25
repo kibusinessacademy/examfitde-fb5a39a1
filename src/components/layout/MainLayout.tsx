@@ -9,6 +9,7 @@ import { GraduationCap, LogOut, User, Menu, X, Download } from 'lucide-react';
 import { useState } from 'react';
 
 import { useNativeApp } from '@/hooks/useNativeApp';
+import { BerufOSPlatformBadge } from '@/components/berufos/BerufOSPlatformBadge';
 
 const NAV_ITEMS = [
   { to: '/berufe', label: 'Berufe' },
@@ -217,6 +218,11 @@ export default function MainLayout() {
                 <Link to="/installieren" className="hover:text-foreground transition-colors">App installieren</Link>
               </nav>
             </div>
+          </div>
+
+          {/* BerufOS Masterbrand-Bridge (M2) */}
+          <div className="pt-6 border-t border-border">
+            <BerufOSPlatformBadge />
           </div>
 
           {/* IHK/HWK Disclaimer */}
