@@ -19,6 +19,8 @@ import { pillarAbsoluteUrl, type RoutedEntityKind } from "@/lib/semantic";
 import { JsonLdHead } from "@/components/seo/JsonLdHead";
 import { GroundingChunkList } from "@/components/seo/GroundingChunkList";
 import { SemanticCrossLinks } from "@/components/seo/SemanticCrossLinks";
+import { SemanticRelatedLinks } from "@/components/semantic/SemanticRelatedLinks";
+import { ReadinessSignalBlock } from "@/components/semantic/ReadinessSignalBlock";
 
 const BASE_URL = "https://examfitde.lovable.app";
 const PROVIDER = { name: "ExamFit", url: BASE_URL } as const;
@@ -92,7 +94,13 @@ export default function EntityPillarPage({ kind }: EntityPillarPageProps) {
 
         <GroundingChunkList chunks={document.chunks} heading="Wissensbasis" />
 
+        {kind === "beruf" || kind === "pruefung" ? (
+          <ReadinessSignalBlock mode="product" contextLabel={entity.name} />
+        ) : null}
+
         <SemanticCrossLinks graph={graph} entity={entity} />
+
+        <SemanticRelatedLinks entityId={entity.id} />
       </main>
     </>
   );

@@ -10,7 +10,19 @@
  */
 
 import type { KnowledgeGraph } from "./KnowledgeGraph";
-import type { Fehlerbild, Kompetenz, OralPattern, Pruefung, Risiko, SemanticEntity } from "./types";
+import type {
+  Faq,
+  Fehlerbild,
+  Karrierepfad,
+  Kompetenz,
+  Lernpfad,
+  OralExamTopic,
+  OralPattern,
+  Pruefung,
+  Risiko,
+  SemanticEntity,
+  TutorTopic,
+} from "./types";
 
 /** Stable identity helper — sort by (kind, key, id). */
 function sortStable<T extends SemanticEntity>(items: ReadonlyArray<T>): ReadonlyArray<T> {
@@ -155,5 +167,81 @@ export function relatedExamScenarios(
     }
   }
 
+  return sortStable(out);
+}
+
+/* ---- W1 Cut 1 — Semantic Gravity resolvers ---- */
+
+/** Lernpfade for an entity (kompetenz or beruf). Deterministic, deduped. */
+export function relatedLernpfade(graph: KnowledgeGraph, entityId: string): ReadonlyArray<Lernpfad> {
+  const root = graph.getEntity(entityId);
+  if (!root) return [];
+  const out = new Map<string, Lernpfad>();
+
+  const collect = (id: string) => {
+    for (const edge of graph.outgoingEdges(id, "kompetenz_has_lernpfad")) {
+      const t = graph.getEntity(edge.to);
+      if (t?.kind === "lernpfad" && !out.has(t.id)) out.set(t.id, t);
+    }
+  };
+
+  if (root.kind === "kompetenz") collect(root.id);
+  for (const comp of relatedCompetencies(graph, entityId)) collect(comp.id);
+
+  return sortStable([...out.values()]);
+}
+
+/** Karrierepfade outgoing from a beruf. */
+export function relatedKarrierepfade(graph: KnowledgeGraph, berufId: string): ReadonlyArray<Karrierepfad> {
+  const root = graph.getEntity(berufId);
+  if (!root || root.kind !== "beruf") return [];
+  const out: Karrierepfad[] = [];
+  for (const edge of graph.outgoingEdges(root.id, "beruf_has_karrierepfad")) {
+    const t = graph.getEntity(edge.to);
+    if (t?.kind === "karrierepfad") out.push(t);
+  }
+  return sortStable(out);
+}
+
+/** Tutor topics for a kompetenz (or via related competencies). */
+export function relatedTutorTopics(graph: KnowledgeGraph, entityId: string): ReadonlyArray<TutorTopic> {
+  const root = graph.getEntity(entityId);
+  if (!root) return [];
+  const out = new Map<string, TutorTopic>();
+
+  const collect = (id: string) => {
+    for (const edge of graph.outgoingEdges(id, "kompetenz_has_tutor_topic")) {
+      const t = graph.getEntity(edge.to);
+      if (t?.kind === "tutor_topic" && !out.has(t.id)) out.set(t.id, t);
+    }
+  };
+
+  if (root.kind === "kompetenz") collect(root.id);
+  for (const comp of relatedCompetencies(graph, entityId)) collect(comp.id);
+
+  return sortStable([...out.values()]);
+}
+
+/** Oral exam topics directly attached to a pruefung. */
+export function relatedOralExamTopics(graph: KnowledgeGraph, pruefungId: string): ReadonlyArray<OralExamTopic> {
+  const root = graph.getEntity(pruefungId);
+  if (!root || root.kind !== "pruefung") return [];
+  const out: OralExamTopic[] = [];
+  for (const edge of graph.outgoingEdges(root.id, "pruefung_has_oral_exam_topic")) {
+    const t = graph.getEntity(edge.to);
+    if (t?.kind === "oral_exam_topic") out.push(t);
+  }
+  return sortStable(out);
+}
+
+/** Polymorphic FAQs attached to any entity via entity_has_faq. */
+export function relatedFaqs(graph: KnowledgeGraph, entityId: string): ReadonlyArray<Faq> {
+  const root = graph.getEntity(entityId);
+  if (!root) return [];
+  const out: Faq[] = [];
+  for (const edge of graph.outgoingEdges(root.id, "entity_has_faq")) {
+    const t = graph.getEntity(edge.to);
+    if (t?.kind === "faq") out.push(t);
+  }
   return sortStable(out);
 }

@@ -26,7 +26,13 @@ export type EntityKind =
   | "pruefungsform"
   | "pruefungsstrategie"
   | "oral_pattern"
-  | "industry_context";
+  | "industry_context"
+  // W1 Cut 1 — Semantic Gravity additions
+  | "lernpfad"
+  | "karrierepfad"
+  | "tutor_topic"
+  | "oral_exam_topic"
+  | "faq";
 
 export interface SemanticEntityBase<K extends EntityKind = EntityKind> {
   /** Stable UUID or canonical key. Never derived from title. */
@@ -92,6 +98,40 @@ export type IndustryContext = SemanticEntityBase<"industry_context"> & {
   industry: string;
 };
 
+/* ---- W1 Cut 1 — Semantic Gravity additions ---- */
+
+export type Lernpfad = SemanticEntityBase<"lernpfad"> & {
+  beruf_id?: string;
+  /** Ordered list of kompetenz ids in path order. Deterministic. */
+  step_ids?: ReadonlyArray<string>;
+  /** Optional terminal product (linked via lernpfad_leads_to_produkt edges in DB). */
+  product_id?: string;
+};
+
+export type Karrierepfad = SemanticEntityBase<"karrierepfad"> & {
+  from_beruf_id: string;
+  to_beruf_id?: string;
+  pathway?: "weiterbildung" | "studium" | "spezialisierung" | "fuehrung";
+};
+
+export type TutorTopic = SemanticEntityBase<"tutor_topic"> & {
+  kompetenz_id?: string;
+  /** Stable topic slug consumed by the AI tutor RAG layer (read-only here). */
+  rag_topic_key?: string;
+};
+
+export type OralExamTopic = SemanticEntityBase<"oral_exam_topic"> & {
+  pruefung_id?: string;
+  beruf_id?: string;
+};
+
+export type Faq = SemanticEntityBase<"faq"> & {
+  /** Polymorphic anchor — any entity id this FAQ belongs to. */
+  anchor_entity_id?: string;
+  question: string;
+  answer: string;
+};
+
 export type SemanticEntity =
   | Beruf
   | Pruefung
@@ -102,7 +142,12 @@ export type SemanticEntity =
   | Pruefungsform
   | Pruefungsstrategie
   | OralPattern
-  | IndustryContext;
+  | IndustryContext
+  | Lernpfad
+  | Karrierepfad
+  | TutorTopic
+  | OralExamTopic
+  | Faq;
 
 /* ------------------------------------------------------------------ */
 /* Edges                                                              */
@@ -123,7 +168,14 @@ export type EdgeKind =
   | "kompetenz_has_oral_pattern"
   | "beruf_in_industry"
   | "related_competency"
-  | "related_mistake";
+  | "related_mistake"
+  // W1 Cut 1 — Semantic Gravity additions
+  | "kompetenz_has_lernpfad"
+  | "lernpfad_leads_to_produkt"
+  | "beruf_has_karrierepfad"
+  | "kompetenz_has_tutor_topic"
+  | "pruefung_has_oral_exam_topic"
+  | "entity_has_faq";
 
 export interface SemanticEdge {
   from: string;
