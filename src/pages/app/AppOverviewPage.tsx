@@ -25,7 +25,7 @@ function formatCents(cents: number, currency = 'EUR') {
  * über „Alles ansehen"-Toggle, niemals als Default.
  */
 export default function AppOverviewPage() {
-  const { data, isLoading, error, dataUpdatedAt } = useAccountSummary();
+  const { data, isLoading, error } = useAccountSummary();
   const { readiness, topRisks, lastRecalc } = useSystemConsciousness();
   const beruf = useOsBeruf();
   const [showAll, setShowAll] = useState(false);
