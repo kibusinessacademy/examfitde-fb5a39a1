@@ -59,6 +59,7 @@ export interface WorkflowDefinition {
   risk_level: RiskLevel;
   is_active: boolean;
   version: number;
+  workflow_class?: WorkflowClass;
 }
 
 export interface WorkflowRunQuality {
