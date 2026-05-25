@@ -217,6 +217,8 @@ const WorkCorporatePage = lazyRetry(() => import('@/pages/work/WorkCorporatePage
 // Berufs-KI public pages (eigenständige Produktlinie)
 const BerufsKIHubPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIHubPage'));
 const BerufsKIWorkbenchPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIWorkbenchPage'));
+const BerufsKIWorkflowsPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIWorkflowsPage'));
+
 
 // Learner Pages
 const LessonPlayer = lazyRetry(() => import('@/pages/LessonPlayer'));
@@ -593,7 +595,9 @@ const AppRoutes = () => {
           <Route path="runtime" element={<RuntimeCommandCenterPage />} />
           <Route path="platform-conscience" element={<PlatformConsciencePage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
+          <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
+
         </Route>
 
         {/* All unknown paths → 404 (admin wildcard already catches /admin/*) */}

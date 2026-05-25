@@ -62,6 +62,8 @@ export const ROUTE_PATTERNS: readonly string[] = [
   // Berufs-KI (eigenständige Produktlinie)
   "/berufs-ki",
   "/berufs-ki/app",
+  "/admin/berufs-ki/workflows",
+
 
 
   // Legacy 410 / redirects (still served — not 404)
