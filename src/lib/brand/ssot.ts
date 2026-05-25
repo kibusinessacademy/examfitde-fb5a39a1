@@ -1,26 +1,35 @@
 /**
- * ExamFit@work Brand SSOT — single source of truth for all brand references.
- * Never hardcode "BerufsKI" anywhere in frontend/backend code. Import from here.
+ * DEPRECATED — ExamFit@work Brand SSOT. Domain examfitwork.de existiert NICHT.
+ * Nutze stattdessen `@/lib/berufos/brand` (BERUFOS.subBrands.berufsKi).
+ * Re-exports bleiben für Rückwärtskompatibilität bestehender Imports.
  */
+import { BERUFOS } from "@/lib/berufos/brand";
+
 export const BRAND = {
-  name: "ExamFit@work",
-  domain: "https://examfitwork.de",
-  parent: "https://examfit.de",
-  appBase: "https://examfit.de",
-  emailFrom: "ExamFit@work <noreply@examfitwork.de>",
-  emailReplyTo: "likeitmark9@gmail.com",
+  name: "Berufs-KI",
+  domain: BERUFOS.subBrands.berufsKi.domain, // https://berufos.com/berufs-ki
+  parent: BERUFOS.domain,                    // https://berufos.com
+  appBase: BERUFOS.domain,
+  emailFrom: `Berufs-KI <${BERUFOS.email.noreply}>`,
+  emailReplyTo: BERUFOS.email.support,
   seo: {
-    title: "ExamFit@work – KI-Workflows & Copilot Prompts pro Beruf",
+    title: "Berufs-KI – KI-Workflows & Copilot Prompts pro Beruf",
     desc: "Praxiserprobte KI-Workflows, Prompt-Vorlagen und Mini-SOPs – berufsbezogen, sofort nutzbar, DSGVO-sensibel.",
   },
-  stripeBrand: "ExamFit@work",
-  /** Old brand name for backward compat detection */
+  stripeBrand: "Berufs-KI",
+  /** Old brand names for backward compat detection */
   legacyBrand: "BerufsKI",
 } as const;
 
-/** Check if a brand string matches ExamFit@work (or legacy BerufsKI) */
+/** Check if a brand string matches the WorkforceOS sub-brand (or any legacy alias) */
 export function isWorkBrand(brand: string | undefined | null): boolean {
   if (!brand) return false;
   const lower = brand.toLowerCase();
-  return lower.includes("examfit@work") || lower.includes("examfitwork") || lower === "berufski";
+  return (
+    lower.includes("berufs-ki") ||
+    lower.includes("berufski") ||
+    lower.includes("examfit@work") ||
+    lower.includes("examfitwork")
+  );
 }
+
