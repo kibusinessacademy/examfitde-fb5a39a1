@@ -1,17 +1,37 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
-import { ClipboardCheck, ArrowRight, Sparkles, Brain, Mic, Target, BarChart3, PlayCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ClipboardCheck, ArrowRight, Sparkles, Brain, Mic, Target, BarChart3, PlayCircle, Search } from "lucide-react";
 import { trackConversion } from "@/lib/seo-tracking";
 
 /**
- * Premium split-hero — C+A combination:
- *  - Headline = emotional Hook (4 Minuten Prüfungsreife)
- *  - Subline  = technologischer Moat (Strict-RAG + schriftl./mündl.)
+ * Premium Hero v3 — "Prüfungsreife, nicht Technik".
  *
- * Right-side panels: micro-parallax + breathing + light hierarchy
- * (active panel glows strong, ghosts are dimmer than before).
+ *  - Eyebrow:  "Prüfungssimulation mit KI-Unterstützung"
+ *  - Headline: "Finde heraus, wie prüfungsreif du wirklich bist."
+ *  - Sub:      Schwäche/Sicherheit/Ergebnis statt Rahmenplan/IHK-Logik
+ *  - Selector: Beruf/Prüfung-Auswahl direkt im Hero (Suchfeld + Chips)
+ *  - CTA:      "Kostenlosen Prüfungscheck starten" — dynamisches Routing
+ *
+ * Kein "IHK", kein "Strict-RAG", kein "Rahmenplan" mehr im sichtbaren Hero —
+ * USP wird emotional/funktional kommuniziert, nicht technisch.
  */
+
+type BerufOption = {
+  label: string;
+  slug: string; // route segment for /pruefungscheck/:slug and /berufe/:slug
+  aliases?: string[];
+};
+
+const BERUFE: BerufOption[] = [
+  { label: "Industriekaufmann/-frau", slug: "industriekaufmann", aliases: ["industrie", "ik"] },
+  { label: "Fachinformatiker/-in AE", slug: "fachinformatiker-ae", aliases: ["fisi", "fiae", "fachinformatik"] },
+  { label: "AEVO / Ausbilderschein", slug: "aevo", aliases: ["ausbilder", "ada"] },
+  { label: "Bilanzbuchhalter/-in", slug: "bilanzbuchhalter", aliases: ["bilanz", "buchhalter"] },
+  { label: "Wirtschaftsfachwirt/-in", slug: "wirtschaftsfachwirt", aliases: ["fachwirt"] },
+  { label: "Industriemeister/-in", slug: "industriemeister", aliases: ["meister"] },
+];
+
 const PANELS = [
   {
     id: "score",
@@ -82,7 +102,7 @@ const PANELS = [
   {
     id: "tutor",
     icon: Brain,
-    title: "KI-Tutor · Strict-RAG",
+    title: "KI-Tutor · mit Quellen",
     body: (
       <div className="space-y-2.5">
         <div className="text-xs text-[var(--lp-text-2)] leading-relaxed">
@@ -92,7 +112,7 @@ const PANELS = [
           <span className="text-[var(--lp-aqua)]">▍</span> Das Wachstumschancengesetz reaktiviert
           §7 Abs. 2 EStG für bewegliche Wirtschaftsgüter…
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {["§7 EStG", "Rahmenplan §3.2", "Kurs L4-K2"].map((s) => (
+            {["§7 EStG", "Lernfeld 4", "Kurs L4-K2"].map((s) => (
               <span
                 key={s}
                 className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(46,211,183,0.1)] text-[var(--lp-aqua)] border border-[var(--lp-border-emerald)]"
@@ -117,7 +137,7 @@ const PANELS = [
             <span className="absolute inset-0 rounded-full border-2 border-[var(--lp-aqua)] animate-ping opacity-40" />
           </div>
           <div className="flex-1">
-            <div className="text-xs text-[var(--lp-text-2)]">IHK-Fachgespräch · Antwort wird bewertet…</div>
+            <div className="text-xs text-[var(--lp-text-2)]">Fachgespräch · Antwort wird bewertet…</div>
             <div className="flex gap-0.5 mt-1.5">
               {Array.from({ length: 22 }).map((_, i) => (
                 <motion.span
@@ -157,15 +177,17 @@ const LIVE_PINGS = [
 ];
 
 export function PremiumHero() {
+  const navigate = useNavigate();
   const [idx, setIdx] = useState(0);
   const [ping, setPing] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<BerufOption | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setIdx((i) => (i + 1) % PANELS.length), 4200);
     return () => clearInterval(t);
   }, []);
 
-  // Rare "live moment" — every ~13–17s, briefly show a tiny system update
   useEffect(() => {
     let timeout: number;
     const schedule = () => {
@@ -183,6 +205,50 @@ export function PremiumHero() {
 
   const Active = PANELS[idx];
 
+  // Filter chips by search query (label + aliases)
+  const filteredBerufe = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return BERUFE;
+    return BERUFE.filter(
+      (b) =>
+        b.label.toLowerCase().includes(q) ||
+        b.slug.toLowerCase().includes(q) ||
+        (b.aliases ?? []).some((a) => a.includes(q))
+    );
+  }, [query]);
+
+  const targetHref = selected ? `/pruefungscheck/${selected.slug}` : "/pruefungscheck";
+
+  const handleStart = () => {
+    trackConversion({
+      event: "cta_click",
+      source: "hero_v3",
+      label: selected ? `pruefungscheck_start:${selected.slug}` : "pruefungscheck_start",
+    });
+    navigate(targetHref);
+  };
+
+
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Enter on search → if exactly one match, select & route; else route to /berufe with query
+    if (filteredBerufe.length === 1) {
+      setSelected(filteredBerufe[0]);
+      trackConversion({
+        event: "cta_click",
+        source: "hero_v3",
+        label: `pruefungscheck_search_enter:${filteredBerufe[0].slug}`,
+
+      });
+      navigate(`/pruefungscheck/${filteredBerufe[0].slug}`);
+    } else if (query.trim()) {
+      navigate(`/berufe?q=${encodeURIComponent(query.trim())}`);
+    } else {
+      navigate("/berufe");
+    }
+  };
+
   return (
     <section className="relative overflow-hidden pt-12 sm:pt-16 lg:pt-24 pb-16 lg:pb-24">
       <div className="lp-hero-glow" aria-hidden />
@@ -198,7 +264,7 @@ export function PremiumHero() {
             transition={{ duration: 0.5 }}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Die erste KI-Prüfungsplattform mit Strict-RAG
+            Prüfungssimulation mit KI-Unterstützung
           </motion.span>
 
           <motion.h1
@@ -207,7 +273,7 @@ export function PremiumHero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
           >
-            Finde in 4 Minuten heraus,{" "}
+            Finde heraus,{" "}
             <span className="lp-gradient-text">wie prüfungsreif du wirklich bist.</span>
           </motion.h1>
 
@@ -217,68 +283,119 @@ export function PremiumHero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
           >
-            Die einzige KI-Prüfungsplattform, die <strong className="text-[var(--lp-text)] font-semibold">nur aus deinem Rahmenplan und Kursinhalt</strong> antwortet — mit schriftlicher & mündlicher Prüfungssimulation nach IHK-Logik.
+            Trainiere mit <strong className="text-[var(--lp-text)] font-semibold">schriftlichen und mündlichen Prüfungssimulationen</strong>, erkenne deine Schwächen und bereite dich gezielt auf deine Prüfung vor.
           </motion.p>
 
-          {/* Proof pills */}
-          <motion.ul
-            className="mt-5 flex flex-wrap gap-2"
-            initial={{ opacity: 0, y: 10 }}
+          {/* Beruf/Prüfung-Selector — direkt im Hero */}
+          <motion.form
+            onSubmit={handleSubmit}
+            className="mt-7 lp-card p-4 sm:p-5"
+            aria-label="Beruf oder Prüfung auswählen"
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.22 }}
+            transition={{ duration: 0.6, delay: 0.22 }}
           >
-            {[
-              "Kein Abo",
-              "Schriftlich + mündlich",
-              "Antworten mit Quellen",
-              "Keine Zufallsfragen",
-            ].map((p) => (
-              <li
-                key={p}
-                className="text-[11px] sm:text-xs px-2.5 py-1 rounded-full border border-[var(--lp-border-strong)] bg-white/[0.04] text-[var(--lp-text-2)]"
-              >
-                {p}
+            <label htmlFor="hero-beruf-search" className="block text-xs font-medium text-[var(--lp-text-2)] mb-2">
+              Welchen Beruf oder welche Prüfung bereitest du vor?
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--lp-text-3)]" aria-hidden />
+              <input
+                id="hero-beruf-search"
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="z. B. Industriekaufmann, AEVO, Fachinformatiker…"
+                className="w-full h-11 pl-10 pr-3 rounded-lg bg-white/[0.04] border border-[var(--lp-border-strong)] text-sm text-[var(--lp-text)] placeholder:text-[var(--lp-text-3)] focus:outline-none focus:border-[var(--lp-aqua)] transition"
+                autoComplete="off"
+              />
+            </div>
+            <ul className="mt-3 flex flex-wrap gap-2" role="listbox" aria-label="Berufe und Prüfungen">
+              {filteredBerufe.length === 0 ? (
+                <li className="text-xs text-[var(--lp-text-3)]">
+                  Kein Treffer —{" "}
+                  <Link to="/berufe" className="text-[var(--lp-aqua)] underline underline-offset-2">
+                    alle Berufe ansehen
+                  </Link>
+                </li>
+              ) : (
+                filteredBerufe.map((b) => {
+                  const isActive = selected?.slug === b.slug;
+                  return (
+                    <li key={b.slug}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={isActive}
+                        onClick={() => {
+                          setSelected(isActive ? null : b);
+                          trackConversion({
+                            event: "cta_click",
+                            source: "hero_v3",
+                            label: `beruf_chip_select:${b.slug}`,
+
+                          });
+                        }}
+                        className={`text-xs sm:text-sm px-3 py-1.5 rounded-full border transition ${
+                          isActive
+                            ? "bg-[rgba(46,211,183,0.18)] border-[var(--lp-aqua)] text-[var(--lp-aqua)]"
+                            : "bg-white/[0.04] border-[var(--lp-border-strong)] text-[var(--lp-text-2)] hover:text-[var(--lp-text)] hover:border-[var(--lp-border-emerald)]"
+                        }`}
+                      >
+                        {b.label}
+                      </button>
+                    </li>
+                  );
+                })
+              )}
+              <li>
+                <Link
+                  to="/berufe"
+                  className="text-xs sm:text-sm px-3 py-1.5 rounded-full border border-dashed border-[var(--lp-border-strong)] text-[var(--lp-text-3)] hover:text-[var(--lp-text)] hover:border-[var(--lp-aqua)] transition inline-block"
+                >
+                  Alle anzeigen →
+                </Link>
               </li>
-            ))}
-          </motion.ul>
+            </ul>
+          </motion.form>
 
           <motion.div
-            className="mt-7 flex flex-col sm:flex-row gap-3"
+            className="mt-5 flex flex-col sm:flex-row gap-3"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            <Link to="/pruefungscheck" className="contents">
-              <button
-                className="lp-cta-primary h-14 px-7 inline-flex items-center justify-center text-base group"
-                data-cta-location="hero_v2_primary"
-                onClick={() =>
-                  trackConversion({
-                    event: "cta_click",
-                    source: "hero_v2",
-                    label: "pruefungsreife_test",
-                  })
-                }
-              >
-                <ClipboardCheck className="w-5 h-5 mr-2" />
-                Prüfungszustand analysieren
-                <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-0.5" />
-              </button>
-            </Link>
+            <button
+              type="button"
+              onClick={handleStart}
+              className="lp-cta-primary h-14 px-7 inline-flex items-center justify-center text-base group"
+              data-cta-location="hero_v3_primary"
+              aria-label={
+                selected
+                  ? `Kostenlosen Prüfungscheck für ${selected.label} starten`
+                  : "Kostenlosen Prüfungscheck starten"
+              }
+            >
+              <ClipboardCheck className="w-5 h-5 mr-2" />
+              {selected
+                ? `Prüfungscheck für ${selected.label.split("/")[0].trim()} starten`
+                : "Kostenlosen Prüfungscheck starten"}
+              <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-0.5" />
+            </button>
             <a href="#demos" className="contents">
               <button
                 className="lp-cta-ghost h-14 px-6 inline-flex items-center justify-center text-base"
-                data-cta-location="hero_v2_secondary"
+                data-cta-location="hero_v3_secondary"
                 onClick={() =>
                   trackConversion({
                     event: "cta_click",
-                    source: "hero_v2",
+                    source: "hero_v3",
                     label: "live_demo_scroll",
                   })
                 }
               >
                 <PlayCircle className="w-5 h-5 mr-2" />
-                Live-Demo ansehen
+                Demo ansehen
               </button>
             </a>
           </motion.div>
@@ -286,13 +403,13 @@ export function PremiumHero() {
           <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[var(--lp-text-3)]">
             <span>✓ 4 Minuten</span>
             <span>✓ Keine Anmeldung</span>
-            <span>✓ DSGVO-konform</span>
+            <span>✓ Mit Quellen</span>
+            <span>✓ Schriftlich + mündlich</span>
           </div>
         </div>
 
         {/* RIGHT — stacked floating panels with parallax + breathing */}
         <div className="relative h-[420px] sm:h-[460px] lg:h-[520px]">
-          {/* Soft halo follows active panel */}
           <motion.div
             className="absolute inset-0 rounded-[28px]"
             style={{
@@ -304,7 +421,6 @@ export function PremiumHero() {
             aria-hidden
           />
 
-          {/* Backdrop ghost cards — micro-parallax with different periods + dimmer */}
           <motion.div
             className="absolute right-6 top-2 w-[78%] h-32 rounded-2xl lp-glass"
             animate={{ y: [0, -6, 0], x: [0, 2, 0] }}
@@ -327,7 +443,6 @@ export function PremiumHero() {
             aria-hidden
           />
 
-          {/* Active panel — breathes softly */}
           <AnimatePresence mode="wait">
             <motion.div
               key={Active.id}
@@ -367,7 +482,6 @@ export function PremiumHero() {
               </div>
               {Active.body}
 
-              {/* Rare live update — wirkt wie ein echtes System, das gerade reagiert */}
               <AnimatePresence>
                 {ping && (
                   <motion.div
