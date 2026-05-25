@@ -78,6 +78,7 @@ import { SeoGraphImpactCard } from "@/components/admin/heal/cards/SeoGraphImpact
 import { SeoGraphReconCard } from "@/components/admin/heal/cards/SeoGraphReconCard";
 import { SeoBridgeActivationCard } from "@/components/admin/heal/cards/SeoBridgeActivationCard";
 import { SeoBridgeOutcomeCard } from "@/components/admin/heal/cards/SeoBridgeOutcomeCard";
+import { SeoCornerstoneEnrichmentCard } from "@/components/admin/heal/cards/SeoCornerstoneEnrichmentCard";
 import { SeoBridgePromotionCard } from "@/components/admin/heal/cards/SeoBridgePromotionCard";
 import { HealAutomationControlCard } from "@/components/admin/heal/cards/HealAutomationControlCard";
 import { NotificationDeliveryHealthCard } from "@/components/admin/heal/cards/NotificationDeliveryHealthCard";
