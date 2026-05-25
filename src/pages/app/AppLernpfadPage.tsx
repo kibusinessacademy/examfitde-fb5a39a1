@@ -22,6 +22,7 @@ import { useExamPsychology } from "@/lib/system/ExamPsychology";
 import { DramaturgyChip } from "@/components/system/DramaturgyChip";
 import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
 import { ExaminerBiographyCard } from "@/components/system/ExaminerBiographyCard";
+import { LearnerRecommendationStrip } from "@/components/recommendations/LearnerRecommendationStrip";
 
 /**
  * /app/lernpfad — Phase 5.3: Risiko-orientierte Prüfungsstrategie
@@ -42,6 +43,11 @@ export default function AppLernpfadPage() {
         <TodayPriority />
         <StrategyTimeline />
         <CompetencyStates />
+        <LearnerRecommendationStrip
+          sourceEntityKind="app_lernpfad"
+          sourceEntitySlug="lernpfad_strategy"
+          limit={4}
+        />
         <StrategistTutor />
         <RecalcStripe />
       </div>
