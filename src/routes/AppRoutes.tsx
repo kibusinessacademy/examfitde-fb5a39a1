@@ -214,6 +214,10 @@ const WorkBuyPage = lazyRetry(() => import('@/pages/work/WorkBuyPage'));
 // WorkBundleBuyPage removed 2026-05-17 (A4 dead-code cleanup, no active funnel pointing to /work/bundles/:bundleId)
 const WorkCorporatePage = lazyRetry(() => import('@/pages/work/WorkCorporatePage'));
 
+// Berufs-KI public pages (eigenständige Produktlinie)
+const BerufsKIHubPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIHubPage'));
+const BerufsKIWorkbenchPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIWorkbenchPage'));
+
 // Learner Pages
 const LessonPlayer = lazyRetry(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazyRetry(() => import('@/pages/ExamSimulation'));
@@ -332,6 +336,10 @@ const AppRoutes = () => {
         <Route path="/work/buy/:productId" element={<WorkBuyPage />} />
         {/* /work/bundles/:bundleId entfernt 2026-05-17 (A4 dead-code, WorkBundleBuyPage gelöscht) */}
         <Route path="/work/corporate" element={<WorkCorporatePage />} />
+
+        {/* Berufs-KI — eigenständige Produktlinie */}
+        <Route path="/berufs-ki" element={<BerufsKIHubPage />} />
+        <Route path="/berufs-ki/app" element={<BerufsKIWorkbenchPage />} />
 
         {/* Legacy /berufski/* → 410 Gone */}
         <Route path="/berufski/*" element={<WorkGonePage />} />
