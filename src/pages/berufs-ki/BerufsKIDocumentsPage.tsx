@@ -242,11 +242,41 @@ export default function BerufsKIDocumentsPage() {
                     onChange={(e) => setNewProfile({ ...newProfile, address: e.target.value })} />
                   <Textarea className="col-span-2" placeholder="Signatur" value={newProfile.default_signature}
                     onChange={(e) => setNewProfile({ ...newProfile, default_signature: e.target.value })} />
+
+                  <Input placeholder="USt-ID (optional)" value={newProfile.vat_id}
+                    onChange={(e) => setNewProfile({ ...newProfile, vat_id: e.target.value })} />
+                  <div className="flex gap-2 items-center">
+                    <Label htmlFor="brandcolor" className="text-xs">Primärfarbe</Label>
+                    <input id="brandcolor" type="color" value={newProfile.brand_primary}
+                      onChange={(e) => setNewProfile({ ...newProfile, brand_primary: e.target.value })}
+                      className="h-9 w-12 rounded border border-border bg-transparent cursor-pointer" />
+                    <Input value={newProfile.brand_primary} className="h-9"
+                      onChange={(e) => setNewProfile({ ...newProfile, brand_primary: e.target.value })} />
+                  </div>
+
+                  <div className="col-span-2 space-y-1.5">
+                    <Label className="text-xs">Dokument-Layout</Label>
+                    <Select value={newProfile.layout_template}
+                      onValueChange={(v) => setNewProfile({ ...newProfile, layout_template: v as LayoutTemplate })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {LAYOUT_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Textarea className="col-span-2" placeholder="Disclaimer (optional) — z. B. Hinweis auf juristische Prüfung"
+                    value={newProfile.disclaimer_text}
+                    onChange={(e) => setNewProfile({ ...newProfile, disclaimer_text: e.target.value })} />
+
                   <div className="col-span-2 flex gap-2">
                     <Button size="sm" onClick={saveProfile}>Speichern</Button>
                     <Button size="sm" variant="ghost" onClick={() => setShowProfileForm(false)}>Abbrechen</Button>
                   </div>
                 </div>
+
               )}
             </CardContent>
           </Card>
