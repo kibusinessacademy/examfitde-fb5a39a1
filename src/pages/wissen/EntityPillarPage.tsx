@@ -116,7 +116,7 @@ export default function EntityPillarPage({ kind }: EntityPillarPageProps) {
             will pass real weak_kompetenz_ids in a follow-up wiring. */}
         {kind === "kompetenz" ? (
           <RecommendationStrip
-            graph={graph}
+            graph={graph.toSnapshot()}
             weakKompetenzIds={[entity.id]}
             sourceEntityKind={kind}
             sourceEntitySlug={entity.key ?? entity.id}
