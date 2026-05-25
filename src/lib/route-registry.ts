@@ -65,6 +65,8 @@ export const ROUTE_PATTERNS: readonly string[] = [
   "/admin/berufs-ki/workflows",
   "/admin/berufs-ki/quality",
   "/admin/berufs-ki/review",
+  "/admin/berufs-ki/learning",
+  "/berufs-ki/inbox",
 
 
 
