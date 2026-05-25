@@ -24,6 +24,7 @@ import { ReadinessSignalBlock } from "@/components/semantic/ReadinessSignalBlock
 import { TrustLayerStrip } from "@/components/trust/TrustLayerStrip";
 import { AdaptiveHero } from "@/components/intent/AdaptiveHero";
 import { ConfidenceStatusStrip } from "@/components/intent/ConfidenceStatusStrip";
+import { RecommendationStrip } from "@/components/recommendations/RecommendationStrip";
 
 
 const BASE_URL = "https://examfitde.lovable.app";
