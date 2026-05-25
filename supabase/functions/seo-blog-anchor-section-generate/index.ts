@@ -27,6 +27,8 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
+  const startedAt = Date.now();
+
 
   let body: { job_id?: string } = {};
   try { body = await req.json(); } catch { /* tolerate */ }
@@ -70,9 +72,18 @@ Deno.serve(async (req) => {
       _target_type: "blog_article",
       _target_id: blogId,
       _result_status: "noop",
-      _payload: { reason: "already_present", count: existing.length },
+      _payload: {
+        blog_article_id: blogId,
+        blog_slug: blog.slug,
+        links_added: 0,
+        curriculum_id: blog.source_curriculum_id,
+        duration_ms: Date.now() - startedAt,
+        reason: "already_present",
+        existing_count: existing.length,
+      },
       _trigger_source: "seo-blog-anchor-section-generate",
     });
+
     return json(200, { ok: true, skipped: "already_present", count: existing.length });
   }
 
@@ -114,9 +125,19 @@ Deno.serve(async (req) => {
       _target_type: "blog_article",
       _target_id: blogId,
       _result_status: "failed",
-      _payload: { reason: "insufficient_candidates", count: candidates.length, threshold: TARGET_MIN },
+      _payload: {
+        blog_article_id: blogId,
+        blog_slug: blog.slug,
+        links_added: 0,
+        curriculum_id: blog.source_curriculum_id,
+        duration_ms: Date.now() - startedAt,
+        reason: "insufficient_candidates",
+        candidates_found: candidates.length,
+        threshold: TARGET_MIN,
+      },
       _trigger_source: "seo-blog-anchor-section-generate",
     });
+
     return json(422, { error: "insufficient_candidates", count: candidates.length });
   }
 
