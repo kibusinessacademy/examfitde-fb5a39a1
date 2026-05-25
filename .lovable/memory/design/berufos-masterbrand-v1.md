@@ -36,7 +36,13 @@ BerufOS
 
 ## Backend
 - Edge: `supabase/functions/berufos-waitlist/index.ts` — public POST {email, module_slug}, validiert Slug-Whitelist, schreibt nach `email_delivery_queue` (sequence_type=`berufos_waitlist_<slug>`, idempotency_key=`berufos_waitlist|email|slug`), best-effort `fn_emit_audit('berufos_waitlist_signup',...)`.
-- TODO Phase 5: `ops_audit_contract` Eintrag für `berufos_waitlist_signup` + CI-Guard `berufos-brand-ssot-guard.mjs` + `module-registry.test.ts`.
+- TODO: `ops_audit_contract` Eintrag für `berufos_waitlist_signup` (Audit läuft best-effort, schreibt warn-only).
+
+## Phase 3+5 (2026-05-25 Cut 2)
+- `src/lib/berufos/useBerufosModules.ts` — Hook + Persona-Labels/Order (`all|azubi|fachkraft|betrieb|institution|recruiter`).
+- Hub `BerufOSHub.tsx` mit Persona-Filter-Tab-Row, filtert live+preview+planned-Gruppen über `useBerufosModules(persona)`.
+- CI-Guard `scripts/guards/berufos-brand-ssot-guard.mjs` — warn-only, verbietet hardcoded "BerufOS" außerhalb SSOT-Pfade (src/lib/berufos, src/components/berufos, src/pages/BerufOSHub.tsx, src/pages/berufos, supabase/functions/berufos-*).
+- Test `src/test/berufos/module-registry.test.ts` — 10 Module, unique Slugs, Persona-Filter, live-Module brauchen href, planned-Module keinen href.
 
 ## North-Star-Override
 Bewusste Übersteuerung der Memory-Regel "Brand-Entity vor Custom-Domain-Migration schützen". Risiko angenommen: SEO-Authority von examfit.de bleibt unangetastet (eigene Domain, eigener Brand-SSOT, eigene Funnels). BerufOS lebt auf `berufos.com` als Plattform-Brand-Domain — keine Domain-Migration nötig, die Custom-Domain zeigt bereits hierher.
