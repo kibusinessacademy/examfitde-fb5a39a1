@@ -17,9 +17,14 @@ import {
   buildKnowledgeGraph,
   relatedCompetencies,
   relatedExamScenarios,
+  relatedFaqs,
+  relatedKarrierepfade,
+  relatedLernpfade,
   relatedMistakes,
+  relatedOralExamTopics,
   relatedOralPatterns,
   relatedRisks,
+  relatedTutorTopics,
   type KnowledgeGraphSnapshot,
 } from "@/lib/semantic";
 
