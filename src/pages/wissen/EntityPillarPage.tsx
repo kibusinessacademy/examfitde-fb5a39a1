@@ -22,6 +22,9 @@ import { SemanticCrossLinks } from "@/components/seo/SemanticCrossLinks";
 import { SemanticRelatedLinks } from "@/components/semantic/SemanticRelatedLinks";
 import { ReadinessSignalBlock } from "@/components/semantic/ReadinessSignalBlock";
 import { TrustLayerStrip } from "@/components/trust/TrustLayerStrip";
+import { AdaptiveHero } from "@/components/intent/AdaptiveHero";
+import { ConfidenceStatusStrip } from "@/components/intent/ConfidenceStatusStrip";
+import { resolveIntent } from "@/lib/intent/router";
 
 const BASE_URL = "https://examfitde.lovable.app";
 const PROVIDER = { name: "ExamFit", url: BASE_URL } as const;
@@ -93,10 +96,21 @@ export default function EntityPillarPage({ kind }: EntityPillarPageProps) {
           ) : null}
         </header>
 
+        <AdaptiveHero
+          signals={{
+            path: typeof window !== "undefined" ? window.location.pathname : `/wissen/${kind}/${entity.id}`,
+          }}
+          eyebrow={`Dein Einstieg in ${entity.name}`}
+          className="mb-8"
+        />
+
         <GroundingChunkList chunks={document.chunks} heading="Wissensbasis" />
 
         {kind === "beruf" || kind === "pruefung" ? (
-          <ReadinessSignalBlock mode="product" contextLabel={entity.name} />
+          <>
+            <ReadinessSignalBlock mode="product" contextLabel={entity.name} />
+            <ConfidenceStatusStrip className="mt-6" />
+          </>
         ) : null}
 
         <div className="mt-8">
