@@ -89,7 +89,10 @@ export default function BerufsKIDocumentsPage() {
       toast({ title: "Unternehmensname erforderlich", variant: "destructive" }); return;
     }
     try {
-      const id = await upsertMyProfile(newProfile);
+      const id = await upsertMyProfile({
+        ...newProfile,
+        brand_colors: { primary: newProfile.brand_primary },
+      });
       const ps = await listMyProfiles();
       setProfiles(ps); setProfileId(id); setShowProfileForm(false);
       toast({ title: "Branding-Profil gespeichert" });
@@ -121,6 +124,29 @@ export default function BerufsKIDocumentsPage() {
       }
     } finally { setLoading(false); }
   }
+
+  async function doExport(format: "pdf" | "docx") {
+    if (!result) return;
+    setExporting(format);
+    try {
+      const exp = await exportRun(result.run_id, format);
+      if (exp.signed_url) {
+        const a = document.createElement("a");
+        a.href = exp.signed_url;
+        a.download = exp.filename;
+        a.target = "_blank";
+        a.rel = "noopener";
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+      toast({
+        title: `${format.toUpperCase()} exportiert`,
+        description: `Hash ${exp.export_hash.slice(0, 10)}… · ${(exp.byte_size / 1024).toFixed(1)} KB`,
+      });
+    } catch (e) {
+      toast({ title: "Export fehlgeschlagen", description: (e as Error).message, variant: "destructive" });
+    } finally { setExporting(null); }
+  }
+
 
   return (
     <div className="container max-w-screen-2xl py-6 space-y-4">
