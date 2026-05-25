@@ -4,9 +4,10 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import {
-  listTemplates, listMyProfiles, upsertMyProfile, runDocument,
+  listTemplates, listMyProfiles, upsertMyProfile, runDocument, exportRun,
 } from "@/lib/document-agent/api";
 import type { DocTemplate, DocProfile, DocRunResult } from "@/lib/document-agent/types";
+import type { LayoutTemplate } from "@/lib/document-agent/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +16,17 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, FileText, ShieldCheck, Sparkles, Building2 } from "lucide-react";
+import { AlertTriangle, FileText, ShieldCheck, Sparkles, Building2, FileDown, Loader2 } from "lucide-react";
+
+const LAYOUT_OPTIONS: Array<{ value: LayoutTemplate; label: string }> = [
+  { value: "modern_corporate", label: "Modern Corporate" },
+  { value: "minimal_professional", label: "Minimal Professional" },
+  { value: "legal_style", label: "Legal Style" },
+  { value: "enterprise_clean", label: "Enterprise Clean" },
+  { value: "friendly_business", label: "Friendly Business" },
+];
 
 const RISK_BADGE: Record<string, string> = {
   low: "bg-status-bg-subtle-success text-status-fg-success",
@@ -33,10 +43,13 @@ export default function BerufsKIDocumentsPage() {
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [result, setResult] = useState<DocRunResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [newProfile, setNewProfile] = useState({
     company_name: "", default_sender_name: "", default_sender_role: "",
     address: "", contact_email: "", phone: "", website: "", default_signature: "",
+    vat_id: "", disclaimer_text: "", layout_template: "modern_corporate" as LayoutTemplate,
+    brand_primary: "#1E40AF",
   });
 
   useEffect(() => {
@@ -76,7 +89,10 @@ export default function BerufsKIDocumentsPage() {
       toast({ title: "Unternehmensname erforderlich", variant: "destructive" }); return;
     }
     try {
-      const id = await upsertMyProfile(newProfile);
+      const id = await upsertMyProfile({
+        ...newProfile,
+        brand_colors: { primary: newProfile.brand_primary },
+      });
       const ps = await listMyProfiles();
       setProfiles(ps); setProfileId(id); setShowProfileForm(false);
       toast({ title: "Branding-Profil gespeichert" });
@@ -108,6 +124,29 @@ export default function BerufsKIDocumentsPage() {
       }
     } finally { setLoading(false); }
   }
+
+  async function doExport(format: "pdf" | "docx") {
+    if (!result) return;
+    setExporting(format);
+    try {
+      const exp = await exportRun(result.run_id, format);
+      if (exp.signed_url) {
+        const a = document.createElement("a");
+        a.href = exp.signed_url;
+        a.download = exp.filename;
+        a.target = "_blank";
+        a.rel = "noopener";
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+      toast({
+        title: `${format.toUpperCase()} exportiert`,
+        description: `Hash ${exp.export_hash.slice(0, 10)}… · ${(exp.byte_size / 1024).toFixed(1)} KB`,
+      });
+    } catch (e) {
+      toast({ title: "Export fehlgeschlagen", description: (e as Error).message, variant: "destructive" });
+    } finally { setExporting(null); }
+  }
+
 
   return (
     <div className="container max-w-screen-2xl py-6 space-y-4">
@@ -203,11 +242,41 @@ export default function BerufsKIDocumentsPage() {
                     onChange={(e) => setNewProfile({ ...newProfile, address: e.target.value })} />
                   <Textarea className="col-span-2" placeholder="Signatur" value={newProfile.default_signature}
                     onChange={(e) => setNewProfile({ ...newProfile, default_signature: e.target.value })} />
+
+                  <Input placeholder="USt-ID (optional)" value={newProfile.vat_id}
+                    onChange={(e) => setNewProfile({ ...newProfile, vat_id: e.target.value })} />
+                  <div className="flex gap-2 items-center">
+                    <Label htmlFor="brandcolor" className="text-xs">Primärfarbe</Label>
+                    <input id="brandcolor" type="color" value={newProfile.brand_primary}
+                      onChange={(e) => setNewProfile({ ...newProfile, brand_primary: e.target.value })}
+                      className="h-9 w-12 rounded border border-border bg-transparent cursor-pointer" />
+                    <Input value={newProfile.brand_primary} className="h-9"
+                      onChange={(e) => setNewProfile({ ...newProfile, brand_primary: e.target.value })} />
+                  </div>
+
+                  <div className="col-span-2 space-y-1.5">
+                    <Label className="text-xs">Dokument-Layout</Label>
+                    <Select value={newProfile.layout_template}
+                      onValueChange={(v) => setNewProfile({ ...newProfile, layout_template: v as LayoutTemplate })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {LAYOUT_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Textarea className="col-span-2" placeholder="Disclaimer (optional) — z. B. Hinweis auf juristische Prüfung"
+                    value={newProfile.disclaimer_text}
+                    onChange={(e) => setNewProfile({ ...newProfile, disclaimer_text: e.target.value })} />
+
                   <div className="col-span-2 flex gap-2">
                     <Button size="sm" onClick={saveProfile}>Speichern</Button>
                     <Button size="sm" variant="ghost" onClick={() => setShowProfileForm(false)}>Abbrechen</Button>
                   </div>
                 </div>
+
               )}
             </CardContent>
           </Card>
@@ -283,11 +352,24 @@ export default function BerufsKIDocumentsPage() {
                     {result.generated_document}
                   </pre>
                   <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" onClick={() => doExport("pdf")} disabled={exporting !== null}>
+                      {exporting === "pdf"
+                        ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        : <FileDown className="h-4 w-4 mr-1" />}
+                      PDF
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => doExport("docx")} disabled={exporting !== null}>
+                      {exporting === "docx"
+                        ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        : <FileDown className="h-4 w-4 mr-1" />}
+                      DOCX (M365)
+                    </Button>
                     <Button size="sm" variant="outline"
                       onClick={() => { navigator.clipboard.writeText(result.generated_document); toast({ title: "Kopiert" }); }}>
                       Kopieren
                     </Button>
                   </div>
+
                   <p className="text-xs text-muted-foreground border-t pt-3">
                     Dieses Dokument ist berufsbezogen, strukturiert und reviewfähig erstellt.
                     Bei rechtlich verbindlicher Nutzung ist eine fachliche oder juristische Prüfung erforderlich.

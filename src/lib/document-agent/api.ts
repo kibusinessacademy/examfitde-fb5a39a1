@@ -40,6 +40,10 @@ export async function listMyProfiles(): Promise<DocProfile[]> {
   return (data ?? []) as unknown as DocProfile[];
 }
 
+export type LayoutTemplate =
+  | "modern_corporate" | "minimal_professional" | "legal_style"
+  | "enterprise_clean" | "friendly_business";
+
 export interface UpsertProfileInput {
   id?: string;
   company_name: string;
@@ -55,13 +59,17 @@ export interface UpsertProfileInput {
   tone_of_voice?: string;
   brand_colors?: Record<string, string>;
   organization_id?: string | null;
+  vat_id?: string;
+  disclaimer_text?: string;
+  layout_template?: LayoutTemplate;
+  font_family?: string;
 }
 
 export async function upsertMyProfile(input: UpsertProfileInput): Promise<string> {
   const { data: u } = await supabase.auth.getUser();
   const uid = u?.user?.id;
   if (!uid) throw new Error("not authenticated");
-  const payload = {
+  const payload: Record<string, unknown> = {
     user_id: input.organization_id ? null : uid,
     organization_id: input.organization_id ?? null,
     company_name: input.company_name,
@@ -76,7 +84,12 @@ export async function upsertMyProfile(input: UpsertProfileInput): Promise<string
     default_signature: input.default_signature ?? null,
     tone_of_voice: input.tone_of_voice ?? "professionell",
     brand_colors: input.brand_colors ?? {},
+    vat_id: input.vat_id ?? null,
+    disclaimer_text: input.disclaimer_text ?? null,
+    layout_template: input.layout_template ?? "modern_corporate",
+    font_family: input.font_family ?? "Helvetica",
   };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tbl = supabase.from("document_agent_profiles") as any;
   if (input.id) {
@@ -142,3 +155,38 @@ export async function adminListTemplates() {
     updated_at: string;
   }>;
 }
+
+// ──────── Phase 2: Export ────────
+export interface ExportResult {
+  ok: true;
+  export_id: string;
+  export_hash: string;
+  format: "pdf" | "docx";
+  byte_size: number;
+  signed_url: string | null;
+  storage_path: string;
+  filename: string;
+}
+
+export async function exportRun(runId: string, format: "pdf" | "docx"): Promise<ExportResult> {
+  const { data, error } = await supabase.functions.invoke("berufs-ki-document-export", {
+    body: { run_id: runId, format },
+  });
+  if (error) throw new Error((error as { message?: string }).message ?? "Export fehlgeschlagen.");
+  const d = data as { error?: string; message?: string } & ExportResult;
+  if (d.error) throw new Error(d.message ?? d.error);
+  return d;
+}
+
+export async function listMyExports(runId?: string) {
+  let q = supabase
+    .from("document_agent_exports")
+    .select("id,run_id,export_format,export_hash,storage_path,byte_size,review_required,layout_template,created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (runId) q = q.eq("run_id", runId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
