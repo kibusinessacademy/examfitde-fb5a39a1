@@ -20,6 +20,8 @@ const ALLOWED_EVENTS = new Set([
   "shop_view", "product_search", "product_filter", "product_view", "product_select", "checkout_start",
   // SSOT v2 – paketgebunden
   "lead_magnet_view", "quiz_started", "quiz_completed", "lead_capture_submitted", "lead_capture_view",
+  // W1 Cut 3b — Adaptive Decision Telemetry (explainable, no free text)
+  "adaptive_cta_decision", "recommendation_view", "recommendation_click",
 ]);
 
 // Pflichtfeld package_id für diese Events (siehe Growth-Memo).
