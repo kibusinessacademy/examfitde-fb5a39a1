@@ -39,9 +39,11 @@ const risks = (overrides: Partial<Record<string, RiskState["tone"]>> = {}): Risk
 };
 
 describe("resolveWeakKompetenzIds", () => {
-  it("returns critical-matching Kompetenz IDs deterministically", () => {
+  it("returns critical-matching Kompetenz IDs deterministically (highest score first)", () => {
     const ids = resolveWeakKompetenzIds({ graph, risks: risks() });
-    expect(ids).toEqual(["k-lf5", "k-transfer"]);
+    // k-transfer scores highest: linked_risk_keys exact (+3) × critical (×2) = 6
+    // k-lf5: riskKey.startsWith(key) (+2) × critical (×2) = 4
+    expect(ids).toEqual(["k-transfer", "k-lf5"]);
   });
 
   it("ignores stable risks", () => {
@@ -57,7 +59,7 @@ describe("resolveWeakKompetenzIds", () => {
   it("respects limit", () => {
     const ids = resolveWeakKompetenzIds({ graph, risks: risks(), limit: 1 });
     expect(ids).toHaveLength(1);
-    expect(ids[0]).toBe("k-lf5");
+    expect(ids[0]).toBe("k-transfer");
   });
 
   it("is stable across calls (same input → same output)", () => {
