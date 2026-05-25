@@ -1,8 +1,15 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ExternalLink, Sparkles } from "lucide-react";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { BERUFOS, statusLabel } from "@/lib/berufos/brand";
 import { BERUFOS_MODULES } from "@/lib/berufos/modules";
+import {
+  useBerufosModules,
+  BERUFOS_PERSONA_LABELS,
+  BERUFOS_PERSONA_ORDER,
+} from "@/lib/berufos/useBerufosModules";
+import type { BerufosPersona } from "@/lib/berufos/modules";
 import { BerufOSHeader } from "@/components/berufos/BerufOSHeader";
 import { BerufOSFooter } from "@/components/berufos/BerufOSFooter";
 import "@/components/berufos/berufos-theme.css";
@@ -11,12 +18,14 @@ import "@/components/berufos/berufos-theme.css";
  * BerufOS Plattform-Hub — Masterbrand-Landing.
  *
  * Ersetzt VibeOSLandingPage (Routes /vibeos und /platform redirecten hierher).
- * SSOT für Modul-Anzeige: BERUFOS_MODULES.
+ * SSOT für Modul-Anzeige: BERUFOS_MODULES. Persona-Filter via useBerufosModules.
  */
 export default function BerufOSHub() {
-  const live = BERUFOS_MODULES.filter((m) => m.status === "live");
-  const preview = BERUFOS_MODULES.filter((m) => m.status === "preview");
-  const planned = BERUFOS_MODULES.filter((m) => m.status === "planned");
+  const [persona, setPersona] = useState<BerufosPersona | null>(null);
+  const filtered = useBerufosModules(persona);
+  const live = filtered.filter((m) => m.status === "live");
+  const preview = filtered.filter((m) => m.status === "preview");
+  const planned = filtered.filter((m) => m.status === "planned");
 
   return (
     <div className="berufos min-h-screen">
@@ -86,7 +95,7 @@ export default function BerufOSHub() {
 
       {/* Modules — live first */}
       <section id="module" className="max-w-7xl mx-auto px-6 py-24">
-        <div className="flex items-end justify-between flex-wrap gap-4 mb-10">
+        <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
           <div>
             <div className="berufos-text-dim text-sm uppercase tracking-widest mb-2">
               Plattform-Module
@@ -101,10 +110,42 @@ export default function BerufOSHub() {
           </div>
         </div>
 
-        <ModuleGroup title="Live" modules={live} />
-        <ModuleGroup title="Preview" modules={preview} className="mt-12" />
-        <ModuleGroup title="In Entwicklung" modules={planned} className="mt-12" />
+        {/* Persona-Filter */}
+        <div className="flex flex-wrap gap-2 mb-10" role="tablist" aria-label="Module nach Berufsfeld filtern">
+          {BERUFOS_PERSONA_ORDER.map((p) => {
+            const active = p === "all" ? persona === null : persona === p;
+            return (
+              <button
+                key={p}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setPersona(p === "all" ? null : (p as BerufosPersona))}
+                className={`px-4 py-2 rounded-full text-xs font-medium tracking-wide transition-colors ${
+                  active
+                    ? "berufos-btn-primary"
+                    : "berufos-btn-ghost"
+                }`}
+              >
+                {BERUFOS_PERSONA_LABELS[p]}
+              </button>
+            );
+          })}
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="berufos-card p-8 text-center berufos-text-dim">
+            Keine Module für diese Persona. Wähle "Alle".
+          </div>
+        ) : (
+          <>
+            <ModuleGroup title="Live" modules={live} />
+            <ModuleGroup title="Preview" modules={preview} className="mt-12" />
+            <ModuleGroup title="In Entwicklung" modules={planned} className="mt-12" />
+          </>
+        )}
       </section>
+
 
       {/* Burggraben */}
       <section className="border-t berufos-hairline">
