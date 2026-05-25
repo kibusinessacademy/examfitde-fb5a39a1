@@ -32,6 +32,7 @@ B2C-Pricing SSOT: 24,90 € / 12 Monate, einheitlich für ALLE EXAM_FIRST-Pakete
 
 
 ## Memories
+- [Fanout-Cap Audit-Mirror v2](mem://architektur/ops/fanout-cap-audit-mirror-v2) — fn_enforce_global_fanout_cap auf fn_emit_audit + trigger_source umgestellt; ops_audit_contract required_keys verschärft {reason,job_type,pending_count,cap,scope,cap_key}. SSOT bleibt ops_guardrail_events.fanout_cap_blocked. Baseline 2026-05-25: 7308 lifetime suppressions, Mirror best-effort.
 - [Audit Write Violator Recon v1](mem://architektur/ops/audit-write-violator-recon-v1) — ops_audit_write_violations Tabelle + UPSERT-Trigger (separate Tabelle = recursion-safe) + admin_get_audit_write_violations RPC. Macht warn-mode-Verstöße sichtbar bevor `app.audit_strict='enforce'` Cutover. Cutovers #1 (auto_heal_log identity, action_type NOT NULL) + #3 (LXI Hard-Gates via fn_guard_publish_lxi_no_lessons) waren bereits live — Memory veraltet, korrigiert.
 - [VibeOS Masterbrand v1](mem://design/vibeos-masterbrand-v1) — VibeOS als Plattform-Dachmarke; ExamFit (Learning OS) + Berufs-KI (Workforce OS) als Produktlinien. Landingpage /vibeos + /platform, scoped .vibeos Theme (electric mint, kein globaler Token-Overwrite).
 
