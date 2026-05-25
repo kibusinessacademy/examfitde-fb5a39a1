@@ -512,6 +512,7 @@ export default function HealCockpitPage() {
                 <SeoGraphReconCard />
                 <SeoBridgeActivationCard />
                 <SeoBridgeOutcomeCard />
+                <SeoCornerstoneEnrichmentCard />
                 <SeoBridgePromotionCard />
                 <HealAutomationControlCard />
                 <NotificationDeliveryHealthCard />
