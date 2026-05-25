@@ -298,7 +298,7 @@ export function PremiumHero() {
             transition={{ duration: 0.6, delay: 0.22 }}
           >
             <label htmlFor="hero-beruf-search" className="block text-xs font-medium text-[var(--lp-text-2)] mb-2">
-              Welchen Beruf oder welche Prüfung bereitest du vor?
+              Welchen Beruf bereitest du vor? Ich richte alles danach aus.
             </label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--lp-text-3)]" aria-hidden />
@@ -330,12 +330,18 @@ export function PremiumHero() {
                         role="option"
                         aria-selected={isActive}
                         onClick={() => {
-                          setSelected(isActive ? null : b);
+                          const next = isActive ? null : b;
+                          setSelected(next);
+                          if (next) {
+                            const short = next.label.split("/")[0].trim();
+                            writeOsBeruf({ slug: next.slug, label: next.label, short });
+                          } else {
+                            writeOsBeruf(null);
+                          }
                           trackConversion({
                             event: "cta_click",
                             source: "hero_v3",
                             label: `beruf_chip_select:${b.slug}`,
-
                           });
                         }}
                         className={`text-xs sm:text-sm px-3 py-1.5 rounded-full border transition ${
@@ -380,8 +386,8 @@ export function PremiumHero() {
             >
               <ClipboardCheck className="w-5 h-5 mr-2" />
               {selected
-                ? `Prüfungscheck für ${selected.label.split("/")[0].trim()} starten`
-                : "Kostenlosen Prüfungscheck starten"}
+                ? OS_TONE.hero.primaryCtaWithBeruf(selected.label.split("/")[0].trim())
+                : OS_TONE.hero.primaryCta}
               <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-0.5" />
             </button>
             <a href="#demos" className="contents">
