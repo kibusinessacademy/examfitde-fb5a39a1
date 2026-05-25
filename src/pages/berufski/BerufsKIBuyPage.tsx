@@ -53,7 +53,7 @@ export default function BerufsKIBuyPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
-            BerufsKI kaufen
+            Berufs-KI kaufen
           </CardTitle>
           <p className="text-sm text-muted-foreground">
             Gib deine E-Mail ein – du bekommst den Download-Link per Mail.

@@ -59,6 +59,11 @@ export const ROUTE_PATTERNS: readonly string[] = [
   "/work/buy/:productId",
   "/work/corporate",
 
+  // Berufs-KI (eigenständige Produktlinie)
+  "/berufs-ki",
+  "/berufs-ki/app",
+
+
   // Legacy 410 / redirects (still served — not 404)
   "/berufski",
   "/berufski/*",

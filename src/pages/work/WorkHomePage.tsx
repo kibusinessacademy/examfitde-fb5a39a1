@@ -18,12 +18,12 @@ export default function WorkHomePage() {
         </p>
 
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <Link to="/berufe" className="inline-flex items-center rounded-xl bg-primary px-6 py-3 text-primary-foreground font-medium hover:opacity-90">
+          <Link to="/berufs-ki/app" className="inline-flex items-center rounded-xl bg-primary px-6 py-3 text-primary-foreground font-medium hover:opacity-90">
+            Berufs-KI öffnen
+          </Link>
+          <Link to="/berufe" className="inline-flex items-center rounded-xl border px-6 py-3 font-medium hover:bg-muted">
             Berufe ansehen
           </Link>
-          <a href={BRAND.parent} target="_blank" rel="noopener noreferrer" className="inline-flex items-center rounded-xl border px-6 py-3 font-medium hover:bg-muted">
-            examfit.de
-          </a>
         </div>
 
         <div className="mt-16 text-left">
