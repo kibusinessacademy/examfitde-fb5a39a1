@@ -21,7 +21,7 @@ function isSurfaceRoute(pathname: string): boolean {
 
 export default function SystemConsciousnessOverlay() {
   const { pathname } = useLocation();
-  const { topRisks, readiness, lastRecalc, memory } = useSystemConsciousness();
+  const { lastRecalc } = useSystemConsciousness();
   const [recalcVisible, setRecalcVisible] = useState(false);
   const [lastShownId, setLastShownId] = useState<string | null>(null);
 
