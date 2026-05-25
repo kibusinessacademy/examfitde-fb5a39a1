@@ -32,6 +32,8 @@ B2C-Pricing SSOT: 24,90 € / 12 Monate, einheitlich für ALLE EXAM_FIRST-Pakete
 
 
 ## Memories
+- [BerufOS P7 GSC Consolidation v1](mem://architektur/marketing/berufos-p7-gsc-consolidation-v1) — neuer META-Token in index.html, post-publish Runner scripts/seo/gsc-berufos-onboard.mjs, einzige Property berufos.com, Legacy passiv
+
 - [E3e.5 Cornerstone Blog Score v1](mem://architektur/seo/e3e-5-cornerstone-blog-score-v1) — composite cornerstone_score (depth/faq/quality/hero/anchor/winner/views/perf) ersetzt naive word_count-Proxy im ptcb-Arm von v_seo_bridge_candidates_v1. v_cornerstone_blog_score + admin_get_cornerstone_blog_score_summary. Baseline 2026-05-25: avg 0.174, p90 0.344, top 0.40 — 0/256 ≥0.60 min_sim. Pilot pillar_to_cornerstone_blog bleibt OFF (Human-Gate); Aktivierung erst nach Perf-Backfill oder Content-Enrichment Top-30.
 - [Fanout-Cap Audit-Mirror v2](mem://architektur/ops/fanout-cap-audit-mirror-v2) — fn_enforce_global_fanout_cap auf fn_emit_audit + trigger_source umgestellt; ops_audit_contract required_keys verschärft {reason,job_type,pending_count,cap,scope,cap_key}. SSOT bleibt ops_guardrail_events.fanout_cap_blocked. Baseline 2026-05-25: 7308 lifetime suppressions, Mirror best-effort.
 - [Audit Write Violator Recon v1](mem://architektur/ops/audit-write-violator-recon-v1) — ops_audit_write_violations Tabelle + UPSERT-Trigger (separate Tabelle = recursion-safe) + admin_get_audit_write_violations RPC. Macht warn-mode-Verstöße sichtbar bevor `app.audit_strict='enforce'` Cutover. Cutovers #1 (auto_heal_log identity, action_type NOT NULL) + #3 (LXI Hard-Gates via fn_guard_publish_lxi_no_lessons) waren bereits live — Memory veraltet, korrigiert.
