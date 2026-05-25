@@ -189,6 +189,14 @@ export default function BerufsKIWorkbenchPage() {
         </div>
       </div>
 
+      {/* Revenue UX strip (auth only) */}
+      {user && (
+        <div className="mx-auto max-w-7xl space-y-4 px-4 pt-6 md:px-6">
+          <UpgradeRecommendationBanner />
+          <UsageIntelligenceCard onOpenWorkflow={(slug) => setActiveSlug(slug)} />
+        </div>
+      )}
+
       {/* Catalog grid */}
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         {!workflows && !error && (
@@ -207,7 +215,17 @@ export default function BerufsKIWorkbenchPage() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="workflow-grid">
           {filtered.map((w) => (
-            <WorkflowCard key={w.id} workflow={w} onOpen={() => setActiveSlug(w.slug)} />
+            <WorkflowCard
+              key={w.id}
+              workflow={w}
+              onOpen={() => {
+                if (w.tier_required !== "free") {
+                  setPreviewSlug(w.slug);
+                } else {
+                  setActiveSlug(w.slug);
+                }
+              }}
+            />
           ))}
         </div>
 
@@ -217,6 +235,14 @@ export default function BerufsKIWorkbenchPage() {
           </p>
         )}
       </div>
+
+      {/* Locked Preview Modal */}
+      <Dialog open={!!previewSlug} onOpenChange={(open) => !open && setPreviewSlug(null)}>
+        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto p-0">
+          <DialogTitle className="sr-only">Premium-Workflow Vorschau</DialogTitle>
+          {previewSlug && <LockedWorkflowPreview slug={previewSlug} onClose={() => setPreviewSlug(null)} />}
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Runner */}
       <Dialog open={!!activeWorkflow} onOpenChange={(open) => !open && setActiveSlug(null)}>
