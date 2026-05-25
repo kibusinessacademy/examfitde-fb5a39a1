@@ -23,27 +23,39 @@ interface ClaimedJob {
   payload: Record<string, unknown> | null;
 }
 
+// Routes claimed jobs to the correct generator by job_type.
+const JOB_TYPE_TO_EDGE: Record<string, string> = {
+  seo_intent_page_generate: "seo-intent-page-generator",
+  seo_blog_hero_generate: "seo-blog-hero-generate",
+  seo_blog_anchor_section_generate: "seo-blog-anchor-section-generate",
+};
+
 async function dispatchOne(
   supabaseUrl: string,
   serviceKey: string,
-  jobId: string,
-): Promise<{ job_id: string; ok: boolean; status: number; error?: string }> {
+  job: ClaimedJob,
+): Promise<{ job_id: string; job_type: string; ok: boolean; status: number; error?: string }> {
+  const edge = JOB_TYPE_TO_EDGE[job.job_type];
+  if (!edge) {
+    return { job_id: job.id, job_type: job.job_type, ok: false, status: 0, error: `unknown_job_type:${job.job_type}` };
+  }
   try {
-    const res = await fetch(`${supabaseUrl}/functions/v1/seo-intent-page-generator`, {
+    const res = await fetch(`${supabaseUrl}/functions/v1/${edge}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${serviceKey}`,
         "apikey": serviceKey,
       },
-      body: JSON.stringify({ job_id: jobId }),
+      body: JSON.stringify({ job_id: job.id }),
     });
     const text = await res.text();
-    return { job_id: jobId, ok: res.ok, status: res.status, error: res.ok ? undefined : text.slice(0, 300) };
+    return { job_id: job.id, job_type: job.job_type, ok: res.ok, status: res.status, error: res.ok ? undefined : text.slice(0, 300) };
   } catch (e) {
-    return { job_id: jobId, ok: false, status: 0, error: String((e as Error).message ?? e) };
+    return { job_id: job.id, job_type: job.job_type, ok: false, status: 0, error: String((e as Error).message ?? e) };
   }
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
