@@ -238,8 +238,8 @@ export function PremiumHero() {
       trackConversion({
         event: "cta_click",
         source: "hero_v3",
-        label: "pruefungscheck_search_enter",
-        metadata: { beruf_slug: filteredBerufe[0].slug, query },
+        label: `pruefungscheck_search_enter:${filteredBerufe[0].slug}`,
+
       });
       navigate(`/pruefungscheck/${filteredBerufe[0].slug}`);
     } else if (query.trim()) {
