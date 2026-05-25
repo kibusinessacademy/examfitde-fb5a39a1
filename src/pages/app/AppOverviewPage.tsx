@@ -9,6 +9,9 @@ import { AnticipationCard } from '@/components/os/AnticipationCard';
 import { BerufIdentityChip } from '@/components/os/BerufIdentityChip';
 import { useSystemConsciousness, readinessLabel } from '@/lib/system/SystemConsciousness';
 import { useOsBeruf } from '@/lib/os/os-identity';
+import { greetingFor } from '@/lib/os/os-copy';
+import OSReactionLine from '@/components/os/OSReactionLine';
+
 
 function formatCents(cents: number, currency = 'EUR') {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(cents / 100);
