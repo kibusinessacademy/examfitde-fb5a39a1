@@ -43,10 +43,13 @@ export default function BerufsKIDocumentsPage() {
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [result, setResult] = useState<DocRunResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [newProfile, setNewProfile] = useState({
     company_name: "", default_sender_name: "", default_sender_role: "",
     address: "", contact_email: "", phone: "", website: "", default_signature: "",
+    vat_id: "", disclaimer_text: "", layout_template: "modern_corporate" as LayoutTemplate,
+    brand_primary: "#1E40AF",
   });
 
   useEffect(() => {
