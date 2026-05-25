@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardCheck, ArrowRight, Sparkles, Brain, Mic, Target, BarChart3, PlayCircle, Search } from "lucide-react";
 import { trackConversion } from "@/lib/seo-tracking";
+import { writeOsBeruf } from "@/lib/os/os-identity";
+import { OS_TONE } from "@/lib/os/os-copy";
 
 /**
  * Premium Hero v3 — "Prüfungsreife, nicht Technik".
@@ -264,7 +266,7 @@ export function PremiumHero() {
             transition={{ duration: 0.5 }}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Prüfungssimulation mit KI-Unterstützung
+            {OS_TONE.hero.eyebrow}
           </motion.span>
 
           <motion.h1
@@ -273,8 +275,8 @@ export function PremiumHero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
           >
-            Finde heraus,{" "}
-            <span className="lp-gradient-text">wie prüfungsreif du wirklich bist.</span>
+            Sag mir deinen Beruf —{" "}
+            <span className="lp-gradient-text">ich richte deine Prüfung aus.</span>
           </motion.h1>
 
           <motion.p
@@ -283,7 +285,7 @@ export function PremiumHero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
           >
-            Trainiere mit <strong className="text-[var(--lp-text)] font-semibold">schriftlichen und mündlichen Prüfungssimulationen</strong>, erkenne deine Schwächen und bereite dich gezielt auf deine Prüfung vor.
+            {OS_TONE.hero.sublineCore}
           </motion.p>
 
           {/* Beruf/Prüfung-Selector — direkt im Hero */}
