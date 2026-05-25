@@ -34,6 +34,7 @@ const SECONDARY_ITEMS = [
   { to: '/admin/ops/h5p', label: 'H5P', icon: Upload },
   { to: '/admin/ops/h5p-smoke', label: 'H5P Smoke', icon: Upload },
   { to: '/admin/berufs-ki/workflows', label: 'Berufs-KI', icon: Sparkles },
+  { to: '/admin/berufs-ki/quality', label: 'Berufs-KI Qualität', icon: Sparkles },
 ] as const;
 
 
