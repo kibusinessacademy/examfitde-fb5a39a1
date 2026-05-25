@@ -1,0 +1,83 @@
+/* VibeOS Masterbrand Theme — scoped via .vibeos */
+.vibeos {
+  --vibe-bg: 230 35% 5%;
+  --vibe-bg-elev: 232 30% 8%;
+  --vibe-surface: 232 25% 11%;
+  --vibe-border: 232 20% 18%;
+  --vibe-border-strong: 232 25% 28%;
+  --vibe-text: 220 20% 96%;
+  --vibe-text-muted: 220 12% 65%;
+  --vibe-text-dim: 220 10% 48%;
+  /* Accent: electric mint — bridges ExamFit petrol and a futuristic register */
+  --vibe-accent: 162 90% 55%;
+  --vibe-accent-2: 220 100% 70%;
+  --vibe-glow: 162 90% 55%;
+
+  background: hsl(var(--vibe-bg));
+  color: hsl(var(--vibe-text));
+  font-feature-settings: "ss01", "cv11";
+}
+
+.vibeos-grid-bg {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, hsl(var(--vibe-accent) / 0.18), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 30%, hsl(var(--vibe-accent-2) / 0.12), transparent 60%),
+    linear-gradient(hsl(var(--vibe-border) / 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--vibe-border) / 0.35) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 56px 56px, 56px 56px;
+  background-position: 0 0, 0 0, -1px -1px, -1px -1px;
+}
+
+.vibeos-card {
+  background: linear-gradient(180deg, hsl(var(--vibe-surface)) 0%, hsl(var(--vibe-bg-elev)) 100%);
+  border: 1px solid hsl(var(--vibe-border));
+  border-radius: 18px;
+  transition: border-color .2s ease, transform .2s ease;
+}
+.vibeos-card:hover {
+  border-color: hsl(var(--vibe-border-strong));
+  transform: translateY(-2px);
+}
+
+.vibeos-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid hsl(var(--vibe-border-strong));
+  background: hsl(var(--vibe-surface));
+  color: hsl(var(--vibe-text-muted));
+  font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+}
+.vibeos-chip .dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: hsl(var(--vibe-accent));
+  box-shadow: 0 0 12px hsl(var(--vibe-glow));
+}
+
+.vibeos-btn-primary {
+  background: hsl(var(--vibe-accent));
+  color: hsl(230 60% 6%);
+  border-radius: 12px;
+  font-weight: 600;
+  box-shadow: 0 8px 32px -8px hsl(var(--vibe-glow) / .55);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.vibeos-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 40px -8px hsl(var(--vibe-glow) / .8); }
+
+.vibeos-btn-ghost {
+  background: transparent;
+  color: hsl(var(--vibe-text));
+  border: 1px solid hsl(var(--vibe-border-strong));
+  border-radius: 12px;
+  font-weight: 500;
+}
+.vibeos-btn-ghost:hover { border-color: hsl(var(--vibe-accent) / .6); color: hsl(var(--vibe-accent)); }
+
+.vibeos-hairline { border-color: hsl(var(--vibe-border)); }
+.vibeos-text-dim { color: hsl(var(--vibe-text-muted)); }
+
+.vibeos-gradient-text {
+  background: linear-gradient(135deg, hsl(var(--vibe-text)) 0%, hsl(var(--vibe-accent)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
