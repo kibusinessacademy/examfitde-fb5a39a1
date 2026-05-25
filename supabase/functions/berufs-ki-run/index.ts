@@ -87,32 +87,68 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Daily rate limit (free tier)
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count: runsToday } = await admin
-      .from("berufs_ki_workflow_runs")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .gte("created_at", since);
+    // Tier / entitlement gate (free=allow, pro/business=check grants)
+    const { data: gate, error: gateErr } = await admin.rpc("berufs_ki_user_can_run", {
+      p_user_id: userId,
+      p_workflow_id: wf.id,
+    });
+    const gateRow = Array.isArray(gate) ? gate[0] : gate;
+    const tierAtRun = gateRow?.tier_required ?? wf.tier_required ?? "free";
 
-    if ((runsToday ?? 0) >= DAILY_RUN_LIMIT_FREE) {
+    if (gateErr || !gateRow?.allowed) {
       await admin.from("berufs_ki_workflow_runs").insert({
         workflow_id: wf.id,
         user_id: userId,
         beruf_slug: beruf_slug ?? null,
         inputs: inputs ?? {},
-        status: "rate_limited",
-        error_reason: `daily_limit_${DAILY_RUN_LIMIT_FREE}`,
-        tier_at_run: "free",
+        status: "blocked",
+        error_reason: gateRow?.reason ?? "entitlement_check_failed",
+        tier_at_run: tierAtRun,
       });
       return new Response(
         JSON.stringify({
-          error: "rate_limited",
-          message: `Tageslimit von ${DAILY_RUN_LIMIT_FREE} Workflows erreicht.`,
+          error: "entitlement_required",
+          reason: gateRow?.reason ?? "entitlement_check_failed",
+          tier_required: tierAtRun,
+          message:
+            tierAtRun === "free"
+              ? "Workflow gerade nicht verfügbar."
+              : `Dieser Workflow benötigt ${tierAtRun === "business" ? "Business-Zugang" : "einen aktiven Pro-Zugang"}.`,
         }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    // Daily rate limit (free tier only)
+    if (tierAtRun === "free") {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count: runsToday } = await admin
+        .from("berufs_ki_workflow_runs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .gte("created_at", since)
+        .eq("status", "ok");
+
+      if ((runsToday ?? 0) >= DAILY_RUN_LIMIT_FREE) {
+        await admin.from("berufs_ki_workflow_runs").insert({
+          workflow_id: wf.id,
+          user_id: userId,
+          beruf_slug: beruf_slug ?? null,
+          inputs: inputs ?? {},
+          status: "rate_limited",
+          error_reason: `daily_limit_${DAILY_RUN_LIMIT_FREE}`,
+          tier_at_run: tierAtRun,
+        });
+        return new Response(
+          JSON.stringify({
+            error: "rate_limited",
+            message: `Tageslimit von ${DAILY_RUN_LIMIT_FREE} Workflows erreicht. Pro/Business hebt das Limit auf.`,
+          }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
 
     // Validate required fields
     const fields = (wf.input_schema?.fields ?? []) as Array<{ key: string; required?: boolean; label?: string }>;
