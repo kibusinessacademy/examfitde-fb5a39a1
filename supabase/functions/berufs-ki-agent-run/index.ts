@@ -9,6 +9,10 @@ const corsHeaders = {
 interface RunRequest {
   agent_slug: string;
   input: { prompt: string; context?: Record<string, unknown> };
+  organization_id?: string;
+  profession_id?: string;
+  workflow_slug?: string;
+  required_tier?: "standard" | "pro" | "enterprise";
 }
 
 Deno.serve(async (req) => {
@@ -51,6 +55,28 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "agent not found or inactive" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── PROFESSION GUARD (fail-closed if organization_id given) ──
+    if (body.organization_id) {
+      const { data: guard, error: guardErr } = await admin.rpc("check_profession_agent_access", {
+        _organization_id: body.organization_id,
+        _agent_slug: body.agent_slug,
+        _workflow_slug: body.workflow_slug ?? null,
+        _profession_id: body.profession_id ?? null,
+        _required_tier: body.required_tier ?? "standard",
+      });
+      if (guardErr) {
+        return new Response(JSON.stringify({ error: "guard_error", detail: guardErr.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const g = guard as { allowed: boolean; reason: string | null };
+      if (!g?.allowed) {
+        return new Response(JSON.stringify({ error: "profession_guard_denied", reason: g?.reason ?? "unknown" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const t0 = Date.now();
