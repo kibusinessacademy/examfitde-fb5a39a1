@@ -170,9 +170,17 @@ Deno.serve(async (req) => {
     _target_type: "blog_article",
     _target_id: blog.id,
     _result_status: "success",
-    _payload: { blog_slug: blog.slug, link_count: picked.length, sources: picked.map((p) => p.slug) },
+    _payload: {
+      blog_article_id: blog.id,
+      blog_slug: blog.slug,
+      links_added: picked.length,
+      curriculum_id: blog.source_curriculum_id,
+      duration_ms: Date.now() - startedAt,
+      sources: picked.map((p) => p.slug),
+    },
     _trigger_source: "seo-blog-anchor-section-generate",
   });
+
 
   return json(200, { ok: true, blog_article_id: blog.id, link_count: picked.length });
 });
