@@ -220,6 +220,8 @@ const BerufsKIWorkbenchPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKI
 const BerufsKIWorkflowsPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIWorkflowsPage'));
 const BerufsKIQualityPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIQualityPage'));
 const BerufsKIReviewPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIReviewPage'));
+const BerufsKILearningPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKILearningPage'));
+const BerufsKIInboxPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIInboxPage'));
 
 
 // Learner Pages
@@ -344,6 +346,7 @@ const AppRoutes = () => {
         {/* Berufs-KI — eigenständige Produktlinie */}
         <Route path="/berufs-ki" element={<BerufsKIHubPage />} />
         <Route path="/berufs-ki/app" element={<BerufsKIWorkbenchPage />} />
+        <Route path="/berufs-ki/inbox" element={<BerufsKIInboxPage />} />
 
         {/* Legacy /berufski/* → 410 Gone */}
         <Route path="/berufski/*" element={<WorkGonePage />} />
@@ -600,6 +603,7 @@ const AppRoutes = () => {
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
           <Route path="berufs-ki/quality" element={<BerufsKIQualityPage />} />
           <Route path="berufs-ki/review" element={<BerufsKIReviewPage />} />
+          <Route path="berufs-ki/learning" element={<BerufsKILearningPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
