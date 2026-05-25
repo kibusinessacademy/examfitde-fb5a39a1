@@ -48,13 +48,25 @@ export async function getWorkflowBySlug(slug: string): Promise<WorkflowDefinitio
   return (data as unknown as WorkflowDefinition) ?? null;
 }
 
+export interface RunWorkflowOptions {
+  beruf_slug?: string | null;
+  source_run_id?: string | null;
+  follow_up_of?: string | null;
+}
+
 export async function runWorkflow(
   slug: string,
   inputs: Record<string, unknown>,
-  beruf_slug?: string | null,
+  opts: RunWorkflowOptions = {},
 ): Promise<WorkflowRunResult> {
   const { data, error } = await supabase.functions.invoke("berufs-ki-run", {
-    body: { slug, inputs, beruf_slug: beruf_slug ?? null },
+    body: {
+      slug,
+      inputs,
+      beruf_slug: opts.beruf_slug ?? null,
+      source_run_id: opts.source_run_id ?? null,
+      follow_up_of: opts.follow_up_of ?? null,
+    },
   });
   if (error) {
     const msg = (error as { message?: string }).message ?? "Berufs-KI Lauf fehlgeschlagen.";
@@ -68,6 +80,29 @@ export async function runWorkflow(
     throw err;
   }
   return data as WorkflowRunResult;
+}
+
+export async function recordRunFeedback(
+  runId: string,
+  rating: -1 | 0 | 1,
+  feedback?: string,
+): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)("berufs_ki_record_feedback", {
+    p_run_id: runId,
+    p_rating: rating,
+    p_feedback: feedback ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function adminGetQualityDashboard(windowHours = 168) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("admin_berufs_ki_quality_dashboard", {
+    p_window_hours: windowHours,
+  });
+  if (error) throw error;
+  return (data ?? []) as import("./types").AdminQualityRow[];
 }
 
 // =================== Admin =====================

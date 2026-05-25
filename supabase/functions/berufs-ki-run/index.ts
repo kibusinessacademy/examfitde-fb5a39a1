@@ -235,6 +235,38 @@ Deno.serve(async (req) => {
     const usage = data?.usage ?? {};
     const latency_ms = Date.now() - t0;
 
+    // Output-Contract Guard: detect declared sections
+    const expectedSections: string[] = Array.isArray(wf.output_schema?.sections)
+      ? wf.output_schema.sections
+      : [];
+    const detected: string[] = [];
+    const missing: string[] = [];
+    if (expectedSections.length > 0 && output_text) {
+      const lc = output_text.toLowerCase();
+      for (const sec of expectedSections) {
+        const variants = [sec.toLowerCase(), sec.replace(/_/g, " ").toLowerCase(), sec.replace(/_/g, "-").toLowerCase()];
+        if (variants.some((v) => lc.includes(v))) detected.push(sec);
+        else missing.push(sec);
+      }
+    }
+    const coverage_pct =
+      expectedSections.length > 0
+        ? Math.round((detected.length / expectedSections.length) * 1000) / 10
+        : null;
+    const completion_status =
+      !output_text || output_text.trim().length < 40
+        ? "empty"
+        : expectedSections.length === 0
+          ? "unknown"
+          : missing.length === 0
+            ? "complete"
+            : "partial";
+    const lengthSignal = Math.min(1, output_text.length / 1500);
+    const quality_score =
+      expectedSections.length > 0
+        ? Number((((detected.length / expectedSections.length) * 0.7) + lengthSignal * 0.3).toFixed(3))
+        : Number(lengthSignal.toFixed(3));
+
     const { data: runRow } = await admin
       .from("berufs_ki_workflow_runs")
       .insert({
@@ -249,6 +281,14 @@ Deno.serve(async (req) => {
         latency_ms,
         status: "ok",
         tier_at_run: tierAtRun,
+        output_sections_detected: detected,
+        output_sections_missing: missing,
+        sections_coverage_pct: coverage_pct,
+        completion_status,
+        quality_score,
+        definition_version_at_run: wf.version ?? 1,
+        source_run_id: (body as { source_run_id?: string | null })?.source_run_id ?? null,
+        follow_up_of: (body as { follow_up_of?: string | null })?.follow_up_of ?? null,
       })
       .select("id")
       .maybeSingle();
@@ -260,6 +300,8 @@ Deno.serve(async (req) => {
         output_text,
         model_used: model,
         latency_ms,
+        quality: { coverage_pct, completion_status, sections_detected: detected, sections_missing: missing, quality_score },
+        version_at_run: wf.version ?? 1,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
