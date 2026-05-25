@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
-import { companionMessageFor, isOsSurface } from "@/lib/os/os-copy";
+import { companionMessageFor, isOsSurface, recalcLineFor } from "@/lib/os/os-copy";
 import { useOsBeruf } from "@/lib/os/os-identity";
 
 /**
