@@ -26,7 +26,7 @@ export default function BerufsKISuccessPage() {
           <Button variant="outline" asChild className="mt-4">
             <Link to="/berufski">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Zurück zu BerufsKI
+              Zurück zu Berufs-KI
             </Link>
           </Button>
         </CardContent>
