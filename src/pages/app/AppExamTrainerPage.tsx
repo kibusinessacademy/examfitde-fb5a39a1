@@ -12,6 +12,8 @@ import { DramaturgyInline } from "@/components/system/DramaturgyChip";
 import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
 import { ExaminerBiographyCard } from "@/components/system/ExaminerBiographyCard";
 import { LearnerRecommendationStrip } from "@/components/recommendations/LearnerRecommendationStrip";
+import { AdaptiveExamPlanCard } from "@/components/exam/AdaptiveExamPlanCard";
+import { useAdaptiveExamPlan } from "@/hooks/useAdaptiveExamPlan";
 
 /**
  * Phase 5.7 — Exam-Trainer als simulierte Prüfungssituation.
