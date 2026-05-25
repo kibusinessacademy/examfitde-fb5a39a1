@@ -37,6 +37,8 @@ const SECONDARY_ITEMS = [
   { to: '/admin/berufs-ki/quality', label: 'Berufs-KI Qualität', icon: Sparkles },
   { to: '/admin/berufs-ki/review', label: 'Berufs-KI Review', icon: Sparkles },
   { to: '/admin/berufs-ki/learning', label: 'Berufs-KI Learning', icon: Sparkles },
+  { to: '/admin/berufs-ki/graph', label: 'Berufs-KI Graph', icon: Sparkles },
+  { to: '/admin/berufs-ki/evolution', label: 'Berufs-KI Evolution', icon: Sparkles },
 ] as const;
 
 
