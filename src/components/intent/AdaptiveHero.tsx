@@ -63,10 +63,47 @@ export function AdaptiveHero({
   onPrimary,
   eyebrow = "Dein nächster Schritt",
   className,
+  telemetry,
 }: Props) {
   const resolved = intent ?? resolveIntent(signals ?? {});
   const decision = chooseAdaptiveCta(resolved, signals ?? {}, extra ?? {});
   const headline = VARIANT_HEADLINE[decision.variant];
+
+  const firedRef = useRef(false);
+  useEffect(() => {
+    if (firedRef.current) return;
+    if (telemetry?.enabled === false) return;
+    firedRef.current = true;
+    recordAdaptiveCtaDecision({
+      decision,
+      intent: resolved,
+      signals: signals ?? {},
+      entity_kind: telemetry?.entity_kind,
+      entity_slug: telemetry?.entity_slug,
+      persona: telemetry?.persona,
+      package_id: telemetry?.package_id,
+      confidence: telemetry?.confidence,
+      phase: "rendered",
+    });
+  }, [decision, resolved, signals, telemetry]);
+
+  const handleClick = () => {
+    if (telemetry?.enabled !== false) {
+      recordAdaptiveCtaDecision({
+        decision,
+        intent: resolved,
+        signals: signals ?? {},
+        entity_kind: telemetry?.entity_kind,
+        entity_slug: telemetry?.entity_slug,
+        persona: telemetry?.persona,
+        package_id: telemetry?.package_id,
+        confidence: telemetry?.confidence,
+        phase: "clicked",
+      });
+    }
+    onPrimary?.(decision);
+  };
+
 
   return (
     <section
