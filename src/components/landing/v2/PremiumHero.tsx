@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ClipboardCheck, ArrowRight, Sparkles, Brain, Mic, Target, BarChart3, PlayCircle, Search } from "lucide-react";
 import { trackConversion } from "@/lib/seo-tracking";
 import { writeOsBeruf } from "@/lib/os/os-identity";
-import { OS_TONE } from "@/lib/os/os-copy";
+import { OS_TONE, berufReactionLine } from "@/lib/os/os-copy";
+import OSReactionLine from "@/components/os/OSReactionLine";
+
 
 /**
  * Premium Hero v3 — "Prüfungsreife, nicht Technik".
