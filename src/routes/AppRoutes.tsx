@@ -216,6 +216,8 @@ const WorkCorporatePage = lazyRetry(() => import('@/pages/work/WorkCorporatePage
 
 // VibeOS Masterbrand Landingpage
 const VibeOSLandingPage = lazyRetry(() => import('@/pages/VibeOSLandingPage'));
+const BerufOSHub = lazyRetry(() => import('@/pages/BerufOSHub'));
+const BerufOSModulePage = lazyRetry(() => import('@/pages/berufos/BerufOSModulePage'));
 
 // Berufs-KI public pages (eigenständige Produktlinie)
 const BerufsKIHubPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIHubPage'));
@@ -354,10 +356,11 @@ const AppRoutes = () => {
         {/* /work/bundles/:bundleId entfernt 2026-05-17 (A4 dead-code, WorkBundleBuyPage gelöscht) */}
         <Route path="/work/corporate" element={<WorkCorporatePage />} />
 
-        {/* Berufs-KI — eigenständige Produktlinie */}
-        {/* VibeOS Masterbrand */}
-        <Route path="/vibeos" element={<VibeOSLandingPage />} />
-        <Route path="/platform" element={<VibeOSLandingPage />} />
+        {/* BerufOS Masterbrand (ersetzt VibeOS — alte Routes redirecten) */}
+        <Route path="/berufos" element={<BerufOSHub />} />
+        <Route path="/berufos/:slug" element={<BerufOSModulePage />} />
+        <Route path="/vibeos" element={<Navigate to="/berufos" replace />} />
+        <Route path="/platform" element={<Navigate to="/berufos" replace />} />
 
         {/* Berufs-KI — eigenständige Produktlinie */}
         <Route path="/berufs-ki" element={<BerufsKIHubPage />} />

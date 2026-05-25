@@ -1,0 +1,124 @@
+/**
+ * BerufOS Masterbrand Theme — scoped via .berufos
+ *
+ * Register: Enterprise-Calm. Deep navy base + structured petrol + ice-accent.
+ * Niemals global setzen — würde ExamFit (Petrol) und Berufs-KI (Indigo) brechen.
+ *
+ * Ersetzt das frühere .vibeos Theme. Alle .vibeos-* Klassen-Namen sind hier
+ * als .berufos-* gespiegelt; alte Klassen bleiben in vibeos-theme.css als
+ * Rückfall, bis der letzte Konsument migriert ist.
+ */
+.berufos {
+  --bos-bg: 222 40% 6%;
+  --bos-bg-elev: 222 35% 9%;
+  --bos-surface: 222 30% 12%;
+  --bos-border: 222 25% 19%;
+  --bos-border-strong: 222 30% 30%;
+  --bos-text: 220 20% 96%;
+  --bos-text-muted: 220 14% 68%;
+  --bos-text-dim: 220 12% 50%;
+
+  /* Petrol-Ice-Accent: bridges ExamFit (petrol) heritage with enterprise calm */
+  --bos-accent: 188 90% 55%;
+  --bos-accent-2: 220 100% 70%;
+  --bos-accent-warm: 38 95% 60%;
+  --bos-glow: 188 90% 55%;
+
+  /* Status-Tokens (locked to design-system-v2 family) */
+  --bos-status-live: 158 70% 50%;
+  --bos-status-preview: 38 95% 60%;
+  --bos-status-planned: 220 12% 50%;
+
+  background: hsl(var(--bos-bg));
+  color: hsl(var(--bos-text));
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+.berufos-grid-bg {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, hsl(var(--bos-accent) / 0.15), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 30%, hsl(var(--bos-accent-2) / 0.10), transparent 60%),
+    linear-gradient(hsl(var(--bos-border) / 0.30) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--bos-border) / 0.30) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 64px 64px, 64px 64px;
+  background-position: 0 0, 0 0, -1px -1px, -1px -1px;
+}
+
+.berufos-card {
+  background: linear-gradient(180deg, hsl(var(--bos-surface)) 0%, hsl(var(--bos-bg-elev)) 100%);
+  border: 1px solid hsl(var(--bos-border));
+  border-radius: 16px;
+  transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+.berufos-card:hover {
+  border-color: hsl(var(--bos-border-strong));
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px -16px hsl(var(--bos-accent) / .25);
+}
+
+.berufos-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid hsl(var(--bos-border-strong));
+  background: hsl(var(--bos-surface));
+  color: hsl(var(--bos-text-muted));
+  font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+}
+.berufos-chip .dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: hsl(var(--bos-accent));
+  box-shadow: 0 0 12px hsl(var(--bos-glow));
+}
+
+.berufos-status-live { background: hsl(var(--bos-status-live) / .15); color: hsl(var(--bos-status-live)); }
+.berufos-status-preview { background: hsl(var(--bos-status-preview) / .15); color: hsl(var(--bos-status-preview)); }
+.berufos-status-planned { background: hsl(var(--bos-status-planned) / .15); color: hsl(var(--bos-text-muted)); }
+
+.berufos-btn-primary {
+  background: hsl(var(--bos-accent));
+  color: hsl(222 60% 6%);
+  border-radius: 12px;
+  font-weight: 600;
+  box-shadow: 0 8px 32px -8px hsl(var(--bos-glow) / .50);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.berufos-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 40px -8px hsl(var(--bos-glow) / .75);
+}
+
+.berufos-btn-ghost {
+  background: transparent;
+  color: hsl(var(--bos-text));
+  border: 1px solid hsl(var(--bos-border-strong));
+  border-radius: 12px;
+  font-weight: 500;
+  transition: border-color .15s ease, color .15s ease;
+}
+.berufos-btn-ghost:hover {
+  border-color: hsl(var(--bos-accent) / .6);
+  color: hsl(var(--bos-accent));
+}
+
+.berufos-hairline { border-color: hsl(var(--bos-border)); }
+.berufos-text-dim { color: hsl(var(--bos-text-muted)); }
+.berufos-text-faint { color: hsl(var(--bos-text-dim)); }
+
+.berufos-gradient-text {
+  background: linear-gradient(135deg, hsl(var(--bos-text)) 0%, hsl(var(--bos-accent)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Accent-Variants pro Modul */
+.berufos-accent-petrol { --bos-mod-accent: 188 90% 55%; }
+.berufos-accent-indigo { --bos-mod-accent: 235 80% 65%; }
+.berufos-accent-amber  { --bos-mod-accent: 38 95% 60%; }
+.berufos-accent-mint   { --bos-mod-accent: 158 70% 50%; }
+.berufos-accent-rose   { --bos-mod-accent: 340 75% 65%; }
+.berufos-accent-slate  { --bos-mod-accent: 220 14% 68%; }
+.berufos-mod-icon {
+  color: hsl(var(--bos-mod-accent, var(--bos-accent)));
+}
