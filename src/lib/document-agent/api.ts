@@ -40,6 +40,10 @@ export async function listMyProfiles(): Promise<DocProfile[]> {
   return (data ?? []) as unknown as DocProfile[];
 }
 
+export type LayoutTemplate =
+  | "modern_corporate" | "minimal_professional" | "legal_style"
+  | "enterprise_clean" | "friendly_business";
+
 export interface UpsertProfileInput {
   id?: string;
   company_name: string;
@@ -55,13 +59,17 @@ export interface UpsertProfileInput {
   tone_of_voice?: string;
   brand_colors?: Record<string, string>;
   organization_id?: string | null;
+  vat_id?: string;
+  disclaimer_text?: string;
+  layout_template?: LayoutTemplate;
+  font_family?: string;
 }
 
 export async function upsertMyProfile(input: UpsertProfileInput): Promise<string> {
   const { data: u } = await supabase.auth.getUser();
   const uid = u?.user?.id;
   if (!uid) throw new Error("not authenticated");
-  const payload = {
+  const payload: Record<string, unknown> = {
     user_id: input.organization_id ? null : uid,
     organization_id: input.organization_id ?? null,
     company_name: input.company_name,
@@ -76,7 +84,12 @@ export async function upsertMyProfile(input: UpsertProfileInput): Promise<string
     default_signature: input.default_signature ?? null,
     tone_of_voice: input.tone_of_voice ?? "professionell",
     brand_colors: input.brand_colors ?? {},
+    vat_id: input.vat_id ?? null,
+    disclaimer_text: input.disclaimer_text ?? null,
+    layout_template: input.layout_template ?? "modern_corporate",
+    font_family: input.font_family ?? "Helvetica",
   };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tbl = supabase.from("document_agent_profiles") as any;
   if (input.id) {
