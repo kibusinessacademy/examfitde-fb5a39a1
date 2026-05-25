@@ -219,6 +219,7 @@ const BerufsKIHubPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIHubPag
 const BerufsKIWorkbenchPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIWorkbenchPage'));
 const BerufsKIWorkflowsPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIWorkflowsPage'));
 const BerufsKIQualityPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIQualityPage'));
+const BerufsKIReviewPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIReviewPage'));
 
 
 // Learner Pages
@@ -598,6 +599,7 @@ const AppRoutes = () => {
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
           <Route path="berufs-ki/quality" element={<BerufsKIQualityPage />} />
+          <Route path="berufs-ki/review" element={<BerufsKIReviewPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
