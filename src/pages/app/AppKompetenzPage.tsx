@@ -18,6 +18,7 @@ import {
   Flame,
 } from "lucide-react";
 import "@/components/landing/v2/lp-v2-theme.css";
+import { RecoveryPlanCard } from "@/components/recovery/RecoveryPlanCard";
 
 /**
  * /app/kompetenz/:competencyId — Phase 5.5: Diagnostischer Kompetenzraum
@@ -71,6 +72,11 @@ export default function AppKompetenzPage() {
         <ExamRelevance data={data} />
         <TutorObservations data={data} />
         <StabilizationLever data={data} />
+        <RecoveryPlanCard
+          sourceEntityKind="app_kompetenz"
+          sourceEntitySlug={data.id}
+          limit={3}
+        />
       </div>
     </main>
   );
