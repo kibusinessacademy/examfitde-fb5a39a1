@@ -40,13 +40,19 @@ describe("BerufOS Module Registry", () => {
   });
 
   it("getModule resolved bekannte Slugs und gibt undefined für unbekannte", () => {
-    expect(getModule("learning")).toBeDefined();
+    expect(getModule("examfit")).toBeDefined();
     expect(getModule("does-not-exist")).toBeUndefined();
+  });
+
+  it("Legacy-Slug-Aliase werden auf neue Slugs aufgelöst (M1)", () => {
+    expect(getModule("learning")?.slug).toBe("examfit");
+    expect(getModule("workforce")?.slug).toBe("berufs-ki");
+    expect(getModule("industry")?.slug).toBe("industries");
   });
 
   it("Persona-Filter funktioniert (azubi sieht ExamFit + SkillGraph + Career)", () => {
     const azubi = modulesForPersona("azubi").map((m) => m.slug);
-    expect(azubi).toContain("learning");
+    expect(azubi).toContain("examfit");
     expect(azubi).toContain("skills");
     expect(azubi).toContain("career");
   });
