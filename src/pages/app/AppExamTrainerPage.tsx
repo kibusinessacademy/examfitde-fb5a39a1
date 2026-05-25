@@ -351,8 +351,10 @@ export default function AppExamTrainerPage() {
               examForm="schriftlich"
               limit={3}
             />
+            <AdaptiveExamPlanCard plan={adaptivePlan} className="mt-4" />
           </motion.section>
         )}
+
 
         {/* EXAM FLOW */}
         {phase === "exam" && (
