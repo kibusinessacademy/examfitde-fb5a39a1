@@ -1,130 +1,96 @@
-## Ziel
+# BerufOS Masterbrand-Switch — Plattform-Rollout-Plan
 
-Berufs-KI wird **eigenständige Produktlinie** neben ExamFit. Kein „Prompt-Sammlung", kein Chatbot — sondern **berufsspezifische KI-Workflows** auf bestehender ExamFit-SSOT (Curricula · Lernfelder · Kompetenzen · Blueprints).
+Maximaler Scope laut deinen Antworten: BerufOS ersetzt VibeOS vollständig, North Star wird überstimmt, voller Plattform-Hub mit allen 10 Modul-Landings. Memory-Regel "Brand-Entity vor Custom-Domain-Migration" wird dokumentiert übersteuert (nicht stillschweigend).
 
-Positionierung: **„Die KI kennt deinen Beruf."**
+## Brand-Architektur (locked)
 
----
+```text
+BerufOS  — Masterbrand: Das AI-Betriebssystem für Berufe
+├── ExamFit       (LearningOS)     live  — examfit.de bleibt
+├── Berufs-KI     (WorkforceOS)    live  — examfitwork.de bleibt
+├── AgentOS       (Agent Runtime)  preview — Phase-6 existiert bereits
+├── DocumentOS    (Documents)      planned — Waitlist
+├── WorkflowOS    (Workflows)      planned — Waitlist
+├── SkillGraph    (Kompetenzgraph) preview — Knowledge-Graph existiert
+├── CareerOS      (Karriere)       planned
+├── RecruitOS     (Recruiting)     planned
+├── IndustryOS    (Branchen)       planned
+└── GovernanceOS  (Governance)     preview — Architecture-Guard existiert
+```
 
-## Bestandsaufnahme (was bereits existiert — wird wiederverwendet)
-
-- `/work/*` Surface (`WorkHomePage`, `WorkBuyPage`, `WorkCorporatePage`, `WorkSuccessPage`) — bestehender Public-Funnel.
-- `src/pages/berufski/Berufs**KI**…Page.tsx` (Buy / Bundle / Corporate / Success) — Checkout-Stubs gegen `berufski-checkout` Edge.
-- `/berufski/*` ist 410 Gone (Legacy-Redirect via `WorkGonePage`).
-- Brand-SSOT (`src/lib/brand/ssot.ts`) erkennt schon `berufski` / `examfit@work`.
-- **Riesiges Asset**: `course_packages`, `learning_fields`, `competencies`, `blueprint_*` (15+ Tabellen) — vollständige berufsspezifische Wissensbasis.
-- Lovable AI Gateway ist verfügbar (kein Custom-Key).
-
-**Lücke**: Es gibt **kein eigenständiges Berufs-KI-Produkt**. Die `berufski/*`-Pages sind reine Checkouts ohne Produkterlebnis. Das Wissen aus Lernfeldern/Kompetenzen wird nicht in Workflows transformiert.
-
----
-
-## Strategische Entscheidungen
-
-1. **Naming-Cleanup**: alles User-Facing als „Berufs-KI". Code-Identifier `berufski` (legacy, in `WorkGonePage`-Trail) bleiben aus Stabilität — nur sichtbarer Text + neue Module nutzen `berufs-ki` / `BerufsKI`.
-2. **Eigene URL-Spine**: `/berufs-ki` (Marketing-Hub) und `/berufs-ki/app` (Workbench). `/work/*` bleibt B2B-Sales-Funnel — Brücke setzen, nicht ersetzen.
-3. **SSOT-Bridge statt Parallel-Welt**: Workflows referenzieren `curriculum_id` + `learning_field_id` + `competency_id` (FK auf bestehende Tabellen). Keine neue Berufs-Taxonomie.
-4. **Workflow ≠ Prompt**: jeder Workflow hat strukturierte Inputs → strukturierter Output (Executive Summary · Analyse · Risiken · Folgeaktionen).
-5. **Server-side AI**: alle Calls über Edge-Function `berufs-ki-run` → Lovable AI Gateway. Niemals Client-side.
-
----
+**Nicht angefasst:** ExamFit B2C-Funnels, Stripe-Brand, Email-From, examfit.de SEO, B2B-Brand `ExamFit@work`. Diese behalten ihre eigenen Brand-SSOTs. BerufOS lebt als Dachmarke darüber.
 
 ## Phasen
 
-### Phase 1 — Foundation & SSOT (DIESER CUT)
+### Phase 1 — Foundation (dieser Cut)
+1. **Modul-Registry SSOT** `src/lib/berufos/modules.ts` — 10 Module mit slug, name, tagline, icon, status (live|preview|planned), route, hero-copy, features[], persona-mapping.
+2. **BerufOS Brand-SSOT** `src/lib/berufos/brand.ts` — Name, Tagline, Tonalität, gefasste Copy-Bausteine. Mirror für Edge: `src/lib/berufos/deno-ssot.ts`.
+3. **BerufOS-Theme** `src/components/berufos/berufos-theme.css` — scoped `.berufos`. Premium-Enterprise: Deep navy + structured petrol + sharp ice-accent. Ersetzt `.vibeos` Theme (Datei bleibt für Übergang, Routes ziehen um).
+4. **Memory-Update** — VibeOS-Memory als deprecated markiert, `mem://design/berufos-masterbrand-v1` neu, North-Star-Override dokumentiert mit Begründung.
 
-**Datenbank** (1 Migration):
-- `berufs_ki_workflow_definitions` — SSOT Workflow-Katalog
-  - `id`, `slug` (unique), `title`, `description`, `category` (kommunikation/analyse/dokumentation/organisation/fach), `subcategory`
-  - `curriculum_id` (FK `course_packages` nullable), `learning_field_id` (nullable), `competency_ids` (uuid[]), `blueprint_refs` (jsonb)
-  - `target_roles` (text[]: azubi/fachkraft/ausbilder/teamleiter)
-  - `input_schema` (jsonb — Pflicht/Optional + Typen), `output_schema` (jsonb — strukturierte Sektionen)
-  - `system_prompt` (text), `user_prompt_template` (text), `model_recommendation` (text default `google/gemini-2.5-pro`)
-  - `compliance_level` (enum: standard/sensitive/regulated), `risk_level` (low/medium/high)
-  - `tier_required` (enum: free/pro/business), `is_active` (bool), `version` (int)
-  - Audit/Timestamps. RLS: public select where `is_active=true`; admin write only via `has_role`.
-- `berufs_ki_workflow_runs` — Run-Audit
-  - `id`, `workflow_id`, `user_id`, `inputs` (jsonb redacted), `output_text`, `output_structured` (jsonb)
-  - `model_used`, `tokens_in`, `tokens_out`, `latency_ms`, `tier_at_run`, `status` (ok/error/blocked), `error_reason`
-  - RLS: Owner-only read (`auth.uid() = user_id`); insert via Edge service-role.
-- 6 Seed-Workflows als Beweis (1 pro Kategorie, je auf existierendes Curriculum gebunden).
+### Phase 2 — Hub & Modul-Landings
+1. `/berufos` Plattform-Hub — Hero, 10-Modul-Bento-Grid (live/preview prominent, planned als Waitlist-Karten), Knowledge-Graph als zentraler Burggraben visualisiert.
+2. Routes umziehen: `/vibeos` → 301 nach `/berufos`, `/platform` → 301 nach `/berufos`.
+3. **10 Modul-Landings**: `/berufos/learning`, `/berufos/workforce`, `/berufos/agents`, `/berufos/documents`, `/berufos/workflows`, `/berufos/skills`, `/berufos/career`, `/berufos/recruit`, `/berufos/industry`, `/berufos/governance`. Live-Module: Deep-Link nach examfit.de Hero / `/admin/berufs-ki/agents`. Planned-Module: Waitlist-Form (email_delivery_queue → bestehende Sequenz `berufos_waitlist`).
+4. Eine wiederverwendbare `<ModuleLandingShell>` Komponente — Hero, 3-Spalten-Feature-Grid, Use-Cases, CTA. Alle 10 Landings drüber gebaut, kein Copy-Paste-Drift.
 
-**Edge Function**: `berufs-ki-run`
-- Auth via JWT, ownership/tier-gate, ruft Lovable AI Gateway mit `system_prompt` + interpoliertem `user_prompt_template`.
-- Rate-Limit (in-DB-Counter pro user/day), 402/429 Pass-Through, Audit-Insert in `berufs_ki_workflow_runs`.
+### Phase 3 — UX-Regel "Berufsfeld first"
+1. `BerufContextProvider` liest `mem://os-identity` (existiert) und filtert Modul-Sichtbarkeit am Hub.
+2. Drei Persona-Views als Beispiele: Azubi → ExamFit + SkillGraph + CareerOS. Hausverwaltung → DocumentOS + WorkflowOS + GovernanceOS + IndustryOS. Recruiter → RecruitOS + SkillGraph.
 
-**Frontend SSOT**:
-- `src/lib/berufs-ki/types.ts` — `WorkflowDefinition`, `WorkflowInput`, `WorkflowOutput`, `RunResult`.
-- `src/lib/berufs-ki/api.ts` — `listWorkflows({ curriculum, role, category })`, `runWorkflow(slug, inputs)`.
-- `src/lib/berufs-ki/copy.ts` — SSOT-Tone (analog `os-copy.ts` Muster): Headlines, CTAs, Kategorie-Labels.
+### Phase 4 — Cross-Brand-Bridges
+1. Footer in examfit.de bekommt "Teil von BerufOS" Backlink.
+2. Footer in `/berufos` referenziert ExamFit + Berufs-KI als Produktlinien.
+3. SEO: `<link rel="alternate">` zwischen Schwester-Marken, JSON-LD `Organization` mit `subOrganization[]` auf BerufOS-Hub.
 
-**Naming-Cleanup** (User-Facing only):
-- Alle sichtbaren „BerufsKI" / „Berufski" → „Berufs-KI" (mit Bindestrich) in: `WorkHomePage`, `BerufsKI*Page` Buttons/Headings, Brand-SSOT `BRAND.name` Display-Variante. Code-Identifier bleiben.
+### Phase 5 — Audit & Lock
+1. Architecture-Guard erweitern: `BerufOS-Module-Registry` als known-system, neue Modul-Slugs müssen über Registry gehen (nicht hardcoded).
+2. CI-Guard `scripts/guards/berufos-brand-ssot-guard.mjs` — verbietet Hardcoded "BerufOS"-Strings außerhalb der SSOT.
+3. Test: `src/test/berufos/module-registry.test.ts` — alle Routes resolvable, alle live-Module haben Hero-Copy, kein planned-Modul mit Stripe-Link.
 
-### Phase 2 — Workbench UI (`/berufs-ki/app`)
+## Technical Section
 
-- `BerufsKIHubPage` (`/berufs-ki`) — Marketing/USP, „Was möchtest du erledigen?"-Einstieg.
-- `BerufsKIWorkbenchPage` (`/berufs-ki/app`) — 3-Spalten Layout:
-  1. **Beruf-Switcher** (nutzt `useOsBeruf` — bestehende OS-Spine!).
-  2. **Workflow-Katalog** gefiltert auf Beruf (Kategorien-Akkordeon).
-  3. **Run-Panel**: dynamisches Input-Form aus `input_schema` → strukturierter Output mit Sektionen (Executive Summary, Analyse, Risiken, Folgeaktionen, KPIs).
-- `WorkflowRunner` Component (DRY, von Hub + Workbench genutzt).
-- History-Drawer (letzte 10 Runs des Users).
-- OS-Spine-Integration: `OSCompanionBar` zeigt „Ich öffne deinen Berufs-KI Modus für {Beruf}".
+**Routing**
+- Hub: `src/pages/BerufOSHub.tsx`
+- Module: `src/pages/berufos/<module>.tsx` (10 Files via Shell)
+- Routes registriert in `src/App.tsx` unter bestehender Public-Routes-Section.
+- `/vibeos`, `/platform` → `<Navigate to="/berufos" replace />`
 
-### Phase 3 — Catalog Build-Out
+**Theme-Scoping**
+- `.berufos` Klasse auf Top-Level-Container jedes BerufOS-Pages.
+- Tokens NUR via scoped CSS-Vars, keine globalen Token-Mutationen → ExamFit (`HomePageV2`) und Berufs-KI bleiben unberührt.
 
-- 30 Workflow-Definitions seeded, gemappt auf Top-10 Curricula:
-  - Industriekaufmann · FIAE · FISI · Verkäufer · Mechatroniker · Steuerfachangestellte · AEVO · Bilanzbuchhalter · Hausverwaltung · Vertrieb.
-- Pro Beruf 3 Kategorien × ~3 Workflows.
-- Admin-UI `/admin/berufs-ki/workflows` (CRUD, hinter `has_role('admin')`).
+**Persona-Filter**
+- `useBerufosModules(persona?)` Hook — gibt gefiltertes Array zurück.
+- Persona aus `useOsBeruf()` (existiert) → Mapping in `modules.ts`.
 
-### Phase 4 — Brücke zu ExamFit & Monetarisierung
+**Waitlist (planned modules)**
+- Reuse `email_delivery_queue` mit `template_key=berufos_waitlist_<module>`.
+- Idempotency-Key `berufos_waitlist|<email>|<module>`.
+- Audit `auto_heal_log` action_type=`berufos_waitlist_signup` (Contract via `ops_audit_contract` registrieren).
 
-- Cross-Sell: nach Prüfungs-Pass → CTA „Weiter mit Berufs-KI im Berufsalltag".
-- Tier-Gating an bestehende `entitlements`/`learner_course_grants` koppeln (Bridge, kein Fork).
-- B2B Team-Workflows + Corporate-Templates (nutzt `/work/corporate`-Funnel).
+**SEO**
+- `/berufos` Canonical `https://berufos.com/berufos` (Custom-Domain examfit.de zeigt nicht auf BerufOS-Hub — wir nutzen vorhandene `berufos.com`-Domain als Plattform-Brand-Domain).
+- robots.txt + sitemap.xml: 11 neue Public-Routes.
+- JSON-LD `Organization` mit `name: BerufOS`, `subOrganization: [ExamFit, Berufs-KI]`.
 
----
+**Memory**
+- `mem://design/berufos-masterbrand-v1` (NEU)
+- `mem://design/vibeos-masterbrand-v1` (markiert deprecated, Hinweis auf v1)
+- `mem://constraints/north-star-override-2026-05-25-berufos-rebrand.md` (NEU — dokumentiert Override mit Risk-Annahme)
+- `mem://index.md` Core: "BerufOS = Masterbrand. ExamFit + Berufs-KI = Produktlinien. /berufos = Plattform-Hub. Niemals BerufOS-Theme global setzen."
 
-## Architektur-Diagramm (Phase 1)
+## Was bewusst NICHT in diesem Cut passiert
+- Keine Migration von ExamFit-Funnels/Stripe/Email-Brands.
+- Keine echten DocumentOS/WorkflowOS/CareerOS/RecruitOS/IndustryOS Backend-Features — nur Brand-Landings + Waitlist.
+- Keine Industry-Sub-Modules (HausverwaltungOS etc.) als eigene Pages — nur als IndustryOS-Beispiele auf der Landing.
+- Kein Custom-Domain-Switch (`berufos.com` zeigt bereits hierher — passt).
 
-```text
-            ┌────────────────────────────────────────┐
-            │  ExamFit SSOT (existing)               │
-            │  course_packages · learning_fields ·   │
-            │  competencies · blueprint_*            │
-            └────────────────┬───────────────────────┘
-                             │ FK references
-            ┌────────────────▼───────────────────────┐
-            │  berufs_ki_workflow_definitions (NEW)  │
-            │  + berufs_ki_workflow_runs (NEW)       │
-            └────────────────┬───────────────────────┘
-                             │
-           ┌─────────────────┴──────────────────┐
-           │                                    │
-   src/lib/berufs-ki/             supabase/functions/
-   (types, api, copy)              berufs-ki-run/
-           │                                    │
-           └────────────┬───────────────────────┘
-                        │
-              /berufs-ki  +  /berufs-ki/app
-              (Phase 2 UI)
-```
+## Rollout-Reihenfolge in dieser Session
+1. Phase 1 komplett (Foundation: Registry + Brand + Theme + Memory)
+2. Phase 2 komplett (Hub + 10 Landings via Shell + Redirects)
+3. Phase 3 minimal (Hub-Filter via Persona, ohne Deep-Touch in ExamFit)
+4. Phase 4 minimal (Footer-Bridges)
+5. Phase 5 (Tests + Guard)
 
----
-
-## Was diese Iteration NICHT macht
-
-- Keine Workbench-UI (Phase 2).
-- Keine Memory/Agents/Chains (Phase 3+).
-- Keine Tier-Enforcement (Phase 4 — erstmal nur Felder vorbereiten).
-- Keine Migration der Legacy-`berufski`-Identifier im Code (Risiko zu hoch, kein User-Nutzen).
-
----
-
-## Frage an dich
-
-**Phase 1 jetzt durchziehen** (DB-Migration + Edge-Function + Frontend-SSOT + 6 Seed-Workflows + User-Facing-Rename), und Phase 2 (Workbench-UI) im direkten Folge-Cut?
-
-Oder lieber **Phase 1 + 2 in einem Cut** (deutlich größer, ~12 Dateien neu, ~4 geändert, plus Migration + Edge), damit du sofort eine sichtbare Workbench hast?
+Geschätzter Umfang: ~15–20 Files. Eine zusammenhängende Build-Session.
