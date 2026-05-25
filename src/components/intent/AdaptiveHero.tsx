@@ -137,7 +137,7 @@ export function AdaptiveHero({
         <Button
           size="lg"
           className="rounded-xl"
-          onClick={() => onPrimary?.(decision)}
+          onClick={handleClick}
           data-cta="adaptive_hero_primary"
           data-cta-surface={decision.action_type}
         >
