@@ -44,6 +44,11 @@ export default function AppLernpfadPage() {
         <TodayPriority />
         <StrategyTimeline />
         <CompetencyStates />
+        <RecoveryPlanCard
+          sourceEntityKind="app_lernpfad"
+          sourceEntitySlug="lernpfad_recovery"
+          limit={4}
+        />
         <LearnerRecommendationStrip
           sourceEntityKind="app_lernpfad"
           sourceEntitySlug="lernpfad_strategy"
