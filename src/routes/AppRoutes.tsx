@@ -201,6 +201,7 @@ const AdminRolesPage = lazyRetry(() => import('@/pages/admin/v2/AdminRolesPage')
 const AdminH5PUploadPage = lazyRetry(() => import('@/pages/admin/v2/AdminH5PUploadPage'));
 const AdminH5PSmokePage = lazyRetry(() => import('@/pages/admin/v2/AdminH5PSmokePage'));
 const AuthEmailSmokeTestPage = lazyRetry(() => import('@/pages/admin/v2/AuthEmailSmokeTestPage'));
+const FounderAgentsPage = lazyRetry(() => import('@/pages/admin/v2/FounderAgentsPage'));
 const AdminLearningEventsPage = lazyRetry(() => import('@/pages/admin/v2/AdminLearningEventsPage'));
 const AdminAccessMatrixPage = lazyRetry(() => import('@/pages/admin/v2/AdminAccessMatrixPage'));
 const AdminPaidOrdersOpsPage = lazyRetry(() => import('@/pages/admin/v2/AdminPaidOrdersOpsPage'));
