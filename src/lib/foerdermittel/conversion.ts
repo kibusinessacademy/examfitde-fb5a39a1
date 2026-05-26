@@ -255,7 +255,7 @@ export function buildFundingReportSummary(args: {
   let missingDocumentsTop: string[] = [];
   let readinessVerdict: ApplicationReadiness["verdict"] | undefined;
   if (top[0]) {
-    const readiness = computeApplicationReadiness(top[0].program, undefined, undefined, now);
+    const readiness = computeApplicationReadiness(top[0].program, undefined, undefined, undefined, now);
     readinessVerdict = readiness.verdict;
     // Best-effort surface — first 5 critical docs
     missingDocumentsTop = top[0].program.documentsNeeded.slice(0, 5);
