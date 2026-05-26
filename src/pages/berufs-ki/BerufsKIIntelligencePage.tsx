@@ -101,6 +101,9 @@ export default function BerufsKIIntelligencePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/berufs-ki/intelligence/executive">Executive-Cockpit<ArrowRight className="ml-1.5 h-3.5 w-3.5" /></Link>
+          </Button>
           <Select value={orgId ?? undefined} onValueChange={setOrgId}>
             <SelectTrigger className="w-[220px]"><SelectValue placeholder="Organisation" /></SelectTrigger>
             <SelectContent>
