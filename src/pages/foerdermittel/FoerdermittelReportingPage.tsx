@@ -57,10 +57,10 @@ export default function FoerdermittelReportingPage() {
   }, [isAdmin]);
 
   const clusterMetrics = useMemo(() => {
-    const stateClusters = STATE_KEYS.map((k) => buildStateCluster(k as any, PROGRAMS));
-    const topicClusters = TOPIC_KEYS.map((k) => buildTopicCluster(k as any, PROGRAMS));
-    const industryClusters = INDUSTRY_KEYS.map((k) => buildIndustryCluster(k as any, PROGRAMS));
-    const combo = buildCombinationClusters(PROGRAMS);
+    const stateClusters = STATE_KEYS.map((k) => buildStateCluster(PROGRAMS, k as any));
+    const topicClusters = TOPIC_KEYS.map((k) => buildTopicCluster(PROGRAMS, k as any));
+    const industryClusters = INDUSTRY_KEYS.map((k) => buildIndustryCluster(PROGRAMS, k as any));
+    const combo = COMBINATIONS.map((def) => buildCombinationCluster(PROGRAMS, def));
     const all = [...stateClusters, ...topicClusters, ...industryClusters, ...combo];
     const thin = all.filter((c) => c.isThin).length;
     const indexable = all.filter((c) => !c.isThin).length;
