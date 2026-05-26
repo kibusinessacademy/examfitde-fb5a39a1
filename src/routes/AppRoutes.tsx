@@ -235,6 +235,7 @@ const SuiteDetailPage = lazyRetry(() => import('@/pages/suites/SuiteDetailPage')
 const DemoHubPage = lazyRetry(() => import('@/pages/demo/DemoHubPage'));
 const DemoCohortPage = lazyRetry(() => import('@/pages/demo/DemoCohortPage'));
 const ActivationJourneyPage = lazyRetry(() => import('@/pages/demo/ActivationJourneyPage'));
+const DemoHrPage = lazyRetry(() => import('@/pages/demo/DemoHrPage'));
 const FristenrechnerPage = lazyRetry(() => import('@/pages/hr/FristenrechnerPage'));
 const HRDeadlineLongtailPage = lazyRetry(() => import('@/pages/hr/HRDeadlineLongtailPage'));
 const AuthorityHubPage = lazyRetry(() => import('@/pages/authority/AuthorityHubPage'));
