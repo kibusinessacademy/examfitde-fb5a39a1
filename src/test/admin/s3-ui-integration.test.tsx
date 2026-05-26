@@ -63,6 +63,7 @@ function wrap(ui: React.ReactNode) {
 
 beforeEach(() => {
   rpc.mockReset();
+  channelHandlers.length = 0;
 });
 
 describe("BurstSizeSimulatorCard", () => {
