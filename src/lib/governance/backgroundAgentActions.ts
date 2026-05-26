@@ -164,8 +164,9 @@ export async function dispatchBackgroundAgentAction(
     p_source_type: source_type,
     p_source_id: source_id,
     p_action: action,
-    p_reason: reason ?? null,
+    p_reason: reason ?? undefined,
   });
   if (error) throw error;
   return (data ?? { ok: false, route: 'unknown' }) as { ok: boolean; route: string; result?: unknown };
 }
+
