@@ -34,6 +34,7 @@ import { SEOHead } from "@/components/seo/SEOHead";
 import { SITE_URL } from "@/lib/seo";
 import "@/components/landing/v2/lp-v2-theme.css";
 import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
+import { getAnonymousId } from "@/lib/conversionTracking";
 
 type MasteryLevel = "low" | "mid" | "high";
 type RecommendedMode = "learn" | "train" | "simulate";
@@ -136,14 +137,15 @@ export default function QuizResultPage() {
     queryKey: ["quiz-result", attemptId],
     enabled: Boolean(attemptId),
     queryFn: async () => {
-      const { data: attempt, error: attErr } = await (supabase as any)
-        .from("quiz_attempts")
-        .select(
-          "id, score, passed, curriculum_id, completed_at, started_at, quiz_id, user_id"
-        )
-        .eq("id", attemptId)
-        .maybeSingle();
+      const { data: rpcRows, error: attErr } = await (supabase as any).rpc(
+        "public_get_quiz_attempt_result",
+        {
+          _attempt_id: attemptId,
+          _anonymous_id: user ? null : getAnonymousId(),
+        }
+      );
       if (attErr) throw attErr;
+      const attempt = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
       if (!attempt) throw new Error("attempt_not_found");
 
       let curriculumId: string | null = attempt.curriculum_id ?? null;
