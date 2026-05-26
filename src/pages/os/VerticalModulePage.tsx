@@ -229,7 +229,14 @@ export default function VerticalModulePage() {
                   </Card>
                 );
                 return isLive ? (
-                  <Link key={s.scenario_key} to={`/os/hr-interview/run/${s.id}`}>{card}</Link>
+                  <button
+                    key={s.scenario_key}
+                    type="button"
+                    onClick={() => { setSelectedScenario(s); }}
+                    className="text-left"
+                  >
+                    {card}
+                  </button>
                 ) : card;
               })}
             </div>
