@@ -367,12 +367,14 @@ export default function BackgroundAgentRuntimePage() {
                     <TableHead className="text-right">Artefakte</TableHead>
                     <TableHead className="text-right">Kosten €</TableHead>
                     <TableHead>Letztes Ereignis</TableHead>
+                    <TableHead>Aktionen</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tasks.map((t) => {
                     const risk = t.risk_level ?? 'low';
                     const approval = APPROVAL_LABEL[t.approval_state ?? 'not_required'] ?? APPROVAL_LABEL.not_required;
+                    const actions = resolveBackgroundAgentActions(t);
                     return (
                       <TableRow key={`${t.source_type}-${t.source_id}`}>
                         <TableCell className="text-xs text-fg-muted">{SOURCE_LABEL[t.source_type] ?? t.source_type}</TableCell>
@@ -389,16 +391,40 @@ export default function BackgroundAgentRuntimePage() {
                         <TableCell className="text-xs text-fg-muted whitespace-nowrap">
                           {t.last_event_at ? new Date(t.last_event_at).toLocaleString('de-DE') : '—'}
                         </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1" data-testid={`actions-${t.source_id}`}>
+                            {actions.map((a) => (
+                              <Button
+                                key={a.action}
+                                size="sm"
+                                variant={a.dangerous ? 'destructive' : isNavigationAction(a.action) ? 'ghost' : 'outline'}
+                                disabled={!a.enabled}
+                                title={a.reason}
+                                aria-label={`${a.label} — ${t.source_type}`}
+                                onClick={() => {
+                                  if (isNavigationAction(a.action)) {
+                                    navigateToSource(t, a.action);
+                                  } else {
+                                    setPendingDispatch({ task: t, action: a.action, label: a.label });
+                                  }
+                                }}
+                              >
+                                {a.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                   {tasks.length === 0 && !loading && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-fg-muted py-6">
+                      <TableCell colSpan={9} className="text-center text-fg-muted py-6">
                         Keine Arbeitseinheiten im aktuellen Filter.
                       </TableCell>
                     </TableRow>
                   )}
+
                 </TableBody>
               </Table>
             </CardContent>
