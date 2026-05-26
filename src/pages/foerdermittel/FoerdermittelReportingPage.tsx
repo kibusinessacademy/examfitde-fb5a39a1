@@ -14,7 +14,8 @@ import {
   buildStateCluster,
   buildTopicCluster,
   buildIndustryCluster,
-  buildCombinationClusters,
+  buildCombinationCluster,
+  COMBINATIONS,
 } from "@/lib/foerdermittel/seoAuthority";
 import { classifyFreshness } from "@/lib/foerdermittel/freshness";
 
@@ -56,10 +57,10 @@ export default function FoerdermittelReportingPage() {
   }, [isAdmin]);
 
   const clusterMetrics = useMemo(() => {
-    const stateClusters = STATE_KEYS.map((k) => buildStateCluster(k as any, PROGRAMS));
-    const topicClusters = TOPIC_KEYS.map((k) => buildTopicCluster(k as any, PROGRAMS));
-    const industryClusters = INDUSTRY_KEYS.map((k) => buildIndustryCluster(k as any, PROGRAMS));
-    const combo = buildCombinationClusters(PROGRAMS);
+    const stateClusters = STATE_KEYS.map((k) => buildStateCluster(PROGRAMS, k as any));
+    const topicClusters = TOPIC_KEYS.map((k) => buildTopicCluster(PROGRAMS, k as any));
+    const industryClusters = INDUSTRY_KEYS.map((k) => buildIndustryCluster(PROGRAMS, k as any));
+    const combo = COMBINATIONS.map((def) => buildCombinationCluster(PROGRAMS, def));
     const all = [...stateClusters, ...topicClusters, ...industryClusters, ...combo];
     const thin = all.filter((c) => c.isThin).length;
     const indexable = all.filter((c) => !c.isThin).length;
@@ -182,9 +183,9 @@ export default function FoerdermittelReportingPage() {
                 </thead>
                 <tbody>
                   {clusterMetrics.all.slice(0, 50).map((c) => (
-                    <tr key={c.kind + ":" + c.slug} className="border-b last:border-0">
+                    <tr key={c.meta.kind + ":" + c.meta.slug} className="border-b last:border-0">
                       <td className="py-1.5 pr-3 font-medium">{c.meta.h1}</td>
-                      <td className="py-1.5 pr-3 capitalize text-muted-foreground">{c.kind}</td>
+                      <td className="py-1.5 pr-3 capitalize text-muted-foreground">{c.meta.kind}</td>
                       <td className="py-1.5 pr-3 tabular-nums">{c.programs.length}</td>
                       <td className="py-1.5 pr-3 tabular-nums">{c.authorityScore}</td>
                       <td className="py-1.5 pr-3">
