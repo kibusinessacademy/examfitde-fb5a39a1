@@ -218,6 +218,7 @@ function ReapLaneButton({
           size="sm"
           variant={isDestructive ? "destructive" : "outline"}
           disabled={pending}
+          aria-label={`Reap Lane: ${meta.label} (Sektion 1)`}
           className={cn(
             "h-auto py-2 px-2.5 flex flex-col items-start gap-0.5 text-left",
             !isDestructive && "border-warning/60",

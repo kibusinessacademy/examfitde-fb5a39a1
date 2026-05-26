@@ -81,8 +81,8 @@ describe("HealCockpitPage", () => {
 
   it("exposes lane-aware quick reap buttons in the page header", () => {
     renderPage();
-    expect(screen.getByRole("button", { name: /Reap Control-Lane/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Reap All/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Reap Control-Lane Jobs/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Reap All Jobs$/i })).toBeInTheDocument();
   });
 
   it("renders the 4 publish-blocker count buttons", () => {

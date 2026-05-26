@@ -304,6 +304,7 @@ export default function HealCockpitPage() {
             <QuickReapButton
               lane="control"
               label="Reap Control-Lane"
+              ariaLabel="Reap Control-Lane Jobs"
               variant="destructive"
               pending={reapLane.isPending}
               onConfirm={() => reapLane.mutate("control")}
@@ -311,6 +312,7 @@ export default function HealCockpitPage() {
             <QuickReapButton
               lane="all"
               label="Reap All"
+              ariaLabel="Reap All Jobs"
               variant="outline"
               pending={reapLane.isPending}
               onConfirm={() => reapLane.mutate("all")}
@@ -619,12 +621,14 @@ const ADVANCED_TABS = [
 function QuickReapButton({
   lane,
   label,
+  ariaLabel,
   variant,
   pending,
   onConfirm,
 }: {
   lane: "control" | "all";
   label: string;
+  ariaLabel?: string;
   variant: "destructive" | "outline";
   pending: boolean;
   onConfirm: () => void;
@@ -632,7 +636,7 @@ function QuickReapButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button size="sm" variant={variant} disabled={pending}>
+        <Button size="sm" variant={variant} disabled={pending} aria-label={ariaLabel ?? label}>
           <Zap className="h-3.5 w-3.5 mr-1.5" /> {label}
         </Button>
       </AlertDialogTrigger>
