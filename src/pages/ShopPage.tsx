@@ -182,6 +182,10 @@ export default function ShopPage() {
         {/* B2B */}
         <ProductB2BSection />
 
+        {/* CATALOG — alle 190 verkaufbaren Kurse (P74a) */}
+        <SellableCoursesCatalog />
+
+
         {/* Final CTA */}
         <section className="py-12 md:py-16 text-center px-4">
           <h2 className="text-2xl md:text-3xl font-display font-bold mb-4">
