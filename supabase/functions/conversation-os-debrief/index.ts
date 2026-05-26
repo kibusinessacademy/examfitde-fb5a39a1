@@ -1,0 +1,230 @@
+// ConversationOS — Debrief
+// Generates premium debrief: annotated transcript, rubric breakdown,
+// critical moments, state trajectory, improvement plan.
+
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { createClient } from 'npm:@supabase/supabase-js@2.45.0';
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return new Response(JSON.stringify({ error: 'auth_required' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const authClient = createClient(SUPABASE_URL, SERVICE_KEY, { global: { headers: { Authorization: authHeader } } });
+    const { data: { user } } = await authClient.auth.getUser();
+    if (!user) return new Response(JSON.stringify({ error: 'invalid_user' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    const { session_id } = await req.json();
+    if (!session_id) return new Response(JSON.stringify({ error: 'session_id_required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    // Idempotent: return existing
+    const { data: existing } = await admin
+      .from('conversation_os_debriefs')
+      .select('*')
+      .eq('session_id', session_id)
+      .maybeSingle();
+    if (existing) {
+      return new Response(JSON.stringify({ debrief: existing, cached: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const { data: session } = await admin
+      .from('conversation_os_sessions')
+      .select('*, conversation_os_scenarios(title, situation, scoring_rubric, character_brief, vertical_module)')
+      .eq('id', session_id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!session) return new Response(JSON.stringify({ error: 'session_not_found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    const { data: turns = [] } = await admin
+      .from('conversation_os_turns')
+      .select('turn_index, role, content, painpoint_triggered, state_snapshot, state_delta')
+      .eq('session_id', session_id)
+      .order('turn_index', { ascending: true });
+
+    const transcriptText = (turns ?? [])
+      .map((t) => `[${t.turn_index}] ${t.role === 'assistant' ? 'CHARAKTER' : 'KANDIDAT'}: ${t.content}${t.painpoint_triggered ? ` [Painpoint: ${t.painpoint_triggered}]` : ''}`)
+      .join('\n');
+
+    const rubric = session.conversation_os_scenarios?.scoring_rubric ?? {};
+    const rubricDimensions = Object.keys(rubric);
+
+    const startedAt = Date.now();
+
+    // Use tool calling for structured output
+    const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-pro',
+        messages: [
+          {
+            role: 'system',
+            content: `Du bist ein Senior-Coach für berufliche Gesprächsführung. Analysiere ein simuliertes Trainingsgespräch und erstelle ein präzises, ehrliches Debrief auf Premium-Niveau.
+
+Stil: konkret, mit Zitaten aus dem Transcript, ohne Schmeichelei, ohne Allgemeinplätze. Jede Aussage muss aus dem Transcript belegbar sein.`,
+          },
+          {
+            role: 'user',
+            content: `Szenario: ${session.conversation_os_scenarios?.title}
+Situation: ${session.conversation_os_scenarios?.situation}
+Bewertungsdimensionen: ${rubricDimensions.join(', ') || 'klarheit, fachlichkeit, verhandlungsstaerke, gelassenheit'}
+
+Transcript:
+${transcriptText}
+
+Painpoint-Aktivierungen (Eskalations-Marker): ${JSON.stringify(session.painpoint_history ?? [])}
+Finaler interner Zustand: ${JSON.stringify(session.conversation_state)}
+
+Erstelle das Debrief.`,
+          },
+        ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'create_debrief',
+              description: 'Strukturiertes Premium-Debrief des Trainingsgesprächs.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  executive_summary: {
+                    type: 'string',
+                    description: '3 Sätze: Gesamteinschätzung, größte Stärke, größte Schwäche.',
+                  },
+                  rubric_breakdown: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        dimension: { type: 'string' },
+                        score: { type: 'number', description: '0-100' },
+                        evidence_quote: { type: 'string', description: 'wörtliches Zitat aus Transcript' },
+                        why: { type: 'string', description: 'kurze Begründung' },
+                      },
+                      required: ['dimension', 'score', 'evidence_quote', 'why'],
+                    },
+                  },
+                  critical_moments: {
+                    type: 'array',
+                    description: 'Top 3 Wendepunkte des Gesprächs.',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        turn_index: { type: 'number' },
+                        moment_type: { type: 'string', enum: ['turning_point', 'missed_opportunity', 'strong_move', 'critical_error'] },
+                        quote: { type: 'string' },
+                        analysis: { type: 'string' },
+                        better_alternative: { type: 'string' },
+                      },
+                      required: ['turn_index', 'moment_type', 'quote', 'analysis', 'better_alternative'],
+                    },
+                  },
+                  transcript_annotations: {
+                    type: 'array',
+                    description: 'Kurze Marker pro relevantem Turn.',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        turn_index: { type: 'number' },
+                        annotation_type: { type: 'string', enum: ['warning', 'good', 'critical', 'observation'] },
+                        note: { type: 'string' },
+                      },
+                      required: ['turn_index', 'annotation_type', 'note'],
+                    },
+                  },
+                  improvement_plan: {
+                    type: 'array',
+                    description: '3-4 konkrete nächste Schritte.',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        focus: { type: 'string' },
+                        why: { type: 'string' },
+                        drill_suggestion: { type: 'string' },
+                      },
+                      required: ['focus', 'why', 'drill_suggestion'],
+                    },
+                  },
+                  total_score: { type: 'number', description: 'Gewichteter Gesamtscore 0-100' },
+                  certificate_eligible: { type: 'boolean', description: 'true wenn ≥75' },
+                },
+                required: ['executive_summary', 'rubric_breakdown', 'critical_moments', 'transcript_annotations', 'improvement_plan', 'total_score', 'certificate_eligible'],
+              },
+            },
+          },
+        ],
+        tool_choice: { type: 'function', function: { name: 'create_debrief' } },
+      }),
+    });
+
+    if (!aiResp.ok) {
+      if (aiResp.status === 429) return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (aiResp.status === 402) return new Response(JSON.stringify({ error: 'payment_required' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const errTxt = await aiResp.text();
+      console.error('debrief AI error', aiResp.status, errTxt);
+      return new Response(JSON.stringify({ error: 'ai_gateway_error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const aiJson = await aiResp.json();
+    const toolCall = aiJson.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall) {
+      console.error('no tool_call in debrief response', JSON.stringify(aiJson).slice(0, 500));
+      return new Response(JSON.stringify({ error: 'debrief_generation_failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const parsed = JSON.parse(toolCall.function.arguments);
+
+    // State trajectory from turns
+    const stateTrajectory = (turns ?? [])
+      .filter((t) => t.role === 'user')
+      .map((t) => ({ turn_index: t.turn_index, ...(t.state_snapshot as any) }));
+
+    // Persist debrief
+    const { data: debrief, error: dbErr } = await admin
+      .from('conversation_os_debriefs')
+      .insert({
+        session_id,
+        user_id: user.id,
+        executive_summary: parsed.executive_summary,
+        rubric_breakdown: parsed.rubric_breakdown,
+        critical_moments: parsed.critical_moments,
+        transcript_annotations: parsed.transcript_annotations,
+        improvement_plan: parsed.improvement_plan,
+        state_trajectory: stateTrajectory,
+        certificate_eligible: parsed.certificate_eligible,
+        generated_by_model: 'google/gemini-2.5-pro',
+        generation_ms: Date.now() - startedAt,
+      })
+      .select()
+      .single();
+
+    if (dbErr) {
+      console.error('debrief insert', dbErr);
+      return new Response(JSON.stringify({ error: 'debrief_persist_failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // Update session
+    await admin
+      .from('conversation_os_sessions')
+      .update({
+        status: 'completed',
+        finished_at: new Date().toISOString(),
+        total_score: parsed.total_score,
+        rubric_scores: parsed.rubric_breakdown.reduce((acc: any, r: any) => ({ ...acc, [r.dimension]: r.score }), {}),
+      })
+      .eq('id', session_id);
+
+    return new Response(JSON.stringify({ debrief, cached: false }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (e) {
+    console.error('debrief error', e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : 'unknown' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+});
