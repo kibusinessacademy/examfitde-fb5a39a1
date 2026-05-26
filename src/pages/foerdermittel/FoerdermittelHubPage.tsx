@@ -59,7 +59,7 @@ export default function FoerdermittelHubPage() {
       </section>
 
       {/* Wizard */}
-      <section className="mx-auto max-w-7xl px-6 py-10">
+      <section id="matching" className="mx-auto max-w-7xl px-6 py-10">
         <h2 className="text-2xl font-semibold tracking-tight mb-1">Matching-Wizard</h2>
         <p className="text-muted-foreground mb-5">
           Unternehmensprofil eingeben — wir errechnen Fit, Bewilligungs­wahrscheinlichkeit und
