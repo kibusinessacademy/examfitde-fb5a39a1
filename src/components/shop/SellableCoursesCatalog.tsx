@@ -58,10 +58,9 @@ export function SellableCoursesCatalog() {
   }, [courses, search, chamber, catalog, trackFilter, priceBucket]);
 
   const handleStart = (c: SellableCourse, action: 'start' | 'simulate') => {
-    track('catalog_course_click', {
+    track('product_select', {
       curriculumId: c.curriculum_id,
-      action,
-      productSlug: c.product_slug,
+      product_key: action === 'simulate' ? 'catalog_simulate' : 'catalog_start',
     });
     if (c.product_slug) {
       navigate(`/produkt/${c.product_slug}${action === 'simulate' ? '?intent=simulate' : ''}`);
