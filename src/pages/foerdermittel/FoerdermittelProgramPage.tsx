@@ -267,6 +267,11 @@ export default function FoerdermittelProgramPage() {
       {/* Cut 3 — Execution OS: Antragsfahrplan */}
       <ApplicationRoadmapCard program={program} />
 
+      {/* Cut 6 — Funding Report CTA inline */}
+      <section className="mx-auto max-w-5xl px-6 pb-8">
+        <FundingReportCta source="program_detail" variant="compact" />
+      </section>
+
       {/* Cut 4 — AI CoPilot (grounded on registry + freshness + execution) */}
       <CopilotPanel program={program} />
     </main>
