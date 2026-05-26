@@ -114,10 +114,56 @@ export default function BackgroundAgentRuntimePage() {
   const [filterSource, setFilterSource] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [approvalOnly, setApprovalOnly] = useState(false);
+  const [pendingDispatch, setPendingDispatch] = useState<{
+    task: TaskRow; action: BackgroundAgentAction; label: string;
+  } | null>(null);
+  const [dispatching, setDispatching] = useState(false);
 
-  async function loadAll() {
-    setLoading(true);
+  function navigateToSource(t: TaskRow, kind: BackgroundAgentAction) {
+    // P70.2: navigation only — never reads source tables directly.
+    if (t.package_id && (kind === 'open_source' || kind === 'open_artifacts')) {
+      window.open(`/admin/packages/${t.package_id}`, '_blank', 'noopener');
+      return;
+    }
+    if (kind === 'open_approval' && t.package_id) {
+      window.open(`/admin/packages/${t.package_id}#approval`, '_blank', 'noopener');
+      return;
+    }
+    toast({
+      title: 'Keine Zielseite verfügbar',
+      description: 'Diese Quelle hat aktuell keinen Detail-Link im Admin-UI.',
+    });
+  }
+
+  async function performDispatch() {
+    if (!pendingDispatch) return;
+    const { task, action, label } = pendingDispatch;
+    setDispatching(true);
     try {
+      const res = await dispatchBackgroundAgentAction(
+        task.source_type as BackgroundAgentSource,
+        task.source_id,
+        action as Exclude<BackgroundAgentAction, 'open_source' | 'open_artifacts' | 'open_approval'>,
+        `cockpit_p70_2:${label}`,
+      );
+      toast({
+        title: 'Action dispatched',
+        description: `${label} → ${res.route}`,
+      });
+      setPendingDispatch(null);
+      await loadAll();
+    } catch (e) {
+      toast({
+        title: 'Dispatch fehlgeschlagen',
+        description: e instanceof Error ? e.message : 'Unbekannter Fehler',
+        variant: 'destructive',
+      });
+    } finally {
+      setDispatching(false);
+    }
+  }
+
+
       const [s, t, c] = await Promise.all([
         supabase.rpc('admin_get_background_agent_runtime_summary'),
         supabase.rpc('admin_get_background_agent_tasks', {
