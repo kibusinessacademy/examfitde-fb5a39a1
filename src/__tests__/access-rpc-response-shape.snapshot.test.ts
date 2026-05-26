@@ -23,16 +23,29 @@ import path from "node:path";
 
 const MIG_DIR = path.resolve(process.cwd(), "supabase/migrations");
 
+// Read every migration ONCE (3k+ files); subsequent lookups are pure regex on
+// in-memory strings. Keeps the snapshot test fast and deterministic even as
+// the migration history grows (Cut 5.1 timeout hardening).
+const ALL_MIGRATIONS: { name: string; sql: string }[] = (() => {
+  if (!fs.existsSync(MIG_DIR)) return [];
+  return fs
+    .readdirSync(MIG_DIR)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => ({ name: f, sql: fs.readFileSync(path.join(MIG_DIR, f), "utf-8") }));
+})();
+
 function latestBody(fnName: string): string {
-  if (!fs.existsSync(MIG_DIR)) return "";
-  const files = fs.readdirSync(MIG_DIR).filter((f) => f.endsWith(".sql")).sort();
   let body = "";
   const re = new RegExp(
     `CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+(?:public\\.)?${fnName}\\s*\\([^)]*\\)[\\s\\S]*?AS\\s+(\\$[a-zA-Z_]*\\$)([\\s\\S]*?)\\1`,
     "i",
   );
-  for (const f of files) {
-    const sql = fs.readFileSync(path.join(MIG_DIR, f), "utf-8");
+  // Cheap substring pre-filter before the heavy multiline regex.
+  const needle = `FUNCTION ${fnName}`;
+  const needleAlt = `FUNCTION public.${fnName}`;
+  for (const { sql } of ALL_MIGRATIONS) {
+    if (!sql.includes(needle) && !sql.includes(needleAlt)) continue;
     const m = sql.match(re);
     if (m) body = m[2];
   }
