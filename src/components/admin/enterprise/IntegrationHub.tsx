@@ -1,7 +1,9 @@
 import { useState, lazy, Suspense } from 'react';
+import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Shield, RefreshCw, Key, Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Shield, RefreshCw, Key, Upload, Sparkles, ArrowRight } from 'lucide-react';
 
 const SSOWizard = lazy(() => import('./SSOWizard'));
 const ScimMappingPanel = lazy(() => import('./ScimMappingPanel'));
@@ -14,9 +16,16 @@ export default function IntegrationHub() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-bold text-foreground">Enterprise Integrationen</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">SSO, SCIM, API Keys & Bulk Import — alles an einem Ort</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Enterprise Integrationen</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">SSO, SCIM, API Keys & Bulk Import — alles an einem Ort</p>
+        </div>
+        <Button asChild size="sm" variant="outline" className="gap-1">
+          <Link to="/admin/setup-wizards">
+            <Sparkles className="h-3 w-3" /> One-Click Wizards <ArrowRight className="h-3 w-3" />
+          </Link>
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
