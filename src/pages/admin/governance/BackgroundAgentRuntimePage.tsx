@@ -357,7 +357,7 @@ export default function BackgroundAgentRuntimePage() {
                           <span>📎 {g?.artifactCount ?? 0} Artefakte</span>
                           {(g?.highRisk ?? 0) > 0 && <span className="text-status-fg-danger">⚠ {g!.highRisk} High-Risk</span>}
                         </div>
-                        {g && g.sample.length > 0 && (
+                        {g && g.sample.length > 0 ? (
                           <div className="space-y-1.5 pt-2 border-t border-border">
                             <div className="text-[11px] text-fg-muted uppercase tracking-wide">Letzte Einheiten</div>
                             {g.sample.slice(0, 5).map((t) => {
@@ -372,26 +372,46 @@ export default function BackgroundAgentRuntimePage() {
                                     <span className="text-fg-muted ml-1">· {t.status ?? '—'}</span>
                                   </div>
                                   <div className="flex gap-1">
-                                    {actions.slice(0, 2).map((a) => (
-                                      <Button
-                                        key={a.action}
-                                        size="sm"
-                                        variant={a.dangerous ? 'destructive' : isNavigationAction(a.action) ? 'ghost' : 'outline'}
-                                        disabled={!a.enabled}
-                                        title={a.reason}
-                                        className="h-6 px-2 text-[11px]"
-                                        onClick={() => {
-                                          if (isNavigationAction(a.action)) navigateToSource(t, a.action);
-                                          else setPendingDispatch({ task: t, action: a.action, label: a.label });
-                                        }}
-                                      >
-                                        {a.label}
-                                      </Button>
-                                    ))}
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-2 text-[11px]"
+                                      title="Artefakt-Vorschau"
+                                      onClick={() => setPreviewTask(t)}
+                                      data-testid={`preview-${t.source_id}`}
+                                    >
+                                      <FileText className="h-3 w-3 mr-1" />Vorschau
+                                    </Button>
+                                    {actions
+                                      .filter((a) => a.action !== 'open_artifacts')
+                                      .slice(0, 1)
+                                      .map((a) => (
+                                        <Button
+                                          key={a.action}
+                                          size="sm"
+                                          variant={a.dangerous ? 'destructive' : isNavigationAction(a.action) ? 'ghost' : 'outline'}
+                                          disabled={!a.enabled}
+                                          title={a.reason}
+                                          className="h-6 px-2 text-[11px]"
+                                          onClick={() => {
+                                            if (isNavigationAction(a.action)) navigateToSource(t, a.action);
+                                            else setPendingDispatch({ task: t, action: a.action, label: a.label });
+                                          }}
+                                        >
+                                          {a.label}
+                                        </Button>
+                                      ))}
                                   </div>
                                 </div>
                               );
                             })}
+                          </div>
+                        ) : (
+                          <div
+                            className="rounded-md border border-dashed border-border bg-surface-muted/30 p-3 text-center text-[11px] text-fg-muted"
+                            data-testid={`workflow-empty-${type}`}
+                          >
+                            Workflow gestartet — Ergebnis erscheint nach Abschluss.
                           </div>
                         )}
                       </CardContent>
