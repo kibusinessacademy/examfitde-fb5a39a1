@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles, Radar, ShieldCheck, Layers, Bell } from "lucide-react";
 import { MatchingWizard } from "@/components/foerdermittel/MatchingWizard";
 import { ProgramCard } from "@/components/foerdermittel/ProgramCard";
+import { FoerderRadarCard } from "@/components/foerdermittel/FoerderRadarCard";
 import { matchPrograms, rankNoise } from "@/lib/foerdermittel/matching";
 import { PROGRAMS } from "@/lib/foerdermittel/registry";
 import type { CompanyProfile, ProgramMatch } from "@/lib/foerdermittel/types";
@@ -18,10 +19,10 @@ export default function FoerdermittelHubPage() {
   return (
     <main className="min-h-screen bg-background">
       <Helmet>
-        <title>FördermittelOS · Fördermittel-Intelligence für KMU & Mittelstand</title>
+        <title>FördermittelOS · FörderRadar — aktuelle Förderprogramme, Änderungen, Fristen</title>
         <meta
           name="description"
-          content="Intelligente Fördermittel-Plattform: Programme finden, Bewilligungs­wahrscheinlichkeit prüfen, Fristen tracken, Anträge vorbereiten. Bund, Länder, EU."
+          content="FörderRadar für Unternehmen: aktuelle Förderprogramme, Fördermittel-Änderungen, Fristen-Monitoring und Bewilligungs­wahrscheinlichkeit. Bund, Länder, EU."
         />
         <link rel="canonical" href="https://berufos.com/foerdermittel" />
       </Helmet>
@@ -43,6 +44,11 @@ export default function FoerdermittelHubPage() {
             </span>
           </div>
         </div>
+      </section>
+
+      {/* FörderRadar — Freshness Governance */}
+      <section className="mx-auto max-w-7xl px-6 pt-10">
+        <FoerderRadarCard programs={PROGRAMS} />
       </section>
 
       {/* Wizard */}
