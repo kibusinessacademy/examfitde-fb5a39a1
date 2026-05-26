@@ -214,8 +214,8 @@ export default function BackgroundAgentRuntimePage() {
                 </TableHeader>
                 <TableBody>
                   {summary.map((r) => (
-                    <TableRow key={r.source}>
-                      <TableCell className="font-medium">{SOURCE_LABEL[r.source] ?? r.source}</TableCell>
+                    <TableRow key={r.source_type}>
+                      <TableCell className="font-medium">{SOURCE_LABEL[r.source_type] ?? r.source_type}</TableCell>
                       <TableCell className="text-right tabular-nums">{r.total}</TableCell>
                       <TableCell className="text-right tabular-nums">{r.pending}</TableCell>
                       <TableCell className="text-right tabular-nums">{r.running}</TableCell>
