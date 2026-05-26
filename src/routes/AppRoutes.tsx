@@ -274,6 +274,7 @@ const EventInspectorPage = lazyRetry(() => import('@/pages/tools/EventInspectorP
 
 // Governance — Architectural Continuity Guard
 const ArchitecturePage = lazyRetry(() => import('@/pages/admin/governance/ArchitecturePage'));
+const BerufOSGraphPage = lazyRetry(() => import('@/pages/admin/BerufOSGraphPage'));
 const PlatformConsciencePage = lazyRetry(() => import('@/pages/admin/PlatformConsciencePage'));
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 
@@ -608,6 +609,7 @@ const AppRoutes = () => {
           <Route path="ops/publish-blockers" element={<PublishBlockerCockpitPage />} />
           <Route path="factory/export-preview/:packageId" element={<ExportPreviewPage />} />
           <Route path="governance/architecture" element={<ArchitecturePage />} />
+          <Route path="berufos-graph" element={<BerufOSGraphPage />} />
           {/* Legacy redirects — alle alten Heal-/Queue-Hubs landen im Heal Cockpit */}
           <Route path="queue" element={<Navigate to="/admin/heal?queue_tab=live" replace />} />
           <Route path="heal-cockpit" element={<Navigate to="/admin/heal?queue_tab=heal" replace />} />
