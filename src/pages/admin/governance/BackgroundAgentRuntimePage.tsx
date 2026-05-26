@@ -43,6 +43,8 @@ import {
   type WorkflowTriggerType,
   type ResolvedWorkflowTrigger,
 } from '@/lib/governance/backgroundAgentWorkflowTriggers';
+import { ArtifactPreviewDrawer } from '@/components/governance/ArtifactPreviewDrawer';
+import { FileText } from 'lucide-react';
 
 
 
@@ -132,11 +134,17 @@ export default function BackgroundAgentRuntimePage() {
   const [pendingTrigger, setPendingTrigger] = useState<ResolvedWorkflowTrigger | null>(null);
   const [dispatching, setDispatching] = useState(false);
   const [triggering, setTriggering] = useState(false);
+  const [previewTask, setPreviewTask] = useState<TaskRow | null>(null);
 
 
   function navigateToSource(t: TaskRow, kind: BackgroundAgentAction) {
+    // P71: open_artifacts now opens the Artifact Preview Drawer (in-place, no nav).
+    if (kind === 'open_artifacts') {
+      setPreviewTask(t);
+      return;
+    }
     // P70.2: navigation only — never reads source tables directly.
-    if (t.package_id && (kind === 'open_source' || kind === 'open_artifacts')) {
+    if (t.package_id && kind === 'open_source') {
       window.open(`/admin/packages/${t.package_id}`, '_blank', 'noopener');
       return;
     }
@@ -349,7 +357,7 @@ export default function BackgroundAgentRuntimePage() {
                           <span>📎 {g?.artifactCount ?? 0} Artefakte</span>
                           {(g?.highRisk ?? 0) > 0 && <span className="text-status-fg-danger">⚠ {g!.highRisk} High-Risk</span>}
                         </div>
-                        {g && g.sample.length > 0 && (
+                        {g && g.sample.length > 0 ? (
                           <div className="space-y-1.5 pt-2 border-t border-border">
                             <div className="text-[11px] text-fg-muted uppercase tracking-wide">Letzte Einheiten</div>
                             {g.sample.slice(0, 5).map((t) => {
@@ -364,26 +372,46 @@ export default function BackgroundAgentRuntimePage() {
                                     <span className="text-fg-muted ml-1">· {t.status ?? '—'}</span>
                                   </div>
                                   <div className="flex gap-1">
-                                    {actions.slice(0, 2).map((a) => (
-                                      <Button
-                                        key={a.action}
-                                        size="sm"
-                                        variant={a.dangerous ? 'destructive' : isNavigationAction(a.action) ? 'ghost' : 'outline'}
-                                        disabled={!a.enabled}
-                                        title={a.reason}
-                                        className="h-6 px-2 text-[11px]"
-                                        onClick={() => {
-                                          if (isNavigationAction(a.action)) navigateToSource(t, a.action);
-                                          else setPendingDispatch({ task: t, action: a.action, label: a.label });
-                                        }}
-                                      >
-                                        {a.label}
-                                      </Button>
-                                    ))}
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-2 text-[11px]"
+                                      title="Artefakt-Vorschau"
+                                      onClick={() => setPreviewTask(t)}
+                                      data-testid={`preview-${t.source_id}`}
+                                    >
+                                      <FileText className="h-3 w-3 mr-1" />Vorschau
+                                    </Button>
+                                    {actions
+                                      .filter((a) => a.action !== 'open_artifacts')
+                                      .slice(0, 1)
+                                      .map((a) => (
+                                        <Button
+                                          key={a.action}
+                                          size="sm"
+                                          variant={a.dangerous ? 'destructive' : isNavigationAction(a.action) ? 'ghost' : 'outline'}
+                                          disabled={!a.enabled}
+                                          title={a.reason}
+                                          className="h-6 px-2 text-[11px]"
+                                          onClick={() => {
+                                            if (isNavigationAction(a.action)) navigateToSource(t, a.action);
+                                            else setPendingDispatch({ task: t, action: a.action, label: a.label });
+                                          }}
+                                        >
+                                          {a.label}
+                                        </Button>
+                                      ))}
                                   </div>
                                 </div>
                               );
                             })}
+                          </div>
+                        ) : (
+                          <div
+                            className="rounded-md border border-dashed border-border bg-surface-muted/30 p-3 text-center text-[11px] text-fg-muted"
+                            data-testid={`workflow-empty-${type}`}
+                          >
+                            Workflow gestartet — Ergebnis erscheint nach Abschluss.
                           </div>
                         )}
                       </CardContent>
@@ -531,7 +559,17 @@ export default function BackgroundAgentRuntimePage() {
                           <Badge className={RISK_TONE[risk] ?? RISK_TONE.low}>{risk}</Badge>
                         </TableCell>
                         <TableCell className={`text-xs ${approval.tone}`}>{approval.label}</TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">{t.artifact_count ?? 0}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">
+                          <button
+                            type="button"
+                            className="hover:underline text-status-fg-info"
+                            onClick={() => setPreviewTask(t)}
+                            data-testid={`row-preview-${t.source_id}`}
+                            title="Artefakt-Vorschau öffnen"
+                          >
+                            {t.artifact_count ?? 0}
+                          </button>
+                        </TableCell>
                         <TableCell className="text-right tabular-nums text-xs">
                           {t.cost_eur != null ? Number(t.cost_eur).toFixed(2) : '—'}
                         </TableCell>
@@ -674,6 +712,13 @@ export default function BackgroundAgentRuntimePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* P71 — Artifact Preview Drawer */}
+      <ArtifactPreviewDrawer
+        task={previewTask}
+        open={!!previewTask}
+        onOpenChange={(o) => !o && setPreviewTask(null)}
+      />
 
     </div>
   );
