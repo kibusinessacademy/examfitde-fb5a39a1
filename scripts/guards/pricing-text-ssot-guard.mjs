@@ -36,17 +36,16 @@ const SKIP_EXACT = new Set([
   'scripts/guards/pricing-text-ssot-guard.mjs',
 ]);
 
-// Forbidden literals — exact substrings (case-insensitive)
+// Forbidden literals — exact substrings (case-insensitive).
+// Scope: B2C-EXAM_FIRST-Pricing-Drift. B2B-Standalone-License-Plans (99/299/799 €
+// in /berufski/corporate, /work/corporate) sind separater SKU-Set und NICHT betroffen.
 const FORBIDDEN = [
   '149 €',
   '199 €',
-  '249 €',
-  '299 €',
   'ab 149',
   'ab 199',
-  'ab 249',
-  'ab 299',
 ];
+
 
 function walk(dir, files = []) {
   for (const entry of readdirSync(dir)) {
