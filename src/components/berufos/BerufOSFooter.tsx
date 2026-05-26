@@ -54,6 +54,3 @@ export function BerufOSFooter() {
     </footer>
   );
 }
-    </footer>
-  );
-}
