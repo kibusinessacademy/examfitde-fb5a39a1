@@ -9,6 +9,7 @@ import { ProgramCard } from "@/components/foerdermittel/ProgramCard";
 import { FoerderRadarCard } from "@/components/foerdermittel/FoerderRadarCard";
 import { NextStepsPreview } from "@/components/foerdermittel/NextStepsPreview";
 import { CopilotHubCta } from "@/components/foerdermittel/CopilotHubCta";
+import { FundingReportCta } from "@/components/foerdermittel/FundingReportCta";
 import { matchPrograms, rankNoise } from "@/lib/foerdermittel/matching";
 import { PROGRAMS } from "@/lib/foerdermittel/registry";
 import type { CompanyProfile, ProgramMatch } from "@/lib/foerdermittel/types";
