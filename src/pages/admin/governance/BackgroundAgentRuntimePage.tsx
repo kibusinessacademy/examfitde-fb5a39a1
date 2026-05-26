@@ -26,7 +26,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle, Sparkles } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle, Sparkles, Play } from 'lucide-react';
 import {
   resolveBackgroundAgentActions,
   dispatchBackgroundAgentAction,
@@ -34,7 +35,15 @@ import {
   type BackgroundAgentAction,
   type BackgroundAgentSource,
 } from '@/lib/governance/backgroundAgentActions';
-import { groupTasksByWorkUnit } from '@/lib/governance/backgroundAgentWorkUnits';
+import { groupTasksByWorkUnit, WORK_UNIT_REGISTRY, type WorkUnitGroup } from '@/lib/governance/backgroundAgentWorkUnits';
+import {
+  WORKFLOW_TRIGGER_REGISTRY,
+  resolveWorkflowTrigger,
+  dispatchWorkflowTrigger,
+  type WorkflowTriggerType,
+  type ResolvedWorkflowTrigger,
+} from '@/lib/governance/backgroundAgentWorkflowTriggers';
+
 
 
 
@@ -109,6 +118,7 @@ const APPROVAL_LABEL: Record<string, { label: string; tone: string }> = {
 
 export default function BackgroundAgentRuntimePage() {
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
   const [summary, setSummary] = useState<SummaryRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [capabilities, setCapabilities] = useState<CapabilityRow[]>([]);
@@ -119,7 +129,10 @@ export default function BackgroundAgentRuntimePage() {
   const [pendingDispatch, setPendingDispatch] = useState<{
     task: TaskRow; action: BackgroundAgentAction; label: string;
   } | null>(null);
+  const [pendingTrigger, setPendingTrigger] = useState<ResolvedWorkflowTrigger | null>(null);
   const [dispatching, setDispatching] = useState(false);
+  const [triggering, setTriggering] = useState(false);
+
 
   function navigateToSource(t: TaskRow, kind: BackgroundAgentAction) {
     // P70.2: navigation only — never reads source tables directly.
@@ -164,6 +177,32 @@ export default function BackgroundAgentRuntimePage() {
       setDispatching(false);
     }
   }
+
+  async function performTrigger() {
+    if (!pendingTrigger) return;
+    setTriggering(true);
+    try {
+      const res = await dispatchWorkflowTrigger(
+        pendingTrigger.type,
+        `cockpit_p70_4:${pendingTrigger.type}`,
+      );
+      toast({
+        title: 'Workflow gestartet',
+        description: `${pendingTrigger.descriptor.startLabel} → ${res.route}`,
+      });
+      setPendingTrigger(null);
+      await loadAll();
+    } catch (e) {
+      toast({
+        title: 'Trigger fehlgeschlagen',
+        description: e instanceof Error ? e.message : 'Unbekannter Fehler',
+        variant: 'destructive',
+      });
+    } finally {
+      setTriggering(false);
+    }
+  }
+
 
   async function loadAll() {
     setLoading(true);
@@ -253,90 +292,109 @@ export default function BackgroundAgentRuntimePage() {
           <TabsTrigger value="capabilities"><ShieldCheck className="h-4 w-4 mr-2" />Capabilities</TabsTrigger>
         </TabsList>
 
-        {/* P70.3 — Workflows: customer-facing outcomes (SEO / Compliance / Operational Quality) */}
+        {/* P70.3 + P70.4 — Workflows: customer-facing outcomes + admin Start-Triggers */}
         <TabsContent value="workflows" className="space-y-3">
           {(() => {
-            const groups = groupTasksByWorkUnit(tasks);
-            if (groups.length === 0 && !loading) {
-              return (
-                <Card>
-                  <CardContent className="py-10 text-center text-fg-muted text-sm">
-                    Keine sichtbaren Workflow-Arbeitseinheiten im aktuellen Filter.
-                  </CardContent>
-                </Card>
-              );
+            const groupsByType = new Map<WorkflowTriggerType, WorkUnitGroup<TaskRow>>();
+            for (const g of groupTasksByWorkUnit(tasks)) {
+              groupsByType.set(g.type, g);
             }
+            const types: WorkflowTriggerType[] = ['seo_opportunity', 'compliance_drift', 'operational_quality'];
             return (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {groups.map((g) => (
-                  <Card key={g.type} className="shadow-elev-1">
-                    <CardHeader>
-                      <div className="flex items-center justify-between gap-2">
-                        <CardTitle className="text-base">{g.descriptor.outcomeLabel}</CardTitle>
-                        {g.descriptor.visibility === 'internal_only_quality' && (
-                          <Badge variant="outline" className="text-[10px] uppercase">intern</Badge>
-                        )}
-                      </div>
-                      <CardDescription className="text-xs">{g.descriptor.description}</CardDescription>
-                      {g.descriptor.visibility === 'internal_only_quality' && (
-                        <div className="text-[11px] text-fg-muted mt-1">
-                          Kunden-Sicht: <span className="italic">„{g.descriptor.externalLabel}"</span>
+                {types.map((type) => {
+                  const descriptor = WORK_UNIT_REGISTRY[type];
+                  const triggerDescriptor = WORKFLOW_TRIGGER_REGISTRY[type];
+                  const trigger = resolveWorkflowTrigger(type, { isAdmin, capabilities });
+                  const g = groupsByType.get(type);
+                  return (
+                    <Card key={type} className="shadow-elev-1">
+                      <CardHeader>
+                        <div className="flex items-center justify-between gap-2">
+                          <CardTitle className="text-base">{descriptor.outcomeLabel}</CardTitle>
+                          {descriptor.visibility === 'internal_only_quality' && (
+                            <Badge variant="outline" className="text-[10px] uppercase">intern</Badge>
+                          )}
                         </div>
-                      )}
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                        <div><div className="font-semibold tabular-nums text-base">{g.total}</div><div className="text-fg-muted">Gesamt</div></div>
-                        <div><div className="font-semibold tabular-nums text-base">{g.pending + g.running}</div><div className="text-fg-muted">Aktiv</div></div>
-                        <div><div className={`font-semibold tabular-nums text-base ${g.awaitingApproval > 0 ? 'text-status-fg-warning' : ''}`}>{g.awaitingApproval}</div><div className="text-fg-muted">Approval</div></div>
-                        <div><div className={`font-semibold tabular-nums text-base ${g.failed > 0 ? 'text-status-fg-danger' : ''}`}>{g.failed}</div><div className="text-fg-muted">Failed</div></div>
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-[11px] text-fg-muted">
-                        <span>📎 {g.artifactCount} Artefakte</span>
-                        {g.highRisk > 0 && <span className="text-status-fg-danger">⚠ {g.highRisk} High-Risk</span>}
-                      </div>
-                      <div className="space-y-1.5 pt-2 border-t border-border">
-                        <div className="text-[11px] text-fg-muted uppercase tracking-wide">Letzte Einheiten</div>
-                        {g.sample.slice(0, 5).map((t) => {
-                          const actions = resolveBackgroundAgentActions(t);
-                          return (
-                            <div
-                              key={`${t.source_type}-${t.source_id}`}
-                              className="flex items-center justify-between gap-2 text-xs"
-                            >
-                              <div className="truncate flex-1">
-                                <span className="font-medium">{t.capability_summary ?? '—'}</span>
-                                <span className="text-fg-muted ml-1">· {t.status ?? '—'}</span>
-                              </div>
-                              <div className="flex gap-1">
-                                {actions.slice(0, 2).map((a) => (
-                                  <Button
-                                    key={a.action}
-                                    size="sm"
-                                    variant={a.dangerous ? 'destructive' : isNavigationAction(a.action) ? 'ghost' : 'outline'}
-                                    disabled={!a.enabled}
-                                    title={a.reason}
-                                    className="h-6 px-2 text-[11px]"
-                                    onClick={() => {
-                                      if (isNavigationAction(a.action)) navigateToSource(t, a.action);
-                                      else setPendingDispatch({ task: t, action: a.action, label: a.label });
-                                    }}
-                                  >
-                                    {a.label}
-                                  </Button>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        <CardDescription className="text-xs">{descriptor.description}</CardDescription>
+                        {descriptor.visibility === 'internal_only_quality' && (
+                          <div className="text-[11px] text-fg-muted mt-1">
+                            Kunden-Sicht: <span className="italic">„{descriptor.externalLabel}"</span>
+                          </div>
+                        )}
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* P70.4 — Start trigger CTA */}
+                        {trigger.visible && (
+                          <Button
+                            size="sm"
+                            variant={trigger.dangerous ? 'destructive' : 'default'}
+                            disabled={!trigger.enabled || triggering}
+                            title={trigger.reason}
+                            data-workflow-trigger={type}
+                            className="w-full justify-center"
+                            onClick={() => setPendingTrigger(trigger)}
+                          >
+                            <Play className="h-3.5 w-3.5 mr-2" />
+                            {triggerDescriptor.startLabel}
+                          </Button>
+                        )}
+                        <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                          <div><div className="font-semibold tabular-nums text-base">{g?.total ?? 0}</div><div className="text-fg-muted">Gesamt</div></div>
+                          <div><div className="font-semibold tabular-nums text-base">{(g?.pending ?? 0) + (g?.running ?? 0)}</div><div className="text-fg-muted">Aktiv</div></div>
+                          <div><div className={`font-semibold tabular-nums text-base ${(g?.awaitingApproval ?? 0) > 0 ? 'text-status-fg-warning' : ''}`}>{g?.awaitingApproval ?? 0}</div><div className="text-fg-muted">Approval</div></div>
+                          <div><div className={`font-semibold tabular-nums text-base ${(g?.failed ?? 0) > 0 ? 'text-status-fg-danger' : ''}`}>{g?.failed ?? 0}</div><div className="text-fg-muted">Failed</div></div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-[11px] text-fg-muted">
+                          <span>📎 {g?.artifactCount ?? 0} Artefakte</span>
+                          {(g?.highRisk ?? 0) > 0 && <span className="text-status-fg-danger">⚠ {g!.highRisk} High-Risk</span>}
+                        </div>
+                        {g && g.sample.length > 0 && (
+                          <div className="space-y-1.5 pt-2 border-t border-border">
+                            <div className="text-[11px] text-fg-muted uppercase tracking-wide">Letzte Einheiten</div>
+                            {g.sample.slice(0, 5).map((t) => {
+                              const actions = resolveBackgroundAgentActions(t);
+                              return (
+                                <div
+                                  key={`${t.source_type}-${t.source_id}`}
+                                  className="flex items-center justify-between gap-2 text-xs"
+                                >
+                                  <div className="truncate flex-1">
+                                    <span className="font-medium">{t.capability_summary ?? '—'}</span>
+                                    <span className="text-fg-muted ml-1">· {t.status ?? '—'}</span>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    {actions.slice(0, 2).map((a) => (
+                                      <Button
+                                        key={a.action}
+                                        size="sm"
+                                        variant={a.dangerous ? 'destructive' : isNavigationAction(a.action) ? 'ghost' : 'outline'}
+                                        disabled={!a.enabled}
+                                        title={a.reason}
+                                        className="h-6 px-2 text-[11px]"
+                                        onClick={() => {
+                                          if (isNavigationAction(a.action)) navigateToSource(t, a.action);
+                                          else setPendingDispatch({ task: t, action: a.action, label: a.label });
+                                        }}
+                                      >
+                                        {a.label}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             );
           })()}
         </TabsContent>
+
 
 
         {/* Sources Overview */}
@@ -590,6 +648,33 @@ export default function BackgroundAgentRuntimePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* P70.4 — Workflow trigger confirm dialog */}
+      <AlertDialog open={!!pendingTrigger} onOpenChange={(o) => !o && setPendingTrigger(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingTrigger?.descriptor.startLabel}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingTrigger?.descriptor.confirmDescription}
+              <span className="block mt-2 text-xs text-fg-muted">
+                Dispatch über bestehende Runtime — kein paralleler Schreibpfad.
+                Wird in <code>auto_heal_log</code> als{' '}
+                <code>background_agent_action_dispatched</code> auditiert.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={triggering}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void performTrigger(); }}
+              disabled={triggering}
+            >
+              {triggering ? 'Startet…' : 'Workflow starten'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
