@@ -37,15 +37,15 @@ export default function BerufsKIHubPage() {
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Button asChild size="lg">
-            <Link to="/berufs-ki/app">
-              {BERUFS_KI.hub.cta_primary} <ArrowRight className="ml-2 h-4 w-4" />
+            <Link to="/demo">
+              Live-Demo erleben <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
           <Button asChild variant="outline" size="lg">
-            <Link to="/berufs-ki/suites">Produkt-Suiten ansehen</Link>
+            <Link to="/suites">Produkt-Suiten</Link>
           </Button>
           <Button asChild variant="ghost" size="lg">
-            <Link to="/berufs-ki/copilot">Manager-Copilot</Link>
+            <Link to="/berufs-ki/app">{BERUFS_KI.hub.cta_primary}</Link>
           </Button>
         </div>
       </section>

@@ -232,6 +232,9 @@ const BerufsKIAutomationPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsK
 const BerufsKISuitesPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKISuitesPage'));
 const SuitesHubPage = lazyRetry(() => import('@/pages/suites/SuitesHubPage'));
 const SuiteDetailPage = lazyRetry(() => import('@/pages/suites/SuiteDetailPage'));
+const DemoHubPage = lazyRetry(() => import('@/pages/demo/DemoHubPage'));
+const DemoCohortPage = lazyRetry(() => import('@/pages/demo/DemoCohortPage'));
+const ActivationJourneyPage = lazyRetry(() => import('@/pages/demo/ActivationJourneyPage'));
 const OrgStructurePage = lazyRetry(() => import('@/pages/org/OrgStructurePage'));
 const SetupWizardsPage = lazyRetry(() => import('@/pages/admin/SetupWizardsPage'));
 const ActivationOSPage = lazyRetry(() => import('@/pages/admin/ActivationOSPage'));
@@ -407,6 +410,9 @@ const AppRoutes = () => {
         {/* Public Marketing Suiten — Packaging & Positionierung */}
         <Route path="/suites" element={<SuitesHubPage />} />
         <Route path="/suites/:slug" element={<SuiteDetailPage />} />
+        <Route path="/demo" element={<DemoHubPage />} />
+        <Route path="/demo/cohort/:slug" element={<DemoCohortPage />} />
+        <Route path="/demo/journey" element={<ActivationJourneyPage />} />
         <Route path="/org/structure" element={<OrgStructurePage />} />
         <Route path="/admin/setup-wizards" element={<SetupWizardsPage />} />
         <Route path="/admin/activation-os" element={<ActivationOSPage />} />
