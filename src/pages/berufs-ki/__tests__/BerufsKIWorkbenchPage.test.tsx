@@ -18,8 +18,16 @@ vi.mock("@/lib/berufs-ki/api", () => ({
 }));
 vi.mock("@/components/berufs-ki/WorkflowRunner", () => ({ default: () => <div>runner</div> }));
 vi.mock("@/components/berufs-ki/SubmissionDialog", () => ({ default: () => <button>Submit</button> }));
+vi.mock("@/components/berufs-ki/UsageIntelligenceCard", () => ({ UsageIntelligenceCard: () => <div /> }));
+vi.mock("@/components/berufs-ki/UpgradeRecommendationBanner", () => ({ UpgradeRecommendationBanner: () => <div /> }));
+vi.mock("@/components/berufs-ki/LockedWorkflowPreview", () => ({ LockedWorkflowPreview: () => <div /> }));
 vi.mock("@/components/os/BerufIdentityChip", () => ({ BerufIdentityChip: () => <div /> }));
 vi.mock("@/lib/os/os-identity", () => ({ useOsBeruf: () => null }));
+// Mock useAuth so the page doesn't require an AuthProvider in tests.
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({ user: null, session: null, loading: false, roles: [], isAdmin: false, isTeacher: false }),
+}));
+
 
 import BerufsKIWorkbenchPage from "@/pages/berufs-ki/BerufsKIWorkbenchPage";
 

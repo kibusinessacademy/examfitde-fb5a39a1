@@ -38,7 +38,8 @@
     "guard:growth-policies": "node scripts/guards/post-publish-growth-policies-guard.mjs",
     "guard:architecture": "node scripts/guards/architecture-continuity-guard.mjs",
     "guard:architecture:examples": "node scripts/guards/architecture-continuity-guard.mjs --dir docs/examples/architecture-proposals || true",
-    "guard:known-systems-sync": "node scripts/guards/known-systems-memory-sync.mjs"
+    "guard:known-systems-sync": "node scripts/guards/known-systems-memory-sync.mjs",
+    "guard:pricing-ssot": "node scripts/guards/pricing-text-ssot-guard.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",

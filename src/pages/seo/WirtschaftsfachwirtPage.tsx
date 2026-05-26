@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { generateBreadcrumbSchema, generateFAQSchema, generateCourseSchema, SITE_URL } from '@/lib/seo';
+import { PRICING } from '@/config/pricing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,7 @@ import {
   Clock, FileText, MessageSquare, Target, TrendingUp, Users, Zap,
 } from 'lucide-react';
 import { QuizCTA } from '@/components/quiz/QuizCTA';
+
 
 /* ── Exam Structure from WFachwPrV ── */
 const TEIL_1 = [
@@ -28,7 +30,7 @@ const TEIL_2 = [
 ];
 
 const FAQS = [
-  { question: 'Was kostet das Wirtschaftsfachwirt-Prüfungstraining bei ExamFit?', answer: 'Das Basis-Training startet ab 149 €. Du erhältst über 1.200 prüfungsrelevante Aufgaben, mündliche Simulation und KI-Prüfungscoach – alles speziell für die WFachwPrV.' },
+  { question: 'Was kostet das Wirtschaftsfachwirt-Prüfungstraining bei ExamFit?', answer: `Einmalig ${PRICING.defaultPrice} für ${PRICING.defaultAccess} Vollzugriff — alle 9 Qualifikationsbereiche, über 1.200 Aufgaben, mündliche Simulation und KI-Prüfungscoach. Kein Abo, keine versteckten Kosten.` },
   { question: 'Wie realistisch ist die Prüfungssimulation?', answer: 'Unsere Simulation bildet beide Teilprüfungen exakt ab – inklusive Zeitbegrenzung (330 Min. schriftlich), gewichteter Bewertung und Ergänzungsprüfungs-Logik. Das mündliche Fachgespräch wird mit 30 Min. Vorbereitung + Präsentation simuliert.' },
   { question: 'Deckt ExamFit alle 9 Qualifikationsbereiche ab?', answer: 'Ja, alle 4 wirtschaftsbezogenen und 5 handlungsspezifischen Bereiche werden vollständig abgedeckt – mit Fallstudien, Rechenaufgaben und situativen Szenarien.' },
   { question: 'Gibt es eine mündliche Prüfungssimulation?', answer: 'Ja! Unser Oral-Exam-Trainer simuliert das situationsbezogene Fachgespräch mit Präsentation. Du erhältst Feedback zu Fachlichkeit, Struktur, Praxisbezug und Argumentationslogik.' },
@@ -65,7 +67,7 @@ export default function WirtschaftsfachwirtPage() {
     <>
       <SEOHead
         title="Wirtschaftsfachwirt Prüfungstraining – 1.200+ Aufgaben & Simulation | ExamFit"
-        description="Bestehe die Wirtschaftsfachwirt IHK-Prüfung sicher: Adaptive Simulation aller 9 Bereiche, mündliches Fachgespräch mit KI, Bestehenswahrscheinlichkeit in Echtzeit. Ab 149 €."
+        description={`Bestehe die Wirtschaftsfachwirt IHK-Prüfung sicher: Adaptive Simulation aller 9 Bereiche, mündliches Fachgespräch mit KI, Bestehenswahrscheinlichkeit in Echtzeit. Einmalig ${PRICING.defaultPrice} für ${PRICING.defaultAccess}.`}
         canonical={`${SITE_URL}/pruefungstraining/fachwirt/wirtschaftsfachwirt`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS), courseSchema]}
       />
@@ -105,7 +107,7 @@ export default function WirtschaftsfachwirtPage() {
             <div className="flex justify-center pt-2">
               <QuizCTA quizSlug="wirtschaftsfachwirt-pruefungsreife" cluster="wfw_cluster" location="hero" variant="outline" label="Gratis: 5-Fragen-Selbsttest starten" />
             </div>
-            <p className="text-sm text-muted-foreground">Ab 149 € · Kein Abo · Sofortiger Zugang</p>
+            <p className="text-sm text-muted-foreground">{PRICING.defaultPrice} · {PRICING.defaultAccess} Zugriff · {PRICING.noSubscription}</p>
           </div>
         </section>
 
@@ -231,43 +233,36 @@ export default function WirtschaftsfachwirtPage() {
           </div>
         </section>
 
-        {/* Pricing hint */}
+        {/* Pricing — Single SSOT-Bundle (24,90 € / 12 Monate) */}
         <section className="py-16 bg-muted/30">
-          <div className="container max-w-4xl">
-            <div className="grid md:grid-cols-3 gap-6">
-              {[
-                { name: 'Basis', price: '149 €', features: ['Alle 9 Bereiche', '1.200+ Aufgaben', 'Bestehens-Prognose', 'KI-Erklärungen'] },
-                { name: 'Pro', price: '199 €', features: ['Alles aus Basis', 'Mündliche Simulation', 'Schwächen-Engine', 'Prüfungscoach'], highlight: true },
-                { name: 'Intensiv', price: '299 €', features: ['Alles aus Pro', 'Unbegrenzte Simulationen', 'Präsentations-Feedback', 'Fallstudien-Spezial'] },
-              ].map(pkg => (
-                <Card key={pkg.name} className={`relative ${pkg.highlight ? 'ring-2 ring-primary shadow-lg' : ''}`}>
-                  {pkg.highlight && <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">Empfohlen</Badge>}
-                  <CardContent className="pt-8 space-y-4">
-                    <div className="text-center">
-                      <p className="font-semibold text-lg">{pkg.name}</p>
-                      <p className="text-3xl font-bold text-gradient mt-1">{pkg.price}</p>
-                    </div>
-                    <ul className="space-y-2">
-                      {pkg.features.map(f => (
-                        <li key={f} className="flex items-center gap-2 text-sm">
-                          <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" /> {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <Button className={`w-full ${pkg.highlight ? 'gradient-primary text-primary-foreground' : ''}`} variant={pkg.highlight ? 'default' : 'outline'} asChild>
-                      <Link to="/shop">Jetzt starten <ArrowRight className="ml-1 h-4 w-4" /></Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          <div className="container max-w-2xl">
+            <Card className="ring-2 ring-primary shadow-lg">
+              <CardContent className="pt-8 pb-8 space-y-5 text-center">
+                <Badge className="bg-primary">Komplettpaket Wirtschaftsfachwirt</Badge>
+                <div>
+                  <p className="text-4xl font-bold text-gradient">{PRICING.defaultPrice}</p>
+                  <p className="text-sm text-muted-foreground mt-1">einmalig · {PRICING.defaultAccess} Vollzugriff · {PRICING.noSubscription}</p>
+                </div>
+                <ul className="space-y-2 text-sm text-left max-w-md mx-auto">
+                  {['Alle 9 Qualifikationsbereiche', '1.200+ Prüfungsaufgaben', 'Mündliche Simulation & Fachgespräch', 'Adaptive Schwächen-Engine', 'KI-Prüfungscoach', 'Bestehens-Prognose (IRT)'].map(f => (
+                    <li key={f} className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" /> {f}
+                    </li>
+                  ))}
+                </ul>
+                <Button size="lg" className="w-full gradient-primary text-primary-foreground" asChild>
+                  <Link to="/shop">Jetzt starten <ArrowRight className="ml-1 h-4 w-4" /></Link>
+                </Button>
+              </CardContent>
+            </Card>
             <div className="text-center mt-6">
               <p className="text-sm text-muted-foreground">
-                Arbeitgeber zahlt? <Link to="/betriebe" className="text-primary hover:underline">Business-Lizenzen ab 24 €/Seat</Link>
+                Arbeitgeber zahlt? <Link to="/betriebe" className="text-primary hover:underline">Business-Lizenzen ab {PRICING.b2b.tiers[1].unitPriceDisplay}/Seat</Link>
               </p>
             </div>
           </div>
         </section>
+
 
         {/* FAQ */}
         <section className="py-16">
