@@ -207,7 +207,7 @@ export default function VerticalModulePage() {
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
               {data.scenarios.map((s) => {
-                const isLive = data.route_slug === 'hr-interview';
+                const isLive = data.route_slug === 'hr-interview' || data.route_slug === 'examfit-oral';
                 const card = (
                   <Card key={s.scenario_key} className={`border-border h-full ${isLive ? 'hover:border-primary/40 hover:shadow-md transition-all cursor-pointer' : ''}`}>
                     <CardHeader className="pb-3">
@@ -300,7 +300,7 @@ export default function VerticalModulePage() {
                 try {
                   sessionStorage.setItem(`conv_os_ctx_${selectedScenario.id}`, JSON.stringify(ctx));
                 } catch { /* */ }
-                navigate(`/os/hr-interview/run/${selectedScenario.id}`);
+                navigate(`/os/${data.route_slug}/run/${selectedScenario.id}`);
               }}
             >
               <Play className="h-4 w-4 mr-2" /> Training starten
