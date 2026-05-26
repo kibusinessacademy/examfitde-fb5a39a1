@@ -195,8 +195,13 @@ describe("P72 — Cockpit wiring", () => {
 });
 
 describe("P72 — Migration discipline", () => {
-  it("P72-tagged migrations do NOT create new tables / queues / cron primitives", () => {
-    const files = readdirSync(MIG_DIR).filter((f) => /p72|scheduled_agent_runs/i.test(f));
+  it("P72 migration (admin_get_background_agent_schedules) does NOT create new tables / queues / cron primitives", () => {
+    const files = readdirSync(MIG_DIR)
+      .filter((f) => f.endsWith(".sql"))
+      .filter((f) => {
+        const sql = readFileSync(resolve(MIG_DIR, f), "utf-8");
+        return sql.includes("admin_get_background_agent_schedules");
+      });
     expect(files.length).toBeGreaterThan(0);
     for (const f of files) {
       const sql = readFileSync(resolve(MIG_DIR, f), "utf-8");
