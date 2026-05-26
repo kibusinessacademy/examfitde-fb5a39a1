@@ -7,6 +7,7 @@ import { getProgramBySlug } from "@/lib/foerdermittel/registry";
 import { REGION_LABEL } from "@/lib/foerdermittel/matching";
 import { FreshnessBadge } from "@/components/foerdermittel/FreshnessBadge";
 import { ApplicationRoadmapCard } from "@/components/foerdermittel/ApplicationRoadmapCard";
+import { CopilotPanel } from "@/components/foerdermittel/CopilotPanel";
 import {
   classifyFreshness,
   classifyChangeRisk,
@@ -264,6 +265,9 @@ export default function FoerdermittelProgramPage() {
 
       {/* Cut 3 — Execution OS: Antragsfahrplan */}
       <ApplicationRoadmapCard program={program} />
+
+      {/* Cut 4 — AI CoPilot (grounded on registry + freshness + execution) */}
+      <CopilotPanel program={program} />
     </main>
   );
 }

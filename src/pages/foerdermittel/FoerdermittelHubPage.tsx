@@ -8,6 +8,7 @@ import { MatchingWizard } from "@/components/foerdermittel/MatchingWizard";
 import { ProgramCard } from "@/components/foerdermittel/ProgramCard";
 import { FoerderRadarCard } from "@/components/foerdermittel/FoerderRadarCard";
 import { NextStepsPreview } from "@/components/foerdermittel/NextStepsPreview";
+import { CopilotHubCta } from "@/components/foerdermittel/CopilotHubCta";
 import { matchPrograms, rankNoise } from "@/lib/foerdermittel/matching";
 import { PROGRAMS } from "@/lib/foerdermittel/registry";
 import type { CompanyProfile, ProgramMatch } from "@/lib/foerdermittel/types";
@@ -52,8 +53,13 @@ export default function FoerdermittelHubPage() {
         <FoerderRadarCard programs={PROGRAMS} />
       </section>
 
+      {/* Cut 4 — CoPilot CTA (no free chat on hub) */}
+      <section className="mx-auto max-w-7xl px-6 pt-6">
+        <CopilotHubCta />
+      </section>
+
       {/* Wizard */}
-      <section className="mx-auto max-w-7xl px-6 py-10">
+      <section id="matching" className="mx-auto max-w-7xl px-6 py-10">
         <h2 className="text-2xl font-semibold tracking-tight mb-1">Matching-Wizard</h2>
         <p className="text-muted-foreground mb-5">
           Unternehmensprofil eingeben — wir errechnen Fit, Bewilligungs­wahrscheinlichkeit und
