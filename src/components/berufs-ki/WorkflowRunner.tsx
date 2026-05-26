@@ -33,6 +33,7 @@ import { recordRunFeedback, runWorkflow } from "@/lib/berufs-ki/api";
 import { CATEGORY_LABEL, lockMessage, tierLabel } from "@/lib/berufs-ki/copy";
 import type { WorkflowDefinition, WorkflowRunResult } from "@/lib/berufs-ki/types";
 import { useOsBeruf } from "@/lib/os/os-identity";
+import { WorkflowOutcomeCard } from "@/components/berufs-ki/WorkflowOutcomeCard";
 
 interface Props {
   workflow: WorkflowDefinition;
@@ -288,6 +289,8 @@ export default function WorkflowRunner({ workflow, onClose }: Props) {
                 {result.model_used} · {(result.latency_ms / 1000).toFixed(1)}s · v{result.version_at_run ?? workflow.version}
               </span>
             </div>
+
+            <WorkflowOutcomeCard runId={result.run_id} />
 
             {showQualityWarning && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-200">
