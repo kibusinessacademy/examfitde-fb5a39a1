@@ -115,13 +115,11 @@ export function buildCopilotContext(
     : undefined;
   const risks = rankApplicationRisks(program, profile, presentDocKeys, metRequirementKeys, now);
   const next = profile && readiness
-    ? buildNextBestActions(program, profile, readiness, presentDocKeys, metRequirementKeys, now)
+    ? buildNextBestActions(program, readiness, presentDocKeys)
     : [];
 
-  // Bridge events lazy-load to avoid circular if not ready
   const bridgeEvents: BridgeEvent[] = readiness
-    ? // eslint-disable-next-line @typescript-eslint/no-var-requires
-      (require("./execution") as typeof import("./execution")).buildBridgeEvents(program, readiness)
+    ? buildBridgeEvents(program, readiness)
     : [];
 
   return {
