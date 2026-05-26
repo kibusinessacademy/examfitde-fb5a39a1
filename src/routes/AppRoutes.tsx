@@ -236,6 +236,7 @@ const DemoHubPage = lazyRetry(() => import('@/pages/demo/DemoHubPage'));
 const DemoCohortPage = lazyRetry(() => import('@/pages/demo/DemoCohortPage'));
 const ActivationJourneyPage = lazyRetry(() => import('@/pages/demo/ActivationJourneyPage'));
 const DemoHrPage = lazyRetry(() => import('@/pages/demo/DemoHrPage'));
+const ConversationOSShowroom = lazyRetry(() => import('@/pages/os/ConversationOSShowroom'));
 const FristenrechnerPage = lazyRetry(() => import('@/pages/hr/FristenrechnerPage'));
 const HRDeadlineLongtailPage = lazyRetry(() => import('@/pages/hr/HRDeadlineLongtailPage'));
 const AuthorityHubPage = lazyRetry(() => import('@/pages/authority/AuthorityHubPage'));
@@ -437,6 +438,7 @@ const AppRoutes = () => {
         <Route path="/demo/cohort/:slug" element={<DemoCohortPage />} />
         <Route path="/demo/journey" element={<ActivationJourneyPage />} />
         <Route path="/demo/hr" element={<DemoHrPage />} />
+        <Route path="/os/conversation" element={<ConversationOSShowroom />} />
 
         {/* HR Deadline OS — Authority Hub + Programmable SEO */}
         <Route path="/hr/fristenrechner-kuendigung" element={<FristenrechnerPage />} />
