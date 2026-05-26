@@ -71,6 +71,6 @@ describe('buildCanonicalUrl', () => {
     expect(out).not.toMatch(/lovable\.app/);
     expect(out).not.toMatch(/vercel\.app/);
     expect(out).not.toMatch(/localhost/);
-    expect(out.startsWith('https://examfit.de')).toBe(true);
+    expect(out.startsWith('https://berufos.com')).toBe(true);
   });
 });
