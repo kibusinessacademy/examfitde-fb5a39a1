@@ -713,6 +713,13 @@ export default function BackgroundAgentRuntimePage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* P71 — Artifact Preview Drawer */}
+      <ArtifactPreviewDrawer
+        task={previewTask}
+        open={!!previewTask}
+        onOpenChange={(o) => !o && setPreviewTask(null)}
+      />
+
     </div>
   );
 }
