@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle, Sparkles } from 'lucide-react';
 import {
   resolveBackgroundAgentActions,
   dispatchBackgroundAgentAction,
@@ -34,6 +34,8 @@ import {
   type BackgroundAgentAction,
   type BackgroundAgentSource,
 } from '@/lib/governance/backgroundAgentActions';
+import { groupTasksByWorkUnit } from '@/lib/governance/backgroundAgentWorkUnits';
+
 
 
 type SummaryRow = {
