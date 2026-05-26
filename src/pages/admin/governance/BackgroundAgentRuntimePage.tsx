@@ -908,3 +908,136 @@ function KpiCard({
     </Card>
   );
 }
+
+// --- P73 Value-Layer Section ---------------------------------------------
+
+const HEALTH_TONE: Record<WorkflowHealth, string> = {
+  healthy: 'bg-status-bg-subtle-success text-status-fg-success',
+  running: 'bg-status-bg-subtle-info text-status-fg-info',
+  stale: 'bg-status-bg-subtle-warning text-status-fg-warning',
+  failed: 'bg-status-bg-subtle-danger text-status-fg-danger',
+  no_artifacts_yet: 'bg-surface-muted text-fg-muted',
+};
+
+const HEALTH_LABEL: Record<WorkflowHealth, string> = {
+  healthy: 'läuft',
+  running: 'läuft gerade',
+  stale: 'pausiert',
+  failed: 'gestört',
+  no_artifacts_yet: 'wartet auf Ergebnis',
+};
+
+function ValueLayerSection({
+  tasks, onPreview,
+}: {
+  tasks: TaskRow[];
+  onPreview: (t: TaskRow) => void;
+}) {
+  const nowIso = useMemo(() => new Date().toISOString(), [tasks.length]);
+  const cards = useMemo(
+    () => buildWorkflowValueCards(tasks, { nowIso }),
+    [tasks, nowIso],
+  );
+
+  const totalMinutes = cards.reduce((s, c) => s + c.metrics.estimatedMinutesSaved, 0);
+  const totalOpps = cards.reduce((s, c) => s + c.metrics.opportunitiesFound, 0);
+  const totalRisks = cards.reduce((s, c) => s + c.metrics.risksAvoided, 0);
+  const totalReports = cards.reduce((s, c) => s + c.metrics.reportsGenerated, 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard label="SEO-Chancen gefunden" value={totalOpps} tone="info" />
+        <KpiCard label="Risiken vermieden" value={totalRisks} tone="info" />
+        <KpiCard label="Reports erzeugt" value={totalReports} tone="info" />
+        <Card className="shadow-elev-1">
+          <CardContent className="p-4">
+            <div className="text-xs text-fg-muted uppercase tracking-wide">Zeitersparnis (geschätzt)</div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums">
+              {formatMinutesSaved(totalMinutes)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {cards.map((card) => (
+          <Card key={card.type} className="shadow-elev-1" data-testid={`value-card-${card.type}`}>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="text-base">{card.headline}</CardTitle>
+                <Badge className={HEALTH_TONE[card.health]}>{HEALTH_LABEL[card.health]}</Badge>
+              </div>
+              <CardDescription className="text-xs">{card.promise}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                <ValueMetric label="Chancen gefunden" value={card.metrics.opportunitiesFound} />
+                <ValueMetric label="Risiken erkannt" value={card.metrics.risksAvoided} />
+                <ValueMetric label="Reports" value={card.metrics.reportsGenerated} />
+                <ValueMetric label="Prüfungen" value={card.metrics.checksCompleted} />
+              </div>
+
+              <div className="rounded-md bg-surface-muted/40 p-2.5 text-xs flex items-center justify-between">
+                <span className="text-fg-muted">Zeitersparnis</span>
+                <span className="font-semibold tabular-nums">
+                  {formatMinutesSaved(card.metrics.estimatedMinutesSaved)}
+                </span>
+              </div>
+
+              <div className="text-[11px] text-fg-muted">{card.healthLabel}</div>
+
+              {card.latestOutcome ? (
+                <div className="pt-2 border-t border-border space-y-1">
+                  <div className="text-[11px] text-fg-muted uppercase tracking-wide">Letztes Ergebnis</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs">
+                      <div className="font-medium">{card.latestOutcome.summary}</div>
+                      <div className="text-[11px] text-fg-muted">
+                        {card.latestOutcome.lastEventAt
+                          ? new Date(card.latestOutcome.lastEventAt).toLocaleString('de-DE')
+                          : '—'}
+                      </div>
+                    </div>
+                    {(() => {
+                      const t = tasks.find(
+                        (x) => x.source_type === card.latestOutcome!.source_type
+                          && x.source_id === card.latestOutcome!.source_id,
+                      );
+                      if (!t) return null;
+                      return (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={() => onPreview(t)}
+                          data-testid={`value-preview-${card.type}`}
+                        >
+                          <FileText className="h-3 w-3 mr-1" />Vorschau
+                        </Button>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed border-border bg-surface-muted/30 p-3 text-center text-[11px] text-fg-muted">
+                  Workflow gestartet — Ergebnis erscheint nach Abschluss.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ValueMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md bg-surface-muted/40 p-2">
+      <div className="font-semibold tabular-nums text-base">{value.toLocaleString('de-DE')}</div>
+      <div className="text-[11px] text-fg-muted">{label}</div>
+    </div>
+  );
+}
+
