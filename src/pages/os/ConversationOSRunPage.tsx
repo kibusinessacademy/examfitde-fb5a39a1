@@ -33,6 +33,14 @@ export default function ConversationOSRunPage() {
     if (!scenarioId) return;
     (async () => {
       try {
+        // Require auth — session creation is user-scoped
+        const { data: { session: authSession } } = await supabase.auth.getSession();
+        if (!authSession) {
+          toast.error('Bitte einloggen', { description: 'Für den HR-Interview-Pilot ist ein Login erforderlich.' });
+          navigate(`/auth?returnTo=${encodeURIComponent(`/os/hr-interview/run/${scenarioId}`)}`);
+          return;
+        }
+
         // Read context overrides from sessionStorage (set by VerticalModulePage)
         let context_overrides: any = undefined;
         try {
@@ -44,18 +52,21 @@ export default function ConversationOSRunPage() {
           body: { scenario_id: scenarioId, context_overrides },
         });
         if (error) throw error;
+        if (data?.error) throw new Error(data.error);
         setSessionId(data.session_id);
         setScenario(data.scenario);
         setState(data.conversation_state);
         setMessages([{ role: 'assistant', content: data.opening }]);
       } catch (e: any) {
-        toast.error('Konnte Session nicht starten', { description: e.message });
+        console.error('[conv-os-start] failed', e);
+        toast.error('Konnte Session nicht starten', { description: e?.message ?? 'Unbekannter Fehler' });
         navigate('/os/hr-interview');
       } finally {
         setIsStarting(false);
       }
     })();
   }, [scenarioId, navigate]);
+
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
