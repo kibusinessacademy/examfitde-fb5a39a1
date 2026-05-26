@@ -251,6 +251,8 @@ const FoerdermittelIndustryPage = lazyRetry(() => import('@/pages/foerdermittel/
 const FoerdermittelCombinationPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelCombinationPage'));
 const FoerdermittelChecklistPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelChecklistPage'));
 const FoerdermittelCurrentPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelCurrentPage'));
+const FoerdermittelReportPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelReportPage'));
+const FoerdermittelReportingPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelReportingPage'));
 const OfferComparisonProjectPage = lazyRetry(() => import('@/pages/offer-comparison/OfferComparisonProjectPage'));
 const OrgStructurePage = lazyRetry(() => import('@/pages/org/OrgStructurePage'));
 const SetupWizardsPage = lazyRetry(() => import('@/pages/admin/SetupWizardsPage'));
