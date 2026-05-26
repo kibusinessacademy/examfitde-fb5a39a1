@@ -25,29 +25,32 @@ import { useToast } from '@/hooks/use-toast';
 import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-react';
 
 type SummaryRow = {
-  source: string;
+  source_type: string;
   total: number;
   pending: number;
   running: number;
   awaiting_approval: number;
   completed: number;
   failed: number;
+  high_risk: number;
   last_activity: string | null;
 };
 
 type TaskRow = {
-  source: string;
+  source_type: string;
   source_id: string;
-  task_kind: string;
-  status: string;
-  severity: string;
-  requires_approval: boolean;
-  approved_at: string | null;
-  created_at: string;
-  completed_at: string | null;
+  task_kind: string | null;
+  status: string | null;
+  risk_level: string | null;
+  capability_summary: string | null;
+  approval_state: string | null;
+  cost_eur: number | null;
+  budget_eur: number | null;
+  artifact_count: number | null;
+  last_event_at: string | null;
+  created_at: string | null;
   package_id: string | null;
   actor: string | null;
-  cost_eur: number | null;
   meta: Record<string, unknown> | null;
 };
 
@@ -70,11 +73,24 @@ const SOURCE_LABEL: Record<string, string> = {
   heal_permanent_fix_tasks: 'Human Follow-ups',
 };
 
+const RISK_TONE: Record<string, string> = {
+  low: 'bg-surface-muted text-fg-muted',
+  medium: 'bg-status-bg-subtle-warning text-status-fg-warning',
+  high: 'bg-status-bg-subtle-danger text-status-fg-danger',
+};
+
 const SEVERITY_TONE: Record<string, string> = {
   ok: 'bg-status-bg-subtle-success text-status-fg-success',
   info: 'bg-surface-muted text-fg-muted',
   warn: 'bg-status-bg-subtle-warning text-status-fg-warning',
   error: 'bg-status-bg-subtle-danger text-status-fg-danger',
+};
+
+const APPROVAL_LABEL: Record<string, { label: string; tone: string }> = {
+  not_required: { label: '—', tone: 'text-fg-muted' },
+  pending: { label: 'offen', tone: 'text-status-fg-warning' },
+  approved: { label: '✓ approved', tone: 'text-status-fg-success' },
+  rejected: { label: '✗ rejected', tone: 'text-status-fg-danger' },
 };
 
 export default function BackgroundAgentRuntimePage() {
@@ -93,9 +109,9 @@ export default function BackgroundAgentRuntimePage() {
       const [s, t, c] = await Promise.all([
         supabase.rpc('admin_get_background_agent_runtime_summary'),
         supabase.rpc('admin_get_background_agent_tasks', {
-          _source: filterSource === 'all' ? undefined : filterSource,
+          _source_type: filterSource === 'all' ? undefined : filterSource,
           _status: filterStatus === 'all' ? undefined : filterStatus,
-          _severity: undefined,
+          _risk_level: undefined,
           _approval_only: approvalOnly,
           _limit: 200,
         }),
@@ -198,8 +214,8 @@ export default function BackgroundAgentRuntimePage() {
                 </TableHeader>
                 <TableBody>
                   {summary.map((r) => (
-                    <TableRow key={r.source}>
-                      <TableCell className="font-medium">{SOURCE_LABEL[r.source] ?? r.source}</TableCell>
+                    <TableRow key={r.source_type}>
+                      <TableCell className="font-medium">{SOURCE_LABEL[r.source_type] ?? r.source_type}</TableCell>
                       <TableCell className="text-right tabular-nums">{r.total}</TableCell>
                       <TableCell className="text-right tabular-nums">{r.pending}</TableCell>
                       <TableCell className="text-right tabular-nums">{r.running}</TableCell>
@@ -283,36 +299,44 @@ export default function BackgroundAgentRuntimePage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Quelle</TableHead>
-                    <TableHead>Kind</TableHead>
+                    <TableHead>Arbeitseinheit</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Sev.</TableHead>
+                    <TableHead>Risiko</TableHead>
                     <TableHead>Approval</TableHead>
-                    <TableHead>Erstellt</TableHead>
+                    <TableHead className="text-right">Artefakte</TableHead>
+                    <TableHead className="text-right">Kosten €</TableHead>
+                    <TableHead>Letztes Ereignis</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tasks.map((t) => (
-                    <TableRow key={`${t.source}-${t.source_id}`}>
-                      <TableCell className="text-xs text-fg-muted">{SOURCE_LABEL[t.source] ?? t.source}</TableCell>
-                      <TableCell className="font-medium text-sm">{t.task_kind}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{t.status}</Badge></TableCell>
-                      <TableCell>
-                        <Badge className={SEVERITY_TONE[t.severity] ?? SEVERITY_TONE.info}>{t.severity}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {t.requires_approval
-                          ? t.approved_at
-                            ? <span className="text-status-fg-success">✓ {new Date(t.approved_at).toLocaleDateString('de-DE')}</span>
-                            : <span className="text-status-fg-warning">offen</span>
-                          : <span className="text-fg-muted">—</span>}
-                      </TableCell>
-                      <TableCell className="text-xs text-fg-muted whitespace-nowrap">
-                        {new Date(t.created_at).toLocaleString('de-DE')}
+                  {tasks.map((t) => {
+                    const risk = t.risk_level ?? 'low';
+                    const approval = APPROVAL_LABEL[t.approval_state ?? 'not_required'] ?? APPROVAL_LABEL.not_required;
+                    return (
+                      <TableRow key={`${t.source_type}-${t.source_id}`}>
+                        <TableCell className="text-xs text-fg-muted">{SOURCE_LABEL[t.source_type] ?? t.source_type}</TableCell>
+                        <TableCell className="font-medium text-sm">{t.capability_summary ?? t.task_kind ?? '—'}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-xs">{t.status ?? '—'}</Badge></TableCell>
+                        <TableCell>
+                          <Badge className={RISK_TONE[risk] ?? RISK_TONE.low}>{risk}</Badge>
+                        </TableCell>
+                        <TableCell className={`text-xs ${approval.tone}`}>{approval.label}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{t.artifact_count ?? 0}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">
+                          {t.cost_eur != null ? Number(t.cost_eur).toFixed(2) : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-fg-muted whitespace-nowrap">
+                          {t.last_event_at ? new Date(t.last_event_at).toLocaleString('de-DE') : '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {tasks.length === 0 && !loading && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-fg-muted py-6">
+                        Keine Arbeitseinheiten im aktuellen Filter.
                       </TableCell>
                     </TableRow>
-                  ))}
-                  {tasks.length === 0 && !loading && (
-                    <TableRow><TableCell colSpan={6} className="text-center text-fg-muted py-6">Keine Tasks im Filter.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
