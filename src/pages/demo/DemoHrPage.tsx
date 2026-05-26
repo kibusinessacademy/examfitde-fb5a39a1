@@ -205,7 +205,8 @@ export default function DemoHrPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-6 pb-16 grid gap-6 lg:grid-cols-5">
+      <section className="mx-auto max-w-5xl px-6 pb-16 grid gap-6 lg:grid-cols-5" aria-labelledby="demo-hr-runner">
+        <h2 id="demo-hr-runner" className="sr-only lg:col-span-5">Demo starten</h2>
         {/* Input-Spalte */}
         <Card className="lg:col-span-2">
           <CardHeader>
