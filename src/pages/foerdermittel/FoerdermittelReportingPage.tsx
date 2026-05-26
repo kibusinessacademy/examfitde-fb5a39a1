@@ -14,7 +14,8 @@ import {
   buildStateCluster,
   buildTopicCluster,
   buildIndustryCluster,
-  buildCombinationClusters,
+  buildCombinationCluster,
+  COMBINATIONS,
 } from "@/lib/foerdermittel/seoAuthority";
 import { classifyFreshness } from "@/lib/foerdermittel/freshness";
 
