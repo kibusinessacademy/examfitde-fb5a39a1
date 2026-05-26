@@ -253,6 +253,8 @@ const FoerdermittelChecklistPage = lazyRetry(() => import('@/pages/foerdermittel
 const FoerdermittelCurrentPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelCurrentPage'));
 const FoerdermittelReportPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelReportPage'));
 const FoerdermittelReportingPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelReportingPage'));
+const FoerdermittelInboxPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelInboxPage'));
+const FoerdermittelLeadDetailPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelLeadDetailPage'));
 const OfferComparisonProjectPage = lazyRetry(() => import('@/pages/offer-comparison/OfferComparisonProjectPage'));
 const OrgStructurePage = lazyRetry(() => import('@/pages/org/OrgStructurePage'));
 const SetupWizardsPage = lazyRetry(() => import('@/pages/admin/SetupWizardsPage'));
@@ -461,6 +463,8 @@ const AppRoutes = () => {
         <Route path="/foerdermittel/aktuell" element={<FoerdermittelCurrentPage />} />
         <Route path="/foerdermittel/report/:reportKey" element={<FoerdermittelReportPage />} />
         <Route path="/foerdermittel/reporting" element={<FoerdermittelReportingPage />} />
+        <Route path="/foerdermittel/inbox" element={<FoerdermittelInboxPage />} />
+        <Route path="/foerdermittel/inbox/:leadId" element={<FoerdermittelLeadDetailPage />} />
         <Route path="/fördermittel" element={<Navigate to="/foerdermittel" replace />} />
 
         <Route path="/org/structure" element={<OrgStructurePage />} />
