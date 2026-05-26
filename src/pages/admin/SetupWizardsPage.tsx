@@ -87,7 +87,7 @@ export default function SetupWizardsPage() {
     <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-7xl">
       <div className="mb-6">
         <Button asChild variant="ghost" size="sm" className="mb-3">
-          <Link to="/admin/v2/leitstelle"><ArrowLeft className="h-4 w-4 mr-1" /> Leitstelle</Link>
+          <Link to="/admin/command"><ArrowLeft className="h-4 w-4 mr-1" /> Leitstelle</Link>
         </Button>
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>

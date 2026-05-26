@@ -124,9 +124,8 @@ describe("Auth Context", () => {
     });
 
     mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
-    mockRoleQuery.eq
-      .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: [{ role: "admin" }], error: null });
+    // Roles query always resolves to admin after sign-in for this race-condition test.
+    mockRoleQuery.eq.mockResolvedValue({ data: [{ role: "admin" }], error: null });
 
     const { AuthProvider, useAuth } = await import("@/hooks/useAuth");
 

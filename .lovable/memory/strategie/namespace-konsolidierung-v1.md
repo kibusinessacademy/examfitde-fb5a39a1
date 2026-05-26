@@ -1,46 +1,33 @@
 ---
-name: Namespace Konsolidierung v1 (Cut 4 Bigbang)
-description: SSOT-Namespaces berufos (Brand) + berufs-ki (Produkt). berufski ist deprecated und entfernt.
+name: Namespace-Konsolidierung BerufOS SSOT
+description: Kanonische Namespace-Regeln nach Bigbang-Cleanup — BerufOS als Plattform, ExamFit/Berufs-KI als Module, berufski deprecated, Drift-Guard
 type: constraint
 ---
 
-# Namespace Konsolidierung v1 — Cut 4 Bigbang (2026-05-26)
+# Namespace-SSOT (BerufOS-Architektur)
 
-## SSOT
+## Kanonische Hierarchie
+- **`berufos`** = Plattform / Brand / Betriebssystem (Shell, Header, Footer, Hub)
+- **`examfit`** = Produktmodul (Prüfungsvorbereitung)
+- **`berufs-ki`** = Produktmodul (KI-Copilot, Automation, Documents, Intelligence)
+- **`vibeos`** = Produktmodul (Marken-Shell unter BerufOS)
+- **`foerdermittel`** = Produktmodul (FördermittelOS, Authority-/Lead-System)
+- **`hr`** / **`offer-comparison`** / **`suites`** / **`authority`** / **`demo`** = weitere Module unter BerufOS-Dach
 
-| Namespace | Rolle | Beispiele |
-|---|---|---|
-| `berufos` | Plattform / Brand / Betriebssystem | `/berufos`, `berufos.com`, `BerufOS` |
-| `berufs-ki` | Produktmodul / Workbench / KI-Berufsanwendungen | `/berufs-ki`, `/berufs-ki/workbench`, Komponente `BerufsKIWorkbenchPage` |
-| `berufski` | **DEPRECATED — entfernt** | — keine Routen, keine Files, keine Edge-Functions, keine Domain |
+## Deprecated / verboten
+- **`berufski`** (Legacy-Namespace): NUR noch Redirect-Routen `/berufski`, `/berufski/*` zu 410/Redirect-Pages. Kein aktiver Code, keine Imports, keine neuen Komponenten, keine SEO-Targets.
 
-## Bigbang-Status
+## Drift-Guard
+- `scripts/guards/namespace-drift-guard.mjs` (CI: `bun run guard:namespace-drift`)
+- Verhindert: neue `berufski`-Imports, `berufski-checkout`-Pfade, Parallel-Markennamen, Shadow-Routes.
+- Memory + Migrations sind als Audit-Quellen explizit ausgenommen.
 
-Stand 2026-05-26 (Cut 4): `rg -i berufski` in aktivem Code → **0 Treffer**.
-- Keine `/berufski/*`-Routen.
-- Kein `berufski-checkout` Edge-Function-Alias.
-- `berufski.de` war nie registriert.
-- Erlaubte Restvorkommen: `supabase/migrations/**` (historisch), `.lovable/memory/**` (Doku).
+## Governance-Regeln
+1. Neue Produktmodule MÜSSEN als Submodul unter `berufos` mounten oder als eigenständiger Top-Level-Namespace mit Cross-Link aus `BerufOSHeader`.
+2. Keine Custom-Domain-Migration ohne Brand-Entity-Schutz für `berufos.com`.
+3. Jede neue Route MUSS sowohl in `src/routes/AppRoutes.tsx` als auch in `src/lib/route-registry.ts` registriert sein (CTA-Routes-Guard).
+4. `berufski` als String/Pfad/Import = harter CI-Fehler.
 
-## Checkout-SSOT
-
-Alle B2C-Checkouts laufen über **`create-product-checkout`** Edge Function.
-Keine parallele Checkout-Logik unter Legacy-Namespaces erlaubt.
-
-## Guard
-
-`scripts/guards/namespace-drift-guard.mjs` (npm: `guard:namespace-drift`):
-- Blockiert neue Treffer für `/berufski`, `berufski.de`, `berufski-checkout`, `berufski`.
-- Ausnahmen: Migrationen + Memory.
-
-## Begründung Bigbang (statt Bridge)
-
-- Keine echten Besucher auf Legacy-Pfaden → kein 301-Bedarf.
-- Bridge-Kosten (Code + Mental Load) > Migrations-Risiko.
-- Forward-only Architektur passt zu Market-Activation-Pivot.
-
-## Nicht im Scope
-
-- `berufs-ki` bleibt bestehen (klare Trennung Brand vs. Produkt).
-- Stripe-Product-IDs unverändert (Pricing SSOT 24,90 €).
-- Sub-Brand-Domains `examfit.de`/`examfitwork.de` bleiben 301-Shells auf `berufos.com` (P8).
+## Bigbang Cut 4 (2026-05-26)
+- 0 Treffer für aktive `berufski`-Pfade im Code (außer Redirects).
+- Cleanup war No-Op — bestätigt: kein Drift im aktiven Runtime.

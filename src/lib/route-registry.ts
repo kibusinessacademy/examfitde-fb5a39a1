@@ -289,6 +289,78 @@ export const ROUTE_PATTERNS: readonly string[] = [
   "/admin/ops/stale-marker-diff",
   "/admin/ops/step-done-audit",
   "/admin/ops/stuck-steps",
+
+  // Admin v2 setup wizards / activation
+  "/admin/activation-os",
+  "/admin/setup-wizards",
+
+  // BerufOS brand shell
+  "/berufos",
+  "/berufos/:slug",
+  "/vibeos",
+  "/examfit",
+
+  // Berufs-KI product modules
+  "/berufs-ki/automation",
+  "/berufs-ki/copilot",
+  "/berufs-ki/dokumente/review",
+  "/berufs-ki/graph-activation",
+  "/berufs-ki/intelligence",
+  "/berufs-ki/intelligence/executive",
+  "/berufs-ki/suites",
+
+  // Demo / Activation
+  "/demo",
+  "/demo/journey",
+  "/demo/cohort/:slug",
+
+  // Authority hub
+  "/authority",
+  "/authority/:topic",
+  "/authority/checkliste/:slug",
+  "/authority/risiko-check/:slug",
+  "/authority/vorlage/:slug",
+
+  // FördermittelOS
+  "/foerdermittel",
+  "/foerdermittel/aktuell",
+  "/foerdermittel/antrag/checkliste",
+  "/foerdermittel/branche/:industry",
+  "/foerdermittel/bundesland/:state",
+  "/foerdermittel/inbox",
+  "/foerdermittel/inbox/:leadId",
+  "/foerdermittel/kombination/:slug",
+  "/foerdermittel/programm/:slug",
+  "/foerdermittel/report/:reportKey",
+  "/foerdermittel/reporting",
+  "/foerdermittel/thema/:topic",
+  "/fördermittel",
+
+  // HR / OfferComparison / Suites
+  "/hr/:slug",
+  "/hr/fristenrechner-kuendigung",
+  "/offer-comparison",
+  "/offer-comparison/projekt/:slug",
+  "/angebotsvergleich",
+  "/suites",
+  "/suites/:slug",
+
+  // Misc top-level (existing in AppRoutes)
+  "/agents",
+  "/career",
+  "/documents",
+  "/governance",
+  "/industries",
+  "/newsletter/confirm",
+  "/oral-exam",
+  "/org/structure",
+  "/platform",
+  "/prompts",
+  "/pruefungsreife-check",
+  "/recruit",
+  "/skills",
+  "/tools/kuendigungsfrist-rechner",
+  "/workflows",
 ];
 
 /** Compile a Route-style pattern into a regex. */
