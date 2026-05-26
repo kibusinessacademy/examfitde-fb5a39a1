@@ -466,6 +466,8 @@ REGELN:
             active_painpoint_id: selectedPp?.id ?? null,
             turn_count: newTurnCount,
             user_turn_count: (session.user_turn_count as number ?? 0) + 1,
+            quality_gate_fails: 0, // reset on any successful substantive turn
+
           })
           .eq('id', session.id);
       },
