@@ -223,18 +223,18 @@ export function buildWorkflowValueCards<T extends BackgroundTaskLike>(
     const lastSeen = (latestTask as (BackgroundTaskLike & WithLastEvent) | null)?.last_event_at ?? null;
     let health: WorkflowHealth = "healthy";
     let healthLabel = "Läuft planmäßig.";
-    if (failed > 0 && completed === 0) {
-      health = "failed";
-      healthLabel = "Aktuell keine erfolgreichen Läufe — Team prüft die Ursache.";
-    } else if (running > 0) {
+    if (running > 0) {
       health = "running";
       healthLabel = "Workflow läuft gerade — neue Ergebnisse folgen.";
-    } else if (artifactCount === 0 && items.length > 0) {
-      health = "no_artifacts_yet";
-      healthLabel = "Workflow gestartet — Ergebnis erscheint nach Abschluss.";
+    } else if (failed > 0 && completed === 0) {
+      health = "failed";
+      healthLabel = "Aktuell keine erfolgreichen Läufe — Team prüft die Ursache.";
     } else if (items.length === 0) {
       health = "no_artifacts_yet";
       healthLabel = "Noch keine Ergebnisse im Beobachtungszeitraum.";
+    } else if (artifactCount === 0) {
+      health = "no_artifacts_yet";
+      healthLabel = "Workflow gestartet — Ergebnis erscheint nach Abschluss.";
     } else if (isStale(lastSeen, opts.nowIso, staleHours)) {
       health = "stale";
       healthLabel = "Längere Pause — nächster geplanter Lauf folgt automatisch.";
