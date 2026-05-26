@@ -153,13 +153,14 @@ describe("P70.3 — Invariants: no new orchestration truth, cockpit binding", ()
     }
   });
 
-  it("cockpit renders the Workflows tab with customer-facing outcome labels", () => {
+  it("cockpit renders the Workflows tab via the work-unit registry", () => {
     expect(PAGE).toMatch(/groupTasksByWorkUnit/);
-    expect(PAGE).toMatch(/SEO Opportunities finden/);
-    expect(PAGE).toMatch(/Compliance Drift prüfen/);
-    // Internal label OR safe external synonym must be present.
-    expect(PAGE).toMatch(/Produktqualität prüfen|Kontinuierliche Qualitätsoptimierung/);
+    // Cockpit must render the descriptor outcome label (not hardcoded strings).
+    expect(PAGE).toMatch(/descriptor\.outcomeLabel/);
+    // Internal-only marker must be respected in UI.
+    expect(PAGE).toMatch(/internal_only_quality/);
   });
+
 
   it("cockpit re-uses the P70.2 action chokepoint (no parallel dispatcher)", () => {
     expect(PAGE).toMatch(/dispatchBackgroundAgentAction/);
