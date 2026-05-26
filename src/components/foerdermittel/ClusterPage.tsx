@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ProgramCard } from "@/components/foerdermittel/ProgramCard";
 import { FoerderRadarCard } from "@/components/foerdermittel/FoerderRadarCard";
 import { EuAiActTransparencyCard } from "@/components/foerdermittel/EuAiActTransparencyCard";
+import { FundingReportCta } from "@/components/foerdermittel/FundingReportCta";
 import { JsonLdHead } from "@/components/seo/JsonLdHead";
 import { buildBreadcrumbList, composeSchemaGraph } from "@/lib/seo/schema";
 import {
@@ -17,10 +18,22 @@ import {
 } from "@/lib/foerdermittel/seoAuthority";
 import { scoreMatch } from "@/lib/foerdermittel/matching";
 import { PROGRAMS } from "@/lib/foerdermittel/registry";
+import type { LeadSourcePage } from "@/lib/foerdermittel/conversion";
+
+const KIND_TO_SOURCE: Record<Cluster["meta"]["kind"], LeadSourcePage> = {
+  state: "cluster_state",
+  topic: "cluster_topic",
+  industry: "cluster_industry",
+  combination: "cluster_combination",
+  aktuell: "cluster_current",
+  antrag: "checklist",
+};
 
 export interface ClusterPageProps {
   cluster: Cluster;
   breadcrumbLabel: string;
+  /** Optional override; default derived from cluster.meta.kind */
+  leadSource?: LeadSourcePage;
 }
 
 export function ClusterPage({ cluster, breadcrumbLabel }: ClusterPageProps) {
