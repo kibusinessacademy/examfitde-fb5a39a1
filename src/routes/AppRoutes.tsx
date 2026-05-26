@@ -237,6 +237,7 @@ const DemoCohortPage = lazyRetry(() => import('@/pages/demo/DemoCohortPage'));
 const ActivationJourneyPage = lazyRetry(() => import('@/pages/demo/ActivationJourneyPage'));
 const DemoHrPage = lazyRetry(() => import('@/pages/demo/DemoHrPage'));
 const ConversationOSShowroom = lazyRetry(() => import('@/pages/os/ConversationOSShowroom'));
+const VerticalModulePage = lazyRetry(() => import('@/pages/os/VerticalModulePage'));
 const FristenrechnerPage = lazyRetry(() => import('@/pages/hr/FristenrechnerPage'));
 const HRDeadlineLongtailPage = lazyRetry(() => import('@/pages/hr/HRDeadlineLongtailPage'));
 const AuthorityHubPage = lazyRetry(() => import('@/pages/authority/AuthorityHubPage'));
