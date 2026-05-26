@@ -51,6 +51,29 @@ export interface ProgramSource {
   label: string;
   /** ISO date when last verified (manual or by ingestion pipeline) */
   lastVerifiedAt?: string;
+  /** Marks the source as the official, primary reference (not press / aggregator) */
+  official?: boolean;
+}
+
+export type FreshnessStatus = "fresh" | "watch" | "stale" | "unknown";
+export type ChangeRisk = "low" | "medium" | "high";
+export type UpdateCadence = "weekly" | "monthly" | "quarterly" | "yearly" | "ad-hoc";
+
+export interface ProgramFreshness {
+  sourceUrl?: string;
+  sourceName?: string;
+  /** ISO date of last manual/pipeline verification of the program data */
+  lastVerifiedAt?: string;
+  /** ISO date of last detected program change (e.g. rate, deadline, status) */
+  lastChangedAt?: string;
+  /** ISO date when next review is recommended */
+  nextReviewAt?: string;
+  /** Update rhythm we expect from the responsible authority */
+  updateCadence?: UpdateCadence;
+  /** Editorial notes regarding verification state */
+  verificationNotes?: string;
+  /** Must be cross-checked against the official source before application */
+  officialSourceRequired?: boolean;
 }
 
 export interface Program {
@@ -80,6 +103,8 @@ export interface Program {
   sources: ProgramSource[];
   /** SEO long-tail keywords this program ranks for */
   seoKeywords?: string[];
+  /** Cut 2: Freshness & change-detection metadata */
+  freshness?: ProgramFreshness;
 }
 
 export interface CompanyProfile {
