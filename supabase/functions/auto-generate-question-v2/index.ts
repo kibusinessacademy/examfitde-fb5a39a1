@@ -243,6 +243,16 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
+  // Admin-only: this function calls OpenAI at platform cost.
+  const { requireAdmin } = await import("../_shared/adminGuard.ts");
+  const adminCtx = await requireAdmin(req);
+  if (adminCtx instanceof Response) {
+    return new Response(adminCtx.body, {
+      status: adminCtx.status,
+      headers: { ...corsHeaders, "content-type": "application/json" },
+    });
+  }
+
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const OPENAI_API_KEY_V2 = Deno.env.get("OPENAI_API_KEY");
@@ -310,7 +320,7 @@ Deno.serve(async (req) => {
     if (!aiResp.ok) {
       const errText = await aiResp.text();
       console.error(`[AutoGenV2] AI error ${aiResp.status}: ${errText.slice(0, 300)}`);
-      return json({ error: "ai_call_failed", status: aiResp.status, detail: errText.slice(0, 200) }, 502);
+      return json({ error: "ai_call_failed", status: aiResp.status }, 502);
     }
 
     const aiData = await aiResp.json();
@@ -324,7 +334,7 @@ Deno.serve(async (req) => {
       questions = validateAndExtract(content);
     } catch (parseErr) {
       console.error(`[AutoGenV2] Parse error: ${(parseErr as Error).message}`);
-      return json({ error: "parse_error", detail: (parseErr as Error).message, raw: content.slice(0, 300) }, 422);
+      return json({ error: "parse_error" }, 422);
     }
 
     // Map to DB rows
