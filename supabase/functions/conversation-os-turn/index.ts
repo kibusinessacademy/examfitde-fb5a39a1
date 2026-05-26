@@ -483,6 +483,7 @@ REGELN:
         // Meta header so client can show state delta without parsing full stream
         'x-conv-painpoint': painpointTriggered ?? '',
         'x-conv-state': JSON.stringify(currentState),
+        'x-conv-voice-id': (scenario?.character_brief as any)?.voice_id ?? '',
       },
     });
   } catch (e) {
