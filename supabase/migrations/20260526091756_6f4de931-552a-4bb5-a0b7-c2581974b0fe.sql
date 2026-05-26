@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.fn_is_pre_heartbeat_kill(timestamptz, timestamptz, integer) TO anon, authenticated;
