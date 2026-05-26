@@ -14,11 +14,10 @@ import {
   CHANGE_RISK_LABEL,
 } from "./freshness";
 import {
-  buildDocumentChecklist,
   computeApplicationReadiness,
   rankApplicationRisks,
   buildNextBestActions,
-  buildApplicationTimeline,
+  buildBridgeEvents,
   VERDICT_LABEL,
   type ApplicationReadiness,
   type BridgeEvent,
