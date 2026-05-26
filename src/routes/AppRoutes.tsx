@@ -415,6 +415,11 @@ const AppRoutes = () => {
         <Route path="/demo" element={<DemoHubPage />} />
         <Route path="/demo/cohort/:slug" element={<DemoCohortPage />} />
         <Route path="/demo/journey" element={<ActivationJourneyPage />} />
+
+        {/* HR Deadline OS — Authority Hub + Programmable SEO */}
+        <Route path="/hr/fristenrechner-kuendigung" element={<FristenrechnerPage />} />
+        <Route path="/tools/kuendigungsfrist-rechner" element={<FristenrechnerPage />} />
+        <Route path="/hr/:slug" element={<HRDeadlineLongtailPage />} />
         <Route path="/org/structure" element={<OrgStructurePage />} />
         <Route path="/admin/setup-wizards" element={<SetupWizardsPage />} />
         <Route path="/admin/activation-os" element={<ActivationOSPage />} />
