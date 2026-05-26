@@ -242,6 +242,8 @@ const AuthorityTopicPage = lazyRetry(() => import('@/pages/authority/AuthorityTo
 const AuthorityChecklistPage = lazyRetry(() => import('@/pages/authority/AuthorityChecklistPage'));
 const AuthorityTemplatePage = lazyRetry(() => import('@/pages/authority/AuthorityTemplatePage'));
 const AuthorityRiskCheckPage = lazyRetry(() => import('@/pages/authority/AuthorityRiskCheckPage'));
+const OfferComparisonDashboardPage = lazyRetry(() => import('@/pages/offer-comparison/OfferComparisonDashboardPage'));
+const OfferComparisonProjectPage = lazyRetry(() => import('@/pages/offer-comparison/OfferComparisonProjectPage'));
 const OrgStructurePage = lazyRetry(() => import('@/pages/org/OrgStructurePage'));
 const SetupWizardsPage = lazyRetry(() => import('@/pages/admin/SetupWizardsPage'));
 const ActivationOSPage = lazyRetry(() => import('@/pages/admin/ActivationOSPage'));
