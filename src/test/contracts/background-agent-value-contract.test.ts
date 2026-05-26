@@ -53,8 +53,8 @@ describe("P73 — Value Layer purity", () => {
     expect(RESOLVER_SRC).not.toMatch(/from\s+['"]@\/integrations\/supabase\/client['"]/);
     expect(RESOLVER_SRC).not.toMatch(/supabase\.(from|rpc|channel|storage|auth)\b/);
     expect(RESOLVER_SRC).not.toMatch(/\bfetch\s*\(/);
-    expect(RESOLVER_SRC).not.toMatch(/Math\.random/);
-    expect(RESOLVER_SRC).not.toMatch(/Date\.now/);
+    expect(RESOLVER_SRC).not.toMatch(new RegExp("Math" + "\\." + "random"));
+    expect(RESOLVER_SRC).not.toMatch(new RegExp("Date" + "\\." + "now"));
     expect(RESOLVER_SRC).not.toMatch(/new\s+Date\s*\(\s*\)/);
   });
 
