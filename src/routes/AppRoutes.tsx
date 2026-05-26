@@ -388,6 +388,7 @@ const AppRoutes = () => {
         <Route path="/berufs-ki/dokumente" element={<BerufsKIDocumentsPage />} />
         <Route path="/berufs-ki/dokumente/review" element={<BerufsKIDocumentsReviewPage />} />
         <Route path="/berufs-ki/intelligence" element={<BerufsKIIntelligencePage />} />
+        <Route path="/org/structure" element={<OrgStructurePage />} />
 
 
         {/* Legacy /berufski/* → 410 Gone */}
