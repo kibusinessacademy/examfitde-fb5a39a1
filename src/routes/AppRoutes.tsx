@@ -434,6 +434,12 @@ const AppRoutes = () => {
         <Route path="/authority/vorlage/:slug" element={<AuthorityTemplatePage />} />
         <Route path="/authority/risiko-check/:slug" element={<AuthorityRiskCheckPage />} />
         <Route path="/authority/:topic" element={<AuthorityTopicPage />} />
+
+        {/* AngebotsvergleichOS — Procurement & Decision Intelligence */}
+        <Route path="/offer-comparison" element={<OfferComparisonDashboardPage />} />
+        <Route path="/offer-comparison/projekt/:slug" element={<OfferComparisonProjectPage />} />
+        <Route path="/angebotsvergleich" element={<Navigate to="/offer-comparison" replace />} />
+
         <Route path="/org/structure" element={<OrgStructurePage />} />
         <Route path="/admin/setup-wizards" element={<SetupWizardsPage />} />
         <Route path="/admin/activation-os" element={<ActivationOSPage />} />
