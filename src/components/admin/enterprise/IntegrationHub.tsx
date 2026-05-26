@@ -1,7 +1,9 @@
 import { useState, lazy, Suspense } from 'react';
+import { Link } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Shield, RefreshCw, Key, Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Shield, RefreshCw, Key, Upload, Sparkles, ArrowRight } from 'lucide-react';
 
 const SSOWizard = lazy(() => import('./SSOWizard'));
 const ScimMappingPanel = lazy(() => import('./ScimMappingPanel'));
