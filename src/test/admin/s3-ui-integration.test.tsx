@@ -15,6 +15,9 @@ import { MemoryRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 
 const rpc = vi.fn();
+// Capture postgres_changes handlers so tests can fire realtime events
+// deterministically instead of waiting for the 15s polling safety net.
+const channelHandlers: Array<(payload: any) => void> = [];
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -26,14 +29,24 @@ vi.mock("@/integrations/supabase/client", () => ({
       limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     })),
-    channel: vi.fn(() => ({
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-      unsubscribe: vi.fn(),
-    })),
+    channel: vi.fn(() => {
+      const ch: any = {
+        on: vi.fn((_evt: string, _filter: any, cb: (payload: any) => void) => {
+          channelHandlers.push(cb);
+          return ch;
+        }),
+        subscribe: vi.fn().mockReturnThis(),
+        unsubscribe: vi.fn(),
+      };
+      return ch;
+    }),
     removeChannel: vi.fn(),
   },
 }));
+
+function emitGateExportJobsRealtime(newRow: any) {
+  for (const cb of channelHandlers) cb({ eventType: "UPDATE", new: newRow });
+}
 
 function wrap(ui: React.ReactNode) {
   const qc = new QueryClient({
