@@ -18,20 +18,20 @@ const ROOT = resolve(__dirname, "../..");
 const MIG_DIR = resolve(ROOT, "../supabase/migrations");
 const COCKPIT = resolve(ROOT, "pages/admin/governance/BackgroundAgentRuntimePage.tsx");
 
-function findP70Migration(): string {
+function loadAllP70Sql(): string {
   const files = readdirSync(MIG_DIR).filter((f) => f.endsWith(".sql"));
-  let latest = "";
+  let combined = "";
   for (const f of files) {
     const sql = readFileSync(resolve(MIG_DIR, f), "utf-8");
-    if (sql.includes("v_background_agent_runtime") && sql.includes("admin_get_background_agent_tasks")) {
-      if (f > latest) latest = f;
+    if (sql.includes("v_background_agent_runtime") || sql.includes("admin_get_background_agent_")) {
+      combined += "\n-- FILE: " + f + "\n" + sql;
     }
   }
-  if (!latest) throw new Error("P70.1 migration not found");
-  return readFileSync(resolve(MIG_DIR, latest), "utf-8");
+  if (!combined) throw new Error("P70.1 migrations not found");
+  return combined;
 }
 
-const SQL = findP70Migration();
+const SQL = loadAllP70Sql();
 const PAGE = readFileSync(COCKPIT, "utf-8");
 
 const REQUIRED_VIEW_COLUMNS = [
