@@ -43,6 +43,7 @@ const SECONDARY_ITEMS = [
   { to: '/admin/berufs-ki/agents', label: 'Berufs-KI Agenten', icon: Sparkles },
   { to: '/admin/berufs-ki/control-center', label: 'AI Workforce Cockpit', icon: Sparkles },
   { to: '/admin/governance/profession-licenses', label: 'Profession Licenses', icon: Shield },
+  { to: '/foerdermittel/reporting', label: 'FördermittelOS Reporting', icon: BarChart3 },
 ] as const;
 
 
