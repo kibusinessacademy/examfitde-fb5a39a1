@@ -33,8 +33,15 @@ export default function ConversationOSRunPage() {
     if (!scenarioId) return;
     (async () => {
       try {
+        // Read context overrides from sessionStorage (set by VerticalModulePage)
+        let context_overrides: any = undefined;
+        try {
+          const raw = sessionStorage.getItem(`conv_os_ctx_${scenarioId}`);
+          if (raw) context_overrides = JSON.parse(raw);
+        } catch { /* */ }
+
         const { data, error } = await supabase.functions.invoke('conversation-os-start', {
-          body: { scenario_id: scenarioId },
+          body: { scenario_id: scenarioId, context_overrides },
         });
         if (error) throw error;
         setSessionId(data.session_id);

@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
-import { useLocation, Link, Navigate } from "react-router-dom";
+import { useLocation, Link, Navigate, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Clock, Sparkles, CheckCircle2, Target, Users, MessagesSquare } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Clock, Sparkles, CheckCircle2, Target, Users, MessagesSquare, Play } from "lucide-react";
 
 type ScenarioRow = {
   id: string;
@@ -47,10 +51,16 @@ const DIFFICULTY_VARIANT: Record<string, "default" | "secondary" | "destructive"
 
 export default function VerticalModulePage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const moduleSlug = location.pathname.replace(/^\/os\//, "").replace(/\/$/, "");
   const [data, setData] = useState<ModuleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [selectedScenario, setSelectedScenario] = useState<ScenarioRow | null>(null);
+  const [position, setPosition] = useState("");
+  const [branche, setBranche] = useState("");
+  const [seniority, setSeniority] = useState("");
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     if (!moduleSlug) return;
@@ -219,7 +229,14 @@ export default function VerticalModulePage() {
                   </Card>
                 );
                 return isLive ? (
-                  <Link key={s.scenario_key} to={`/os/hr-interview/run/${s.id}`}>{card}</Link>
+                  <button
+                    key={s.scenario_key}
+                    type="button"
+                    onClick={() => { setSelectedScenario(s); }}
+                    className="text-left"
+                  >
+                    {card}
+                  </button>
                 ) : card;
               })}
             </div>
@@ -240,6 +257,57 @@ export default function VerticalModulePage() {
           </Button>
         </div>
       </section>
+
+      <Dialog open={!!selectedScenario} onOpenChange={(o) => !o && setSelectedScenario(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Szenario starten</DialogTitle>
+            <DialogDescription>
+              {selectedScenario?.title} · Optional: Position und Branche eingeben, damit der Charakter realistisch in deinem Hiring-Kontext reagiert.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="ctx-position">Gesuchte Position <span className="text-xs text-muted-foreground">(optional)</span></Label>
+              <Input id="ctx-position" placeholder="z. B. Senior Backend Engineer (Go)" value={position} onChange={(e) => setPosition(e.target.value)} maxLength={120} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="ctx-branche">Branche</Label>
+                <Input id="ctx-branche" placeholder="z. B. SaaS, Maschinenbau" value={branche} onChange={(e) => setBranche(e.target.value)} maxLength={80} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="ctx-sen">Seniorität</Label>
+                <Input id="ctx-sen" placeholder="z. B. Senior, Lead" value={seniority} onChange={(e) => setSeniority(e.target.value)} maxLength={40} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="ctx-notes">Zusatz-Kontext <span className="text-xs text-muted-foreground">(optional)</span></Label>
+              <Textarea id="ctx-notes" placeholder="z. B. Remote-Stelle, Salary-Band 75–90k, Team von 6 Engineers" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={400} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSelectedScenario(null)}>Abbrechen</Button>
+            <Button
+              onClick={() => {
+                if (!selectedScenario) return;
+                const ctx = {
+                  position: position.trim() || undefined,
+                  branche: branche.trim() || undefined,
+                  seniority: seniority.trim() || undefined,
+                  notes: notes.trim() || undefined,
+                };
+                try {
+                  sessionStorage.setItem(`conv_os_ctx_${selectedScenario.id}`, JSON.stringify(ctx));
+                } catch { /* */ }
+                navigate(`/os/hr-interview/run/${selectedScenario.id}`);
+              }}
+            >
+              <Play className="h-4 w-4 mr-2" /> Training starten
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

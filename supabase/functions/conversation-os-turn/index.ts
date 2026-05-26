@@ -237,8 +237,16 @@ Orientierungs-Linie (NICHT wörtlich übernehmen, nur Richtung): "${reaction.lin
 => Reagiere konsequent mit dieser Taktik. Bleibe in Rolle. Kurz, präzise, ohne Smalltalk.`;
     }
 
+    const ctxOverrides = (session.metadata as any)?.context_overrides ?? {};
+    const ctxLine = [
+      ctxOverrides.position ? `Gesuchte Position: ${ctxOverrides.position}` : null,
+      ctxOverrides.branche ? `Branche: ${ctxOverrides.branche}` : null,
+      ctxOverrides.seniority ? `Seniorität: ${ctxOverrides.seniority}` : null,
+      ctxOverrides.notes ? `Zusatz-Kontext: ${ctxOverrides.notes}` : null,
+    ].filter(Boolean).join(' · ');
+
     const sysPrompt = `Du bist ${brief.name ?? 'der Charakter'} (${brief.role ?? scenario.persona}) in folgender Situation:
-${scenario.situation}
+${scenario.situation}${ctxLine ? `\n\nGesprächskontext (in deine Rolle integrieren, nicht 1:1 wiederholen): ${ctxLine}` : ''}
 
 Charakter-Profil:
 - Tonalität: ${brief.tone ?? 'professionell, präzise'}
