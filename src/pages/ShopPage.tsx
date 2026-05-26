@@ -20,6 +20,7 @@ import { ProductHowItWorks } from '@/components/shop/ProductHowItWorks';
 import { ProductTrustSection } from '@/components/shop/ProductTrustSection';
 import { ProductB2BSection } from '@/components/shop/ProductB2BSection';
 import { StickyPurchaseBar } from '@/components/shop/StickyPurchaseBar';
+import { SellableCoursesCatalog } from '@/components/shop/SellableCoursesCatalog';
 import { formatEur } from '@/lib/timezone';
 
 export default function ShopPage() {
@@ -180,6 +181,10 @@ export default function ShopPage() {
 
         {/* B2B */}
         <ProductB2BSection />
+
+        {/* CATALOG — alle 190 verkaufbaren Kurse (P74a) */}
+        <SellableCoursesCatalog />
+
 
         {/* Final CTA */}
         <section className="py-12 md:py-16 text-center px-4">
