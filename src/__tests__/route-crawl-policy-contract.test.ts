@@ -129,6 +129,22 @@ describe('P6 Cut 3 — route_crawl_policy SSOT contract', () => {
           if (effective.get(k)?.size === 0) effective.delete(k);
         }
       }
+      // DELETE FROM ... WHERE pattern = 'a' AND match_type = 'Y' AND state = 'X'  (any clause order)
+      const deleteSingleRe =
+        /DELETE FROM public\.route_crawl_policy\s+WHERE\s+([^;]+);/gi;
+      let s: RegExpExecArray | null;
+      while ((s = deleteSingleRe.exec(sql)) !== null) {
+        const where = s[1];
+        const pm = where.match(/pattern\s*=\s*'([^']+)'/);
+        const mm = where.match(/match_type\s*=\s*'(exact|prefix|regex)'/);
+        const sm = where.match(/state\s*=\s*'(index|noindex|redirect|gone)'/);
+        if (pm && mm && sm) {
+          const k = `${pm[1]}|${mm[1]}`;
+          effective.get(k)?.delete(sm[1]);
+          if (effective.get(k)?.size === 0) effective.delete(k);
+        }
+      }
+
     }
     const conflicts: string[] = [];
     for (const [k, states] of effective) {
