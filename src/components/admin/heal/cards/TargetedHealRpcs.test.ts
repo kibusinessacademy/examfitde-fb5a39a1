@@ -15,7 +15,7 @@ import { describe, it, expect, vi } from "vitest";
 
 const RPC_BASE = "https://ubdvvvsiryenhrfmqsvw.supabase.co/rest/v1/rpc";
 const ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViZHZ2dnNpcnllbmhyZm1xc3Z3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NDA4MjgsImV4cCI6MjA4MzAxNjgyOH0.LGMpcVQMXziF3Zal4SoprwQj6KfNyqjVJXDXEh3pAEc";
+  "sb_publishable_3Z80G1ZZqFaK-wzNpNmaZA__1Tc6r8G";
 
 async function callRpc(fn: string, body: Record<string, unknown>) {
   const res = await fetch(`${RPC_BASE}/${fn}`, {

@@ -16,7 +16,7 @@ import { describe, it, expect } from "vitest";
 
 const SUPABASE_URL = "https://ubdvvvsiryenhrfmqsvw.supabase.co";
 const ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViZHZ2dnNpcnllbmhyZm1xc3Z3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NDA4MjgsImV4cCI6MjA4MzAxNjgyOH0.LGMpcVQMXziF3Zal4SoprwQj6KfNyqjVJXDXEh3pAEc";
+  "sb_publishable_3Z80G1ZZqFaK-wzNpNmaZA__1Tc6r8G";
 
 const JWT = process.env.TEST_ADMIN_JWT;
 const skipReason = !JWT

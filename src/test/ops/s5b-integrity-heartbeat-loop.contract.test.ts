@@ -143,7 +143,7 @@ describe("Integrity worker · pulse() emits ≥1 RPC per call with monotonic tic
 describe("complete_job · CAS contract (DB-side)", () => {
   const sb = createClient(
     "https://ubdvvvsiryenhrfmqsvw.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViZHZ2dnNpcnllbmhyZm1xc3Z3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NDA4MjgsImV4cCI6MjA4MzAxNjgyOH0.LGMpcVQMXziF3Zal4SoprwQj6KfNyqjVJXDXEh3pAEc",
+    "sb_publishable_3Z80G1ZZqFaK-wzNpNmaZA__1Tc6r8G",
   );
 
   it("fn_smoke_complete_job_cas refuses anon and is wired (no syntax errors)", async () => {
