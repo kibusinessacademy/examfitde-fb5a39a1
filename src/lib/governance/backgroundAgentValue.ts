@@ -140,13 +140,19 @@ function latestSummaryLine(type: CustomerWorkflowType, artifactType: ArtifactTyp
   return "Qualitätsprüfung abgeschlossen.";
 }
 
+type WithLastEvent = { last_event_at?: string | null };
+
+function lastEventOf(t: BackgroundTaskLike): string {
+  return (t as BackgroundTaskLike & WithLastEvent).last_event_at ?? "";
+}
+
 function pickLatest<T extends BackgroundTaskLike>(tasks: T[]): T | null {
   let best: T | null = null;
   for (const t of tasks) {
     if (statusOf(t) !== "completed") continue;
     if (!best) { best = t; continue; }
-    const a = t.last_event_at ?? "";
-    const b = best.last_event_at ?? "";
+    const a = lastEventOf(t);
+    const b = lastEventOf(best);
     if (a > b) best = t;
     else if (a === b && t.source_id > best.source_id) best = t;
   }
@@ -210,11 +216,11 @@ export function buildWorkflowValueCards<T extends BackgroundTaskLike>(
           source_id: latestTask.source_id,
           artifactType: classifyArtifact(latestTask),
           summary: latestSummaryLine(type, classifyArtifact(latestTask)),
-          lastEventAt: latestTask.last_event_at ?? null,
+          lastEventAt: (latestTask as BackgroundTaskLike & WithLastEvent).last_event_at ?? null,
         }
       : null;
 
-    const lastSeen = latestTask?.last_event_at ?? null;
+    const lastSeen = (latestTask as (BackgroundTaskLike & WithLastEvent) | null)?.last_event_at ?? null;
     let health: WorkflowHealth = "healthy";
     let healthLabel = "Läuft planmäßig.";
     if (failed > 0 && completed === 0) {

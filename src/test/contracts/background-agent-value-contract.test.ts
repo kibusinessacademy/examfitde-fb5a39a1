@@ -31,16 +31,17 @@ const MIG_DIR = resolve(SRC, "../supabase/migrations");
 const RESOLVER_SRC = readFileSync(RESOLVER, "utf-8");
 const COCKPIT_SRC = readFileSync(COCKPIT, "utf-8");
 
-function task(overrides: Partial<BackgroundTaskLike> & { source_id: string }): BackgroundTaskLike {
+function task(
+  overrides: Partial<BackgroundTaskLike> & { source_id: string; last_event_at?: string | null },
+): BackgroundTaskLike & { last_event_at?: string | null } {
   return {
     source_type: "job_queue",
-    source_id: overrides.source_id,
-    status: overrides.status ?? "completed",
-    risk_level: overrides.risk_level ?? "low",
-    approval_state: overrides.approval_state ?? "not_required",
-    artifact_count: overrides.artifact_count ?? 1,
-    package_id: overrides.package_id ?? null,
-    capability_summary: overrides.capability_summary ?? null,
+    status: "completed",
+    risk_level: "low",
+    approval_state: "not_required",
+    artifact_count: 1,
+    package_id: null,
+    capability_summary: null,
     ...overrides,
   };
 }
