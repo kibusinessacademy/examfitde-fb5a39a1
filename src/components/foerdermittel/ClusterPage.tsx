@@ -24,6 +24,7 @@ const KIND_TO_SOURCE: Record<Cluster["meta"]["kind"], LeadSourcePage> = {
   state: "cluster_state",
   topic: "cluster_topic",
   industry: "cluster_industry",
+  size: "hub",
   combination: "cluster_combination",
   aktuell: "cluster_current",
   antrag: "checklist",
