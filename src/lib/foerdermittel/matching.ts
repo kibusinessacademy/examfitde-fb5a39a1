@@ -1,6 +1,8 @@
 // FördermittelOS — Matching & Probability Engine (deterministic, client-safe)
 import { PROGRAMS } from "./registry";
 import type { CompanyProfile, Program, ProgramMatch } from "./types";
+import { classifyFreshness } from "./freshness";
+
 
 const SIZE_RANK = { solo: 0, micro: 1, small: 2, medium: 3, large: 4 } as const;
 
@@ -93,6 +95,18 @@ export function scoreMatch(profile: CompanyProfile, program: Program): ProgramMa
   const statusPenalty = sf < 1 ? -0.2 * (1 - sf) : 0;
   let probability = Math.round((base + sizeBoost + overlapBoost + statusPenalty) * 100);
   probability = Math.max(0, Math.min(100, probability));
+
+  // Cut 2 — freshness-aware soft penalty (never disqualifies)
+  const freshness = classifyFreshness(program);
+  if (freshness === "stale") {
+    fit = Math.round(fit * 0.9);
+    warnings.push("Aktualität: Quellen-Verifikation überfällig — vor Antrag prüfen.");
+  } else if (freshness === "unknown") {
+    fit = Math.round(fit * 0.93);
+    warnings.push("Aktualität: Keine verifizierte Quelle hinterlegt — Fit gut, aber prüfen.");
+  } else if (freshness === "watch") {
+    warnings.push("Aktualität: Programm aktuell unter Beobachtung.");
+  }
 
   // Cap fit if disqualified
   if (disqualifiers.length > 0) fit = Math.round(fit * 0.4);
