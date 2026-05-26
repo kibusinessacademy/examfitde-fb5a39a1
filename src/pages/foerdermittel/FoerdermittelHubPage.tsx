@@ -145,23 +145,26 @@ export default function FoerdermittelHubPage() {
         </div>
       </section>
 
-      {/* SEO topic clusters */}
+      {/* SEO Authority Clusters — Cut 5 */}
       <section className="mx-auto max-w-7xl px-6 py-12">
-        <h2 className="text-2xl font-semibold tracking-tight mb-4">Themen-Cluster</h2>
+        <h2 className="text-2xl font-semibold tracking-tight mb-4">Themen, Bundesländer & Kombinationen</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { slug: "digitalisierung", label: "Digitalisierung & KI" },
-            { slug: "weiterbildung", label: "Weiterbildung & Personal" },
-            { slug: "energie", label: "Energie & Nachhaltigkeit" },
-            { slug: "gruendung", label: "Gründung & Innovation" },
+            { to: "/foerdermittel/thema/digitalisierung", label: "Digitalisierung & KI", sub: "Themen-Cluster" },
+            { to: "/foerdermittel/thema/energie", label: "Energie & Nachhaltigkeit", sub: "Themen-Cluster" },
+            { to: "/foerdermittel/bundesland/nw", label: "Nordrhein-Westfalen", sub: "Bundesland" },
+            { to: "/foerdermittel/bundesland/by", label: "Bayern", sub: "Bundesland" },
+            { to: "/foerdermittel/bundesland/bw", label: "Baden-Württemberg", sub: "Bundesland" },
+            { to: "/foerdermittel/branche/it", label: "IT & Software", sub: "Branche" },
+            { to: "/foerdermittel/branche/handwerk", label: "Handwerk", sub: "Branche" },
+            { to: "/foerdermittel/kombination/digitalisierung-bund-land", label: "Bund + Land kombinieren", sub: "Kombination" },
+            { to: "/foerdermittel/kombination/energie-beratung-investition", label: "Energie: Beratung + Investition", sub: "Kombination" },
+            { to: "/foerdermittel/aktuell", label: "FörderRadar · Aktuell", sub: "Aktualität" },
+            { to: "/foerdermittel/antrag/checkliste", label: "Antrags-Checkliste", sub: "Antrag" },
           ].map((c) => (
-            <Link
-              key={c.slug}
-              to={`/foerdermittel/thema/${c.slug}`}
-              className="rounded-lg border p-4 hover:bg-muted transition"
-            >
-              <div className="font-semibold">{c.label}</div>
-              <div className="text-xs text-muted-foreground mt-1">Programme & Leitfäden</div>
+            <Link key={c.to} to={c.to} className="rounded-lg border p-4 hover:bg-muted transition">
+              <div className="text-xs text-muted-foreground">{c.sub}</div>
+              <div className="font-semibold mt-1">{c.label}</div>
             </Link>
           ))}
         </div>
