@@ -25,29 +25,32 @@ import { useToast } from '@/hooks/use-toast';
 import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-react';
 
 type SummaryRow = {
-  source: string;
+  source_type: string;
   total: number;
   pending: number;
   running: number;
   awaiting_approval: number;
   completed: number;
   failed: number;
+  high_risk: number;
   last_activity: string | null;
 };
 
 type TaskRow = {
-  source: string;
+  source_type: string;
   source_id: string;
-  task_kind: string;
-  status: string;
-  severity: string;
-  requires_approval: boolean;
-  approved_at: string | null;
-  created_at: string;
-  completed_at: string | null;
+  task_kind: string | null;
+  status: string | null;
+  risk_level: string | null;
+  capability_summary: string | null;
+  approval_state: string | null;
+  cost_eur: number | null;
+  budget_eur: number | null;
+  artifact_count: number | null;
+  last_event_at: string | null;
+  created_at: string | null;
   package_id: string | null;
   actor: string | null;
-  cost_eur: number | null;
   meta: Record<string, unknown> | null;
 };
 
@@ -70,11 +73,24 @@ const SOURCE_LABEL: Record<string, string> = {
   heal_permanent_fix_tasks: 'Human Follow-ups',
 };
 
+const RISK_TONE: Record<string, string> = {
+  low: 'bg-surface-muted text-fg-muted',
+  medium: 'bg-status-bg-subtle-warning text-status-fg-warning',
+  high: 'bg-status-bg-subtle-danger text-status-fg-danger',
+};
+
 const SEVERITY_TONE: Record<string, string> = {
   ok: 'bg-status-bg-subtle-success text-status-fg-success',
   info: 'bg-surface-muted text-fg-muted',
   warn: 'bg-status-bg-subtle-warning text-status-fg-warning',
   error: 'bg-status-bg-subtle-danger text-status-fg-danger',
+};
+
+const APPROVAL_LABEL: Record<string, { label: string; tone: string }> = {
+  not_required: { label: '—', tone: 'text-fg-muted' },
+  pending: { label: 'offen', tone: 'text-status-fg-warning' },
+  approved: { label: '✓ approved', tone: 'text-status-fg-success' },
+  rejected: { label: '✗ rejected', tone: 'text-status-fg-danger' },
 };
 
 export default function BackgroundAgentRuntimePage() {
