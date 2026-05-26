@@ -23,8 +23,10 @@ import {
   Users,
   Building2,
   ShieldCheck,
+  Mic,
   type LucideIcon,
 } from "lucide-react";
+
 import type { BerufosModuleStatus } from "./brand";
 
 export type BerufosPersona = "azubi" | "fachkraft" | "betrieb" | "institution" | "recruiter";
@@ -240,7 +242,28 @@ export const BERUFOS_MODULES: readonly BerufosModule[] = [
     ],
     personas: ["betrieb", "institution"],
   },
+  {
+    slug: "voiceos",
+    name: "VoiceOS",
+    category: "Conversation Runtime",
+    tagline: "Sprache. Druck. Realismus.",
+    promise:
+      "Voice-native Gesprächssimulation für Prüfungen, HR, Service und mehr — mit Audit-Trail, Kompetenz-Mapping und Compliance.",
+    status: "preview",
+    icon: Mic,
+    accent: "mint",
+    href: "/os/hr-interview",
+    features: [
+      { title: "Oral Exam Trainer", body: "Mündliche Prüfungssimulation pro Curriculum." },
+      { title: "HR InterviewOS", body: "Stress-, Panel- und Verhandlungsgespräche." },
+      { title: "Voice + Text", body: "Push-to-Talk, STT, TTS mit dynamischer Emotion." },
+      { title: "Scorecards & Artefakte", body: "Strukturierte Auswertung pro Session." },
+      { title: "Compliance-Ready", body: "DSGVO · Consent · Audit-Events ab Session-Geburt." },
+    ],
+    personas: ["azubi", "fachkraft", "betrieb", "recruiter"],
+  },
 ] as const;
+
 
 export const BERUFOS_MODULE_SLUGS = BERUFOS_MODULES.map((m) => m.slug);
 
