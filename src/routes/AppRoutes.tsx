@@ -410,6 +410,9 @@ const AppRoutes = () => {
         {/* Public Marketing Suiten — Packaging & Positionierung */}
         <Route path="/suites" element={<SuitesHubPage />} />
         <Route path="/suites/:slug" element={<SuiteDetailPage />} />
+        <Route path="/demo" element={<DemoHubPage />} />
+        <Route path="/demo/cohort/:slug" element={<DemoCohortPage />} />
+        <Route path="/demo/journey" element={<ActivationJourneyPage />} />
         <Route path="/org/structure" element={<OrgStructurePage />} />
         <Route path="/admin/setup-wizards" element={<SetupWizardsPage />} />
         <Route path="/admin/activation-os" element={<ActivationOSPage />} />
