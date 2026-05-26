@@ -243,6 +243,16 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
+  // Admin-only: this function calls OpenAI at platform cost.
+  const { requireAdmin } = await import("../_shared/adminGuard.ts");
+  const adminCtx = await requireAdmin(req);
+  if (adminCtx instanceof Response) {
+    return new Response(adminCtx.body, {
+      status: adminCtx.status,
+      headers: { ...corsHeaders, "content-type": "application/json" },
+    });
+  }
+
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const OPENAI_API_KEY_V2 = Deno.env.get("OPENAI_API_KEY");
