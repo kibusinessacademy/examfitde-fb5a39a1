@@ -334,7 +334,7 @@ Deno.serve(async (req) => {
       questions = validateAndExtract(content);
     } catch (parseErr) {
       console.error(`[AutoGenV2] Parse error: ${(parseErr as Error).message}`);
-      return json({ error: "parse_error", detail: (parseErr as Error).message, raw: content.slice(0, 300) }, 422);
+      return json({ error: "parse_error" }, 422);
     }
 
     // Map to DB rows
