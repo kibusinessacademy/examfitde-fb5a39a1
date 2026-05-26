@@ -8,6 +8,7 @@ import { REGION_LABEL } from "@/lib/foerdermittel/matching";
 import { FreshnessBadge } from "@/components/foerdermittel/FreshnessBadge";
 import { ApplicationRoadmapCard } from "@/components/foerdermittel/ApplicationRoadmapCard";
 import { CopilotPanel } from "@/components/foerdermittel/CopilotPanel";
+import { FundingReportCta } from "@/components/foerdermittel/FundingReportCta";
 import {
   classifyFreshness,
   classifyChangeRisk,
