@@ -134,6 +134,7 @@ export default function BackgroundAgentRuntimePage() {
   const [pendingTrigger, setPendingTrigger] = useState<ResolvedWorkflowTrigger | null>(null);
   const [dispatching, setDispatching] = useState(false);
   const [triggering, setTriggering] = useState(false);
+  const [previewTask, setPreviewTask] = useState<TaskRow | null>(null);
 
 
   function navigateToSource(t: TaskRow, kind: BackgroundAgentAction) {
