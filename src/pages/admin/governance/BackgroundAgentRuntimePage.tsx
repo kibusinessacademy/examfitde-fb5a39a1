@@ -20,9 +20,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-react';
+import {
+  resolveBackgroundAgentActions,
+  dispatchBackgroundAgentAction,
+  isNavigationAction,
+  type BackgroundAgentAction,
+  type BackgroundAgentSource,
+} from '@/lib/governance/backgroundAgentActions';
+
 
 type SummaryRow = {
   source_type: string;
