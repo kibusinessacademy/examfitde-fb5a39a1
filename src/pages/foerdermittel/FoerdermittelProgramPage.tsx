@@ -265,6 +265,9 @@ export default function FoerdermittelProgramPage() {
 
       {/* Cut 3 — Execution OS: Antragsfahrplan */}
       <ApplicationRoadmapCard program={program} />
+
+      {/* Cut 4 — AI CoPilot (grounded on registry + freshness + execution) */}
+      <CopilotPanel program={program} />
     </main>
   );
 }
