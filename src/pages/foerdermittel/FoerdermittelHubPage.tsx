@@ -59,6 +59,12 @@ export default function FoerdermittelHubPage() {
         <CopilotHubCta />
       </section>
 
+      {/* Cut 6 — Funding Report Lead CTA */}
+      <section className="mx-auto max-w-7xl px-6 pt-6">
+        <FundingReportCta source="hub" matches={matches} profile={profile} variant="primary" />
+      </section>
+
+
       {/* Wizard */}
       <section id="matching" className="mx-auto max-w-7xl px-6 py-10">
         <h2 className="text-2xl font-semibold tracking-tight mb-1">Matching-Wizard</h2>
