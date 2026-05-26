@@ -125,12 +125,12 @@ export function classifyArtifact(task: BackgroundTaskLike): ArtifactType {
   const hay = probe(task);
 
   // Strongest specificity first.
-  if (SEO_BRIEF_RE.test(hay)) return "seo_brief";
   if (COMPLIANCE_RE.test(hay)) return "compliance_evidence";
+  if (SEO_BRIEF_RE.test(hay)) return "seo_brief";
+  if (QUALITY_RE.test(hay)) return "quality_plan";
   if (CHECKLIST_RE.test(hay)) return "checklist";
   if (DIFF_RE.test(hay)) return "diff_plan";
   if (FINDING_RE.test(hay)) return "finding";
-  if (QUALITY_RE.test(hay)) return "quality_plan";
   // Sensible fallback: a generic report when we have any artifact at all.
   return (task.artifact_count ?? 0) > 0 ? "report" : "unknown";
 }
