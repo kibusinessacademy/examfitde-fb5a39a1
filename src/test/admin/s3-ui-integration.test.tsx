@@ -15,6 +15,9 @@ import { MemoryRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 
 const rpc = vi.fn();
+// Capture postgres_changes handlers so tests can fire realtime events
+// deterministically instead of waiting for the 15s polling safety net.
+const channelHandlers: Array<(payload: any) => void> = [];
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -26,14 +29,24 @@ vi.mock("@/integrations/supabase/client", () => ({
       limit: vi.fn().mockResolvedValue({ data: [], error: null }),
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     })),
-    channel: vi.fn(() => ({
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-      unsubscribe: vi.fn(),
-    })),
+    channel: vi.fn(() => {
+      const ch: any = {
+        on: vi.fn((_evt: string, _filter: any, cb: (payload: any) => void) => {
+          channelHandlers.push(cb);
+          return ch;
+        }),
+        subscribe: vi.fn().mockReturnThis(),
+        unsubscribe: vi.fn(),
+      };
+      return ch;
+    }),
     removeChannel: vi.fn(),
   },
 }));
+
+function emitGateExportJobsRealtime(newRow: any) {
+  for (const cb of channelHandlers) cb({ eventType: "UPDATE", new: newRow });
+}
 
 function wrap(ui: React.ReactNode) {
   const qc = new QueryClient({
@@ -50,6 +63,7 @@ function wrap(ui: React.ReactNode) {
 
 beforeEach(() => {
   rpc.mockReset();
+  channelHandlers.length = 0;
 });
 
 describe("BurstSizeSimulatorCard", () => {
@@ -228,11 +242,13 @@ describe("GateHistoryDashboardPage", () => {
       ),
     );
 
-    // Now flip to done and let next poll observe it.
+    // Flip mock state and emit realtime event so the query invalidates
+    // immediately instead of waiting for the 15s polling fallback.
     jobStatus = "done";
-    await waitFor(() => expect(successSpy).toHaveBeenCalled(), { timeout: 20_000 });
+    emitGateExportJobsRealtime({ id: JOB, status: "done" });
+    await waitFor(() => expect(successSpy).toHaveBeenCalled(), { timeout: 5_000 });
     expect(errorSpy).not.toHaveBeenCalled();
-  }, 25_000);
+  }, 10_000);
 
   it("Export-Job-Flow: failed status → error toast + retry button visible", async () => {
     const { toast } = await import("sonner");
