@@ -43,6 +43,8 @@ import {
   type WorkflowTriggerType,
   type ResolvedWorkflowTrigger,
 } from '@/lib/governance/backgroundAgentWorkflowTriggers';
+import { ArtifactPreviewDrawer } from '@/components/governance/ArtifactPreviewDrawer';
+import { FileText } from 'lucide-react';
 
 
 
