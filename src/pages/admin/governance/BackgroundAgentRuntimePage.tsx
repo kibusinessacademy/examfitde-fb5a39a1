@@ -245,12 +245,99 @@ export default function BackgroundAgentRuntimePage() {
         <KpiCard label="Failed" value={totals.failed} tone={totals.failed > 0 ? 'error' : 'ok'} />
       </section>
 
-      <Tabs defaultValue="sources" className="w-full">
+      <Tabs defaultValue="workflows" className="w-full">
         <TabsList>
+          <TabsTrigger value="workflows"><Sparkles className="h-4 w-4 mr-2" />Workflows</TabsTrigger>
           <TabsTrigger value="sources"><Layers className="h-4 w-4 mr-2" />Quellen</TabsTrigger>
           <TabsTrigger value="tasks"><Activity className="h-4 w-4 mr-2" />Tasks</TabsTrigger>
           <TabsTrigger value="capabilities"><ShieldCheck className="h-4 w-4 mr-2" />Capabilities</TabsTrigger>
         </TabsList>
+
+        {/* P70.3 — Workflows: customer-facing outcomes (SEO / Compliance / Operational Quality) */}
+        <TabsContent value="workflows" className="space-y-3">
+          {(() => {
+            const groups = groupTasksByWorkUnit(tasks);
+            if (groups.length === 0 && !loading) {
+              return (
+                <Card>
+                  <CardContent className="py-10 text-center text-fg-muted text-sm">
+                    Keine sichtbaren Workflow-Arbeitseinheiten im aktuellen Filter.
+                  </CardContent>
+                </Card>
+              );
+            }
+            return (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {groups.map((g) => (
+                  <Card key={g.type} className="shadow-elev-1">
+                    <CardHeader>
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="text-base">{g.descriptor.outcomeLabel}</CardTitle>
+                        {g.descriptor.visibility === 'internal_only_quality' && (
+                          <Badge variant="outline" className="text-[10px] uppercase">intern</Badge>
+                        )}
+                      </div>
+                      <CardDescription className="text-xs">{g.descriptor.description}</CardDescription>
+                      {g.descriptor.visibility === 'internal_only_quality' && (
+                        <div className="text-[11px] text-fg-muted mt-1">
+                          Kunden-Sicht: <span className="italic">„{g.descriptor.externalLabel}"</span>
+                        </div>
+                      )}
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                        <div><div className="font-semibold tabular-nums text-base">{g.total}</div><div className="text-fg-muted">Gesamt</div></div>
+                        <div><div className="font-semibold tabular-nums text-base">{g.pending + g.running}</div><div className="text-fg-muted">Aktiv</div></div>
+                        <div><div className={`font-semibold tabular-nums text-base ${g.awaitingApproval > 0 ? 'text-status-fg-warning' : ''}`}>{g.awaitingApproval}</div><div className="text-fg-muted">Approval</div></div>
+                        <div><div className={`font-semibold tabular-nums text-base ${g.failed > 0 ? 'text-status-fg-danger' : ''}`}>{g.failed}</div><div className="text-fg-muted">Failed</div></div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-fg-muted">
+                        <span>📎 {g.artifactCount} Artefakte</span>
+                        {g.highRisk > 0 && <span className="text-status-fg-danger">⚠ {g.highRisk} High-Risk</span>}
+                      </div>
+                      <div className="space-y-1.5 pt-2 border-t border-border">
+                        <div className="text-[11px] text-fg-muted uppercase tracking-wide">Letzte Einheiten</div>
+                        {g.sample.slice(0, 5).map((t) => {
+                          const actions = resolveBackgroundAgentActions(t);
+                          return (
+                            <div
+                              key={`${t.source_type}-${t.source_id}`}
+                              className="flex items-center justify-between gap-2 text-xs"
+                            >
+                              <div className="truncate flex-1">
+                                <span className="font-medium">{t.capability_summary ?? '—'}</span>
+                                <span className="text-fg-muted ml-1">· {t.status ?? '—'}</span>
+                              </div>
+                              <div className="flex gap-1">
+                                {actions.slice(0, 2).map((a) => (
+                                  <Button
+                                    key={a.action}
+                                    size="sm"
+                                    variant={a.dangerous ? 'destructive' : isNavigationAction(a.action) ? 'ghost' : 'outline'}
+                                    disabled={!a.enabled}
+                                    title={a.reason}
+                                    className="h-6 px-2 text-[11px]"
+                                    onClick={() => {
+                                      if (isNavigationAction(a.action)) navigateToSource(t, a.action);
+                                      else setPendingDispatch({ task: t, action: a.action, label: a.label });
+                                    }}
+                                  >
+                                    {a.label}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            );
+          })()}
+        </TabsContent>
+
 
         {/* Sources Overview */}
         <TabsContent value="sources" className="space-y-3">
