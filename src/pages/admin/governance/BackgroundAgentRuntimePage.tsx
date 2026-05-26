@@ -221,7 +221,7 @@ export default function BackgroundAgentRuntimePage() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [s, t, c] = await Promise.all([
+      const [s, t, c, sch] = await Promise.all([
 
         supabase.rpc('admin_get_background_agent_runtime_summary'),
         supabase.rpc('admin_get_background_agent_tasks', {
@@ -232,13 +232,16 @@ export default function BackgroundAgentRuntimePage() {
           _limit: 200,
         }),
         supabase.rpc('admin_get_background_agent_capabilities'),
+        supabase.rpc('admin_get_background_agent_schedules'),
       ]);
       if (s.error) throw s.error;
       if (t.error) throw t.error;
       if (c.error) throw c.error;
+      if (sch.error) throw sch.error;
       setSummary((s.data ?? []) as SummaryRow[]);
       setTasks((t.data ?? []) as TaskRow[]);
       setCapabilities((c.data ?? []) as CapabilityRow[]);
+      setSchedules((sch.data ?? []) as ScheduleRowLike[]);
     } catch (e) {
       toast({
         title: 'Ladefehler',
