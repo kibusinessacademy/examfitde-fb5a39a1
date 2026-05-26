@@ -1,18 +1,17 @@
 import { Helmet } from "react-helmet-async";
 import { Link, useParams, Navigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, ArrowRight } from "lucide-react";
 import { BerufOSHeader } from "@/components/berufos/BerufOSHeader";
 import { BerufOSFooter } from "@/components/berufos/BerufOSFooter";
 import { ProductLandingShell } from "@/components/products/ProductLandingShell";
 import { PRODUCTS, PRODUCT_SLUGS, getProduct } from "@/lib/products/product-registry";
+import { useMarketingProductPage } from "@/lib/products/useMarketingProductPage";
 import { BERUFOS } from "@/lib/berufos/brand";
-import { ArrowRight } from "lucide-react";
 
 import "@/components/berufos/berufos-theme.css";
 
-/**
- * /produkte — Hub aller Premium-Produktseiten.
- */
+/** /produkte — Hub aller Premium-Produktseiten. */
 export function ProduktHub() {
   const canonical = `${BERUFOS.domain}/produkte`;
   const collectionLd = {
@@ -95,12 +94,20 @@ export function ProduktHub() {
   );
 }
 
-/**
- * /produkte/:slug — dynamische Route. Unbekannte Slugs → /produkte.
- */
+/** /produkte/:slug — DB-first mit TS-registry Fallback. */
 export default function ProductLandingPage() {
   const { slug } = useParams<{ slug: string }>();
-  const product = slug ? getProduct(slug) : undefined;
+  const { data, isLoading } = useMarketingProductPage(slug);
+  const fallback = slug ? getProduct(slug) : undefined;
+  const product = data ?? fallback;
+
+  if (isLoading && !fallback) {
+    return (
+      <div className="berufos min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin berufos-text-dim" />
+      </div>
+    );
+  }
   if (!product) {
     return <Navigate to="/produkte" replace />;
   }
