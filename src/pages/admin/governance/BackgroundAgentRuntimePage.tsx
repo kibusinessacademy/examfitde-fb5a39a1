@@ -49,7 +49,12 @@ import {
   type ScheduleRowLike,
 } from '@/lib/governance/backgroundAgentSchedules';
 import { ArtifactPreviewDrawer } from '@/components/governance/ArtifactPreviewDrawer';
-import { FileText } from 'lucide-react';
+import { FileText, Gauge } from 'lucide-react';
+import {
+  buildWorkflowValueCards,
+  formatMinutesSaved,
+  type WorkflowHealth,
+} from '@/lib/governance/backgroundAgentValue';
 
 
 
