@@ -20,9 +20,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle } from 'lucide-react';
+import {
+  resolveBackgroundAgentActions,
+  dispatchBackgroundAgentAction,
+  isNavigationAction,
+  type BackgroundAgentAction,
+  type BackgroundAgentSource,
+} from '@/lib/governance/backgroundAgentActions';
+
 
 type SummaryRow = {
   source_type: string;
@@ -102,11 +114,60 @@ export default function BackgroundAgentRuntimePage() {
   const [filterSource, setFilterSource] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [approvalOnly, setApprovalOnly] = useState(false);
+  const [pendingDispatch, setPendingDispatch] = useState<{
+    task: TaskRow; action: BackgroundAgentAction; label: string;
+  } | null>(null);
+  const [dispatching, setDispatching] = useState(false);
+
+  function navigateToSource(t: TaskRow, kind: BackgroundAgentAction) {
+    // P70.2: navigation only — never reads source tables directly.
+    if (t.package_id && (kind === 'open_source' || kind === 'open_artifacts')) {
+      window.open(`/admin/packages/${t.package_id}`, '_blank', 'noopener');
+      return;
+    }
+    if (kind === 'open_approval' && t.package_id) {
+      window.open(`/admin/packages/${t.package_id}#approval`, '_blank', 'noopener');
+      return;
+    }
+    toast({
+      title: 'Keine Zielseite verfügbar',
+      description: 'Diese Quelle hat aktuell keinen Detail-Link im Admin-UI.',
+    });
+  }
+
+  async function performDispatch() {
+    if (!pendingDispatch) return;
+    const { task, action, label } = pendingDispatch;
+    setDispatching(true);
+    try {
+      const res = await dispatchBackgroundAgentAction(
+        task.source_type as BackgroundAgentSource,
+        task.source_id,
+        action as Exclude<BackgroundAgentAction, 'open_source' | 'open_artifacts' | 'open_approval'>,
+        `cockpit_p70_2:${label}`,
+      );
+      toast({
+        title: 'Action dispatched',
+        description: `${label} → ${res.route}`,
+      });
+      setPendingDispatch(null);
+      await loadAll();
+    } catch (e) {
+      toast({
+        title: 'Dispatch fehlgeschlagen',
+        description: e instanceof Error ? e.message : 'Unbekannter Fehler',
+        variant: 'destructive',
+      });
+    } finally {
+      setDispatching(false);
+    }
+  }
 
   async function loadAll() {
     setLoading(true);
     try {
       const [s, t, c] = await Promise.all([
+
         supabase.rpc('admin_get_background_agent_runtime_summary'),
         supabase.rpc('admin_get_background_agent_tasks', {
           _source_type: filterSource === 'all' ? undefined : filterSource,
@@ -306,12 +367,14 @@ export default function BackgroundAgentRuntimePage() {
                     <TableHead className="text-right">Artefakte</TableHead>
                     <TableHead className="text-right">Kosten €</TableHead>
                     <TableHead>Letztes Ereignis</TableHead>
+                    <TableHead>Aktionen</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tasks.map((t) => {
                     const risk = t.risk_level ?? 'low';
                     const approval = APPROVAL_LABEL[t.approval_state ?? 'not_required'] ?? APPROVAL_LABEL.not_required;
+                    const actions = resolveBackgroundAgentActions(t);
                     return (
                       <TableRow key={`${t.source_type}-${t.source_id}`}>
                         <TableCell className="text-xs text-fg-muted">{SOURCE_LABEL[t.source_type] ?? t.source_type}</TableCell>
@@ -328,16 +391,40 @@ export default function BackgroundAgentRuntimePage() {
                         <TableCell className="text-xs text-fg-muted whitespace-nowrap">
                           {t.last_event_at ? new Date(t.last_event_at).toLocaleString('de-DE') : '—'}
                         </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1" data-testid={`actions-${t.source_id}`}>
+                            {actions.map((a) => (
+                              <Button
+                                key={a.action}
+                                size="sm"
+                                variant={a.dangerous ? 'destructive' : isNavigationAction(a.action) ? 'ghost' : 'outline'}
+                                disabled={!a.enabled}
+                                title={a.reason}
+                                aria-label={`${a.label} — ${t.source_type}`}
+                                onClick={() => {
+                                  if (isNavigationAction(a.action)) {
+                                    navigateToSource(t, a.action);
+                                  } else {
+                                    setPendingDispatch({ task: t, action: a.action, label: a.label });
+                                  }
+                                }}
+                              >
+                                {a.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                   {tasks.length === 0 && !loading && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-fg-muted py-6">
+                      <TableCell colSpan={9} className="text-center text-fg-muted py-6">
                         Keine Arbeitseinheiten im aktuellen Filter.
                       </TableCell>
                     </TableRow>
                   )}
+
                 </TableBody>
               </Table>
             </CardContent>
@@ -394,9 +481,30 @@ export default function BackgroundAgentRuntimePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!pendingDispatch} onOpenChange={(o) => !o && setPendingDispatch(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingDispatch?.label} ausführen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Die Aktion läuft über die bestehende Dispatcher-Pipeline — kein paralleler
+              Schreibpfad. Quelle <code>{pendingDispatch?.task.source_type}</code>,
+              ID <code className="text-xs">{pendingDispatch?.task.source_id}</code>.
+              Jeder Dispatch wird in <code>auto_heal_log</code> auditiert.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={dispatching}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void performDispatch(); }} disabled={dispatching}>
+              {dispatching ? 'Dispatcht…' : 'Bestätigen'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
 
 function KpiCard({
   label, value, tone = 'info', icon: Icon,
