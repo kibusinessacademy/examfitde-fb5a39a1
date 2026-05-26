@@ -89,12 +89,12 @@ export const ARTIFACT_REGISTRY: Record<ArtifactType, ArtifactDescriptor> = {
 
 // --- Classifier ---
 
-const SEO_BRIEF_RE = /seo[_-]?brief|seo[_-]?opportunit|keyword[_-]?gap|cluster[_-]?gap|internal[_-]?link[_-]?gap|content[_-]?brief/i;
-const COMPLIANCE_RE = /compliance|dsgvo|gdpr|ai[_-]?act|azav|evidence|audit[_-]?export|policy[_-]?check|secdef|rls/i;
-const DIFF_RE = /diff|plan|preview|dry[_-]?run|proposed[_-]?change|patch/i;
-const CHECKLIST_RE = /checklist|action[_-]?list|todo|maßnahmen|massnahmen|tasks?[_-]?list/i;
-const FINDING_RE = /finding|issue|drift|anomaly|alert|violation|gap/i;
-const QUALITY_RE = /quality[_-]?plan|repair[_-]?plan|heal[_-]?plan|integrity|council|curriculum|tutor|minicheck|blueprint|publish[_-]?ready/i;
+const SEO_BRIEF_RE = /seo|sitemap|cluster|keyword|internal[\s_-]?link|content[\s_-]?brief|persona[\s_-]?landing|cert[\s_-]?pillar|backlink|llm[\s_-]?visibility|gsc|serp/i;
+const COMPLIANCE_RE = /compliance|dsgvo|gdpr|ai[\s_-]?act|azav|evidence|audit[\s_-]?export|policy[\s_-]?check|secdef|\brls\b/i;
+const DIFF_RE = /\bdiff\b|preview|dry[\s_-]?run|proposed[\s_-]?change|\bpatch\b/i;
+const CHECKLIST_RE = /checklist|action[\s_-]?list|todo|maßnahmen|massnahmen|tasks?[\s_-]?list/i;
+const FINDING_RE = /finding|\bissue\b|drift|anomaly|alert|violation|\bgap\b/i;
+const QUALITY_RE = /quality[\s_-]?plan|repair[\s_-]?plan|heal[\s_-]?plan|integrity|council|curriculum|tutor|minicheck|blueprint|publish[\s_-]?ready/i;
 
 function probe(task: BackgroundTaskLike): string {
   const meta = task as unknown as { meta?: Record<string, unknown> | null };
