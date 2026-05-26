@@ -320,7 +320,7 @@ Deno.serve(async (req) => {
     if (!aiResp.ok) {
       const errText = await aiResp.text();
       console.error(`[AutoGenV2] AI error ${aiResp.status}: ${errText.slice(0, 300)}`);
-      return json({ error: "ai_call_failed", status: aiResp.status, detail: errText.slice(0, 200) }, 502);
+      return json({ error: "ai_call_failed", status: aiResp.status }, 502);
     }
 
     const aiData = await aiResp.json();
