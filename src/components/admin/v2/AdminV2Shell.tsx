@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, Package, ListChecks, Menu, X,
   LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Heart, Gauge,
-  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp, Webhook, Cpu, Eye
+  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp, Webhook, Cpu, Eye, Inbox
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +44,7 @@ const SECONDARY_ITEMS = [
   { to: '/admin/berufs-ki/control-center', label: 'AI Workforce Cockpit', icon: Sparkles },
   { to: '/admin/governance/profession-licenses', label: 'Profession Licenses', icon: Shield },
   { to: '/foerdermittel/reporting', label: 'FördermittelOS Reporting', icon: BarChart3 },
+  { to: '/foerdermittel/inbox', label: 'FördermittelOS Sales Inbox', icon: Inbox },
 ] as const;
 
 
