@@ -196,25 +196,32 @@ export default function VerticalModulePage() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
-              {data.scenarios.map((s) => (
-                <Card key={s.scenario_key} className="border-border">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant={DIFFICULTY_VARIANT[s.difficulty] ?? "default"} className="text-xs">
-                        {DIFFICULTY_LABEL[s.difficulty] ?? s.difficulty}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {s.time_limit_minutes} Min
-                      </span>
-                    </div>
-                    <CardTitle className="text-lg text-foreground leading-snug">{s.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{s.short_pitch}</p>
-                  </CardContent>
-                </Card>
-              ))}
+              {data.scenarios.map((s) => {
+                const isLive = data.route_slug === 'hr-interview';
+                const card = (
+                  <Card key={s.scenario_key} className={`border-border h-full ${isLive ? 'hover:border-primary/40 hover:shadow-md transition-all cursor-pointer' : ''}`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant={DIFFICULTY_VARIANT[s.difficulty] ?? "default"} className="text-xs">
+                          {DIFFICULTY_LABEL[s.difficulty] ?? s.difficulty}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {s.time_limit_minutes} Min
+                        </span>
+                        {isLive && <Badge variant="default" className="text-xs ml-auto">Live</Badge>}
+                      </div>
+                      <CardTitle className="text-lg text-foreground leading-snug">{s.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{s.short_pitch}</p>
+                    </CardContent>
+                  </Card>
+                );
+                return isLive ? (
+                  <Link key={s.scenario_key} to={`/os/hr-interview/run/${s.id}`}>{card}</Link>
+                ) : card;
+              })}
             </div>
           )}
         </div>
