@@ -109,7 +109,7 @@ export function describeWorkUnit(type: WorkUnitType): WorkUnitDescriptor | null 
 
 // --- Aggregation for Workflows tab ---
 
-export interface WorkUnitGroup {
+export interface WorkUnitGroup<T extends BackgroundTaskLike = BackgroundTaskLike> {
   type: Exclude<WorkUnitType, "other">;
   descriptor: WorkUnitDescriptor;
   total: number;
@@ -120,7 +120,7 @@ export interface WorkUnitGroup {
   artifactCount: number;
   highRisk: number;
   /** Sample tasks (preserve full source_type+source_id traceability). */
-  sample: BackgroundTaskLike[];
+  sample: T[];
 }
 
 const VISIBLE_ORDER: Array<Exclude<WorkUnitType, "other">> = [
@@ -129,11 +129,11 @@ const VISIBLE_ORDER: Array<Exclude<WorkUnitType, "other">> = [
   "operational_quality",
 ];
 
-export function groupTasksByWorkUnit(
-  tasks: BackgroundTaskLike[],
+export function groupTasksByWorkUnit<T extends BackgroundTaskLike>(
+  tasks: T[],
   sampleSize = 8,
-): WorkUnitGroup[] {
-  const buckets = new Map<Exclude<WorkUnitType, "other">, WorkUnitGroup>();
+): WorkUnitGroup<T>[] {
+  const buckets = new Map<Exclude<WorkUnitType, "other">, WorkUnitGroup<T>>();
 
   for (const t of tasks) {
     const type = classifyWorkUnit(t);
@@ -167,3 +167,4 @@ export function groupTasksByWorkUnit(
 
   return VISIBLE_ORDER.filter((k) => buckets.has(k)).map((k) => buckets.get(k)!);
 }
+
