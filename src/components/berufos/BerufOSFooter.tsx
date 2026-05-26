@@ -17,6 +17,7 @@ export function BerufOSFooter() {
             <li><Link to="/berufs-ki">Berufs-KI · WorkforceOS</Link></li>
             <li><Link to="/suites">Produkt-Suiten</Link></li>
             <li><Link to="/demo">Live-Demo</Link></li>
+            <li><Link to="/hr/fristenrechner-kuendigung">HR Deadline OS</Link></li>
           </ul>
         </div>
         <div>
