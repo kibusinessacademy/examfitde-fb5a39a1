@@ -104,8 +104,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  // 2) Kuratiertes Matching
-  const { data: matches, error: matchErr } = await admin.rpc(
+  // 2) Kuratiertes Matching — RPC liefert ein jsonb-Objekt { matches:[...], painpoint_label }
+  const { data: matchPayload, error: matchErr } = await admin.rpc(
     "public_match_packages_for_painpoint" as any,
     { _painpoint_key: painpoint_key, _limit: 3 },
   );
@@ -114,7 +114,12 @@ Deno.serve(async (req) => {
     return jsonResponse(500, { error: "match_failed" });
   }
 
-  const topMatch = Array.isArray(matches) && matches.length > 0 ? matches[0] : null;
+  const matches = Array.isArray((matchPayload as any)?.matches)
+    ? ((matchPayload as any).matches as any[])
+    : [];
+  const painpoint_label =
+    (matchPayload as any)?.painpoint_label ?? painpoint_key;
+  const topMatch = matches[0] ?? null;
   if (!topMatch) {
     return jsonResponse(404, {
       error: "no_match",
