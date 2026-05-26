@@ -304,6 +304,7 @@ export default function BackgroundAgentRuntimePage() {
       <Tabs defaultValue="workflows" className="w-full">
         <TabsList>
           <TabsTrigger value="workflows"><Sparkles className="h-4 w-4 mr-2" />Workflows</TabsTrigger>
+          <TabsTrigger value="schedules"><CalendarClock className="h-4 w-4 mr-2" />Scheduled Runs</TabsTrigger>
           <TabsTrigger value="sources"><Layers className="h-4 w-4 mr-2" />Quellen</TabsTrigger>
           <TabsTrigger value="tasks"><Activity className="h-4 w-4 mr-2" />Tasks</TabsTrigger>
           <TabsTrigger value="capabilities"><ShieldCheck className="h-4 w-4 mr-2" />Capabilities</TabsTrigger>
