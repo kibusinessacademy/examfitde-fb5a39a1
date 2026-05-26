@@ -433,7 +433,151 @@ export default function BackgroundAgentRuntimePage() {
           })()}
         </TabsContent>
 
+        {/* P72 — Scheduled Runs: read-only schedule view + run_now via P70.2 chokepoint */}
+        <TabsContent value="schedules" className="space-y-3">
+          {(() => {
+            const cards = buildScheduleCards(schedules, tasks);
+            const toggleState = canToggleSchedule();
+            return (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {cards.map((card) => {
+                  const trigger = resolveWorkflowTrigger(card.type, { isAdmin, capabilities });
+                  const triggerDescriptor = WORKFLOW_TRIGGER_REGISTRY[card.type];
+                  const isInternal = WORK_UNIT_REGISTRY[card.type].visibility === 'internal_only_quality';
+                  return (
+                    <Card key={card.type} className="shadow-elev-1" data-testid={`schedule-card-${card.type}`}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between gap-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <CalendarClock className="h-4 w-4" />
+                            {card.label}
+                          </CardTitle>
+                          <Badge className={card.active ? SEVERITY_TONE.ok : SEVERITY_TONE.info}>
+                            {card.active ? 'aktiv' : 'inaktiv'}
+                          </Badge>
+                        </div>
+                        <CardDescription className="text-xs">{card.description}</CardDescription>
+                        {isInternal && (
+                          <Badge variant="outline" className="text-[10px] uppercase w-fit mt-1">intern</Badge>
+                        )}
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* Status strip */}
+                        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                          <div>
+                            <div className="font-semibold tabular-nums text-base">{card.scheduleCount}</div>
+                            <div className="text-fg-muted">Zeitpläne</div>
+                          </div>
+                          <div>
+                            <div className="font-semibold tabular-nums text-base">{card.intentCount24h}</div>
+                            <div className="text-fg-muted">Intents 24h</div>
+                          </div>
+                          <div>
+                            <div className={`font-semibold tabular-nums text-base ${card.latestArtifactCount > 0 ? 'text-status-fg-success' : ''}`}>
+                              {card.latestArtifactCount}
+                            </div>
+                            <div className="text-fg-muted">Artefakte</div>
+                          </div>
+                        </div>
 
+                        {/* Risk + last run */}
+                        <div className="flex items-center justify-between text-[11px]">
+                          <Badge className={RISK_TONE[card.riskLevel] ?? RISK_TONE.low}>Risiko: {card.riskLevel}</Badge>
+                          <span className="text-fg-muted">
+                            {card.lastRunAt
+                              ? `Zuletzt: ${new Date(card.lastRunAt).toLocaleString('de-DE')} · ${card.lastStatus ?? '—'}`
+                              : 'Noch kein Lauf'}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant={trigger.dangerous ? 'destructive' : 'default'}
+                            disabled={!trigger.visible || !trigger.enabled || triggering}
+                            title={trigger.reason}
+                            data-testid={`schedule-run-now-${card.type}`}
+                            onClick={() => trigger.visible && setPendingTrigger(trigger)}
+                          >
+                            <Play className="h-3.5 w-3.5 mr-2" />
+                            Jetzt ausführen
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled
+                            title={toggleState.reason}
+                            data-testid={`schedule-toggle-${card.type}`}
+                          >
+                            {card.active ? 'Deaktivieren' : 'Aktivieren'}
+                          </Button>
+                          {card.latestTask && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setPreviewTask(card.latestTask as TaskRow)}
+                              data-testid={`schedule-preview-${card.type}`}
+                            >
+                              <FileText className="h-3.5 w-3.5 mr-1" />
+                              Letztes Artefakt
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Schedule rows / empty-state */}
+                        {card.sources.length > 0 ? (
+                          <div className="space-y-1 pt-2 border-t border-border">
+                            <div className="text-[11px] text-fg-muted uppercase tracking-wide">Zeitpläne ({card.sources.length})</div>
+                            {card.sources.slice(0, 6).map((s) => (
+                              <div key={s.source_id} className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-mono truncate flex-1" title={s.jobname}>{s.jobname}</span>
+                                <code className="text-[10px] text-fg-muted">{s.schedule}</code>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[10px] ${s.lastStatus === 'failed' ? 'text-status-fg-danger border-status-fg-danger' : ''}`}
+                                >
+                                  {s.lastStatus ?? (s.active ? 'wartend' : 'inaktiv')}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div
+                            className="rounded-md border border-dashed border-border bg-surface-muted/30 p-3 text-center text-[11px] text-fg-muted"
+                            data-testid={`schedule-empty-${card.type}`}
+                          >
+                            Noch kein automatischer Lauf geplant.
+                          </div>
+                        )}
+
+                        {/* Evidence chain */}
+                        <div className="pt-2 border-t border-border space-y-1">
+                          <div className="text-[11px] text-fg-muted uppercase tracking-wide">Evidence Chain</div>
+                          <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                            {card.evidenceChain.map((step, i) => (
+                              <span key={step.kind} className="flex items-center gap-1">
+                                <Badge variant="outline" className="text-[10px] px-1.5">
+                                  {step.label}
+                                </Badge>
+                                <span className="text-fg-muted truncate max-w-[140px]" title={step.detail}>
+                                  {step.detail}
+                                </span>
+                                {i < card.evidenceChain.length - 1 && <span className="text-fg-muted">→</span>}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {/* keep descriptor referenced for trigger label hover */}
+                        <span className="sr-only">{triggerDescriptor.startLabel}</span>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </TabsContent>
 
         {/* Sources Overview */}
         <TabsContent value="sources" className="space-y-3">
