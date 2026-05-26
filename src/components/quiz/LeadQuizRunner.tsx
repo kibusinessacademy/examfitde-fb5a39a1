@@ -101,23 +101,23 @@ export function LeadQuizRunner({ slug }: Props) {
 
   async function ensureAttempt(): Promise<string | null> {
     if (attemptId || !quiz) return attemptId;
-    const { data, error: err } = await (supabase as any)
-      .from("quiz_attempts")
-      .insert({
-        quiz_id: quiz.id,
-        anonymous_id: getAnonymousId(),
-        session_id: getSessionId(),
-        curriculum_id: quiz.curriculum_id,
-        user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      })
-      .select("id")
-      .single();
-    if (err) {
+    const { data, error: err } = await (supabase as any).rpc(
+      "public_insert_quiz_attempt",
+      {
+        _quiz_id: quiz.id,
+        _curriculum_id: quiz.curriculum_id,
+        _anonymous_id: getAnonymousId(),
+        _session_id: getSessionId(),
+        _user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+      }
+    );
+    if (err || !data) {
       console.warn("[LeadQuizRunner] attempt insert failed:", err);
       return null;
     }
-    setAttemptId(data.id);
-    return data.id;
+    const newId = String(data);
+    setAttemptId(newId);
+    return newId;
   }
 
   async function handleAnswer(optionKey: string) {
