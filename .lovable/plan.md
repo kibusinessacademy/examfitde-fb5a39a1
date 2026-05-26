@@ -1,54 +1,82 @@
-## Cut: BerufOS Legal + Premium Produktseiten + Self-Updating Registry
+# Phase 2 Cut 1 — Voice-native HR Simulation Runtime
 
-Du hast den maximalen Scope gewählt: Impressum + AGB + 4 Produktseiten (alle live) + Dynamic Registry + JSON-LD + Trust + persona-adaptive CTAs. Ich bauen das in **zwei Migrations-armen Wellen**, weil "selbstständig aktualisierend" sonst zur Halbgeburt wird.
+Ziel: aus dem Text-Chat einen **Oral Conversation Trainer** machen. Nicht alles auf einmal — sondern der minimale Schnitt, der spürbar den Kategoriewechsel vollzieht ("Das fühlt sich real an").
 
-### Welle 1 — Legal + Statische Premium-Produktseiten (heute live, sofort verkaufsfähig)
+## Was im Cut drin ist (1 Sprint, ein Vertical: HR InterviewOS)
 
-**Routen**
-- `/impressum` — gelieferter Text wortgetreu, DSGVO/§5 TMG/§18 MStV/EU-AI-Act-Transparenz-Sektion
-- `/agb` — 12 Klauseln wortgetreu, mit Stand-Datum
-- `/produkte` — Hub mit 4 Kacheln (BerufOS-Plattform, VertragscheckerOS, IdeenlosOS, ComplianceOS)
-- `/produkte/berufos` · `/produkte/vertragscheckeros` · `/produkte/ideenlosos` · `/produkte/complianceos`
+### 1. Voice Layer (Push-to-Talk, Half-Duplex)
+- **STT**: ElevenLabs `scribe_v2_realtime` (deutsch, Streaming) — Mikrofon aufnehmen, live transkribieren, am Ende des Turns committen.
+- **TTS**: ElevenLabs `eleven_turbo_v2_5` — Charakter spricht die AI-Antwort. Voice-ID pro `character_brief` (Werner Mittag = Brian, Bewerber = Liam, etc.) in `conversation_os_scenarios.character_brief.voice_id` persistieren.
+- **UI**: Großer Push-to-Talk-Button (halten = sprechen, loslassen = senden). Text-Modus bleibt als Fallback.
+- **Voice-Activity-Indikator**: pulsierender Ring während Charakter spricht / User spricht.
 
-**Komponenten (SSOT)**
-- `src/lib/legal/legal-copy.ts` — Impressum + AGB als typed structured data (für Audit & späteres CMS)
-- `src/lib/products/product-registry.ts` — 4 Produkte: hero, subline, usps[], cta, faqs[], trust[], persona-cta-map
-- `src/components/products/ProductLandingShell.tsx` — Premium-Shell mit Hero / USP-Grid / Trust-Pillars / FAQ-Accordion / persona-adaptive CTA / Final-CTA. Token-konform (BerufOS-Brand via `.berufos` scope, Memory: berufos-masterbrand-v1).
-- `src/components/products/PersonaCTA.tsx` — liest `useOsBeruf()` + `?persona=` Query, schaltet CTA-Label/Target.
-- `src/pages/legal/ImpressumPage.tsx` + `AgbPage.tsx`
-- `src/pages/products/ProduktHub.tsx` + dynamische Route `/produkte/:slug` → `ProductLandingPage.tsx`
+### 2. Quality-Gate auf User-Turn (das "Fghjo"-Problem)
+Neue Komponente `inputQualityGate` im `conversation-os-turn`:
+- Heuristik vor LLM-Call: min. Token, kein Random-Tasten-Pattern, kein Single-Word-Filler.
+- **Bei Fail**: Charakter reagiert in-character ("Bitte formulieren Sie eine Antwort, sonst breche ich das Gespräch ab" / "Sie weichen aus — ich frage konkret nach §99 BetrVG"), `state.trust -= 0.15`, `state.tension += 0.2`.
+- Drei Fails in Folge → Charakter beendet das Gespräch hart (`session.status = 'aborted_by_character'`, Debrief mit Critical Moment "Vertrauensverlust durch Nicht-Antwort").
 
-**SEO**
-- `react-helmet-async` per Route: Title, Description, Canonical (`https://berufos.com/...`), og:*
-- JSON-LD pro Produktseite: `Product` + `FAQPage` + `BreadcrumbList`
-- Sitewide bleibt `Organization` in `index.html`
-- `scripts/generate-sitemap.ts` (oder bestehender Generator) um neue Routen erweitert
-- Footer-Link auf `/impressum` + `/agb` in `BerufOSFooter`
+### 3. Interruption + Druckmechanik
+- **Charakter unterbricht**, wenn User-Antwort > X Sekunden ohne neuen Inhalt (Voice-Mode: TTS bricht ab und Charakter sagt "Lassen Sie mich Sie da unterbrechen — ...").
+- **Schweige-Druck**: wenn User nach Charakter-Turn > 8s nicht antwortet, kommt ein Press: "Ich warte." / "Ist die Frage unklar?" → `tension += 0.1`.
+- **State steuert Stimme**: Bei `tension > 0.7` wird `voice_settings.stability` runter, `style` rauf → Stimme klingt schärfer. Bei `trust < 0.3` ändert Painpoint-Graph aktiv den `system_prompt`-Tonfall.
 
-**Trust-Bereich** (statische TrustPillars-Komponente, reuse-fähig)
-- DSGVO-konform · EU AI Act ready · Made in Germany · Human-in-the-loop · Auditierbar · Rollenbasierte Sicherheit · Kein Blackbox-System
+### 4. Examiner-Hooks vorbereiten (kein neuer Score — bestehende Rubric reicht für Cut 1)
+- Quality-Gate-Events landen in `conversation_os_turns.scoring_delta` (neue Keys: `evasion_detected`, `gibberish_detected`, `silence_pressure`).
+- Debrief zeigt diese im Critical-Moments-Block mit `better_alternative`.
 
-### Welle 2 — Self-Updating Layer (optional, nach Freigabe Welle 1)
+## Was NICHT in Cut 1 (bewusst Anti-Drift)
+- Kein Full-Duplex / WebRTC Conversational-Agent (würde Painpoint-Engine umgehen → SSOT-Bruch).
+- Kein Multi-Agent.
+- Kein eigener Examiner-Score parallel zur Rubric.
+- Keine weiteren Verticals.
+- Keine Hidden-Objectives-Engine (Phase 2 Cut 2).
+- Keine Timer-UI / Zeitbudget pro Turn (Cut 2).
 
-Damit Produktseiten sich "selbstständig aktualisieren" (FAQs, USPs, Changelog), brauchen wir:
-- Tabelle `product_pages` (slug, hero, subline, status, updated_at)
-- Tabelle `product_features` (product_slug, title, description, position)
-- Tabelle `product_faqs` (product_slug, question, answer, position)
-- Tabelle `product_changelog` (product_slug, version, body, released_at)
-- Admin-Route `/admin/products/registry` zum Editieren (has_role gated)
-- `ProductLandingPage` liest dann aus DB statt aus TS-Registry, fällt auf TS-Default zurück wenn keine DB-Row.
+## Technische Umsetzung
 
-**Architectural Continuity Note**: 4 neue Tabellen lösen den `/admin/governance/architecture`-Pflichtcheck aus (Memory-Core-Rule). Ich registriere sie dort, bevor ich die Migration schreibe.
+```text
+Client (ConversationOSRunPage)
+  ├─ Voice-Mode Toggle
+  ├─ Push-to-Talk Button → MediaRecorder (webm/opus)
+  ├─ POST audio → edge: conversation-os-stt   ──► ElevenLabs Scribe → {transcript}
+  ├─ transcript → existing edge: conversation-os-turn (SSE)
+  │     └─ NEU: inputQualityGate(transcript, state)
+  │           ├─ ok → bestehende Pipeline
+  │           └─ fail → Charakter-Refusal-Turn (kein LLM) + state-delta
+  ├─ assistant text + x-conv-voice-id header
+  └─ POST text → edge: conversation-os-tts   ──► ElevenLabs Turbo v2.5 → MP3 stream → Audio()
 
-### Bewusst NICHT in diesem Cut
-- Stripe-Checkout an Produktseiten (existiert bereits via `startProductCheckout`-SSOT — wir verlinken nur)
-- Programmatic-SEO-Seiten (das ist eigener Cut, Memory `seo-content-priority-queue` ist SSOT)
-- og:image Generation (kann später per imagegen nachgereicht werden)
-- Datenschutzerklärung-Volltext (du hast nur Kurzfassung geliefert — ich nehme die wörtlich + Hinweis-Link)
+DB
+  └─ conversation_os_scenarios.character_brief += { voice_id, voice_profile }
+  └─ conversation_os_sessions += { quality_gate_fails int default 0, voice_mode bool }
+  └─ conversation_os_turns.scoring_delta erweitert (kein Schema-Change, jsonb)
 
-### Reihenfolge
-1. Welle 1 komplett bauen → live testen
-2. Du sagst "Welle 2 starten" → Migrations + Admin-UI
-3. Memory + Sitemap-Update nach jedem Schritt (User-Memory-Core-Rule)
+Edge Functions (neu)
+  ├─ conversation-os-stt        (POST audio/webm → {transcript, lang, duration_ms})
+  └─ conversation-os-tts        (POST {session_id, text} → audio/mpeg stream)
 
-Soll ich mit **Welle 1** loslegen?
+Edge Function (geändert)
+  └─ conversation-os-turn       (+ inputQualityGate, + abort-on-3-fails, + voice_id header)
+```
+
+## Voraussetzungen
+- **ELEVENLABS_API_KEY** muss als Secret im Lovable-Cloud-Backend liegen. Ohne den Key kann Voice nicht live gehen. Ich frage ihn als nächsten Schritt ab.
+- Voice-ID-Backfill für die 20 HR-Szenarien (1 Migration, 1 Charakter pro Szenario, Default = Brian).
+
+## Akzeptanzkriterien (Pilot HR InterviewOS)
+1. User kann Push-to-Talk halten, Audio wird transkribiert, Charakter antwortet **per Stimme**.
+2. "Fghjo" als Antwort führt zu sichtbarer Charakter-Reaktion + Trust-Drop, nicht zu freundlichem Weiter-Chat.
+3. Drei Fails in Folge brechen die Session ab und erzeugen einen Critical-Moment "Vertrauensverlust" im Debrief.
+4. 8s Schweigen nach Charakter-Turn löst Druck-Nachfrage aus.
+5. Voice-Modus ist Toggle — Text-Modus bleibt funktional (Fallback / B2B-Demo ohne Mikro).
+
+## Was Cut 2 wäre (sichtbar machen, nicht bauen)
+- Echtes Full-Duplex Voice mit Interruption während TTS-Playback.
+- Timer / Zeitbudget pro Turn.
+- Hidden Objectives (Betriebsrat hat verstecktes Ziel "Zustimmung verzögern").
+- Examiner-Engine mit eigener Scorecard (Deeskalation, Rechtssicherheit, Souveränität).
+
+---
+
+**Bitte freigeben.** Sobald du OK gibst, frage ich den ElevenLabs-Key ab und ziehe Cut 1 in einem Rutsch durch (DB-Migration → 2 neue Edge Functions → Turn-Function-Update → RunPage-Voice-UI).
