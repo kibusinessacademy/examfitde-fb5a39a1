@@ -20,6 +20,7 @@ import { ProductHowItWorks } from '@/components/shop/ProductHowItWorks';
 import { ProductTrustSection } from '@/components/shop/ProductTrustSection';
 import { ProductB2BSection } from '@/components/shop/ProductB2BSection';
 import { StickyPurchaseBar } from '@/components/shop/StickyPurchaseBar';
+import { SellableCoursesCatalog } from '@/components/shop/SellableCoursesCatalog';
 import { formatEur } from '@/lib/timezone';
 
 export default function ShopPage() {
