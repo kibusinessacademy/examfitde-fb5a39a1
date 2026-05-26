@@ -7,6 +7,7 @@ import { Sparkles, Radar, ShieldCheck, Layers, Bell } from "lucide-react";
 import { MatchingWizard } from "@/components/foerdermittel/MatchingWizard";
 import { ProgramCard } from "@/components/foerdermittel/ProgramCard";
 import { FoerderRadarCard } from "@/components/foerdermittel/FoerderRadarCard";
+import { NextStepsPreview } from "@/components/foerdermittel/NextStepsPreview";
 import { matchPrograms, rankNoise } from "@/lib/foerdermittel/matching";
 import { PROGRAMS } from "@/lib/foerdermittel/registry";
 import type { CompanyProfile, ProgramMatch } from "@/lib/foerdermittel/types";
@@ -19,10 +20,10 @@ export default function FoerdermittelHubPage() {
   return (
     <main className="min-h-screen bg-background">
       <Helmet>
-        <title>FördermittelOS · FörderRadar — aktuelle Förderprogramme, Änderungen, Fristen</title>
+        <title>FördermittelOS · Förderantrag vorbereiten — Unterlagen, Fristen, Checkliste</title>
         <meta
           name="description"
-          content="FörderRadar für Unternehmen: aktuelle Förderprogramme, Fördermittel-Änderungen, Fristen-Monitoring und Bewilligungs­wahrscheinlichkeit. Bund, Länder, EU."
+          content="FörderRadar & Antragsfahrplan: aktuelle Förderprogramme, Fördermittel-Unterlagen, Fristen und Antragscheckliste. Bund, Länder, EU — mit Bewilligungs­wahrscheinlichkeit."
         />
         <link rel="canonical" href="https://berufos.com/foerdermittel" />
       </Helmet>
@@ -64,6 +65,9 @@ export default function FoerdermittelHubPage() {
       {/* Results */}
       {profile && (
         <section className="mx-auto max-w-7xl px-6 pb-14 space-y-8">
+          {grouped.excellent.length > 0 && (
+            <NextStepsPreview matches={grouped.excellent} />
+          )}
           {grouped.excellent.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-3">

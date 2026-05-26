@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getProgramBySlug } from "@/lib/foerdermittel/registry";
 import { REGION_LABEL } from "@/lib/foerdermittel/matching";
 import { FreshnessBadge } from "@/components/foerdermittel/FreshnessBadge";
+import { ApplicationRoadmapCard } from "@/components/foerdermittel/ApplicationRoadmapCard";
 import {
   classifyFreshness,
   classifyChangeRisk,
@@ -42,8 +43,11 @@ export default function FoerdermittelProgramPage() {
   return (
     <main className="min-h-screen bg-background">
       <Helmet>
-        <title>{program.name} · FördermittelOS</title>
-        <meta name="description" content={program.shortDescription} />
+        <title>{program.name} · Antrag, Unterlagen, Fristen · FördermittelOS</title>
+        <meta
+          name="description"
+          content={`${program.shortDescription} Antragsfahrplan, Checkliste, Pflichtdokumente und Fristen für ${program.name}.`}
+        />
         <link rel="canonical" href={`https://berufos.com/foerdermittel/programm/${program.slug}`} />
         <script type="application/ld+json">
           {JSON.stringify({
@@ -257,6 +261,9 @@ export default function FoerdermittelProgramPage() {
           </CardContent>
         </Card>
       </section>
+
+      {/* Cut 3 — Execution OS: Antragsfahrplan */}
+      <ApplicationRoadmapCard program={program} />
     </main>
   );
 }
