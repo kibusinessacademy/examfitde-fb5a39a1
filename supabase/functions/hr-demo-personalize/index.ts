@@ -167,7 +167,7 @@ Format (Markdown, kompakt):
 3. **3-Schritte-Aktivierungsplan** — nummeriert, je 1 Zeile, jeweils mit Zeit/Umfang (z. B. "5 Min · 1 Kompetenz").
 Maximal 180 Wörter. Keine Preise nennen. Keine Versprechen über Ergebnisse.`;
 
-  const userPrompt = `Painpoint: ${topMatch.painpoint_label ?? painpoint_key}
+  const userPrompt = `Painpoint: ${painpoint_label}
 ${role ? `Rolle: ${role}` : ""}
 ${company_size ? `Unternehmensgröße: ${company_size}` : ""}
 
