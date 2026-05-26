@@ -44,9 +44,16 @@ export function BerufOSFooter() {
           </ul>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-6 pb-8 berufos-text-faint text-xs">
-        © {new Date().getFullYear()} {BERUFOS.name} — Workforce Intelligence Platform
+      <div className="max-w-7xl mx-auto px-6 pb-8 flex flex-wrap gap-x-6 gap-y-2 berufos-text-faint text-xs">
+        <span>© {new Date().getFullYear()} {BERUFOS.name} — Workforce Intelligence Platform</span>
+        <Link to="/produkte" className="hover:text-foreground">Produkte</Link>
+        <Link to="/impressum" className="hover:text-foreground">Impressum</Link>
+        <Link to="/agb" className="hover:text-foreground">AGB</Link>
+        <Link to="/datenschutz" className="hover:text-foreground">Datenschutz</Link>
       </div>
+    </footer>
+  );
+}
     </footer>
   );
 }

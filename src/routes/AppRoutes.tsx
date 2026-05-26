@@ -220,6 +220,8 @@ const WorkCorporatePage = lazyRetry(() => import('@/pages/work/WorkCorporatePage
 const VibeOSLandingPage = lazyRetry(() => import('@/pages/VibeOSLandingPage'));
 const BerufOSHub = lazyRetry(() => import('@/pages/BerufOSHub'));
 const BerufOSModulePage = lazyRetry(() => import('@/pages/berufos/BerufOSModulePage'));
+const ProduktHubPage = lazyRetry(() => import('@/pages/products/ProduktHubPage'));
+const BerufOSProductLandingPage = lazyRetry(() => import('@/pages/products/ProductLandingPage'));
 
 // Berufs-KI public pages (eigenständige Produktlinie)
 const BerufsKIHubPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIHubPage'));
@@ -631,6 +633,8 @@ const AppRoutes = () => {
           <Route path="/wissen/alle" element={<WissenAllePage />} />
           <Route path="/suche" element={<SearchPage />} />
           <Route path="/agb" element={<AGBPage />} />
+          <Route path="/produkte" element={<ProduktHubPage />} />
+          <Route path="/produkte/:slug" element={<BerufOSProductLandingPage />} />
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/datenschutz" element={<DatenschutzPage />} />
           <Route path="/impressum" element={<ImpressumPage />} />
