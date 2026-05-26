@@ -132,17 +132,7 @@ export function useLeadGate(options: LeadGateOptions = {}): LeadGateState {
       const since = new Date(Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000).toISOString();
       const anonId = user ? null : getAnonymousId();
 
-      let q = (supabase as any)
-        .from("quiz_attempts")
-        .select("id", { head: true, count: "exact" })
-        .eq("curriculum_id", resolved.id)
-        .gte("started_at", since);
-
-      if (user) {
-        q = q.eq("user_id", user.id);
-      } else if (anonId) {
-        q = q.eq("anonymous_id", anonId);
-      } else {
+      if (!user && !anonId) {
         if (!cancelled) {
           setState({
             loading: false,
@@ -154,11 +144,18 @@ export function useLeadGate(options: LeadGateOptions = {}): LeadGateState {
         return;
       }
 
-      const { count, error } = await q;
+      const { data: count, error } = await (supabase as any).rpc(
+        "public_count_recent_quiz_attempts",
+        {
+          _curriculum_id: resolved.id,
+          _anonymous_id: anonId,
+          _since: since,
+        }
+      );
       if (cancelled) return;
       setState({
         loading: false,
-        hasRecentAttempt: !error && (count ?? 0) > 0,
+        hasRecentAttempt: !error && Number(count ?? 0) > 0,
         resolvedCurriculumId: resolved.id,
         resolveReason: resolved.reason,
       });
