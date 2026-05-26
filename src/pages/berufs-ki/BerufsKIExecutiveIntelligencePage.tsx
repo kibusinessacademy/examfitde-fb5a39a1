@@ -29,6 +29,7 @@ import {
   useCrossOrgReadiness, useSiteComparison, useCohortTrends,
   useRecoveryEffectiveness, useInterventionImpact, useClusterRisk, useOrgQuality,
 } from "@/hooks/useCrossOrgIntel";
+import { useExecutiveNarrative } from "@/hooks/useBerufsKIActivation";
 import { bandClass, trendLabel, interventionLabel, type Band } from "@/lib/berufs-ki/crossOrg";
 import { OUTCOME_TYPE_SHORT } from "@/lib/berufs-ki/bi";
 
@@ -116,6 +117,8 @@ export default function BerufsKIExecutiveIntelligencePage() {
           </Select>
         </div>
       </header>
+
+      <ExecutiveNarrativeCard orgId={orgId} days={days} />
 
       <OrgQualityCard orgId={orgId} days={days} />
 
