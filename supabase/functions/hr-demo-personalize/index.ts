@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
     _metadata: {
       role,
       company_size,
-      match_score: topMatch.score,
+      match_score: topMatch.match_score ?? topMatch.score ?? null,
       match_count: matches.length,
     },
   });
