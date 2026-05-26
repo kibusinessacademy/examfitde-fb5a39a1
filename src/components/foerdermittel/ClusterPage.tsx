@@ -37,7 +37,8 @@ export interface ClusterPageProps {
   leadSource?: LeadSourcePage;
 }
 
-export function ClusterPage({ cluster, breadcrumbLabel }: ClusterPageProps) {
+export function ClusterPage({ cluster, breadcrumbLabel, leadSource }: ClusterPageProps) {
+  const resolvedSource: LeadSourcePage = leadSource ?? KIND_TO_SOURCE[cluster.meta.kind];
   const head = buildClusterMeta(cluster);
   const faqs = buildSeoFaqs(cluster);
   const links = recommendInternalLinks(cluster, PROGRAMS);
