@@ -32,6 +32,13 @@ export const PROGRAMS: Program[] = [
       },
     ],
     seoKeywords: ["go digital förderung", "digitalisierung kmu zuschuss", "bmwk go-digital antrag"],
+    freshness: {
+      sourceName: "BMWK · go-digital",
+      lastVerifiedAt: "2026-05-08",
+      nextReviewAt: "2026-07-25",
+      updateCadence: "quarterly",
+      verificationNotes: "Programm gilt als stabil, Förderquote 50% seit Jahren konstant.",
+    },
   },
   {
     id: "fp-digital-jetzt",
@@ -61,6 +68,13 @@ export const PROGRAMS: Program[] = [
       },
     ],
     seoKeywords: ["digital jetzt förderung", "investitionszuschuss digitalisierung"],
+    freshness: {
+      sourceName: "BMWK · Digital Jetzt",
+      lastVerifiedAt: "2025-10-18",
+      nextReviewAt: "2026-04-26",
+      updateCadence: "quarterly",
+      verificationNotes: "Programm derzeit pausiert — Status & Wiederauflage offiziell prüfen.",
+    },
   },
   {
     id: "fp-qcg",
@@ -94,6 +108,12 @@ export const PROGRAMS: Program[] = [
       "förderung weiterbildung mitarbeiter",
       "weiterbildung arbeitsagentur",
     ],
+    freshness: {
+      sourceName: "BA · QCG",
+      lastVerifiedAt: "2026-04-21",
+      nextReviewAt: "2026-08-24",
+      updateCadence: "quarterly",
+    },
   },
   {
     id: "fp-zim",
@@ -120,6 +140,12 @@ export const PROGRAMS: Program[] = [
       { url: "https://www.zim.de", label: "ZIM Portal" },
     ],
     seoKeywords: ["zim förderung", "f&e zuschuss mittelstand", "innovationsförderung kmu"],
+    freshness: {
+      sourceName: "ZIM Portal",
+      lastVerifiedAt: "2026-03-27",
+      nextReviewAt: "2026-06-25",
+      updateCadence: "monthly",
+    },
   },
   {
     id: "fp-bafa-energie",
@@ -149,6 +175,12 @@ export const PROGRAMS: Program[] = [
       },
     ],
     seoKeywords: ["bafa energieberatung", "förderung energieberatung kmu"],
+    freshness: {
+      sourceName: "BAFA · EBM",
+      lastVerifiedAt: "2026-05-01",
+      nextReviewAt: "2026-08-14",
+      updateCadence: "quarterly",
+    },
   },
   {
     id: "fp-kfw-digital",
@@ -178,6 +210,12 @@ export const PROGRAMS: Program[] = [
       },
     ],
     seoKeywords: ["kfw 380", "digitalisierungskredit", "innovationskredit"],
+    freshness: {
+      sourceName: "KfW 380",
+      lastVerifiedAt: "2026-04-06",
+      nextReviewAt: "2026-08-04",
+      updateCadence: "quarterly",
+    },
   },
   {
     id: "fp-aevo",
@@ -207,6 +245,13 @@ export const PROGRAMS: Program[] = [
       },
     ],
     seoKeywords: ["ausbildungsprämie", "förderung ausbildungsbetrieb"],
+    freshness: {
+      sourceName: "BA · Ausbildung sichern",
+      lastVerifiedAt: "2026-02-20",
+      nextReviewAt: "2026-05-21",
+      updateCadence: "monthly",
+      verificationNotes: "Förderbedingungen ändern sich häufig — vor Antrag offizielle Quelle prüfen.",
+    },
   },
   {
     id: "fp-exist",
@@ -231,6 +276,12 @@ export const PROGRAMS: Program[] = [
     documentsNeeded: ["Ideenpapier", "Businessplan", "Hochschulbescheinigung"],
     sources: [{ url: "https://www.exist.de", label: "EXIST" }],
     seoKeywords: ["exist gründerstipendium", "förderung startup gründung"],
+    freshness: {
+      sourceName: "EXIST · BMWK",
+      lastVerifiedAt: "2026-03-12",
+      nextReviewAt: "2026-12-12",
+      updateCadence: "yearly",
+    },
   },
   {
     id: "fp-nrw-digitalbonus",
@@ -252,6 +303,14 @@ export const PROGRAMS: Program[] = [
     documentsNeeded: ["Angebote", "Investitionsplan"],
     sources: [{ url: "https://www.wirtschaft.nrw", label: "MWIKE NRW" }],
     seoKeywords: ["digitalbonus nrw", "förderung digitalisierung nrw"],
+    freshness: {
+      sourceName: "MWIKE NRW",
+      lastVerifiedAt: "2026-05-26",
+      nextReviewAt: "2026-06-25",
+      updateCadence: "ad-hoc",
+      officialSourceRequired: true,
+      verificationNotes: "In Wiederauflage — Status, Quote und Frist offiziell prüfen.",
+    },
     combinableWith: ["go-digital"],
   },
   {
@@ -276,6 +335,12 @@ export const PROGRAMS: Program[] = [
     documentsNeeded: ["Investitionsplan", "Angebote"],
     sources: [{ url: "https://www.l-bank.de", label: "L-Bank" }],
     seoKeywords: ["digitalisierungsprämie bw", "förderung digitalisierung baden-württemberg"],
+    freshness: {
+      sourceName: "L-Bank · BW",
+      lastVerifiedAt: "2026-04-16",
+      nextReviewAt: "2026-08-04",
+      updateCadence: "quarterly",
+    },
   },
   {
     id: "fp-by-digital",
@@ -304,6 +369,12 @@ export const PROGRAMS: Program[] = [
       },
     ],
     seoKeywords: ["digitalbonus bayern", "förderung digitalisierung bayern"],
+    freshness: {
+      sourceName: "Digitalbonus Bayern",
+      lastVerifiedAt: "2026-04-26",
+      nextReviewAt: "2026-07-05",
+      updateCadence: "monthly",
+    },
   },
   {
     id: "fp-bafa-waermepumpe",
@@ -332,6 +403,13 @@ export const PROGRAMS: Program[] = [
       },
     ],
     seoKeywords: ["bafa förderung wärmepumpe", "beg em förderung"],
+    freshness: {
+      sourceName: "BAFA · BEG EM",
+      lastVerifiedAt: "2026-05-14",
+      nextReviewAt: "2026-06-25",
+      updateCadence: "monthly",
+      verificationNotes: "Förderquote saisonal & politisch volatil — engmaschiges Monitoring.",
+    },
   },
 ];
 

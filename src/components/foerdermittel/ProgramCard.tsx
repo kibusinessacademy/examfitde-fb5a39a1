@@ -4,6 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react";
 import type { ProgramMatch } from "@/lib/foerdermittel/types";
 import { REGION_LABEL } from "@/lib/foerdermittel/matching";
+import { FreshnessBadge } from "./FreshnessBadge";
+import { classifyFreshness } from "@/lib/foerdermittel/freshness";
 
 const eur = (n: number) =>
   new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
@@ -35,11 +37,12 @@ export function ProgramCard({ match }: { match: ProgramMatch }) {
           </div>
         </div>
         <p className="mt-2 text-sm text-muted-foreground line-clamp-2">{p.shortDescription}</p>
-        <div className="mt-3 flex flex-wrap gap-1">
+        <div className="mt-3 flex flex-wrap gap-1 items-center">
           {p.topics.slice(0, 4).map((t) => (
             <Badge key={t} variant="outline" className="text-[10px] capitalize">{t}</Badge>
           ))}
           <Badge variant="secondary" className="text-[10px] capitalize">{p.kind}</Badge>
+          <FreshnessBadge status={classifyFreshness(p)} size="xs" />
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
           <div>
