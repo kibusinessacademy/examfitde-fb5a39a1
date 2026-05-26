@@ -42,17 +42,17 @@ export default function FoerdermittelReportPage() {
     if (!stored) return null;
     // Rehydrate matches deterministically from registry
     const matches: ProgramMatch[] = stored.matches
-      .map((m) => {
+      .map((m): ProgramMatch | null => {
         const program = getProgramBySlug(m.slug);
         if (!program) return null;
         return {
           program,
           fit: m.fit,
           probability: m.probability,
-          reasons: [],
-          warnings: [],
-          disqualifiers: [],
-        } satisfies ProgramMatch;
+          reasons: [] as string[],
+          warnings: [] as string[],
+          disqualifiers: [] as string[],
+        };
       })
       .filter((m): m is ProgramMatch => m !== null);
 
