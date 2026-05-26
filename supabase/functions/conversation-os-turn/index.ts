@@ -19,6 +19,54 @@ type State = { trust: number; tension: number; confidence: number; rapport: numb
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 
 // ============================================================
+// Input Quality Gate — pre-LLM filter for empty/gibberish/evasion answers
+// Returns null if input passes, otherwise a structured refusal payload.
+// ============================================================
+type GateResult =
+  | { ok: true }
+  | { ok: false; reason: 'too_short' | 'gibberish' | 'silence'; refusalLine: string };
+
+function runInputQualityGate(raw: string, characterName: string): GateResult {
+  const t = (raw ?? '').trim();
+  if (t.length === 0) {
+    return {
+      ok: false,
+      reason: 'silence',
+      refusalLine: `${characterName ? characterName + ': ' : ''}Ich höre nichts. Bitte antworten Sie auf meine Frage — sonst breche ich das Gespräch ab.`,
+    };
+  }
+  const wc = t.split(/\s+/).filter(Boolean).length;
+  // Pure gibberish: single token with no vowels or > 12 chars and no recognisable word boundary
+  const onlyToken = t.replace(/[^a-zäöüßA-ZÄÖÜ]/g, '');
+  if (wc <= 1 && onlyToken.length > 0 && !/[aeiouäöü]/i.test(onlyToken)) {
+    return {
+      ok: false,
+      reason: 'gibberish',
+      refusalLine: `Das war keine Antwort. Ich frage konkret: bitte formulieren Sie einen ganzen Satz, sonst breche ich das Gespräch ab.`,
+    };
+  }
+  if (wc < 2 && t.length < 6) {
+    return {
+      ok: false,
+      reason: 'too_short',
+      refusalLine: `Ein Wort reicht nicht. Bitte begründen Sie Ihre Position — sonst kann ich dieses Gespräch nicht ernst nehmen.`,
+    };
+  }
+  // Random-key smash: very low vowel ratio in long token
+  if (wc <= 2 && onlyToken.length >= 4) {
+    const vowels = (onlyToken.match(/[aeiouäöü]/gi) ?? []).length;
+    if (vowels / onlyToken.length < 0.15) {
+      return {
+        ok: false,
+        reason: 'gibberish',
+        refusalLine: `Bitte schreiben Sie eine echte Antwort. Ich werde nicht auf zufällige Tasten reagieren.`,
+      };
+    }
+  }
+  return { ok: true };
+}
+
+// ============================================================
 // Deterministic User Signal Detector
 // Rule-based; no LLM. Returns set of signal flags from user text.
 // ============================================================
@@ -165,6 +213,80 @@ Deno.serve(async (req) => {
     if (session.status !== 'active') return new Response(JSON.stringify({ error: 'session_not_active' }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const scenario = session.conversation_os_scenarios;
+    const characterName = (scenario?.character_brief as any)?.name ?? 'Charakter';
+
+    // ============================================================
+    // INPUT QUALITY GATE — runs before painpoint detection & LLM
+    // ============================================================
+    const gate = runInputQualityGate(body.message, characterName);
+    if (!gate.ok) {
+      const prevFails = (session as any).quality_gate_fails ?? 0;
+      const newFails = prevFails + 1;
+      const abort = newFails >= 3;
+
+      // Penalise state hard
+      const penalisedState: State = {
+        trust: clamp((session.conversation_state as State).trust - 0.15),
+        tension: clamp((session.conversation_state as State).tension + 0.2),
+        confidence: clamp((session.conversation_state as State).confidence - 0.05),
+        rapport: clamp((session.conversation_state as State).rapport - 0.1),
+      };
+
+      const userIdx = (session.turn_count as number) ?? 0;
+      await admin.from('conversation_os_turns').insert({
+        session_id: session.id,
+        user_id: user.id,
+        turn_index: userIdx,
+        role: 'user',
+        content: body.message,
+        state_snapshot: penalisedState,
+        state_delta: { trust: -0.15, tension: +0.2 },
+        scoring_delta: { quality_gate_fail: true, reason: gate.reason, fail_count: newFails },
+        metadata: { quality_gate: gate.reason },
+      });
+
+      const refusalText = abort
+        ? `${gate.refusalLine}\n\nIch beende dieses Gespräch hier. Wir haben offensichtlich keine Gesprächsgrundlage.`
+        : gate.refusalLine;
+
+      await admin.from('conversation_os_turns').insert({
+        session_id: session.id,
+        user_id: user.id,
+        turn_index: userIdx + 1,
+        role: 'assistant',
+        content: refusalText,
+        state_snapshot: penalisedState,
+        scoring_delta: { quality_gate_refusal: true, abort },
+        model_used: 'quality_gate',
+      });
+
+      await admin
+        .from('conversation_os_sessions')
+        .update({
+          conversation_state: penalisedState,
+          quality_gate_fails: newFails,
+          turn_count: userIdx + 2,
+          user_turn_count: ((session.user_turn_count as number) ?? 0) + 1,
+          status: abort ? 'aborted_by_character' : session.status,
+          finished_at: abort ? new Date().toISOString() : null,
+        })
+        .eq('id', session.id);
+
+      // Return a synthetic SSE stream so the client UI behaves identically
+      const encoder = new TextEncoder();
+      const synthChunk = `data: ${JSON.stringify({ choices: [{ delta: { content: refusalText } }] })}\n\ndata: [DONE]\n\n`;
+      return new Response(encoder.encode(synthChunk), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'x-conv-painpoint': `quality_gate_${gate.reason}`,
+          'x-conv-state': JSON.stringify(penalisedState),
+          'x-conv-aborted': abort ? '1' : '0',
+          'x-conv-quality-gate': gate.reason,
+        },
+      });
+    }
 
     // Load painpoints for this vertical
     const { data: painpoints = [] } = await admin
@@ -344,6 +466,8 @@ REGELN:
             active_painpoint_id: selectedPp?.id ?? null,
             turn_count: newTurnCount,
             user_turn_count: (session.user_turn_count as number ?? 0) + 1,
+            quality_gate_fails: 0, // reset on any successful substantive turn
+
           })
           .eq('id', session.id);
       },
@@ -359,6 +483,7 @@ REGELN:
         // Meta header so client can show state delta without parsing full stream
         'x-conv-painpoint': painpointTriggered ?? '',
         'x-conv-state': JSON.stringify(currentState),
+        'x-conv-voice-id': (scenario?.character_brief as any)?.voice_id ?? '',
       },
     });
   } catch (e) {
