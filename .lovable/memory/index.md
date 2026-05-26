@@ -94,6 +94,7 @@ B2C-Pricing SSOT: 24,90 € / 12 Monate, einheitlich für ALLE EXAM_FIRST-Pakete
 - [Revenue Funnel Loop A](mem://architektur/marketing/revenue-funnel-loop-a-v1) — SSOT Marketing→CRM→Checkout, 6 Pflicht-Events, DOI, Lead-Scoring
 - [Email Activation Loop B](mem://architektur/marketing/email-activation-loop-b-v1) — 4 Sequenzen, Trigger, Worker, Idempotency-Key
 - [License & AI-Tutor Loop C](mem://architektur/marketing/license-rollout-loop-c-v1) — tutor_access_check, Strict-RAG Citations, learner_course_grants, ai_tutor_audit
+- [FördermittelOS Cut 6.1 Integration](mem://architektur/marketing/foerdermittel-os-cut6-1-integration-v1) — Report+Reporting Routes, FundingReportCta auf Hub/Cluster/Program, CopilotPanel WissensOS-Bridge klickbar (localStorage + conversion_events), Admin-Nav-Link, Lead-Capture Smoke (guard-skippable)
 - [Cockpit Realtime + Phantom-Filter](mem://architektur/ops/cockpit-realtime-and-phantom-filter-v1) — useRealtimeQueueRefresh, job_count>0 Filter, Force-Run Cold-Start-Retry
 - [Artifact Orphan Detection & Cleanup](mem://architektur/ops/artifact-orphan-detection-and-cleanup-v1) — v_artifact_orphans (severity), Cleanup-RPC mit Audit, Backfill-Chunk-Audit, stündlicher Cron, Classifier-Fix für ops_guard_reason
 - [Artifact Orphan Cockpit & Graph-View](mem://architektur/ops/artifact-orphan-cockpit-and-graph-view-v1) — ArtifactOrphansCard in QueuePage, RPCs summary/detail/cleanup/audit, v_artifact_graph_consistency, UNCLASSIFIED_EMPTY Recalc
