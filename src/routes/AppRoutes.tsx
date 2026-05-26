@@ -237,6 +237,11 @@ const DemoCohortPage = lazyRetry(() => import('@/pages/demo/DemoCohortPage'));
 const ActivationJourneyPage = lazyRetry(() => import('@/pages/demo/ActivationJourneyPage'));
 const FristenrechnerPage = lazyRetry(() => import('@/pages/hr/FristenrechnerPage'));
 const HRDeadlineLongtailPage = lazyRetry(() => import('@/pages/hr/HRDeadlineLongtailPage'));
+const AuthorityHubPage = lazyRetry(() => import('@/pages/authority/AuthorityHubPage'));
+const AuthorityTopicPage = lazyRetry(() => import('@/pages/authority/AuthorityTopicPage'));
+const AuthorityChecklistPage = lazyRetry(() => import('@/pages/authority/AuthorityChecklistPage'));
+const AuthorityTemplatePage = lazyRetry(() => import('@/pages/authority/AuthorityTemplatePage'));
+const AuthorityRiskCheckPage = lazyRetry(() => import('@/pages/authority/AuthorityRiskCheckPage'));
 const OrgStructurePage = lazyRetry(() => import('@/pages/org/OrgStructurePage'));
 const SetupWizardsPage = lazyRetry(() => import('@/pages/admin/SetupWizardsPage'));
 const ActivationOSPage = lazyRetry(() => import('@/pages/admin/ActivationOSPage'));
@@ -420,6 +425,13 @@ const AppRoutes = () => {
         <Route path="/hr/fristenrechner-kuendigung" element={<FristenrechnerPage />} />
         <Route path="/tools/kuendigungsfrist-rechner" element={<FristenrechnerPage />} />
         <Route path="/hr/:slug" element={<HRDeadlineLongtailPage />} />
+
+        {/* Content Authority Engine — Tools/Checklisten/Vorlagen/Risiko-Checks/Assistenten */}
+        <Route path="/authority" element={<AuthorityHubPage />} />
+        <Route path="/authority/checkliste/:slug" element={<AuthorityChecklistPage />} />
+        <Route path="/authority/vorlage/:slug" element={<AuthorityTemplatePage />} />
+        <Route path="/authority/risiko-check/:slug" element={<AuthorityRiskCheckPage />} />
+        <Route path="/authority/:topic" element={<AuthorityTopicPage />} />
         <Route path="/org/structure" element={<OrgStructurePage />} />
         <Route path="/admin/setup-wizards" element={<SetupWizardsPage />} />
         <Route path="/admin/activation-os" element={<ActivationOSPage />} />
