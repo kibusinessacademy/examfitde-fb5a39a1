@@ -46,7 +46,7 @@ export function useUpsertAutomationRule(orgId: string | null) {
 
 export function useEvaluateAutomation(orgId: string | null) {
   return useMutation({
-    mutationFn: (days = 7) => evaluateOrgAutomation(orgId!, days),
+    mutationFn: (days?: number) => evaluateOrgAutomation(orgId!, days ?? 7),
   });
 }
 
