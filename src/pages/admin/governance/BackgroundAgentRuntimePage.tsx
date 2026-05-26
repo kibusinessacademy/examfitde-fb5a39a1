@@ -306,14 +306,21 @@ export default function BackgroundAgentRuntimePage() {
         <KpiCard label="Failed" value={totals.failed} tone={totals.failed > 0 ? 'error' : 'ok'} />
       </section>
 
-      <Tabs defaultValue="workflows" className="w-full">
+      <Tabs defaultValue="value" className="w-full">
         <TabsList>
+          <TabsTrigger value="value"><Gauge className="h-4 w-4 mr-2" />Wirkung</TabsTrigger>
           <TabsTrigger value="workflows"><Sparkles className="h-4 w-4 mr-2" />Workflows</TabsTrigger>
           <TabsTrigger value="schedules"><CalendarClock className="h-4 w-4 mr-2" />Scheduled Runs</TabsTrigger>
           <TabsTrigger value="sources"><Layers className="h-4 w-4 mr-2" />Quellen</TabsTrigger>
           <TabsTrigger value="tasks"><Activity className="h-4 w-4 mr-2" />Tasks</TabsTrigger>
           <TabsTrigger value="capabilities"><ShieldCheck className="h-4 w-4 mr-2" />Capabilities</TabsTrigger>
         </TabsList>
+
+        {/* P73 — Business Value Layer (customer-facing, pure resolver) */}
+        <TabsContent value="value" className="space-y-3">
+          <ValueLayerSection tasks={tasks} onPreview={(t) => setPreviewTask(t)} />
+        </TabsContent>
+
 
         {/* P70.3 + P70.4 — Workflows: customer-facing outcomes + admin Start-Triggers */}
         <TabsContent value="workflows" className="space-y-3">
