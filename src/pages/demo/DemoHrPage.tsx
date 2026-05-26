@@ -143,7 +143,11 @@ export default function DemoHrPage() {
           const dataStr = dataParts.join("\n");
           if (!dataStr) continue;
           if (eventName === "meta") {
-            try { setMeta(JSON.parse(dataStr)); } catch { /* ignore */ }
+            try {
+              const parsed = JSON.parse(dataStr) as MetaPayload;
+              metaLocal = parsed;
+              setMeta(parsed);
+            } catch { /* ignore */ }
             continue;
           }
           if (dataStr === "[DONE]") continue;
