@@ -246,6 +246,11 @@ const OfferComparisonDashboardPage = lazyRetry(() => import('@/pages/offer-compa
 const FoerdermittelHubPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelHubPage'));
 const FoerdermittelProgramPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelProgramPage'));
 const FoerdermittelTopicPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelTopicPage'));
+const FoerdermittelStatePage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelStatePage'));
+const FoerdermittelIndustryPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelIndustryPage'));
+const FoerdermittelCombinationPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelCombinationPage'));
+const FoerdermittelChecklistPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelChecklistPage'));
+const FoerdermittelCurrentPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelCurrentPage'));
 const OfferComparisonProjectPage = lazyRetry(() => import('@/pages/offer-comparison/OfferComparisonProjectPage'));
 const OrgStructurePage = lazyRetry(() => import('@/pages/org/OrgStructurePage'));
 const SetupWizardsPage = lazyRetry(() => import('@/pages/admin/SetupWizardsPage'));
@@ -447,6 +452,11 @@ const AppRoutes = () => {
         <Route path="/foerdermittel" element={<FoerdermittelHubPage />} />
         <Route path="/foerdermittel/programm/:slug" element={<FoerdermittelProgramPage />} />
         <Route path="/foerdermittel/thema/:topic" element={<FoerdermittelTopicPage />} />
+        <Route path="/foerdermittel/bundesland/:state" element={<FoerdermittelStatePage />} />
+        <Route path="/foerdermittel/branche/:industry" element={<FoerdermittelIndustryPage />} />
+        <Route path="/foerdermittel/kombination/:slug" element={<FoerdermittelCombinationPage />} />
+        <Route path="/foerdermittel/antrag/checkliste" element={<FoerdermittelChecklistPage />} />
+        <Route path="/foerdermittel/aktuell" element={<FoerdermittelCurrentPage />} />
         <Route path="/fördermittel" element={<Navigate to="/foerdermittel" replace />} />
 
         <Route path="/org/structure" element={<OrgStructurePage />} />
