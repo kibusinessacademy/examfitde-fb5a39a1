@@ -238,6 +238,9 @@ const ActivationJourneyPage = lazyRetry(() => import('@/pages/demo/ActivationJou
 const DemoHrPage = lazyRetry(() => import('@/pages/demo/DemoHrPage'));
 const ConversationOSShowroom = lazyRetry(() => import('@/pages/os/ConversationOSShowroom'));
 const VerticalModulePage = lazyRetry(() => import('@/pages/os/VerticalModulePage'));
+const ConversationOSRunPage = lazyRetry(() => import('@/pages/os/ConversationOSRunPage'));
+const ConversationOSDebriefPage = lazyRetry(() => import('@/pages/os/ConversationOSDebriefPage'));
+const ConversationOSHistoryPage = lazyRetry(() => import('@/pages/os/ConversationOSHistoryPage'));
 const FristenrechnerPage = lazyRetry(() => import('@/pages/hr/FristenrechnerPage'));
 const HRDeadlineLongtailPage = lazyRetry(() => import('@/pages/hr/HRDeadlineLongtailPage'));
 const AuthorityHubPage = lazyRetry(() => import('@/pages/authority/AuthorityHubPage'));
@@ -446,6 +449,9 @@ const AppRoutes = () => {
         <Route path="/os/sales-conversation" element={<VerticalModulePage />} />
         <Route path="/os/support-escalation" element={<VerticalModulePage />} />
         <Route path="/os/compliance-conversation" element={<VerticalModulePage />} />
+        <Route path="/os/hr-interview/run/:scenarioId" element={<ConversationOSRunPage />} />
+        <Route path="/os/hr-interview/debrief/:sessionId" element={<ConversationOSDebriefPage />} />
+        <Route path="/os/hr-interview/history" element={<ConversationOSHistoryPage />} />
 
         {/* HR Deadline OS — Authority Hub + Programmable SEO */}
         <Route path="/hr/fristenrechner-kuendigung" element={<FristenrechnerPage />} />
