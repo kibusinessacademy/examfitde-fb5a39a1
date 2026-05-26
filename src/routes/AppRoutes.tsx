@@ -243,6 +243,9 @@ const AuthorityChecklistPage = lazyRetry(() => import('@/pages/authority/Authori
 const AuthorityTemplatePage = lazyRetry(() => import('@/pages/authority/AuthorityTemplatePage'));
 const AuthorityRiskCheckPage = lazyRetry(() => import('@/pages/authority/AuthorityRiskCheckPage'));
 const OfferComparisonDashboardPage = lazyRetry(() => import('@/pages/offer-comparison/OfferComparisonDashboardPage'));
+const FoerdermittelHubPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelHubPage'));
+const FoerdermittelProgramPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelProgramPage'));
+const FoerdermittelTopicPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelTopicPage'));
 const OfferComparisonProjectPage = lazyRetry(() => import('@/pages/offer-comparison/OfferComparisonProjectPage'));
 const OrgStructurePage = lazyRetry(() => import('@/pages/org/OrgStructurePage'));
 const SetupWizardsPage = lazyRetry(() => import('@/pages/admin/SetupWizardsPage'));
