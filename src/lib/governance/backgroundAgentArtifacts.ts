@@ -9,10 +9,10 @@
  * INVARIANTS (P71):
  *  - NO new tables / NO new queue / NO new runtime / NO new agents.
  *  - NO database mutations from this layer.
- *  - NO direct table reads (`supabase.from(...)`) — Drawer consumes pre-loaded
- *    task rows from existing P70.1 RPCs only.
- *  - Pure & deterministic: same input → same artifact shape.
- *  - Customer-safe wording (never "Curriculum Repair" in external labels).
+ *  - NO direct table reads — Drawer consumes pre-loaded task rows from
+ *    existing P70.1 RPCs only.
+ *  - Pure & deterministic: same input -> same artifact shape.
+ *  - Customer-safe wording (never internal jargon in external labels).
  */
 import type { BackgroundTaskLike } from "@/lib/governance/backgroundAgentActions";
 
