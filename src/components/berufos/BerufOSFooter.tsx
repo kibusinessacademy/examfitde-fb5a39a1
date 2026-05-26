@@ -20,6 +20,7 @@ export function BerufOSFooter() {
             <li><Link to="/hr/fristenrechner-kuendigung">HR Deadline OS</Link></li>
             <li><Link to="/authority">Authority Hub</Link></li>
             <li><Link to="/offer-comparison">AngebotsvergleichOS</Link></li>
+            <li><Link to="/foerdermittel">FördermittelOS</Link></li>
           </ul>
         </div>
         <div>
