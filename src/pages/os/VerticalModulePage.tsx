@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Clock, Sparkles, CheckCircle2, Target, Users, MessagesSquare } from "lucide-react";
 
 type ScenarioRow = {
+  id: string;
   scenario_key: string;
   title: string;
   short_pitch: string;
