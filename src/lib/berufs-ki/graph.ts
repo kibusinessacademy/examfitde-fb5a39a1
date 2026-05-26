@@ -141,3 +141,117 @@ export async function decideEvolutionCandidate(id: string, decision: "approve" |
   if (error) throw error;
   return data as { id: string; status: string };
 }
+
+// ============================================================
+// BerufOS Intelligence Graph Foundation (5-Layer)
+// Extends existing berufs_ki_graph_* SSOT — no parallel system.
+// ============================================================
+
+export type BerufOSGraphSummary = {
+  totals: {
+    total_nodes: number;
+    total_edges: number;
+    distinct_node_types: number;
+    distinct_edge_types: number;
+    pending_evolution_candidates: number;
+  } | null;
+  nodes_by_type: Record<string, number> | null;
+  nodes_by_status: Record<string, number> | null;
+  edges_by_type: Record<string, number> | null;
+  edges_by_status: Record<string, number> | null;
+  orphan_count: number;
+  proposed_count: number;
+  evidence_count: number;
+  latest_snapshot: {
+    id: string;
+    graph_scope: string;
+    node_count: number;
+    edge_count: number;
+    checksum: string;
+    generated_at: string;
+  } | null;
+};
+
+export type BerufOSGraphDriftReport = {
+  edges_without_evidence: number;
+  orphan_active_nodes: number;
+  proposed_stale_7d: number;
+  deprecated_with_active_edges: number;
+  low_confidence_active_edges: number;
+};
+
+export type BerufOSRebuildResult = {
+  ok: boolean;
+  dry_run: boolean;
+  scope: string;
+  node_count: number;
+  edge_count: number;
+  checksum: string;
+  snapshot_id: string | null;
+  inserted: {
+    curricula: number;
+    certifications: number;
+    competencies: number;
+    belongs_to_edges: number;
+  };
+};
+
+export async function getBerufOSGraphSummary(): Promise<BerufOSGraphSummary> {
+  const { data, error } = await (supabase as any).rpc("admin_get_berufos_graph_summary");
+  if (error) throw error;
+  return data as BerufOSGraphSummary;
+}
+
+export async function getBerufOSGraphDriftReport(): Promise<BerufOSGraphDriftReport> {
+  const { data, error } = await (supabase as any).rpc("admin_get_berufos_graph_drift_report");
+  if (error) throw error;
+  return data as BerufOSGraphDriftReport;
+}
+
+export async function rebuildBerufOSGraph(
+  scope: string = "global",
+  dryRun: boolean = true,
+): Promise<BerufOSRebuildResult> {
+  const { data, error } = await (supabase as any).rpc("admin_rebuild_berufos_graph", {
+    p_scope: scope,
+    p_dry_run: dryRun,
+  });
+  if (error) throw error;
+  return data as BerufOSRebuildResult;
+}
+
+export async function activateProposedEdge(edgeId: string, reason?: string) {
+  const { data, error } = await (supabase as any).rpc("admin_activate_proposed_edge", {
+    p_edge_id: edgeId, p_reason: reason ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function rejectProposedEdge(edgeId: string, reason?: string) {
+  const { data, error } = await (supabase as any).rpc("admin_reject_proposed_edge", {
+    p_edge_id: edgeId, p_reason: reason ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function getBerufOSNodeDetail(nodeId: string) {
+  const { data, error } = await (supabase as any).rpc("admin_get_berufos_graph_node_detail", {
+    p_node_id: nodeId,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function getLearnerSkillPath() {
+  const { data, error } = await (supabase as any).rpc("learner_get_skill_path");
+  if (error) throw error;
+  return data;
+}
+
+export async function getManagerCompetencyRiskGraph() {
+  const { data, error } = await (supabase as any).rpc("manager_get_competency_risk_graph");
+  if (error) throw error;
+  return data;
+}
