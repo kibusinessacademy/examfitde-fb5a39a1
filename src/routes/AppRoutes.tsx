@@ -440,6 +440,12 @@ const AppRoutes = () => {
         <Route path="/demo/journey" element={<ActivationJourneyPage />} />
         <Route path="/demo/hr" element={<DemoHrPage />} />
         <Route path="/os/conversation" element={<ConversationOSShowroom />} />
+        <Route path="/os/hr-interview" element={<VerticalModulePage />} />
+        <Route path="/os/leadership" element={<VerticalModulePage />} />
+        <Route path="/os/med-talk" element={<VerticalModulePage />} />
+        <Route path="/os/sales-conversation" element={<VerticalModulePage />} />
+        <Route path="/os/support-escalation" element={<VerticalModulePage />} />
+        <Route path="/os/compliance-conversation" element={<VerticalModulePage />} />
 
         {/* HR Deadline OS — Authority Hub + Programmable SEO */}
         <Route path="/hr/fristenrechner-kuendigung" element={<FristenrechnerPage />} />
