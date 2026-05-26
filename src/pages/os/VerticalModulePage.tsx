@@ -45,7 +45,8 @@ const DIFFICULTY_VARIANT: Record<string, "default" | "secondary" | "destructive"
 };
 
 export default function VerticalModulePage() {
-  const { moduleSlug } = useParams<{ moduleSlug: string }>();
+  const location = useLocation();
+  const moduleSlug = location.pathname.replace(/^\/os\//, "").replace(/\/$/, "");
   const [data, setData] = useState<ModuleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
