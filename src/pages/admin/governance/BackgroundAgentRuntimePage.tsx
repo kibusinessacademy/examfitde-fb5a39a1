@@ -481,9 +481,30 @@ export default function BackgroundAgentRuntimePage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!pendingDispatch} onOpenChange={(o) => !o && setPendingDispatch(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingDispatch?.label} ausführen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Die Aktion läuft über die bestehende Dispatcher-Pipeline — kein paralleler
+              Schreibpfad. Quelle <code>{pendingDispatch?.task.source_type}</code>,
+              ID <code className="text-xs">{pendingDispatch?.task.source_id}</code>.
+              Jeder Dispatch wird in <code>auto_heal_log</code> auditiert.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={dispatching}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void performDispatch(); }} disabled={dispatching}>
+              {dispatching ? 'Dispatcht…' : 'Bestätigen'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
 
 function KpiCard({
   label, value, tone = 'info', icon: Icon,
