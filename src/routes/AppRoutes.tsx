@@ -242,6 +242,11 @@ const AuthorityTopicPage = lazyRetry(() => import('@/pages/authority/AuthorityTo
 const AuthorityChecklistPage = lazyRetry(() => import('@/pages/authority/AuthorityChecklistPage'));
 const AuthorityTemplatePage = lazyRetry(() => import('@/pages/authority/AuthorityTemplatePage'));
 const AuthorityRiskCheckPage = lazyRetry(() => import('@/pages/authority/AuthorityRiskCheckPage'));
+const OfferComparisonDashboardPage = lazyRetry(() => import('@/pages/offer-comparison/OfferComparisonDashboardPage'));
+const FoerdermittelHubPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelHubPage'));
+const FoerdermittelProgramPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelProgramPage'));
+const FoerdermittelTopicPage = lazyRetry(() => import('@/pages/foerdermittel/FoerdermittelTopicPage'));
+const OfferComparisonProjectPage = lazyRetry(() => import('@/pages/offer-comparison/OfferComparisonProjectPage'));
 const OrgStructurePage = lazyRetry(() => import('@/pages/org/OrgStructurePage'));
 const SetupWizardsPage = lazyRetry(() => import('@/pages/admin/SetupWizardsPage'));
 const ActivationOSPage = lazyRetry(() => import('@/pages/admin/ActivationOSPage'));
@@ -432,6 +437,18 @@ const AppRoutes = () => {
         <Route path="/authority/vorlage/:slug" element={<AuthorityTemplatePage />} />
         <Route path="/authority/risiko-check/:slug" element={<AuthorityRiskCheckPage />} />
         <Route path="/authority/:topic" element={<AuthorityTopicPage />} />
+
+        {/* AngebotsvergleichOS — Procurement & Decision Intelligence */}
+        <Route path="/offer-comparison" element={<OfferComparisonDashboardPage />} />
+        <Route path="/offer-comparison/projekt/:slug" element={<OfferComparisonProjectPage />} />
+        <Route path="/angebotsvergleich" element={<Navigate to="/offer-comparison" replace />} />
+
+        {/* FördermittelOS — Fördermittel-Intelligence */}
+        <Route path="/foerdermittel" element={<FoerdermittelHubPage />} />
+        <Route path="/foerdermittel/programm/:slug" element={<FoerdermittelProgramPage />} />
+        <Route path="/foerdermittel/thema/:topic" element={<FoerdermittelTopicPage />} />
+        <Route path="/fördermittel" element={<Navigate to="/foerdermittel" replace />} />
+
         <Route path="/org/structure" element={<OrgStructurePage />} />
         <Route path="/admin/setup-wizards" element={<SetupWizardsPage />} />
         <Route path="/admin/activation-os" element={<ActivationOSPage />} />
