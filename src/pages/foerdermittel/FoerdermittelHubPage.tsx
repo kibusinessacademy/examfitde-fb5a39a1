@@ -53,6 +53,11 @@ export default function FoerdermittelHubPage() {
         <FoerderRadarCard programs={PROGRAMS} />
       </section>
 
+      {/* Cut 4 — CoPilot CTA (no free chat on hub) */}
+      <section className="mx-auto max-w-7xl px-6 pt-6">
+        <CopilotHubCta />
+      </section>
+
       {/* Wizard */}
       <section className="mx-auto max-w-7xl px-6 py-10">
         <h2 className="text-2xl font-semibold tracking-tight mb-1">Matching-Wizard</h2>
