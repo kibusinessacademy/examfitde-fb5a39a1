@@ -304,6 +304,7 @@ export default function HealCockpitPage() {
             <QuickReapButton
               lane="control"
               label="Reap Control-Lane"
+              ariaLabel="Reap Control-Lane Jobs"
               variant="destructive"
               pending={reapLane.isPending}
               onConfirm={() => reapLane.mutate("control")}
@@ -311,6 +312,7 @@ export default function HealCockpitPage() {
             <QuickReapButton
               lane="all"
               label="Reap All"
+              ariaLabel="Reap All Jobs"
               variant="outline"
               pending={reapLane.isPending}
               onConfirm={() => reapLane.mutate("all")}
