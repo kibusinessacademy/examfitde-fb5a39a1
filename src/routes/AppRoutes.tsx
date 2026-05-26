@@ -443,6 +443,12 @@ const AppRoutes = () => {
         <Route path="/offer-comparison/projekt/:slug" element={<OfferComparisonProjectPage />} />
         <Route path="/angebotsvergleich" element={<Navigate to="/offer-comparison" replace />} />
 
+        {/* FördermittelOS — Fördermittel-Intelligence */}
+        <Route path="/foerdermittel" element={<FoerdermittelHubPage />} />
+        <Route path="/foerdermittel/programm/:slug" element={<FoerdermittelProgramPage />} />
+        <Route path="/foerdermittel/thema/:topic" element={<FoerdermittelTopicPage />} />
+        <Route path="/fördermittel" element={<Navigate to="/foerdermittel" replace />} />
+
         <Route path="/org/structure" element={<OrgStructurePage />} />
         <Route path="/admin/setup-wizards" element={<SetupWizardsPage />} />
         <Route path="/admin/activation-os" element={<ActivationOSPage />} />
