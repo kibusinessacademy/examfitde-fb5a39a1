@@ -26,7 +26,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle, Sparkles } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle, Sparkles, Play } from 'lucide-react';
 import {
   resolveBackgroundAgentActions,
   dispatchBackgroundAgentAction,
@@ -34,7 +35,15 @@ import {
   type BackgroundAgentAction,
   type BackgroundAgentSource,
 } from '@/lib/governance/backgroundAgentActions';
-import { groupTasksByWorkUnit } from '@/lib/governance/backgroundAgentWorkUnits';
+import { groupTasksByWorkUnit, WORK_UNIT_REGISTRY, type WorkUnitGroup } from '@/lib/governance/backgroundAgentWorkUnits';
+import {
+  WORKFLOW_TRIGGER_REGISTRY,
+  resolveWorkflowTrigger,
+  dispatchWorkflowTrigger,
+  type WorkflowTriggerType,
+  type ResolvedWorkflowTrigger,
+} from '@/lib/governance/backgroundAgentWorkflowTriggers';
+
 
 
 
@@ -109,6 +118,7 @@ const APPROVAL_LABEL: Record<string, { label: string; tone: string }> = {
 
 export default function BackgroundAgentRuntimePage() {
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
   const [summary, setSummary] = useState<SummaryRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [capabilities, setCapabilities] = useState<CapabilityRow[]>([]);
@@ -119,7 +129,10 @@ export default function BackgroundAgentRuntimePage() {
   const [pendingDispatch, setPendingDispatch] = useState<{
     task: TaskRow; action: BackgroundAgentAction; label: string;
   } | null>(null);
+  const [pendingTrigger, setPendingTrigger] = useState<ResolvedWorkflowTrigger | null>(null);
   const [dispatching, setDispatching] = useState(false);
+  const [triggering, setTriggering] = useState(false);
+
 
   function navigateToSource(t: TaskRow, kind: BackgroundAgentAction) {
     // P70.2: navigation only — never reads source tables directly.
@@ -164,6 +177,32 @@ export default function BackgroundAgentRuntimePage() {
       setDispatching(false);
     }
   }
+
+  async function performTrigger() {
+    if (!pendingTrigger) return;
+    setTriggering(true);
+    try {
+      const res = await dispatchWorkflowTrigger(
+        pendingTrigger.type,
+        `cockpit_p70_4:${pendingTrigger.type}`,
+      );
+      toast({
+        title: 'Workflow gestartet',
+        description: `${pendingTrigger.descriptor.startLabel} → ${res.route}`,
+      });
+      setPendingTrigger(null);
+      await loadAll();
+    } catch (e) {
+      toast({
+        title: 'Trigger fehlgeschlagen',
+        description: e instanceof Error ? e.message : 'Unbekannter Fehler',
+        variant: 'destructive',
+      });
+    } finally {
+      setTriggering(false);
+    }
+  }
+
 
   async function loadAll() {
     setLoading(true);
