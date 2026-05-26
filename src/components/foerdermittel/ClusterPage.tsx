@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ProgramCard } from "@/components/foerdermittel/ProgramCard";
 import { FoerderRadarCard } from "@/components/foerdermittel/FoerderRadarCard";
 import { EuAiActTransparencyCard } from "@/components/foerdermittel/EuAiActTransparencyCard";
+import { FundingReportCta } from "@/components/foerdermittel/FundingReportCta";
 import { JsonLdHead } from "@/components/seo/JsonLdHead";
 import { buildBreadcrumbList, composeSchemaGraph } from "@/lib/seo/schema";
 import {
@@ -17,13 +18,27 @@ import {
 } from "@/lib/foerdermittel/seoAuthority";
 import { scoreMatch } from "@/lib/foerdermittel/matching";
 import { PROGRAMS } from "@/lib/foerdermittel/registry";
+import type { LeadSourcePage } from "@/lib/foerdermittel/conversion";
+
+const KIND_TO_SOURCE: Record<Cluster["meta"]["kind"], LeadSourcePage> = {
+  state: "cluster_state",
+  topic: "cluster_topic",
+  industry: "cluster_industry",
+  size: "hub",
+  combination: "cluster_combination",
+  aktuell: "cluster_current",
+  antrag: "checklist",
+};
 
 export interface ClusterPageProps {
   cluster: Cluster;
   breadcrumbLabel: string;
+  /** Optional override; default derived from cluster.meta.kind */
+  leadSource?: LeadSourcePage;
 }
 
-export function ClusterPage({ cluster, breadcrumbLabel }: ClusterPageProps) {
+export function ClusterPage({ cluster, breadcrumbLabel, leadSource }: ClusterPageProps) {
+  const resolvedSource: LeadSourcePage = leadSource ?? KIND_TO_SOURCE[cluster.meta.kind];
   const head = buildClusterMeta(cluster);
   const faqs = buildSeoFaqs(cluster);
   const links = recommendInternalLinks(cluster, PROGRAMS);
@@ -157,6 +172,11 @@ export function ClusterPage({ cluster, breadcrumbLabel }: ClusterPageProps) {
             <Button asChild variant="outline" size="sm" className="mt-3"><Link to={`/foerdermittel/programm/${cluster.programs[0]?.slug ?? ''}`}>CoPilot zu Top-Programm</Link></Button>
           </CardContent>
         </Card>
+      </section>
+
+      {/* Cut 6 — Funding Report Lead CTA */}
+      <section className="mx-auto max-w-7xl px-6 pb-8">
+        <FundingReportCta source={resolvedSource} matches={matches} variant="compact" />
       </section>
 
       {/* Internal links */}

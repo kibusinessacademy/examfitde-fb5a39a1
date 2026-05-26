@@ -9,6 +9,7 @@ import { ProgramCard } from "@/components/foerdermittel/ProgramCard";
 import { FoerderRadarCard } from "@/components/foerdermittel/FoerderRadarCard";
 import { NextStepsPreview } from "@/components/foerdermittel/NextStepsPreview";
 import { CopilotHubCta } from "@/components/foerdermittel/CopilotHubCta";
+import { FundingReportCta } from "@/components/foerdermittel/FundingReportCta";
 import { matchPrograms, rankNoise } from "@/lib/foerdermittel/matching";
 import { PROGRAMS } from "@/lib/foerdermittel/registry";
 import type { CompanyProfile, ProgramMatch } from "@/lib/foerdermittel/types";
@@ -57,6 +58,12 @@ export default function FoerdermittelHubPage() {
       <section className="mx-auto max-w-7xl px-6 pt-6">
         <CopilotHubCta />
       </section>
+
+      {/* Cut 6 — Funding Report Lead CTA */}
+      <section className="mx-auto max-w-7xl px-6 pt-6">
+        <FundingReportCta source="hub" matches={matches} profile={profile} variant="primary" />
+      </section>
+
 
       {/* Wizard */}
       <section id="matching" className="mx-auto max-w-7xl px-6 py-10">

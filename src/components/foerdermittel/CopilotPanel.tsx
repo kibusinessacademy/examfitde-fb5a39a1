@@ -227,24 +227,54 @@ export function CopilotPanel({ program, match, profile }: Props) {
               <BookOpenCheck className="h-3 w-3" /> Cross-OS Aktionen
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
-              {bridges.map((b) => (
-                <div
-                  key={b.intent}
-                  className="rounded-md border p-2.5 text-xs flex items-center justify-between gap-2"
-                >
-                  <span className="truncate">{b.label}</span>
-                  <Badge
-                    variant="outline"
-                    className={
-                      b.availability === "available"
-                        ? "text-[9px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400"
-                        : "text-[9px] border-muted-foreground/30 text-muted-foreground"
+              {bridges.map((b) => {
+                const isWissens = b.intent === "save_knowledge_note_in_wissens_os";
+                const onClick = isWissens
+                  ? () => {
+                      try {
+                        const key = "wissensos.notes.pending";
+                        const prev = JSON.parse(localStorage.getItem(key) ?? "[]");
+                        prev.push({
+                          source: "foerdermittel",
+                          program_slug: program.slug,
+                          program_name: program.name,
+                          created_at: new Date().toISOString(),
+                        });
+                        localStorage.setItem(key, JSON.stringify(prev.slice(-50)));
+                      } catch { /* storage may be unavailable */ }
+                      void supabase.from("conversion_events").insert({
+                        event_type: "cross_os_recommendation_clicked",
+                        page_path: `/foerdermittel/programm/${program.slug}`,
+                        metadata: {
+                          module: "foerdermittel",
+                          target_os: "WissensOS",
+                          intent: b.intent,
+                          program_slug: program.slug,
+                        },
+                      });
                     }
+                  : undefined;
+                const Tag = onClick ? "button" : "div";
+                return (
+                  <Tag
+                    key={b.intent}
+                    onClick={onClick}
+                    className={`rounded-md border p-2.5 text-xs flex items-center justify-between gap-2 text-left ${onClick ? "hover:bg-muted transition cursor-pointer" : ""}`}
                   >
-                    {b.availability === "available" ? "vorbereitet" : "bald verfügbar"}
-                  </Badge>
-                </div>
-              ))}
+                    <span className="truncate">{b.label}</span>
+                    <Badge
+                      variant="outline"
+                      className={
+                        b.availability === "available"
+                          ? "text-[9px] border-emerald-500/40 text-emerald-700 dark:text-emerald-400"
+                          : "text-[9px] border-muted-foreground/30 text-muted-foreground"
+                      }
+                    >
+                      {isWissens ? "vorbereitet · klick" : b.availability === "available" ? "vorbereitet" : "bald verfügbar"}
+                    </Badge>
+                  </Tag>
+                );
+              })}
             </div>
           </div>
 
