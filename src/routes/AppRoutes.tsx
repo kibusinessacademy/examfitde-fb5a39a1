@@ -225,6 +225,7 @@ const BerufOSModulePage = lazyRetry(() => import('@/pages/berufos/BerufOSModuleP
 const BerufsKIHubPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIHubPage'));
 const BerufsKIWorkbenchPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIWorkbenchPage'));
 const BerufsKIIntelligencePage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIIntelligencePage'));
+const OrgStructurePage = lazyRetry(() => import('@/pages/org/OrgStructurePage'));
 const BerufsKIWorkflowsPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIWorkflowsPage'));
 const BerufsKIQualityPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIQualityPage'));
 const BerufsKIReviewPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIReviewPage'));
@@ -387,6 +388,7 @@ const AppRoutes = () => {
         <Route path="/berufs-ki/dokumente" element={<BerufsKIDocumentsPage />} />
         <Route path="/berufs-ki/dokumente/review" element={<BerufsKIDocumentsReviewPage />} />
         <Route path="/berufs-ki/intelligence" element={<BerufsKIIntelligencePage />} />
+        <Route path="/org/structure" element={<OrgStructurePage />} />
 
 
         {/* Legacy /berufski/* → 410 Gone */}
