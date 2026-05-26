@@ -51,10 +51,16 @@ const DIFFICULTY_VARIANT: Record<string, "default" | "secondary" | "destructive"
 
 export default function VerticalModulePage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const moduleSlug = location.pathname.replace(/^\/os\//, "").replace(/\/$/, "");
   const [data, setData] = useState<ModuleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [selectedScenario, setSelectedScenario] = useState<ScenarioRow | null>(null);
+  const [position, setPosition] = useState("");
+  const [branche, setBranche] = useState("");
+  const [seniority, setSeniority] = useState("");
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     if (!moduleSlug) return;
