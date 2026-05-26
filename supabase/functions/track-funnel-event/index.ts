@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
       package_id: packageId,
       error: error.message,
     });
-    return json({ error: "insert_failed", detail: error.message }, 500);
+    return json({ error: "insert_failed" }, 500);
   }
   return json({ ok: true });
 });
