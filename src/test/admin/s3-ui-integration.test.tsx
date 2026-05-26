@@ -242,11 +242,13 @@ describe("GateHistoryDashboardPage", () => {
       ),
     );
 
-    // Now flip to done and let next poll observe it.
+    // Flip mock state and emit realtime event so the query invalidates
+    // immediately instead of waiting for the 15s polling fallback.
     jobStatus = "done";
-    await waitFor(() => expect(successSpy).toHaveBeenCalled(), { timeout: 20_000 });
+    emitGateExportJobsRealtime({ id: JOB, status: "done" });
+    await waitFor(() => expect(successSpy).toHaveBeenCalled(), { timeout: 5_000 });
     expect(errorSpy).not.toHaveBeenCalled();
-  }, 25_000);
+  }, 10_000);
 
   it("Export-Job-Flow: failed status → error toast + retry button visible", async () => {
     const { toast } = await import("sonner");
