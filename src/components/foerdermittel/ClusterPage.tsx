@@ -174,6 +174,11 @@ export function ClusterPage({ cluster, breadcrumbLabel, leadSource }: ClusterPag
         </Card>
       </section>
 
+      {/* Cut 6 — Funding Report Lead CTA */}
+      <section className="mx-auto max-w-7xl px-6 pb-8">
+        <FundingReportCta source={resolvedSource} matches={matches} variant="compact" />
+      </section>
+
       {/* Internal links */}
       <section className="mx-auto max-w-7xl px-6 pb-8">
         <h2 className="text-xl font-semibold tracking-tight mb-3">Weiterführend</h2>
