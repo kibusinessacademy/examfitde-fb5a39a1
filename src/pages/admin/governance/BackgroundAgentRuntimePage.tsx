@@ -138,8 +138,13 @@ export default function BackgroundAgentRuntimePage() {
 
 
   function navigateToSource(t: TaskRow, kind: BackgroundAgentAction) {
+    // P71: open_artifacts now opens the Artifact Preview Drawer (in-place, no nav).
+    if (kind === 'open_artifacts') {
+      setPreviewTask(t);
+      return;
+    }
     // P70.2: navigation only — never reads source tables directly.
-    if (t.package_id && (kind === 'open_source' || kind === 'open_artifacts')) {
+    if (t.package_id && kind === 'open_source') {
       window.open(`/admin/packages/${t.package_id}`, '_blank', 'noopener');
       return;
     }
