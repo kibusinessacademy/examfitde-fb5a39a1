@@ -27,7 +27,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle, Sparkles, Play } from 'lucide-react';
+import { Activity, Layers, ShieldCheck, RefreshCw, AlertTriangle, Sparkles, Play, CalendarClock } from 'lucide-react';
 import {
   resolveBackgroundAgentActions,
   dispatchBackgroundAgentAction,
@@ -43,6 +43,11 @@ import {
   type WorkflowTriggerType,
   type ResolvedWorkflowTrigger,
 } from '@/lib/governance/backgroundAgentWorkflowTriggers';
+import {
+  buildScheduleCards,
+  canToggleSchedule,
+  type ScheduleRowLike,
+} from '@/lib/governance/backgroundAgentSchedules';
 import { ArtifactPreviewDrawer } from '@/components/governance/ArtifactPreviewDrawer';
 import { FileText } from 'lucide-react';
 
@@ -124,6 +129,7 @@ export default function BackgroundAgentRuntimePage() {
   const [summary, setSummary] = useState<SummaryRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [capabilities, setCapabilities] = useState<CapabilityRow[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleRowLike[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSource, setFilterSource] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
