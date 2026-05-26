@@ -6,7 +6,7 @@
  * Zeitersparnis), a latest-outcome summary, and a Workflow-Health verdict.
  *
  * INVARIANTS:
- *  - NO database access, NO RPC, NO fetch, NO Date.now / Math.random.
+ *  - NO database access, NO RPC, NO fetch, NO non-deterministic time/random.
  *  - Pure & deterministic: same input → same output.
  *  - Customer-safe copy only: never "Curriculum Repair", "Council", "Drift-Heal".
  *  - Reuses P70.3 WorkUnit classifier and P71 ArtifactType classifier.
