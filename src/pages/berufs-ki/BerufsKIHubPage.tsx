@@ -42,7 +42,10 @@ export default function BerufsKIHubPage() {
             </Link>
           </Button>
           <Button asChild variant="outline" size="lg">
-            <a href="#kategorien">{BERUFS_KI.hub.cta_secondary}</a>
+            <Link to="/berufs-ki/suites">Produkt-Suiten ansehen</Link>
+          </Button>
+          <Button asChild variant="ghost" size="lg">
+            <Link to="/berufs-ki/copilot">Manager-Copilot</Link>
           </Button>
         </div>
       </section>

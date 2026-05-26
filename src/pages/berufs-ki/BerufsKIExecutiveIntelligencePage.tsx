@@ -29,6 +29,7 @@ import {
   useCrossOrgReadiness, useSiteComparison, useCohortTrends,
   useRecoveryEffectiveness, useInterventionImpact, useClusterRisk, useOrgQuality,
 } from "@/hooks/useCrossOrgIntel";
+import { useExecutiveNarrative } from "@/hooks/useBerufsKIActivation";
 import { bandClass, trendLabel, interventionLabel, type Band } from "@/lib/berufs-ki/crossOrg";
 import { OUTCOME_TYPE_SHORT } from "@/lib/berufs-ki/bi";
 
@@ -116,6 +117,8 @@ export default function BerufsKIExecutiveIntelligencePage() {
           </Select>
         </div>
       </header>
+
+      <ExecutiveNarrativeCard orgId={orgId} days={days} />
 
       <OrgQualityCard orgId={orgId} days={days} />
 
@@ -484,6 +487,33 @@ function CrossOrgReadinessCard({ orgId, days }: { orgId: string | null; days: nu
         {section("Standorte", data.sites.map((s) => ({ id: s.site_id, name: s.name, learners: s.learners, avg_score: s.avg_score, band: s.band })))}
         {section("Departments", data.departments.map((d) => ({ id: d.department_id, name: d.name, learners: d.learners, avg_score: d.avg_score, band: d.band })))}
         {section("Cohorts", data.cohorts.map((c) => ({ id: c.cohort_id, name: c.name, learners: c.learners, avg_score: c.avg_score, band: c.band })))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ExecutiveNarrativeCard({ orgId, days }: { orgId: string | null; days: number }) {
+  const { data, isLoading } = useExecutiveNarrative(orgId, days);
+  if (isLoading || !data) return <Skel title="Executive Narrative" />;
+  if (data.reason !== "OK") return null;
+  if (!data.bullets?.length) return null;
+  return (
+    <Card className="border-primary/30 bg-card">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Trophy className="h-4 w-4 text-primary" /> Executive Narrative
+          <Badge variant="outline" className="ml-auto text-[10px]">{data.bullets.length} Bullets</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-1.5 text-sm">
+          {data.bullets.map((b, i) => (
+            <li key={i} className="flex gap-2">
+              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+              <span>{b.text}</span>
+            </li>
+          ))}
+        </ul>
       </CardContent>
     </Card>
   );
