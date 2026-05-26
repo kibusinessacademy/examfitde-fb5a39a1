@@ -36,13 +36,7 @@ function weightFor(project: Project, key: CriterionKey): number {
   return CRITERIA_BY_KEY[key].defaultWeight;
 }
 
-function reasoningFor(
-  def: ReturnType<typeof CRITERIA_BY_KEY[CriterionKey] extends infer T ? () => T : never> extends never
-    ? typeof CRITERIA_BY_KEY[CriterionKey]
-    : never,
-  raw: number,
-  normalized: number,
-): string {
+function reasoningFor(def: typeof CRITERIA_BY_KEY[CriterionKey], raw: number, normalized: number): string {
   const pct = Math.round(normalized * 100);
   const direction = def.direction === "lower_better" ? "niedriger = besser" : "höher = besser";
   return `${def.label}: Rohwert ${raw} (${direction}) → ${pct}% relative Stärke im Set.`;
