@@ -299,36 +299,44 @@ export default function BackgroundAgentRuntimePage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Quelle</TableHead>
-                    <TableHead>Kind</TableHead>
+                    <TableHead>Arbeitseinheit</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Sev.</TableHead>
+                    <TableHead>Risiko</TableHead>
                     <TableHead>Approval</TableHead>
-                    <TableHead>Erstellt</TableHead>
+                    <TableHead className="text-right">Artefakte</TableHead>
+                    <TableHead className="text-right">Kosten €</TableHead>
+                    <TableHead>Letztes Ereignis</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tasks.map((t) => (
-                    <TableRow key={`${t.source}-${t.source_id}`}>
-                      <TableCell className="text-xs text-fg-muted">{SOURCE_LABEL[t.source] ?? t.source}</TableCell>
-                      <TableCell className="font-medium text-sm">{t.task_kind}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{t.status}</Badge></TableCell>
-                      <TableCell>
-                        <Badge className={SEVERITY_TONE[t.severity] ?? SEVERITY_TONE.info}>{t.severity}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {t.requires_approval
-                          ? t.approved_at
-                            ? <span className="text-status-fg-success">✓ {new Date(t.approved_at).toLocaleDateString('de-DE')}</span>
-                            : <span className="text-status-fg-warning">offen</span>
-                          : <span className="text-fg-muted">—</span>}
-                      </TableCell>
-                      <TableCell className="text-xs text-fg-muted whitespace-nowrap">
-                        {new Date(t.created_at).toLocaleString('de-DE')}
+                  {tasks.map((t) => {
+                    const risk = t.risk_level ?? 'low';
+                    const approval = APPROVAL_LABEL[t.approval_state ?? 'not_required'] ?? APPROVAL_LABEL.not_required;
+                    return (
+                      <TableRow key={`${t.source_type}-${t.source_id}`}>
+                        <TableCell className="text-xs text-fg-muted">{SOURCE_LABEL[t.source_type] ?? t.source_type}</TableCell>
+                        <TableCell className="font-medium text-sm">{t.capability_summary ?? t.task_kind ?? '—'}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-xs">{t.status ?? '—'}</Badge></TableCell>
+                        <TableCell>
+                          <Badge className={RISK_TONE[risk] ?? RISK_TONE.low}>{risk}</Badge>
+                        </TableCell>
+                        <TableCell className={`text-xs ${approval.tone}`}>{approval.label}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">{t.artifact_count ?? 0}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">
+                          {t.cost_eur != null ? Number(t.cost_eur).toFixed(2) : '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-fg-muted whitespace-nowrap">
+                          {t.last_event_at ? new Date(t.last_event_at).toLocaleString('de-DE') : '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {tasks.length === 0 && !loading && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-fg-muted py-6">
+                        Keine Arbeitseinheiten im aktuellen Filter.
                       </TableCell>
                     </TableRow>
-                  ))}
-                  {tasks.length === 0 && !loading && (
-                    <TableRow><TableCell colSpan={6} className="text-center text-fg-muted py-6">Keine Tasks im Filter.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
