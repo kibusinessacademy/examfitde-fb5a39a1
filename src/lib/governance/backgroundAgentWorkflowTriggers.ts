@@ -23,7 +23,7 @@ export interface WorkflowTriggerDescriptor {
   startLabel: string;
   /** Confirm-dialog body. */
   confirmDescription: string;
-  /** Capability gate identifier — must be enabled in capability registry. */
+  /** Capability gate identifier — kill-switch in capability registry. */
   capabilityKey: string;
   /** Mark destructive triggers (require strong confirm). */
   dangerous: boolean;
@@ -37,7 +37,7 @@ export const WORKFLOW_TRIGGER_REGISTRY: Record<
     type: "seo_opportunity",
     startLabel: "SEO Opportunity Scan starten",
     confirmDescription:
-      "Startet einen plattformweiten Scan nach Content-, Keyword- und Internal-Link-Lücken über bestehende SEO-Discovery-Pipeline. Kein Schreibzugriff auf Inhalte.",
+      "Startet einen plattformweiten Scan nach Content-, Keyword- und Internal-Link-Lücken über die bestehende SEO-Discovery-Pipeline. Kein Schreibzugriff auf Inhalte.",
     capabilityKey: "workflow.seo_opportunity_scan",
     dangerous: false,
   },
@@ -51,7 +51,7 @@ export const WORKFLOW_TRIGGER_REGISTRY: Record<
   },
   operational_quality: {
     type: "operational_quality",
-    // Customer-safe wording — never expose internal "Curriculum Repair" or "Council" terms.
+    // Customer-safe wording — never expose internal "Curriculum Repair" or council terms here.
     startLabel: "Qualitätsprüfung starten",
     confirmDescription:
       "Startet die kontinuierliche Qualitätsprüfung über alle Lerninhalte (Pipeline-Drift, Konsistenz, Veröffentlichungsreife). Repariert nur über bestehende Heal-Dispatcher.",
@@ -77,12 +77,12 @@ export interface ResolvedWorkflowTrigger {
 
 /**
  * Pure resolver: determines visibility/enabled state for a workflow trigger
- * based on admin role + capability registry. No side effects.
+ * based on admin role + capability registry. No side effects, no network.
  *
  * Capability-Gate logic: if a capability row matching `capabilityKey` exists
- * AND is_enabled=false, the trigger is hard-disabled. If no row exists, the
- * trigger is shown enabled (capability registry is allow-by-default for
- * workflow-level triggers — explicit kill-switch only).
+ * AND is_enabled=false, the trigger is hard-disabled (kill-switch).
+ * If no row exists, the trigger is enabled (allow-by-default for workflow-level
+ * triggers; only explicit kill-switch disables).
  */
 export function resolveWorkflowTrigger(
   type: WorkflowTriggerType,
