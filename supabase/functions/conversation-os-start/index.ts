@@ -7,6 +7,12 @@ import { createClient } from 'npm:@supabase/supabase-js@2.45.0';
 
 interface StartReq {
   scenario_id: string;
+  context_overrides?: {
+    position?: string;
+    branche?: string;
+    seniority?: string;
+    notes?: string;
+  };
 }
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
