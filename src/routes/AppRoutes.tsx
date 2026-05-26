@@ -435,6 +435,7 @@ const AppRoutes = () => {
         <Route path="/demo" element={<DemoHubPage />} />
         <Route path="/demo/cohort/:slug" element={<DemoCohortPage />} />
         <Route path="/demo/journey" element={<ActivationJourneyPage />} />
+        <Route path="/demo/hr" element={<DemoHrPage />} />
 
         {/* HR Deadline OS — Authority Hub + Programmable SEO */}
         <Route path="/hr/fristenrechner-kuendigung" element={<FristenrechnerPage />} />
