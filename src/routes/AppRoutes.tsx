@@ -227,6 +227,9 @@ const BerufsKIWorkbenchPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKI
 const BerufsKIIntelligencePage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIIntelligencePage'));
 const BerufsKIExecutiveIntelligencePage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIExecutiveIntelligencePage'));
 const BerufsKIGraphActivationPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIGraphActivationPage'));
+const BerufsKICopilotPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKICopilotPage'));
+const BerufsKIAutomationPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIAutomationPage'));
+const BerufsKISuitesPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKISuitesPage'));
 const OrgStructurePage = lazyRetry(() => import('@/pages/org/OrgStructurePage'));
 const BerufsKIWorkflowsPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIWorkflowsPage'));
 const BerufsKIQualityPage = lazyRetry(() => import('@/pages/admin/v2/BerufsKIQualityPage'));
@@ -393,6 +396,9 @@ const AppRoutes = () => {
         <Route path="/berufs-ki/intelligence" element={<BerufsKIIntelligencePage />} />
         <Route path="/berufs-ki/intelligence/executive" element={<BerufsKIExecutiveIntelligencePage />} />
         <Route path="/berufs-ki/graph-activation" element={<BerufsKIGraphActivationPage />} />
+        <Route path="/berufs-ki/copilot" element={<BerufsKICopilotPage />} />
+        <Route path="/berufs-ki/automation" element={<BerufsKIAutomationPage />} />
+        <Route path="/berufs-ki/suites" element={<BerufsKISuitesPage />} />
         <Route path="/org/structure" element={<OrgStructurePage />} />
 
 
