@@ -70,6 +70,7 @@ export default function DemoHrPage() {
     setStage("streaming");
     setMeta(null);
     setText("");
+    let metaLocal: MetaPayload | null = null;
     setErrorMsg(null);
 
     const controller = new AbortController();
