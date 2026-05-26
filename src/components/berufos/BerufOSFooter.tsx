@@ -15,6 +15,8 @@ export function BerufOSFooter() {
           <ul className="space-y-2 berufos-text-dim">
             <li><a href={BERUFOS.subBrands.examfit.domain}>ExamFit · LearningOS</a></li>
             <li><Link to="/berufs-ki">Berufs-KI · WorkforceOS</Link></li>
+            <li><Link to="/suites">Produkt-Suiten</Link></li>
+            <li><Link to="/demo">Live-Demo</Link></li>
           </ul>
         </div>
         <div>
