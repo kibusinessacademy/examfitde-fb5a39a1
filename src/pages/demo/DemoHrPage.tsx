@@ -166,7 +166,7 @@ export default function DemoHrPage() {
       void trackFunnel("quiz_completed", {
         source_page: "/demo/hr",
         persona: "hr",
-        package_id: meta?.package_id ?? null,
+        package_id: metaLocal?.package_id ?? null,
         metadata: { painpoint_key: painpoint, chars: assembled.length, demo_variant: "hr_hybrid_v1" },
       });
     } catch (e) {
