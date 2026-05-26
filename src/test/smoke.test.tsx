@@ -28,8 +28,12 @@ vi.mock("@/integrations/supabase/client", () => ({
       on: vi.fn().mockReturnThis(),
       subscribe: vi.fn(),
     }),
+    functions: {
+      invoke: vi.fn().mockResolvedValue({ data: null, error: null }),
+    },
   },
 }));
+
 
 import { TestWrapper } from "@/test/mocks/router";
 
