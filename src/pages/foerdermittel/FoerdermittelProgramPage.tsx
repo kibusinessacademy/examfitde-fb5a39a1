@@ -1,10 +1,17 @@
 import { Helmet } from "react-helmet-async";
 import { Link, useParams, Navigate } from "react-router-dom";
-import { ArrowLeft, ExternalLink, AlertTriangle, CheckCircle2, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, ExternalLink, AlertTriangle, CheckCircle2, Calendar, Clock, Radar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getProgramBySlug } from "@/lib/foerdermittel/registry";
 import { REGION_LABEL } from "@/lib/foerdermittel/matching";
+import { FreshnessBadge } from "@/components/foerdermittel/FreshnessBadge";
+import {
+  classifyFreshness,
+  classifyChangeRisk,
+  explainFreshness,
+  CHANGE_RISK_LABEL,
+} from "@/lib/foerdermittel/freshness";
 
 const eur = (n: number) =>
   new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
@@ -62,6 +69,7 @@ export default function FoerdermittelProgramPage() {
           <Badge variant="outline">{REGION_LABEL[program.region] ?? program.region}</Badge>
           <Badge variant="secondary" className="capitalize">{program.kind}</Badge>
           <span className={`text-xs px-2 py-0.5 rounded-full ${st.tone}`}>{st.label}</span>
+          <FreshnessBadge status={classifyFreshness(program)} />
         </div>
         <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{program.name}</h1>
         <p className="mt-3 text-lg text-muted-foreground max-w-3xl">{program.shortDescription}</p>
@@ -70,6 +78,58 @@ export default function FoerdermittelProgramPage() {
             <Badge key={t} variant="outline" className="text-[10px] capitalize">{t}</Badge>
           ))}
         </div>
+      </section>
+
+      {/* Cut 2 — Freshness & Change Risk explainability */}
+      <section className="mx-auto max-w-5xl px-6 pb-8">
+        <Card className="border-primary/20">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Radar className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">Aktualität &amp; Änderungsrisiko</h2>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <FreshnessBadge status={classifyFreshness(program)} />
+                <span className="text-[11px] text-muted-foreground">
+                  Änderungsrisiko: <strong>{CHANGE_RISK_LABEL[classifyChangeRisk(program)]}</strong>
+                </span>
+              </div>
+            </div>
+            <ul className="mt-4 space-y-1.5 text-sm">
+              {explainFreshness(program).map((line) => (
+                <li key={line} className="flex items-start gap-2 text-muted-foreground">
+                  <span className="text-primary">›</span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+            {program.freshness?.lastVerifiedAt && (
+              <div className="mt-4 grid sm:grid-cols-3 gap-3 text-xs">
+                <div className="rounded border p-2">
+                  <div className="text-muted-foreground">Letzte Verifikation</div>
+                  <div className="font-medium">
+                    {new Date(program.freshness.lastVerifiedAt).toLocaleDateString("de-DE")}
+                  </div>
+                </div>
+                {program.freshness.nextReviewAt && (
+                  <div className="rounded border p-2">
+                    <div className="text-muted-foreground">Nächste Prüfung</div>
+                    <div className="font-medium">
+                      {new Date(program.freshness.nextReviewAt).toLocaleDateString("de-DE")}
+                    </div>
+                  </div>
+                )}
+                {program.freshness.updateCadence && (
+                  <div className="rounded border p-2">
+                    <div className="text-muted-foreground">Update-Rhythmus</div>
+                    <div className="font-medium capitalize">{program.freshness.updateCadence}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </section>
 
       <section className="mx-auto max-w-5xl px-6 pb-10 grid gap-4 md:grid-cols-3">
