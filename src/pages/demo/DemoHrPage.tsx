@@ -70,6 +70,7 @@ export default function DemoHrPage() {
     setStage("streaming");
     setMeta(null);
     setText("");
+    let metaLocal: MetaPayload | null = null;
     setErrorMsg(null);
 
     const controller = new AbortController();
@@ -142,7 +143,11 @@ export default function DemoHrPage() {
           const dataStr = dataParts.join("\n");
           if (!dataStr) continue;
           if (eventName === "meta") {
-            try { setMeta(JSON.parse(dataStr)); } catch { /* ignore */ }
+            try {
+              const parsed = JSON.parse(dataStr) as MetaPayload;
+              metaLocal = parsed;
+              setMeta(parsed);
+            } catch { /* ignore */ }
             continue;
           }
           if (dataStr === "[DONE]") continue;
@@ -161,7 +166,7 @@ export default function DemoHrPage() {
       void trackFunnel("quiz_completed", {
         source_page: "/demo/hr",
         persona: "hr",
-        package_id: meta?.package_id ?? null,
+        package_id: metaLocal?.package_id ?? null,
         metadata: { painpoint_key: painpoint, chars: assembled.length, demo_variant: "hr_hybrid_v1" },
       });
     } catch (e) {
@@ -200,7 +205,8 @@ export default function DemoHrPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-6 pb-16 grid gap-6 lg:grid-cols-5">
+      <section className="mx-auto max-w-5xl px-6 pb-16 grid gap-6 lg:grid-cols-5" aria-labelledby="demo-hr-runner">
+        <h2 id="demo-hr-runner" className="sr-only lg:col-span-5">Demo starten</h2>
         {/* Input-Spalte */}
         <Card className="lg:col-span-2">
           <CardHeader>

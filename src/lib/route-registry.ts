@@ -313,6 +313,7 @@ export const ROUTE_PATTERNS: readonly string[] = [
   "/demo",
   "/demo/journey",
   "/demo/cohort/:slug",
+  "/demo/hr",
 
   // Authority hub
   "/authority",
