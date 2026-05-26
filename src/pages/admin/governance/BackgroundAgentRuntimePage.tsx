@@ -163,8 +163,11 @@ export default function BackgroundAgentRuntimePage() {
     }
   }
 
-
+  async function loadAll() {
+    setLoading(true);
+    try {
       const [s, t, c] = await Promise.all([
+
         supabase.rpc('admin_get_background_agent_runtime_summary'),
         supabase.rpc('admin_get_background_agent_tasks', {
           _source_type: filterSource === 'all' ? undefined : filterSource,
