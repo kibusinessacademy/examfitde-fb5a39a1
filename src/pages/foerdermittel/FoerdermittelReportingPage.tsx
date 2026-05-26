@@ -183,9 +183,9 @@ export default function FoerdermittelReportingPage() {
                 </thead>
                 <tbody>
                   {clusterMetrics.all.slice(0, 50).map((c) => (
-                    <tr key={c.kind + ":" + c.slug} className="border-b last:border-0">
+                    <tr key={c.meta.kind + ":" + c.meta.slug} className="border-b last:border-0">
                       <td className="py-1.5 pr-3 font-medium">{c.meta.h1}</td>
-                      <td className="py-1.5 pr-3 capitalize text-muted-foreground">{c.kind}</td>
+                      <td className="py-1.5 pr-3 capitalize text-muted-foreground">{c.meta.kind}</td>
                       <td className="py-1.5 pr-3 tabular-nums">{c.programs.length}</td>
                       <td className="py-1.5 pr-3 tabular-nums">{c.authorityScore}</td>
                       <td className="py-1.5 pr-3">
