@@ -20,7 +20,7 @@ import { describe, it, expect } from "vitest";
 
 const SUPABASE_URL = "https://ubdvvvsiryenhrfmqsvw.supabase.co";
 const ANON =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InViZHZ2dnNpcnllbmhyZm1xc3Z3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NDA4MjgsImV4cCI6MjA4MzAxNjgyOH0.LGMpcVQMXziF3Zal4SoprwQj6KfNyqjVJXDXEh3pAEc";
+  "sb_publishable_3Z80G1ZZqFaK-wzNpNmaZA__1Tc6r8G";
 
 async function rest(path: string, init?: RequestInit) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {

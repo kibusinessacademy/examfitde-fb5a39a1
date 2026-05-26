@@ -8,18 +8,20 @@ import {
 
 describe('isSeoAuthorityHost', () => {
   it.each([
-    ['examfit.de', true],
-    ['www.examfit.de', true],
-    ['EXAMFIT.DE', true],
-    [' examfit.de ', true],
+    ['berufos.com', true],
+    ['www.berufos.com', true],
+    ['BERUFOS.COM', true],
+    [' berufos.com ', true],
+    ['examfit.de', false], // Legacy redirect domain — no longer authority (Hardcut 2026-05-25)
+    ['www.examfit.de', false],
     ['examfitde.lovable.app', false],
     ['id-preview--ad51e8f9.lovable.app', false],
-    ['examfit.vercel.app', false],
-    ['examfit-git-main.vercel.app', false],
+    ['berufos.vercel.app', false],
+    ['berufos-git-main.vercel.app', false],
     ['localhost', false],
     ['127.0.0.1', false],
-    ['staging.examfit.de', false], // subdomain ≠ authority
-    ['examfit.com', false],
+    ['staging.berufos.com', false], // subdomain ≠ authority
+    ['berufos.de', false],
     ['', false],
   ])('hostname %s → authority=%s', (host, expected) => {
     expect(isSeoAuthorityHost(host)).toBe(expected);
@@ -28,13 +30,15 @@ describe('isSeoAuthorityHost', () => {
 
 describe('shouldNoindexHost', () => {
   it('is the inverse of isSeoAuthorityHost', () => {
-    expect(shouldNoindexHost('examfit.de')).toBe(false);
-    expect(shouldNoindexHost('www.examfit.de')).toBe(false);
+    expect(shouldNoindexHost('berufos.com')).toBe(false);
+    expect(shouldNoindexHost('www.berufos.com')).toBe(false);
+    expect(shouldNoindexHost('examfit.de')).toBe(true); // legacy → noindex
     expect(shouldNoindexHost('examfitde.lovable.app')).toBe(true);
-    expect(shouldNoindexHost('examfit.vercel.app')).toBe(true);
+    expect(shouldNoindexHost('berufos.vercel.app')).toBe(true);
     expect(shouldNoindexHost('localhost')).toBe(true);
   });
 });
+
 
 describe('buildCanonicalUrl', () => {
   it('always uses the apex origin', () => {
@@ -67,6 +71,6 @@ describe('buildCanonicalUrl', () => {
     expect(out).not.toMatch(/lovable\.app/);
     expect(out).not.toMatch(/vercel\.app/);
     expect(out).not.toMatch(/localhost/);
-    expect(out.startsWith('https://examfit.de')).toBe(true);
+    expect(out.startsWith('https://berufos.com')).toBe(true);
   });
 });
