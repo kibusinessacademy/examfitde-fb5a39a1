@@ -559,7 +559,17 @@ export default function BackgroundAgentRuntimePage() {
                           <Badge className={RISK_TONE[risk] ?? RISK_TONE.low}>{risk}</Badge>
                         </TableCell>
                         <TableCell className={`text-xs ${approval.tone}`}>{approval.label}</TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">{t.artifact_count ?? 0}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">
+                          <button
+                            type="button"
+                            className="hover:underline text-status-fg-info"
+                            onClick={() => setPreviewTask(t)}
+                            data-testid={`row-preview-${t.source_id}`}
+                            title="Artefakt-Vorschau öffnen"
+                          >
+                            {t.artifact_count ?? 0}
+                          </button>
+                        </TableCell>
                         <TableCell className="text-right tabular-nums text-xs">
                           {t.cost_eur != null ? Number(t.cost_eur).toFixed(2) : '—'}
                         </TableCell>
