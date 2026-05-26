@@ -42,18 +42,17 @@ export async function collectSignals(orgId: string | null): Promise<RecSignals> 
   // Normalize wizards
   let wizards: RecSignals["wizards"] = null;
   if (wizardsRaw && Array.isArray(wizardsRaw.states)) {
-    const by_key: Record<string, RecSignals["wizards"] extends infer T ? T extends { by_key: infer B } ? B : never : never> =
-      {} as never;
+    const by_key: Record<string, "not_started" | "in_progress" | "connected" | "error" | "skipped"> = {};
     let connected = 0, in_progress = 0, error = 0;
     for (const s of wizardsRaw.states) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (by_key as any)[s.wizard_key] = s.status;
+      by_key[s.wizard_key] = s.status as typeof by_key[string];
       if (s.status === "connected") connected++;
       else if (s.status === "in_progress") in_progress++;
       else if (s.status === "error") error++;
     }
     wizards = { total: wizardsRaw.states.length, connected, in_progress, error, by_key };
   }
+
 
   return {
     wizards,
