@@ -403,6 +403,7 @@ const AppRoutes = () => {
         <Route path="/berufs-ki/suites" element={<BerufsKISuitesPage />} />
         <Route path="/org/structure" element={<OrgStructurePage />} />
         <Route path="/admin/setup-wizards" element={<SetupWizardsPage />} />
+        <Route path="/admin/activation-os" element={<ActivationOSPage />} />
 
 
         {/* Legacy /berufski/* → 410 Gone */}
