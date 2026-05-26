@@ -459,6 +459,8 @@ const AppRoutes = () => {
         <Route path="/foerdermittel/kombination/:slug" element={<FoerdermittelCombinationPage />} />
         <Route path="/foerdermittel/antrag/checkliste" element={<FoerdermittelChecklistPage />} />
         <Route path="/foerdermittel/aktuell" element={<FoerdermittelCurrentPage />} />
+        <Route path="/foerdermittel/report/:reportKey" element={<FoerdermittelReportPage />} />
+        <Route path="/foerdermittel/reporting" element={<FoerdermittelReportingPage />} />
         <Route path="/fördermittel" element={<Navigate to="/foerdermittel" replace />} />
 
         <Route path="/org/structure" element={<OrgStructurePage />} />
