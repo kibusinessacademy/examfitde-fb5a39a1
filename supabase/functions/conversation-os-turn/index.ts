@@ -19,6 +19,54 @@ type State = { trust: number; tension: number; confidence: number; rapport: numb
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 
 // ============================================================
+// Input Quality Gate — pre-LLM filter for empty/gibberish/evasion answers
+// Returns null if input passes, otherwise a structured refusal payload.
+// ============================================================
+type GateResult =
+  | { ok: true }
+  | { ok: false; reason: 'too_short' | 'gibberish' | 'silence'; refusalLine: string };
+
+function runInputQualityGate(raw: string, characterName: string): GateResult {
+  const t = (raw ?? '').trim();
+  if (t.length === 0) {
+    return {
+      ok: false,
+      reason: 'silence',
+      refusalLine: `${characterName ? characterName + ': ' : ''}Ich höre nichts. Bitte antworten Sie auf meine Frage — sonst breche ich das Gespräch ab.`,
+    };
+  }
+  const wc = t.split(/\s+/).filter(Boolean).length;
+  // Pure gibberish: single token with no vowels or > 12 chars and no recognisable word boundary
+  const onlyToken = t.replace(/[^a-zäöüßA-ZÄÖÜ]/g, '');
+  if (wc <= 1 && onlyToken.length > 0 && !/[aeiouäöü]/i.test(onlyToken)) {
+    return {
+      ok: false,
+      reason: 'gibberish',
+      refusalLine: `Das war keine Antwort. Ich frage konkret: bitte formulieren Sie einen ganzen Satz, sonst breche ich das Gespräch ab.`,
+    };
+  }
+  if (wc < 2 && t.length < 6) {
+    return {
+      ok: false,
+      reason: 'too_short',
+      refusalLine: `Ein Wort reicht nicht. Bitte begründen Sie Ihre Position — sonst kann ich dieses Gespräch nicht ernst nehmen.`,
+    };
+  }
+  // Random-key smash: very low vowel ratio in long token
+  if (wc <= 2 && onlyToken.length >= 4) {
+    const vowels = (onlyToken.match(/[aeiouäöü]/gi) ?? []).length;
+    if (vowels / onlyToken.length < 0.15) {
+      return {
+        ok: false,
+        reason: 'gibberish',
+        refusalLine: `Bitte schreiben Sie eine echte Antwort. Ich werde nicht auf zufällige Tasten reagieren.`,
+      };
+    }
+  }
+  return { ok: true };
+}
+
+// ============================================================
 // Deterministic User Signal Detector
 // Rule-based; no LLM. Returns set of signal flags from user text.
 // ============================================================
