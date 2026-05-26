@@ -222,6 +222,7 @@ const BerufOSHub = lazyRetry(() => import('@/pages/BerufOSHub'));
 const BerufOSModulePage = lazyRetry(() => import('@/pages/berufos/BerufOSModulePage'));
 const ProduktHubPage = lazyRetry(() => import('@/pages/products/ProduktHubPage'));
 const BerufOSProductLandingPage = lazyRetry(() => import('@/pages/products/ProductLandingPage'));
+const MarketingProductPagesAdminPage = lazyRetry(() => import('@/pages/admin/MarketingProductPagesAdminPage'));
 
 // Berufs-KI public pages (eigenständige Produktlinie)
 const BerufsKIHubPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIHubPage'));
@@ -709,6 +710,7 @@ const AppRoutes = () => {
           <Route path="ops/publish-blockers" element={<PublishBlockerCockpitPage />} />
           <Route path="factory/export-preview/:packageId" element={<ExportPreviewPage />} />
           <Route path="governance/architecture" element={<ArchitecturePage />} />
+          <Route path="products/registry" element={<MarketingProductPagesAdminPage />} />
           <Route path="governance/agents" element={<BackgroundAgentRuntimePage />} />
           <Route path="agents" element={<Navigate to="/admin/governance/agents" replace />} />
           <Route path="berufos-graph" element={<BerufOSGraphPage />} />
