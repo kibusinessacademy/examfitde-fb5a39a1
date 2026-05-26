@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
   // 4) Audit: invoked
   await admin.rpc("record_activation_signal" as any, {
     _persona: "hr",
-    _signal_type: "demo_personalize_request",
+    _signal_type: "demo_personalize_invoked",
     _anonymous_id: anonymous_id,
     _session_id: session_id,
     _package_id: package_id,
