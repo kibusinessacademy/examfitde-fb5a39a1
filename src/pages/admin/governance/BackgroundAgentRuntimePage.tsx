@@ -648,6 +648,33 @@ export default function BackgroundAgentRuntimePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* P70.4 — Workflow trigger confirm dialog */}
+      <AlertDialog open={!!pendingTrigger} onOpenChange={(o) => !o && setPendingTrigger(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingTrigger?.descriptor.startLabel}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingTrigger?.descriptor.confirmDescription}
+              <span className="block mt-2 text-xs text-fg-muted">
+                Dispatch über bestehende Runtime — kein paralleler Schreibpfad.
+                Wird in <code>auto_heal_log</code> als{' '}
+                <code>background_agent_action_dispatched</code> auditiert.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={triggering}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void performTrigger(); }}
+              disabled={triggering}
+            >
+              {triggering ? 'Startet…' : 'Workflow starten'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
