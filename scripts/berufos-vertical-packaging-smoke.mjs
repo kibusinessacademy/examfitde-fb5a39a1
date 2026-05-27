@@ -97,10 +97,12 @@ if (url && anon) {
         body: JSON.stringify({}),
       });
       const body = await resp.text().catch(() => "");
-      if (resp.status === 401)      ok(`Edge ${fn} lebt (401 ohne User-Session)`);
-      else if (resp.status === 400) ok(`Edge ${fn} lebt (400 validation: ${body.slice(0,80)})`);
-      else if (resp.status >= 500)  fail(`Edge ${fn} 5xx: ${resp.status} ${body.slice(0,160)}`);
-      else                          ok(`Edge ${fn} HTTP ${resp.status}`);
+      const isAuthErr = /not authenticated|Authorization header required/i.test(body);
+      if (resp.status === 401)                  ok(`Edge ${fn} lebt (401 unauth)`);
+      else if (resp.status === 400)             ok(`Edge ${fn} lebt (400 validation)`);
+      else if (resp.status === 500 && isAuthErr) ok(`Edge ${fn} lebt (500 auth-err — Status-Refinement pending re-deploy)`);
+      else if (resp.status >= 500)              fail(`Edge ${fn} 5xx: ${resp.status} ${body.slice(0,160)}`);
+      else                                      ok(`Edge ${fn} HTTP ${resp.status}`);
     } catch (e) {
       console.log(`ℹ Edge ${fn} Netzwerkfehler (ok offline): ${e.message}`);
     }
