@@ -283,6 +283,7 @@ const BerufsKIDocumentsReviewPage = lazyRetry(() => import('@/pages/berufs-ki/Be
 const DocumentAgentTemplatesPage = lazyRetry(() => import('@/pages/admin/v2/DocumentAgentTemplatesPage'));
 const OutcomeControlCenterPage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeControlCenterPage'));
 const OutcomeBundleDetailPage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeBundleDetailPage'));
+const BusinessIntentsPage = lazyRetry(() => import('@/pages/admin/berufs-ki/BusinessIntentsPage'));
 
 
 // Learner Pages
