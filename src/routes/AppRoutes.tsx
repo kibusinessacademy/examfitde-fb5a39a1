@@ -226,6 +226,7 @@ const BerufAgentOSLandingPage = lazyRetry(() => import('@/pages/products/BerufAg
 const VerticalsHubPage = lazyRetry(() => import('@/pages/verticals/VerticalsHubPage'));
 const VerticalDetailPage = lazyRetry(() => import('@/pages/verticals/VerticalDetailPage'));
 const VerwaltungOralRunner = lazyRetry(() => import('@/pages/verwaltung/VerwaltungOralRunner'));
+const VerwaltungDailyBriefPage = lazyRetry(() => import('@/pages/verwaltung/VerwaltungDailyBriefPage'));
 
 const MarketingProductPagesAdminPage = lazyRetry(() => import('@/pages/admin/MarketingProductPagesAdminPage'));
 
