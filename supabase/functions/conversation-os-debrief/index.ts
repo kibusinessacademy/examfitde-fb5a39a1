@@ -44,13 +44,17 @@ Deno.serve(async (req) => {
 
     const { data: turns = [] } = await admin
       .from('conversation_os_turns')
-      .select('turn_index, role, content, painpoint_triggered, state_snapshot, state_delta')
+      .select('turn_index, role, content, painpoint_triggered, state_snapshot, state_delta, character_variant_applied, metadata')
       .eq('session_id', session_id)
       .order('turn_index', { ascending: true });
 
     const transcriptText = (turns ?? [])
-      .map((t) => `[${t.turn_index}] ${t.role === 'assistant' ? 'CHARAKTER' : 'KANDIDAT'}: ${t.content}${t.painpoint_triggered ? ` [Painpoint: ${t.painpoint_triggered}]` : ''}`)
+      .map((t) => `[${t.turn_index}] ${t.role === 'assistant' ? 'CHARAKTER' : 'KANDIDAT'}: ${t.content}${t.painpoint_triggered ? ` [Painpoint: ${t.painpoint_triggered}${t.character_variant_applied ? ' · Charakter-Variante' : ''}]` : ''}`)
       .join('\n');
+
+    const characterName = (session.conversation_os_scenarios?.character_brief as any)?.name ?? 'Charakter';
+    const variantTurns = (turns ?? []).filter((t: any) => t.character_variant_applied);
+
 
     const rubric = session.conversation_os_scenarios?.scoring_rubric ?? {};
     const rubricDimensions = Object.keys(rubric);
