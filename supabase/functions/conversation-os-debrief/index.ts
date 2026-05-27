@@ -86,6 +86,7 @@ Transcript:
 ${transcriptText}
 
 Painpoint-Aktivierungen (Eskalations-Marker mit Turn-Index): ${JSON.stringify(session.painpoint_history ?? [])}
+Charakter-Varianten von ${characterName} (Painpoints mit charakter-spezifischer Reaktion statt generischer): ${JSON.stringify(variantTurns.map((t: any) => ({ turn: t.turn_index, painpoint: t.painpoint_triggered, variant: t.metadata?.character_variant ?? null })))}
 State-Verlauf (Trust/Tension/Confidence/Rapport pro Kandidaten-Turn): ${JSON.stringify((turns ?? []).filter((t: any) => t.role === 'user').map((t: any) => ({ turn: t.turn_index, state: t.state_snapshot, delta: t.state_delta })))}
 Finaler interner Zustand: ${JSON.stringify(session.conversation_state)}
 
