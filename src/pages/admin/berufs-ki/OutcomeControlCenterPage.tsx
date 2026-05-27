@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { fetchOutcomeControlCenter, listOutcomeBundles, runOutcomeAgentTeam, type OutcomeReviewStatus } from "@/lib/berufs-ki/outcome";
 
@@ -44,6 +46,8 @@ export default function OutcomeControlCenterPage() {
   });
 
   const b = cc.data?.bundles;
+  const ccErr = cc.error instanceof Error ? cc.error.message : null;
+  const bundlesErr = bundles.error instanceof Error ? bundles.error.message : null;
 
   return (
     <div className="container mx-auto max-w-7xl space-y-6 p-6">
@@ -57,21 +61,31 @@ export default function OutcomeControlCenterPage() {
       </header>
 
       {/* KPI Strip */}
+      {ccErr && (
+        <Card className="border-destructive/30">
+          <CardContent className="flex items-start gap-3 p-4">
+            <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+            <div className="text-sm"><span className="font-medium">Control-Center nicht ladbar:</span> {ccErr}</div>
+          </CardContent>
+        </Card>
+      )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {[
-          ["Bundles gesamt", b?.total ?? 0],
-          ["In Review", (b?.proposed ?? 0) + (b?.in_review ?? 0)],
-          ["Approved", b?.approved ?? 0],
-          ["Applied", b?.applied ?? 0],
-          ["Ø Completeness", b?.avg_completeness ? `${Number(b.avg_completeness).toFixed(0)}%` : "—"],
-        ].map(([label, val]) => (
-          <Card key={label as string} className="shadow-elev-1">
-            <CardContent className="p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-              <div className="mt-1 text-2xl font-semibold tabular-nums">{val as string | number}</div>
-            </CardContent>
-          </Card>
-        ))}
+        {cc.isLoading
+          ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20" />)
+          : [
+              ["Bundles gesamt", b?.total ?? 0],
+              ["In Review", (b?.proposed ?? 0) + (b?.in_review ?? 0)],
+              ["Approved", b?.approved ?? 0],
+              ["Applied", b?.applied ?? 0],
+              ["Ø Completeness", b?.avg_completeness ? `${Number(b.avg_completeness).toFixed(0)}%` : "—"],
+            ].map(([label, val]) => (
+              <Card key={label as string} className="shadow-elev-1">
+                <CardContent className="p-4">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+                  <div className="mt-1 text-2xl font-semibold tabular-nums">{val as string | number}</div>
+                </CardContent>
+              </Card>
+            ))}
       </div>
 
       {/* New Outcome Run */}
@@ -130,13 +144,25 @@ export default function OutcomeControlCenterPage() {
         <CardHeader><CardTitle>Outcome Bundles</CardTitle></CardHeader>
         <CardContent>
           {bundles.isLoading ? (
-            <div className="text-sm text-muted-foreground">Lade…</div>
+            <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
+          ) : bundlesErr ? (
+            <div className="flex items-start gap-2 rounded-md border border-destructive/30 p-3 text-sm">
+              <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+              <span>Bundles nicht ladbar: {bundlesErr}</span>
+            </div>
           ) : (bundles.data ?? []).length === 0 ? (
-            <div className="text-sm text-muted-foreground">Noch keine Bundles. Starte oben einen Run.</div>
+            <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Noch keine Bundles. Starte oben einen Outcome-Run — das Team produziert Business-Case, KPI-Impact,
+              Workflow-Graph, Risiko-Register und Roadmap.
+            </div>
           ) : (
             <div className="space-y-2">
               {(bundles.data ?? []).map((row) => (
-                <div key={row.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
+                <Link
+                  key={row.id}
+                  to={`/admin/berufs-ki/outcome-bundles/${row.id}`}
+                  className="flex items-center justify-between rounded-lg border border-border bg-card p-3 transition hover:border-primary/50 hover:bg-accent/40"
+                >
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{row.outcome_goal}</div>
                     <div className="text-xs text-muted-foreground">
@@ -147,7 +173,7 @@ export default function OutcomeControlCenterPage() {
                     <span className="text-xs tabular-nums text-muted-foreground">{Number(row.completeness_pct).toFixed(0)}%</span>
                     <Badge className={STATUS_TONE[row.review_status]}>{row.review_status}</Badge>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
