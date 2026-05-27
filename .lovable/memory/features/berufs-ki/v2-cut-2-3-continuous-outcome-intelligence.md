@@ -1,8 +1,12 @@
 ---
-name: BerufAgentOS v2 Cut 2.3 — Continuous Outcome Intelligence (Read-Only)
-description: SSOT outcome_intelligence_findings (6 Kinds × 3 Scores) + 4 Admin-RPCs + Mission-Control-Page. Strikt read-only — keine Workflow-Mutationen.
+name: BerufAgentOS v2 Cut 2.3 — Continuous Outcome Intelligence (Read-Only) [FROZEN 2026-05-27]
+description: SSOT outcome_intelligence_findings (6 Kinds × 3 Scores) + 4 Admin-RPCs + Mission-Control-Page. Strikt read-only — keine Workflow-Mutationen. Smoke 25/25 grün.
 type: feature
 ---
+
+## Status
+**FROZEN 2026-05-27.** Smoke `scripts/berufagentos-cut2-3-smoke.mjs` → 25/25 green. Cut 2.4 (Fix Loop HITL) darf erst gestartet werden, wenn dieser Freeze unverändert ist.
+
 
 ## SSOT
 - Tabelle `outcome_intelligence_findings`: finding_key UNIQUE, kind (workflow_intelligence|outcome_drift|ux_friction|governance_risk|seo_intelligence|support_signal), title, interpretation (≥12 Z., kein KPI-Dump), affected_scope/signals jsonb, recommended_inspection, severity (info..critical), 3 Scores (confidence/severity/business_impact ∈ 0..1), status (open|acknowledged|muted|resolved_observed), FK business_intent_id + bundle_id.
