@@ -288,6 +288,7 @@ const IntelligenceMemoryPage = lazyRetry(() => import('@/pages/admin/berufs-ki/I
 const OutcomeIntelligencePage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeIntelligencePage'));
 const OutcomeFixQueuePage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeFixQueuePage'));
 const PersonaSimulationPage = lazyRetry(() => import('@/pages/admin/berufs-ki/PersonaSimulationPage'));
+const MissionControlPage = lazyRetry(() => import('@/pages/admin/berufs-ki/MissionControlPage'));
 
 
 // Learner Pages
@@ -785,6 +786,7 @@ const AppRoutes = () => {
           <Route path="berufs-ki/outcome-intelligence" element={<OutcomeIntelligencePage />} />
           <Route path="berufs-ki/fix-queue" element={<OutcomeFixQueuePage />} />
           <Route path="berufs-ki/persona-sim" element={<PersonaSimulationPage />} />
+          <Route path="berufs-ki/mission-control" element={<MissionControlPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>

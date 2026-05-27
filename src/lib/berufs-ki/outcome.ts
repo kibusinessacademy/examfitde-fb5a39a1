@@ -742,3 +742,95 @@ export async function getPersonaConflictMatrix(args?: {
   if (error) throw error;
   return (data ?? []) as PersonaMatrixRow[];
 }
+
+// ============================================================================
+// v2 Cut 2.6 — Mission Control (READ-ONLY, HITL strict)
+// ============================================================================
+
+export type MissionControlRecommendation = "go" | "review" | "block";
+
+export interface MissionControlOverview {
+  business_intents: { total: number; active: number };
+  findings: { total: number; open: number; critical_open: number };
+  fix_proposals: { open: number; critical_open: number; avg_priority: number | null };
+  personas: { registered: number; simulated_proposals: number; conflicts: number };
+  cross_proposal: { conflict_pairs: number };
+  decision_queue: { go: number; review: number; block: number };
+  generated_at: string;
+}
+
+export interface CrossProposalConflict {
+  proposal_a_id: string;
+  proposal_b_id: string;
+  proposal_a_key: string;
+  proposal_b_key: string;
+  proposal_a_title: string;
+  proposal_b_title: string;
+  vertical_key: string;
+  conflict_type: "business_intent_overlap" | "scope_overlap" | "vertical_overlap";
+  is_high_tension: boolean;
+  max_priority: number | null;
+  max_risk: number | null;
+}
+
+export interface ExecutiveDecisionRow {
+  id: string;
+  proposal_key: string;
+  title: string;
+  vertical_key: string;
+  proposal_type: OutcomeFixProposalType;
+  proposal_source: OutcomeFixProposalSource;
+  severity: OutcomeIntelligenceSeverity;
+  review_state: OutcomeFixReviewState;
+  business_intent_id: string | null;
+  finding_id: string | null;
+  priority_score: number;
+  risk_score: number;
+  business_impact_score: number;
+  confidence_score: number;
+  expected_kpi_delta_pct_min: number | null;
+  expected_kpi_delta_pct_max: number | null;
+  conflict_count: number;
+  persona_conflict: boolean;
+  personas_simulated: number;
+  persona_avg_composite: number | null;
+  persona_utility_spread: number | null;
+  recommendation: MissionControlRecommendation;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getMissionControlOverview(): Promise<MissionControlOverview> {
+  const { data, error } = await sb.rpc("admin_get_mission_control_overview");
+  if (error) throw error;
+  return data as MissionControlOverview;
+}
+
+export async function getCrossProposalConflicts(args?: {
+  vertical?: string | null;
+  onlyHighTension?: boolean;
+  limit?: number;
+}): Promise<CrossProposalConflict[]> {
+  const { data, error } = await sb.rpc("admin_get_cross_proposal_conflicts", {
+    _vertical_key: args?.vertical ?? null,
+    _only_high_tension: args?.onlyHighTension ?? false,
+    _limit: args?.limit ?? 100,
+  });
+  if (error) throw error;
+  return (data ?? []) as CrossProposalConflict[];
+}
+
+export async function getExecutiveDecisionQueue(args?: {
+  vertical?: string | null;
+  recommendation?: MissionControlRecommendation | null;
+  limit?: number;
+}): Promise<ExecutiveDecisionRow[]> {
+  const { data, error } = await sb.rpc("admin_get_executive_decision_queue", {
+    _vertical_key: args?.vertical ?? null,
+    _recommendation: args?.recommendation ?? null,
+    _limit: args?.limit ?? 100,
+  });
+  if (error) throw error;
+  return (data ?? []) as ExecutiveDecisionRow[];
+}
+
