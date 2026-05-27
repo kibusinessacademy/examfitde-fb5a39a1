@@ -44,13 +44,17 @@ Deno.serve(async (req) => {
 
     const { data: turns = [] } = await admin
       .from('conversation_os_turns')
-      .select('turn_index, role, content, painpoint_triggered, state_snapshot, state_delta')
+      .select('turn_index, role, content, painpoint_triggered, state_snapshot, state_delta, character_variant_applied, metadata')
       .eq('session_id', session_id)
       .order('turn_index', { ascending: true });
 
     const transcriptText = (turns ?? [])
-      .map((t) => `[${t.turn_index}] ${t.role === 'assistant' ? 'CHARAKTER' : 'KANDIDAT'}: ${t.content}${t.painpoint_triggered ? ` [Painpoint: ${t.painpoint_triggered}]` : ''}`)
+      .map((t) => `[${t.turn_index}] ${t.role === 'assistant' ? 'CHARAKTER' : 'KANDIDAT'}: ${t.content}${t.painpoint_triggered ? ` [Painpoint: ${t.painpoint_triggered}${t.character_variant_applied ? ' · Charakter-Variante' : ''}]` : ''}`)
       .join('\n');
+
+    const characterName = (session.conversation_os_scenarios?.character_brief as any)?.name ?? 'Charakter';
+    const variantTurns = (turns ?? []).filter((t: any) => t.character_variant_applied);
+
 
     const rubric = session.conversation_os_scenarios?.scoring_rubric ?? {};
     const rubricDimensions = Object.keys(rubric);
@@ -70,7 +74,9 @@ Deno.serve(async (req) => {
 
 Stil: konkret, mit Zitaten aus dem Transcript, ohne Schmeichelei, ohne Allgemeinplätze. Jede Aussage muss aus dem Transcript belegbar sein.
 
-WICHTIG für dramaturgy_patterns: Erkenne nicht nur Schwächen, sondern erkläre Eskalations-KAUSALITÄT. Antworte nicht "Confidence war niedrig", sondern: "Nach Turn 4 wechselte der Kandidat in Konjunktiv ('vielleicht', 'eventuell') — das hat Trust um 0.2 gesenkt und den Recruiter härter nachfragen lassen." Nutze die Painpoint-Aktivierungen und den State-Verlauf als Beweismaterial.`,
+WICHTIG für dramaturgy_patterns: Erkenne nicht nur Schwächen, sondern erkläre Eskalations-KAUSALITÄT. Antworte nicht "Confidence war niedrig", sondern: "Nach Turn 4 wechselte der Kandidat in Konjunktiv ('vielleicht', 'eventuell') — das hat Trust um 0.2 gesenkt und den Recruiter härter nachfragen lassen." Nutze die Painpoint-Aktivierungen und den State-Verlauf als Beweismaterial.
+
+Wenn ein Painpoint als "Charakter-Variante" markiert ist, beschreibe explizit, WIE ${characterName} (im Gegensatz zu einem anderen Charakter) auf dieses Verhalten reagiert hat — Tonalität, Härte, Taktik. Das macht das Lernen charakter-spezifisch und replayable.`,
           },
           {
             role: 'user',
@@ -82,6 +88,7 @@ Transcript:
 ${transcriptText}
 
 Painpoint-Aktivierungen (Eskalations-Marker mit Turn-Index): ${JSON.stringify(session.painpoint_history ?? [])}
+Charakter-Varianten von ${characterName} (Painpoints mit charakter-spezifischer Reaktion statt generischer): ${JSON.stringify(variantTurns.map((t: any) => ({ turn: t.turn_index, painpoint: t.painpoint_triggered, variant: t.metadata?.character_variant ?? null })))}
 State-Verlauf (Trust/Tension/Confidence/Rapport pro Kandidaten-Turn): ${JSON.stringify((turns ?? []).filter((t: any) => t.role === 'user').map((t: any) => ({ turn: t.turn_index, state: t.state_snapshot, delta: t.state_delta })))}
 Finaler interner Zustand: ${JSON.stringify(session.conversation_state)}
 
@@ -242,7 +249,15 @@ Erstelle das Debrief.`,
       })
       .eq('id', session_id);
 
-    return new Response(JSON.stringify({ debrief, cached: false }), {
+    return new Response(JSON.stringify({
+      debrief,
+      cached: false,
+      character_variant_meta: {
+        character_name: characterName,
+        variants_used: variantTurns.length,
+        variant_painpoints: Array.from(new Set(variantTurns.map((t: any) => t.painpoint_triggered).filter(Boolean))),
+      },
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {

@@ -13,6 +13,7 @@ export default function ConversationOSDebriefPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [debrief, setDebrief] = useState<any>(null);
+  const [variantMeta, setVariantMeta] = useState<{ character_name: string; variants_used: number; variant_painpoints: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export default function ConversationOSDebriefPage() {
         });
         if (error) throw error;
         setDebrief(data.debrief);
+        setVariantMeta(data.character_variant_meta ?? null);
       } catch (e: any) {
         toast.error('Konnte Debrief nicht laden', { description: e.message });
       } finally {
@@ -148,12 +150,18 @@ export default function ConversationOSDebriefPage() {
         {Array.isArray(debrief.dramaturgy_patterns) && debrief.dramaturgy_patterns.length > 0 && (
           <Card className="border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-transparent">
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-base flex items-center gap-2 flex-wrap">
                 <Flame className="h-4 w-4 text-orange-500" />
                 Warum hat das Gespräch eskaliert?
+                {variantMeta && variantMeta.variants_used > 0 && (
+                  <Badge variant="outline" className="ml-1 text-[10px] border-orange-500/40 text-orange-700 dark:text-orange-300">
+                    {variantMeta.variants_used}× charakter-spezifisch · {variantMeta.character_name}
+                  </Badge>
+                )}
               </CardTitle>
               <p className="text-xs text-muted-foreground">
                 Sprachliche und strukturelle Muster, die den Gesprächsverlauf erklären — nicht nur, dass es schwierig wurde.
+                {variantMeta && variantMeta.variants_used > 0 && ` ${variantMeta.character_name} reagiert auf manche Painpoints anders als andere Charaktere — diese Stellen sind besonders charakter-typisch.`}
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
