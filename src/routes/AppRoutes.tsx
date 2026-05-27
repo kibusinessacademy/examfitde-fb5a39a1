@@ -284,6 +284,7 @@ const DocumentAgentTemplatesPage = lazyRetry(() => import('@/pages/admin/v2/Docu
 const OutcomeControlCenterPage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeControlCenterPage'));
 const OutcomeBundleDetailPage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeBundleDetailPage'));
 const BusinessIntentsPage = lazyRetry(() => import('@/pages/admin/berufs-ki/BusinessIntentsPage'));
+const IntelligenceMemoryPage = lazyRetry(() => import('@/pages/admin/berufs-ki/IntelligenceMemoryPage'));
 
 
 // Learner Pages
