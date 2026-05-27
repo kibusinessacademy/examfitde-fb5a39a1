@@ -13,6 +13,7 @@ export default function ConversationOSDebriefPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [debrief, setDebrief] = useState<any>(null);
+  const [variantMeta, setVariantMeta] = useState<{ character_name: string; variants_used: number; variant_painpoints: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export default function ConversationOSDebriefPage() {
         });
         if (error) throw error;
         setDebrief(data.debrief);
+        setVariantMeta(data.character_variant_meta ?? null);
       } catch (e: any) {
         toast.error('Konnte Debrief nicht laden', { description: e.message });
       } finally {
