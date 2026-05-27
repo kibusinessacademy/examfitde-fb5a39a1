@@ -222,6 +222,7 @@ const BerufOSHub = lazyRetry(() => import('@/pages/BerufOSHub'));
 const BerufOSModulePage = lazyRetry(() => import('@/pages/berufos/BerufOSModulePage'));
 const ProduktHubPage = lazyRetry(() => import('@/pages/products/ProduktHubPage'));
 const BerufOSProductLandingPage = lazyRetry(() => import('@/pages/products/ProductLandingPage'));
+const BerufAgentOSLandingPage = lazyRetry(() => import('@/pages/products/BerufAgentOSLandingPage'));
 const MarketingProductPagesAdminPage = lazyRetry(() => import('@/pages/admin/MarketingProductPagesAdminPage'));
 
 // Berufs-KI public pages (eigenständige Produktlinie)
@@ -447,6 +448,8 @@ const AppRoutes = () => {
         <Route path="/berufs-ki/suites" element={<BerufsKISuitesPage />} />
 
         {/* BerufAgentOS — Outcome Mission Control (top-level alias) */}
+        <Route path="/berufagentos" element={<BerufAgentOSLandingPage />} />
+        <Route path="/beruf-agent-os" element={<Navigate to="/berufagentos" replace />} />
         <Route path="/app/beruf-agent-os" element={<OutcomeControlCenterPage />} />
         <Route path="/app/beruf-agent-os/bundle/:id" element={<OutcomeBundleDetailPage />} />
 
