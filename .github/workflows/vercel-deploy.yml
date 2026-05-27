@@ -1,0 +1,92 @@
+name: Vercel Deploy
+
+# Deploys the production build to Vercel.
+# Triggered automatically after the Merge → Publish Gate succeeds on main,
+# or manually via workflow_dispatch.
+# Requires GitHub Secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
+
+on:
+  workflow_run:
+    workflows: ["Merge → Publish Gate"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: vercel-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Vercel (Production)
+    # Only auto-deploy if merge-publish-gate succeeded; workflow_dispatch bypasses this.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Production build
+        run: npm run build
+
+      - name: Verify dist exists
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "::error::dist/ directory missing after build"
+            exit 1
+          fi
+          echo "✅ dist/ ready ($(find dist -type f | wc -l) files)"
+
+      - name: Validate Vercel secrets
+        run: |
+          MISSING=""
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then MISSING="$MISSING VERCEL_TOKEN"; fi
+          if [ -z "${{ secrets.VERCEL_ORG_ID }}" ]; then MISSING="$MISSING VERCEL_ORG_ID"; fi
+          if [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ]; then MISSING="$MISSING VERCEL_PROJECT_ID"; fi
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing GitHub Secrets:$MISSING"
+            echo "Set them under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          echo "✅ Vercel secrets present"
+
+      - name: Deploy to Vercel (production)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -e
+          npm install -g vercel@latest
+          echo "🚀 Deploying to Vercel..."
+          npx vercel deploy --prod \
+            --token="$VERCEL_TOKEN" \
+            --org-id="$VERCEL_ORG_ID" \
+            --project-id="$VERCEL_PROJECT_ID" \
+            --yes
+
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_NAME: "Vercel Deploy"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/ci/issue-on-fail.mjs
