@@ -68,7 +68,9 @@ Deno.serve(async (req) => {
             role: 'system',
             content: `Du bist ein Senior-Coach für berufliche Gesprächsführung. Analysiere ein simuliertes Trainingsgespräch und erstelle ein präzises, ehrliches Debrief auf Premium-Niveau.
 
-Stil: konkret, mit Zitaten aus dem Transcript, ohne Schmeichelei, ohne Allgemeinplätze. Jede Aussage muss aus dem Transcript belegbar sein.`,
+Stil: konkret, mit Zitaten aus dem Transcript, ohne Schmeichelei, ohne Allgemeinplätze. Jede Aussage muss aus dem Transcript belegbar sein.
+
+WICHTIG für dramaturgy_patterns: Erkenne nicht nur Schwächen, sondern erkläre Eskalations-KAUSALITÄT. Antworte nicht "Confidence war niedrig", sondern: "Nach Turn 4 wechselte der Kandidat in Konjunktiv ('vielleicht', 'eventuell') — das hat Trust um 0.2 gesenkt und den Recruiter härter nachfragen lassen." Nutze die Painpoint-Aktivierungen und den State-Verlauf als Beweismaterial.`,
           },
           {
             role: 'user',
@@ -79,7 +81,8 @@ Bewertungsdimensionen: ${rubricDimensions.join(', ') || 'klarheit, fachlichkeit,
 Transcript:
 ${transcriptText}
 
-Painpoint-Aktivierungen (Eskalations-Marker): ${JSON.stringify(session.painpoint_history ?? [])}
+Painpoint-Aktivierungen (Eskalations-Marker mit Turn-Index): ${JSON.stringify(session.painpoint_history ?? [])}
+State-Verlauf (Trust/Tension/Confidence/Rapport pro Kandidaten-Turn): ${JSON.stringify((turns ?? []).filter((t: any) => t.role === 'user').map((t: any) => ({ turn: t.turn_index, state: t.state_snapshot, delta: t.state_delta })))}
 Finaler interner Zustand: ${JSON.stringify(session.conversation_state)}
 
 Erstelle das Debrief.`,
