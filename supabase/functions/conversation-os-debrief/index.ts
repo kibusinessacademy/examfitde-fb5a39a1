@@ -282,30 +282,6 @@ Erstelle das Debrief.`,
       .filter((t) => t.role === 'user')
       .map((t) => ({ turn_index: t.turn_index, ...(t.state_snapshot as any) }));
 
-    // Persist debrief
-    const { data: debrief, error: dbErr } = await admin
-      .from('conversation_os_debriefs')
-      .insert({
-        session_id,
-        user_id: user.id,
-        executive_summary: parsed.executive_summary,
-        rubric_breakdown: parsed.rubric_breakdown,
-        critical_moments: parsed.critical_moments,
-        transcript_annotations: parsed.transcript_annotations,
-        improvement_plan: parsed.improvement_plan,
-        dramaturgy_patterns: parsed.dramaturgy_patterns ?? [],
-        state_trajectory: stateTrajectory,
-        certificate_eligible: parsed.certificate_eligible,
-        generated_by_model: 'google/gemini-2.5-pro',
-        generation_ms: Date.now() - startedAt,
-      })
-      .select()
-      .single();
-
-    if (dbErr) {
-      console.error('debrief insert', dbErr);
-      return new Response(JSON.stringify({ error: 'debrief_persist_failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
 
     // Persist debrief — Cut E adaptive fields stashed in metadata
     const { data: debrief, error: dbErr } = await admin
