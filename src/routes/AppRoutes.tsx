@@ -786,6 +786,7 @@ const AppRoutes = () => {
           <Route path="berufs-ki/outcome-intelligence" element={<OutcomeIntelligencePage />} />
           <Route path="berufs-ki/fix-queue" element={<OutcomeFixQueuePage />} />
           <Route path="berufs-ki/persona-sim" element={<PersonaSimulationPage />} />
+          <Route path="berufs-ki/mission-control" element={<MissionControlPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
