@@ -281,6 +281,8 @@ const BerufsKIInboxPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIInbo
 const BerufsKIDocumentsPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIDocumentsPage'));
 const BerufsKIDocumentsReviewPage = lazyRetry(() => import('@/pages/berufs-ki/BerufsKIDocumentsReviewPage'));
 const DocumentAgentTemplatesPage = lazyRetry(() => import('@/pages/admin/v2/DocumentAgentTemplatesPage'));
+const OutcomeControlCenterPage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeControlCenterPage'));
+const OutcomeBundleDetailPage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeBundleDetailPage'));
 
 
 // Learner Pages
@@ -437,6 +439,10 @@ const AppRoutes = () => {
         <Route path="/berufs-ki/copilot" element={<BerufsKICopilotPage />} />
         <Route path="/berufs-ki/automation" element={<BerufsKIAutomationPage />} />
         <Route path="/berufs-ki/suites" element={<BerufsKISuitesPage />} />
+
+        {/* BerufAgentOS — Outcome Mission Control (top-level alias) */}
+        <Route path="/app/beruf-agent-os" element={<OutcomeControlCenterPage />} />
+        <Route path="/app/beruf-agent-os/bundle/:id" element={<OutcomeBundleDetailPage />} />
 
         {/* Public Marketing Suiten — Packaging & Positionierung */}
         <Route path="/suites" element={<SuitesHubPage />} />
@@ -767,6 +773,8 @@ const AppRoutes = () => {
           <Route path="berufs-ki/control-center" element={<BerufsKIControlCenterPage />} />
           <Route path="governance/profession-licenses" element={<ProfessionLicensesPage />} />
           <Route path="berufs-ki/documents" element={<DocumentAgentTemplatesPage />} />
+          <Route path="berufs-ki/outcome-control" element={<OutcomeControlCenterPage />} />
+          <Route path="berufs-ki/outcome-bundles/:id" element={<OutcomeBundleDetailPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
