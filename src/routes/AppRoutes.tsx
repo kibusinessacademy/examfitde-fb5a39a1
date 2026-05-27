@@ -288,6 +288,7 @@ const IntelligenceMemoryPage = lazyRetry(() => import('@/pages/admin/berufs-ki/I
 const OutcomeIntelligencePage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeIntelligencePage'));
 const OutcomeFixQueuePage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeFixQueuePage'));
 const PersonaSimulationPage = lazyRetry(() => import('@/pages/admin/berufs-ki/PersonaSimulationPage'));
+const MissionControlPage = lazyRetry(() => import('@/pages/admin/berufs-ki/MissionControlPage'));
 
 
 // Learner Pages
