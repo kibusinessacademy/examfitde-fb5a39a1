@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, ArrowLeft, Shield, AlertCircle, Layers } from "lucide-react";
+import { VerwaltungDepartmentsSection } from "@/components/verticals/VerwaltungDepartmentsSection";
 import { toast } from "sonner";
 
 export default function VerticalDetailPage() {
@@ -328,6 +329,8 @@ export default function VerticalDetailPage() {
         </section>
       )}
 
+      {/* VerwaltungsOS — Fachbereichs-Intelligenz (nur Verwaltungs-Vertical) */}
+      {vertical.slug === "verwaltung" && <VerwaltungDepartmentsSection />}
 
       {/* PRICING */}
       <section id="pricing" className="border-t border-border bg-surface-1">
