@@ -76,7 +76,9 @@ Stil: konkret, mit Zitaten aus dem Transcript, ohne Schmeichelei, ohne Allgemein
 
 WICHTIG für dramaturgy_patterns: Erkenne nicht nur Schwächen, sondern erkläre Eskalations-KAUSALITÄT. Antworte nicht "Confidence war niedrig", sondern: "Nach Turn 4 wechselte der Kandidat in Konjunktiv ('vielleicht', 'eventuell') — das hat Trust um 0.2 gesenkt und den Recruiter härter nachfragen lassen." Nutze die Painpoint-Aktivierungen und den State-Verlauf als Beweismaterial.
 
-Wenn ein Painpoint als "Charakter-Variante" markiert ist, beschreibe explizit, WIE ${characterName} (im Gegensatz zu einem anderen Charakter) auf dieses Verhalten reagiert hat — Tonalität, Härte, Taktik. Das macht das Lernen charakter-spezifisch und replayable.`,
+Wenn ein Painpoint als "Charakter-Variante" markiert ist, beschreibe explizit, WIE ${characterName} (im Gegensatz zu einem anderen Charakter) auf dieses Verhalten reagiert hat — Tonalität, Härte, Taktik. Das macht das Lernen charakter-spezifisch und replayable.
+
+Wenn Mikro-State-Signale vorhanden sind (filler_words, subjunctive_cluster, apology_cluster, monologue_excessive, uptalk, time_stalling, name_dropping_no_substance, repetition_loop, high_hedging_density usw.), nutze diese als BEWEISMATERIAL für dramaturgy_patterns — sie sind objektiv detektiert und zeigen, warum der Eindruck atmosphärisch gekippt ist, auch ohne harten Painpoint-Hit. Beispiel: "Turn 5 enthielt 4 Hedging-Wörter + Subjunctive-Cluster — Trust −0.09 atmosphärisch, ohne dass ein Painpoint formal ausgelöst wurde."`,
           },
           {
             role: 'user',
