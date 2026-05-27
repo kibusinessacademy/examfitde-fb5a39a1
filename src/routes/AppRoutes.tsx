@@ -461,6 +461,7 @@ const AppRoutes = () => {
         {/* BerufOS Branchenbetriebssysteme — 11 Verticals (B2B SaaS) */}
         <Route path="/branchen" element={<VerticalsHubPage />} />
         <Route path="/branchen/verwaltung/oral/:departmentKey/:oralCaseKey" element={<VerwaltungOralRunner />} />
+        <Route path="/admin/verwaltung/daily-brief" element={<VerwaltungDailyBriefPage />} />
         <Route path="/branchen/:slug" element={<VerticalDetailPage />} />
 
 
