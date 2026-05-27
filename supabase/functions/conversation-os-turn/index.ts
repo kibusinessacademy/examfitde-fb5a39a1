@@ -655,6 +655,73 @@ Deno.serve(async (req) => {
     }
     currentState = applyStateDeltas(currentState, combinedDelta);
 
+    // ============================================================
+    // CUT E — Adaptive Conversation Engine — pipeline
+    // ============================================================
+    const adaptive = loadAdaptive(session.metadata);
+
+    // 4a) Contradiction Memory
+    const newClaim = extractClaim(body.message);
+    let contradiction: ReturnType<typeof detectContradiction> = null;
+    if (newClaim) {
+      contradiction = detectContradiction(newClaim, adaptive.user_claims);
+      if (contradiction) signals.add('contradiction_detected');
+      // record claim (truncate quote)
+      adaptive.user_claims = [
+        ...adaptive.user_claims,
+        { turn: userTurnIndex, topic: newClaim.topic, polarity: newClaim.polarity, quote: body.message.slice(0, 140) },
+      ].slice(-40);
+    }
+
+    // 4b) Performance score + history
+    const perf = scoreUserTurn(signals);
+    const perfHistory: number[] = Array.isArray((session.metadata as any)?.adaptive?.perf_history)
+      ? [...(session.metadata as any).adaptive.perf_history, perf].slice(-12)
+      : [perf];
+
+    // 4c) Evolve adaptive state
+    const evolvedAdaptive = evolveAdaptive(adaptive.adaptive_state, perf, signals);
+
+    // 4d) Phase / momentum / difficulty / drift
+    const phase = derivePhase(userTurnIndex, evolvedAdaptive, adaptive.phase);
+    const momentum = deriveMomentum(perfHistory);
+    const difficulty = deriveDifficulty(evolvedAdaptive, momentum, phase);
+    const drift = deriveDrift(evolvedAdaptive, momentum);
+
+    // 4e) Drill-deeper detection: previous assistant turn was probing AND user weak → start/extend drill
+    const prevWasProbing = lastAssistantContent && isProbingQuestion(lastAssistantContent);
+    const userWeak = signals.has('vague_quantifier') || signals.has('topic_drift')
+      || signals.has('no_concrete_example') || signals.has('hedging_words')
+      || signals.has('time_stalling') || signals.has('wordcount_low');
+    let drillChain = adaptive.drill_chain;
+    if (prevWasProbing && userWeak) {
+      const anchor = extractTopicAnchor(lastAssistantContent) ?? drillChain.topic ?? 'thema';
+      drillChain = {
+        topic: drillChain.topic === anchor ? anchor : anchor,
+        depth: drillChain.topic === anchor ? Math.min(4, drillChain.depth + 1) : 1,
+      };
+    } else if (signals.has('substantive_answer') || signals.has('user_provides_number')) {
+      // satisfied → reset
+      drillChain = { topic: null, depth: 0 };
+    }
+
+    // 4f) Outcome (live preview — finalised in debrief)
+    const contradictionCount = adaptive.user_claims.filter((c, i, arr) =>
+      arr.some((d) => d.topic === c.topic && d.polarity !== c.polarity && d.turn !== c.turn)
+    ).length / 2; // pairs
+    const outcomeLive = deriveOutcome(evolvedAdaptive, Math.floor(contradictionCount), momentum, drift);
+
+    const adaptiveSnapshot: AdaptiveMeta = {
+      adaptive_state: evolvedAdaptive,
+      phase,
+      momentum,
+      difficulty,
+      character_drift: drift,
+      user_claims: adaptive.user_claims,
+      drill_chain: drillChain,
+      outcome_signals: { ...adaptive.outcome_signals, contradiction_count: contradictionCount },
+    };
+
     // 4) Insert user turn
     await admin.from('conversation_os_turns').insert({
       session_id: session.id,
@@ -674,13 +741,25 @@ Deno.serve(async (req) => {
           micro_deltas: micro.deltas,
           painpoint_delta: stateDelta,
         },
+        adaptive: {
+          performance_score: perf,
+          phase,
+          momentum,
+          difficulty,
+          character_drift: drift,
+          adaptive_state: evolvedAdaptive,
+          drill_chain: drillChain,
+          contradiction: contradiction ? { earlier_turn: contradiction.earlier_turn, earlier_quote: contradiction.earlier_quote, topic: newClaim?.topic } : null,
+          outcome_live: outcomeLive,
+        },
       },
     });
 
     // 5) Build character system prompt with state + painpoint guidance
     const brief = scenario.character_brief ?? {};
     const stateDescription = `[Interner Zustand — beeinflusst deine Tonalität, niemals direkt aussprechen]
-Trust: ${currentState.trust.toFixed(2)} | Tension: ${currentState.tension.toFixed(2)} | Confidence (Gegenüber): ${currentState.confidence.toFixed(2)} | Rapport: ${currentState.rapport.toFixed(2)}`;
+Trust: ${currentState.trust.toFixed(2)} | Tension: ${currentState.tension.toFixed(2)} | Confidence (Gegenüber): ${currentState.confidence.toFixed(2)} | Rapport: ${currentState.rapport.toFixed(2)}
+[Hidden] Skepsis: ${evolvedAdaptive.skepticism.toFixed(2)} | Druck: ${evolvedAdaptive.pressure.toFixed(2)} | Interesse: ${evolvedAdaptive.interest.toFixed(2)} | Fatigue: ${evolvedAdaptive.fatigue.toFixed(2)}`;
 
     // Cut C: micro-cue guidance — converts signal-flags into short directive sentences
     const microCueDirectives: string[] = [];
@@ -705,6 +784,38 @@ Orientierungs-Linie (NICHT wörtlich übernehmen, nur Richtung): "${reaction.lin
 => Reagiere konsequent mit dieser Taktik. Bleibe in Rolle. Kurz, präzise, ohne Smalltalk.`;
     }
 
+    // CUT E: Adaptive block — Phase, Difficulty, Drift, Drill, Contradiction
+    const phaseGuide: Record<typeof phase, string> = {
+      warmup: 'Phase WARMUP — locker, freundlich, Vertrauen aufbauen, leichte Einstiegsfragen.',
+      evaluation: 'Phase EVALUATION — sachlich, fundiert, fachliche Tiefe testen, Wechselgründe sondieren.',
+      stress: 'Phase STRESS — bewusst Druck aufbauen, Widersprüche prüfen, kritisch nachfragen, Lücken aufdecken.',
+      decision: 'Phase DECISION — Entscheidungsmodus, sparsam reden, signalisiere implizit (Interesse / Skepsis / Ablehnung).',
+    };
+    const difficultyGuide: Record<typeof difficulty, string> = {
+      easy: 'Schwierigkeit EASY — einstiegsfreundlich.',
+      standard: 'Schwierigkeit STANDARD — übliche Tiefe.',
+      hard: 'Schwierigkeit HARD — bohrende Folgefragen, konkrete Belege fordern, Edge-Cases andeuten.',
+      edge_case: 'Schwierigkeit EDGE_CASE — der Kandidat performt stark; teste ihn jetzt mit unangenehmen Spezialfällen und schwierigen Widersprüchen seiner Aussagen.',
+    };
+    const driftGuide: Record<typeof drift, string> = {
+      neutral: 'Tonalitäts-Drift: neutral — bleib in Charakter-Basislinie.',
+      respectful: 'Tonalitäts-Drift: respectful — der Kandidat überzeugt; werde respektvoller, persönlicher, offener.',
+      curious: 'Tonalitäts-Drift: curious — der Kandidat ist stark; werde neugierig, frage substantiell weiter.',
+      skeptical: 'Tonalitäts-Drift: skeptical — werde kürzer, schärfer im Ton, signalisiere Misstrauen.',
+      aggressive: 'Tonalitäts-Drift: aggressive — provoziere bewusst, konfrontiere, teste Belastbarkeit.',
+      disengaged: 'Tonalitäts-Drift: disengaged — du verlierst Interesse; kürzere, distanzierte Antworten, lass Pausen.',
+    };
+    const drillBlock = drillChain.topic && drillChain.depth > 0
+      ? `\nFOLLOW-UP ATTACK: Du hast zum Thema "${drillChain.topic}" schon ${drillChain.depth}× nachgebohrt, ohne befriedigende Antwort. Bohre WEITER — neue, schärfere Folgefrage zum selben Thema. KEIN Themenwechsel, kein Loslassen.`
+      : '';
+    const contradictionBlock = contradiction
+      ? `\nWIDERSPRUCH ERKANNT: Der Kandidat hat in Turn ${contradiction.earlier_turn} gesagt: "${contradiction.earlier_quote.slice(0, 120)}" — das widerspricht der aktuellen Antwort (Thema: ${newClaim?.topic}). Konfrontiere ihn direkt damit, höflich aber bestimmt. Z.B. "Vorhin klang das anders — können Sie das auflösen?"`
+      : '';
+    const adaptiveBlock = `\n\n[ADAPTIVE ENGINE]
+- ${phaseGuide[phase]}
+- ${difficultyGuide[difficulty]}
+- ${driftGuide[drift]}${drillBlock}${contradictionBlock}`;
+
     const ctxOverrides = (session.metadata as any)?.context_overrides ?? {};
     const ctxLine = [
       ctxOverrides.position ? `Gesuchte Position: ${ctxOverrides.position}` : null,
@@ -722,12 +833,13 @@ Charakter-Profil:
 ${brief.background ? `- Hintergrund: ${brief.background}` : ''}
 
 ${stateDescription}
-${painpointInjection}${microCueBlock}
+${painpointInjection}${microCueBlock}${adaptiveBlock}
 
 REGELN:
 - Antworte in 1-3 Sätzen, maximal 4. Niemals Romane.
 - Bleibe immer in Rolle. Brich niemals die vierte Wand.
 - Spreche niemals deinen internen Zustand aus.
+- Wenn FOLLOW-UP ATTACK oder WIDERSPRUCH ERKANNT aktiv ist: das ist Priorität gegenüber neuen Themen.
 - Nutze deutsche Sprache, ${brief.formality ?? 'Sie-Form'}.`;
 
     const llmMessages = [
@@ -801,8 +913,12 @@ REGELN:
           state_snapshot: currentState,
           latency_ms: Date.now() - startedAt,
           model_used: 'google/gemini-3-flash-preview',
+          metadata: {
+            adaptive_snapshot: adaptiveSnapshot,
+          },
         });
 
+        const existingMeta = (session.metadata as any) ?? {};
         await admin
           .from('conversation_os_sessions')
           .update({
@@ -813,9 +929,32 @@ REGELN:
             turn_count: newTurnCount,
             user_turn_count: (session.user_turn_count as number ?? 0) + 1,
             quality_gate_fails: 0, // reset on any successful substantive turn
-
+            metadata: {
+              ...existingMeta,
+              adaptive: { ...adaptiveSnapshot, perf_history: perfHistory },
+            },
           })
           .eq('id', session.id);
+      },
+    });
+
+    const sseStream = aiResp.body.pipeThrough(transformer);
+
+    return new Response(sseStream, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        // Meta header so client can show state delta without parsing full stream
+        'x-conv-painpoint': painpointTriggered ?? '',
+        'x-conv-state': JSON.stringify(currentState),
+        'x-conv-voice-id': (scenario?.character_brief as any)?.voice_id ?? '',
+        'x-conv-phase': phase,
+        'x-conv-difficulty': difficulty,
+        'x-conv-drift': drift,
+        'x-conv-momentum': momentum,
+        'x-conv-outcome-live': outcomeLive,
+        'x-conv-contradiction': contradiction ? '1' : '0',
       },
     });
 
