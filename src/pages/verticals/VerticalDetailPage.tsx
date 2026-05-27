@@ -171,7 +171,71 @@ export default function VerticalDetailPage() {
               </div>
             )}
 
-            <p className="text-xs text-text-3">
+            {/* Berufsrealität: Prozesse / Workflow-Typen / Outcomes / Personas / Eskalationen */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+              {dna.vertical.processes?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-text-2 mb-3 uppercase tracking-wide">Kernprozesse</h3>
+                  <ul className="space-y-1.5">
+                    {dna.vertical.processes.slice(0, 8).map((p) => (
+                      <li key={p.key} className="text-sm text-text-1 flex gap-2"><span className="text-primary">·</span>{p.label}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {dna.vertical.workflow_types?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-text-2 mb-3 uppercase tracking-wide">Workflow-Typen</h3>
+                  <ul className="space-y-1.5">
+                    {dna.vertical.workflow_types.slice(0, 8).map((w) => (
+                      <li key={w.key} className="text-sm text-text-1 flex gap-2"><span className="text-primary">·</span>{w.label}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {dna.vertical.outcomes?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-text-2 mb-3 uppercase tracking-wide">Outcome-Typen</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {dna.vertical.outcomes.map((o) => (
+                      <Badge key={o.key} variant="secondary" className="font-normal">{o.label}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {dna.vertical.persona_seeds?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-text-2 mb-3 uppercase tracking-wide">Persona-Beispiele</h3>
+                  <ul className="space-y-2">
+                    {dna.vertical.persona_seeds.slice(0, 4).map((p) => (
+                      <li key={p.key} className="text-sm">
+                        <div className="text-text-1 font-medium">{p.label}</div>
+                        {typeof p.context === "string" && (
+                          <div className="text-text-3 text-xs">{p.context}</div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {dna.vertical.escalations?.length > 0 && (
+                <div className="md:col-span-2">
+                  <h3 className="text-sm font-semibold text-text-2 mb-3 uppercase tracking-wide">Strukturierte Eskalations-Pfade</h3>
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {dna.vertical.escalations.slice(0, 6).map((e) => (
+                      <li key={e.key} className="text-sm rounded-md border border-border bg-surface-2 px-3 py-2">
+                        <div className="text-text-1">{e.label}</div>
+                        {typeof e.route === "string" && (
+                          <div className="text-text-3 text-xs mt-0.5">→ {e.route}</div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-text-3 mt-8">
               Quelle: BerufOS Berufs-Graph (Branche {industryKey}). Read-only Bridge —
               kein generiertes Wissen, keine Halluzination.
             </p>
