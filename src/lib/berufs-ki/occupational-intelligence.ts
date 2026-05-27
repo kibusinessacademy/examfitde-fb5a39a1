@@ -99,3 +99,90 @@ export async function getVerticalOccupationalDna(
   }
   return data as unknown as VerticalOccupationalDna;
 }
+
+// =============================================================================
+// VerwaltungsOS — Fachbereichs-DNA v1 (strikt typed, read-only)
+// =============================================================================
+
+export interface VerwaltungDepartmentSummary {
+  department_key: string;
+  department_name: string;
+  category: string;
+  use_cases_count: number;
+  oral_cases_count: number;
+}
+
+export interface VDNamedItem {
+  key: string;
+  label: string;
+  [extra: string]: unknown;
+}
+
+export interface VDUseCase {
+  key: string;
+  title: string;
+  description?: string;
+  outcome?: string;
+  risk?: string;
+  [extra: string]: unknown;
+}
+
+export interface VDOralCase {
+  key: string;
+  scenario_title: string;
+  role_counterpart?: string;
+  conflict_level?: "low" | "medium" | "high" | string;
+  communication_goal?: string;
+  training_focus?: string;
+  legal_complexity?: string;
+  [extra: string]: unknown;
+}
+
+export interface VerwaltungDepartmentDna {
+  id: string;
+  department_key: string;
+  department_name: string;
+  category: string;
+  vertical_slug: string;
+  roles: VDNamedItem[];
+  processes: VDNamedItem[];
+  documents: VDNamedItem[];
+  kpis: VDNamedItem[];
+  risks: VDNamedItem[];
+  communication_patterns: VDNamedItem[];
+  decision_models: VDNamedItem[];
+  escalation_paths: VDNamedItem[];
+  persona_seeds: VDNamedItem[];
+  use_cases: VDUseCase[];
+  oral_training_cases: VDOralCase[];
+  meta?: Record<string, unknown>;
+}
+
+/** Liste aller Verwaltungs-Fachbereiche (read-only, gruppierbar nach KGSt-Cluster). */
+export async function listVerwaltungDepartments(): Promise<VerwaltungDepartmentSummary[]> {
+  const { data, error } = await supabase.rpc("list_verwaltung_departments");
+  if (error) {
+    console.warn("[verwaltung-dna] list RPC error", error);
+    return [];
+  }
+  if (!Array.isArray(data)) return [];
+  return data as unknown as VerwaltungDepartmentSummary[];
+}
+
+/** Vollständige Fachbereichs-DNA inkl. Use-Cases + Oral-Training-Szenarien. */
+export async function getVerwaltungDepartmentDna(
+  departmentKey: string,
+): Promise<VerwaltungDepartmentDna | null> {
+  const { data, error } = await supabase.rpc("get_verwaltung_department_dna", {
+    _department_key: departmentKey,
+  });
+  if (error) {
+    console.warn("[verwaltung-dna] detail RPC error", error);
+    return null;
+  }
+  if (!data || typeof data !== "object" || (data as { error?: string }).error) {
+    return null;
+  }
+  return data as unknown as VerwaltungDepartmentDna;
+}
+
