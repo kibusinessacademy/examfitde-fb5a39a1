@@ -185,3 +185,113 @@ export async function linkBundleToIntent(bundleId: string, intentId: string) {
   if (error) throw error;
   return data as { bundle_id: string; intent_id: string; intent_key: string };
 }
+
+// v2 Cut 2.2 — Persistent Intelligence Memory
+export type IntelligenceMemoryKind =
+  | "successful_pattern"
+  | "quality_issue"
+  | "risk_incident"
+  | "conversion_learning"
+  | "ux_learning"
+  | "seo_learning"
+  | "workflow_failure"
+  | "security_pattern"
+  | "architecture_decision";
+
+export type IntelligenceMemoryStatus = "active" | "retired" | "superseded";
+
+export interface IntelligenceMemoryEntry {
+  id: string;
+  memory_key: string;
+  kind: IntelligenceMemoryKind;
+  vertical_key: string | null;
+  title: string;
+  summary: string;
+  payload: Record<string, unknown>;
+  confidence: number;
+  status: IntelligenceMemoryStatus;
+  source_run_id: string | null;
+  business_intent_id: string | null;
+  bundle_id: string | null;
+  tags: string[];
+  recorded_by: string | null;
+  retired_at: string | null;
+  retired_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  intent_title: string | null;
+}
+
+export interface RecordIntelligenceMemoryInput {
+  memory_key: string;
+  kind: IntelligenceMemoryKind;
+  title: string;
+  summary: string;
+  vertical_key?: string | null;
+  payload?: Record<string, unknown>;
+  confidence?: number;
+  source_run_id?: string | null;
+  business_intent_id?: string | null;
+  bundle_id?: string | null;
+  tags?: string[];
+}
+
+export async function listIntelligenceMemory(filters: {
+  kind?: IntelligenceMemoryKind | null;
+  vertical_key?: string | null;
+  status?: IntelligenceMemoryStatus | null;
+  business_intent_id?: string | null;
+  limit?: number;
+} = {}): Promise<IntelligenceMemoryEntry[]> {
+  const { data, error } = await sb.rpc("admin_list_intelligence_memory", {
+    _kind: filters.kind ?? null,
+    _vertical_key: filters.vertical_key ?? null,
+    _status: filters.status ?? null,
+    _business_intent_id: filters.business_intent_id ?? null,
+    _limit: filters.limit ?? 200,
+  });
+  if (error) throw error;
+  return (data ?? []) as IntelligenceMemoryEntry[];
+}
+
+export async function recordIntelligenceMemory(input: RecordIntelligenceMemoryInput): Promise<string> {
+  const { data, error } = await sb.rpc("admin_record_intelligence_memory", {
+    _memory_key: input.memory_key,
+    _kind: input.kind,
+    _title: input.title,
+    _summary: input.summary,
+    _vertical_key: input.vertical_key ?? null,
+    _payload: input.payload ?? {},
+    _confidence: input.confidence ?? 0.5,
+    _source_run_id: input.source_run_id ?? null,
+    _business_intent_id: input.business_intent_id ?? null,
+    _bundle_id: input.bundle_id ?? null,
+    _tags: input.tags ?? [],
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function retireIntelligenceMemory(memoryId: string, reason: string): Promise<boolean> {
+  const { data, error } = await sb.rpc("admin_retire_intelligence_memory", {
+    _memory_id: memoryId,
+    _reason: reason,
+  });
+  if (error) throw error;
+  return data as boolean;
+}
+
+export async function classifyIntelligenceMemory(
+  memoryId: string,
+  newStatus: IntelligenceMemoryStatus,
+  supersededBy?: string | null,
+): Promise<boolean> {
+  const { data, error } = await sb.rpc("admin_classify_intelligence_memory", {
+    _memory_id: memoryId,
+    _new_status: newStatus,
+    _superseded_by: supersededBy ?? null,
+  });
+  if (error) throw error;
+  return data as boolean;
+}
+
