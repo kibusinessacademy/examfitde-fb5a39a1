@@ -505,7 +505,7 @@ Charakter-Profil:
 ${brief.background ? `- Hintergrund: ${brief.background}` : ''}
 
 ${stateDescription}
-${painpointInjection}
+${painpointInjection}${microCueBlock}
 
 REGELN:
 - Antworte in 1-3 Sätzen, maximal 4. Niemals Romane.
