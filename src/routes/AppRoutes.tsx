@@ -222,6 +222,7 @@ const BerufOSHub = lazyRetry(() => import('@/pages/BerufOSHub'));
 const BerufOSModulePage = lazyRetry(() => import('@/pages/berufos/BerufOSModulePage'));
 const ProduktHubPage = lazyRetry(() => import('@/pages/products/ProduktHubPage'));
 const BerufOSProductLandingPage = lazyRetry(() => import('@/pages/products/ProductLandingPage'));
+const BerufAgentOSLandingPage = lazyRetry(() => import('@/pages/products/BerufAgentOSLandingPage'));
 const MarketingProductPagesAdminPage = lazyRetry(() => import('@/pages/admin/MarketingProductPagesAdminPage'));
 
 // Berufs-KI public pages (eigenständige Produktlinie)
