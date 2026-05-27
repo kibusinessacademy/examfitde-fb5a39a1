@@ -500,3 +500,6 @@ verify_jwt = true
 
 [functions.auth-email-hook]
 verify_jwt = false
+
+[functions.verwaltung-bund-lagebild]
+verify_jwt = false
