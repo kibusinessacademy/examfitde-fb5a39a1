@@ -329,6 +329,8 @@ export default function VerticalDetailPage() {
         </section>
       )}
 
+      {/* VerwaltungsOS — Fachbereichs-Intelligenz (nur Verwaltungs-Vertical) */}
+      {vertical.slug === "verwaltung" && <VerwaltungDepartmentsSection />}
 
       {/* PRICING */}
       <section id="pricing" className="border-t border-border bg-surface-1">
