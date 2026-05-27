@@ -413,6 +413,7 @@ Deno.serve(async (req) => {
     const selectedPp = selectPainpoint(signals, currentState, painpoints ?? [], activationCounts, currentTurnIndex, lastActivations);
 
     // 3) Apply state delta — Cut B: merge scenario.painpoint_overrides[painpoint_key]
+    //                       Cut C: Micro-Deltas atmosphärisch on top
     let stateDelta: Record<string, number> = {};
     let painpointTriggered: string | null = null;
     let characterVariantApplied = false;
@@ -427,8 +428,15 @@ Deno.serve(async (req) => {
       mergedReaction = { ...(selectedPp.character_reaction ?? {}), ...(override ?? {}) };
       delete mergedReaction.state_deltas;
       characterVariantApplied = !!override;
-      currentState = applyStateDeltas(currentState, stateDelta);
     }
+
+    // Cut C: compute micro-atmospheric deltas (independent of painpoint firing)
+    const micro = computeMicroDeltas(signals);
+    const combinedDelta: Record<string, number> = { ...stateDelta };
+    for (const k of Object.keys(micro.deltas)) {
+      combinedDelta[k] = (combinedDelta[k] ?? 0) + micro.deltas[k];
+    }
+    currentState = applyStateDeltas(currentState, combinedDelta);
 
     // 4) Insert user turn
     await admin.from('conversation_os_turns').insert({
@@ -438,16 +446,36 @@ Deno.serve(async (req) => {
       role: 'user',
       content: body.message,
       state_snapshot: currentState,
-      state_delta: stateDelta,
+      state_delta: combinedDelta,
       painpoint_triggered: painpointTriggered,
       character_variant_applied: characterVariantApplied,
-      metadata: { signals: Array.from(signals), character_variant: characterVariantApplied ? mergedReaction : null },
+      metadata: {
+        signals: Array.from(signals),
+        character_variant: characterVariantApplied ? mergedReaction : null,
+        micro_state: {
+          applied_signals: micro.appliedSignals,
+          micro_deltas: micro.deltas,
+          painpoint_delta: stateDelta,
+        },
+      },
     });
 
     // 5) Build character system prompt with state + painpoint guidance
     const brief = scenario.character_brief ?? {};
     const stateDescription = `[Interner Zustand — beeinflusst deine Tonalität, niemals direkt aussprechen]
 Trust: ${currentState.trust.toFixed(2)} | Tension: ${currentState.tension.toFixed(2)} | Confidence (Gegenüber): ${currentState.confidence.toFixed(2)} | Rapport: ${currentState.rapport.toFixed(2)}`;
+
+    // Cut C: micro-cue guidance — converts signal-flags into short directive sentences
+    const microCueDirectives: string[] = [];
+    if (signals.has('filler_words')) microCueDirectives.push('Das Gegenüber stockt sprachlich — werde ungeduldiger, kürzer.');
+    if (signals.has('time_stalling')) microCueDirectives.push('Das Gegenüber spielt auf Zeit — dränge auf die Antwort.');
+    if (signals.has('apology_cluster')) microCueDirectives.push('Das Gegenüber entschuldigt sich übermäßig — wirke souveräner, nicht versöhnlich.');
+    if (signals.has('high_hedging_density') || signals.has('subjunctive_cluster')) microCueDirectives.push('Sehr viel Konjunktiv/Abschwächung — fordere eine klare Aussage im Indikativ.');
+    if (signals.has('monologue_excessive')) microCueDirectives.push('Das Gegenüber redet sich um Kopf und Kragen — unterbrich höflich aber bestimmt.');
+    if (signals.has('uptalk')) microCueDirectives.push('Das Gegenüber stellt Aussagen als Fragen — adressiere die Unsicherheit.');
+    if (signals.has('superlative_overuse')) microCueDirectives.push('Das Gegenüber benutzt absolute Superlative — werde skeptisch, hinterfrage.');
+    if (signals.has('substantive_answer') || signals.has('user_provides_number')) microCueDirectives.push('Gute substantielle Antwort — quittieren, aber ohne übertriebenes Lob; vertiefe oder gehe weiter.');
+    const microCueBlock = microCueDirectives.length > 0 ? `\n\n[MIKRO-CUES — beeinflussen Ton, nicht Inhalt]\n- ${microCueDirectives.join('\n- ')}` : '';
 
     let painpointInjection = '';
     if (selectedPp) {
