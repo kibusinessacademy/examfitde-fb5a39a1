@@ -448,6 +448,8 @@ const AppRoutes = () => {
         <Route path="/berufs-ki/suites" element={<BerufsKISuitesPage />} />
 
         {/* BerufAgentOS — Outcome Mission Control (top-level alias) */}
+        <Route path="/berufagentos" element={<BerufAgentOSLandingPage />} />
+        <Route path="/beruf-agent-os" element={<Navigate to="/berufagentos" replace />} />
         <Route path="/app/beruf-agent-os" element={<OutcomeControlCenterPage />} />
         <Route path="/app/beruf-agent-os/bundle/:id" element={<OutcomeBundleDetailPage />} />
 
