@@ -55,6 +55,37 @@ Deno.serve(async (req) => {
     const characterName = (session.conversation_os_scenarios?.character_brief as any)?.name ?? 'Charakter';
     const variantTurns = (turns ?? []).filter((t: any) => t.character_variant_applied);
 
+    // Cut E: adaptive context from session.metadata.adaptive
+    const sessionMeta = (session.metadata as any) ?? {};
+    const adaptive = sessionMeta.adaptive ?? null;
+    const userClaims = adaptive?.user_claims ?? [];
+    const contradictionPairs: Array<{ topic: string; turn_pos: number; turn_neg: number; quote_pos: string; quote_neg: string }> = [];
+    const seenPairs = new Set<string>();
+    for (const a of userClaims) {
+      for (const b of userClaims) {
+        if (a.turn >= b.turn) continue;
+        if (a.topic !== b.topic) continue;
+        if (a.polarity === b.polarity) continue;
+        const key = `${a.topic}|${a.turn}|${b.turn}`;
+        if (seenPairs.has(key)) continue;
+        seenPairs.add(key);
+        const pos = a.polarity === 'pos' ? a : b;
+        const neg = a.polarity === 'neg' ? a : b;
+        contradictionPairs.push({
+          topic: a.topic,
+          turn_pos: pos.turn, quote_pos: pos.quote,
+          turn_neg: neg.turn, quote_neg: neg.quote,
+        });
+      }
+    }
+    const adaptiveContext = adaptive ? `
+Adaptive Engine — Endzustand:
+- Hidden States: skepsis=${adaptive.adaptive_state?.skepticism?.toFixed(2)} pressure=${adaptive.adaptive_state?.pressure?.toFixed(2)} interest=${adaptive.adaptive_state?.interest?.toFixed(2)} fatigue=${adaptive.adaptive_state?.fatigue?.toFixed(2)} performance=${adaptive.adaptive_state?.performance_score?.toFixed(2)}
+- Finale Phase: ${adaptive.phase} · Momentum: ${adaptive.momentum} · Difficulty: ${adaptive.difficulty} · Character-Drift: ${adaptive.character_drift}
+- Live-Outcome-Vorhersage: ${adaptive.outcome_live ?? '(keine)'}
+- Erkannte Widersprüche (${contradictionPairs.length}): ${JSON.stringify(contradictionPairs)}
+- Drill-Chain Endzustand: ${JSON.stringify(adaptive.drill_chain ?? {})}` : '';
+
 
     const rubric = session.conversation_os_scenarios?.scoring_rubric ?? {};
     const rubricDimensions = Object.keys(rubric);
