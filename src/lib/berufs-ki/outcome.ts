@@ -110,3 +110,78 @@ export async function exportOutcomeBundle(bundleId: string) {
   if (error) throw error;
   return data as { markdown: string; filename: string; byte_size: number };
 }
+
+// v2 Cut 2.1 — Business Intent Layer
+export type BusinessIntentRiskLevel = "low" | "medium" | "high" | "critical";
+export type BusinessIntentGovernanceLevel = "standard" | "sensitive" | "regulated" | "board_approval";
+
+export interface BusinessIntent {
+  id: string;
+  intent_key: string;
+  vertical_key: string;
+  title: string;
+  goal: string;
+  target_kpi_json: Array<{ name: string; baseline?: number; target?: number; unit?: string }>;
+  monetary_impact_eur: number | null;
+  risk_level: BusinessIntentRiskLevel;
+  governance_level: BusinessIntentGovernanceLevel;
+  no_go_constraints: string[] | Record<string, unknown>[];
+  target_audience: Record<string, unknown>;
+  desired_transformation: string | null;
+  is_active: boolean;
+  linked_bundle_count: number;
+  last_bundle_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegisterBusinessIntentInput {
+  intent_key: string;
+  vertical_key: string;
+  title: string;
+  goal: string;
+  target_kpi?: unknown;
+  monetary_impact_eur?: number | null;
+  risk_level?: BusinessIntentRiskLevel;
+  governance_level?: BusinessIntentGovernanceLevel;
+  no_go_constraints?: unknown;
+  target_audience?: unknown;
+  desired_transformation?: string | null;
+}
+
+export async function listBusinessIntents(verticalKey?: string, activeOnly = true, limit = 200): Promise<BusinessIntent[]> {
+  const { data, error } = await sb.rpc("admin_list_business_intents", {
+    _vertical_key: verticalKey ?? null,
+    _active_only: activeOnly,
+    _limit: limit,
+  });
+  if (error) throw error;
+  return (data ?? []) as BusinessIntent[];
+}
+
+export async function registerBusinessIntent(input: RegisterBusinessIntentInput): Promise<{ intent_id: string; intent_key: string }> {
+  const { data, error } = await sb.rpc("admin_register_business_intent", {
+    _intent_key: input.intent_key,
+    _vertical_key: input.vertical_key,
+    _title: input.title,
+    _goal: input.goal,
+    _target_kpi: input.target_kpi ?? [],
+    _monetary_impact_eur: input.monetary_impact_eur ?? null,
+    _risk_level: input.risk_level ?? "medium",
+    _governance_level: input.governance_level ?? "standard",
+    _no_go_constraints: input.no_go_constraints ?? [],
+    _target_audience: input.target_audience ?? {},
+    _desired_transformation: input.desired_transformation ?? null,
+  });
+  if (error) throw error;
+  return data as { intent_id: string; intent_key: string };
+}
+
+export async function linkBundleToIntent(bundleId: string, intentId: string) {
+  const { data, error } = await sb.rpc("admin_link_bundle_to_intent", {
+    _bundle_id: bundleId,
+    _intent_id: intentId,
+  });
+  if (error) throw error;
+  return data as { bundle_id: string; intent_id: string; intent_key: string };
+}
