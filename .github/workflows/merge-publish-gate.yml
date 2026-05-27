@@ -1,0 +1,287 @@
+name: Merge → Publish Gate
+
+# Orchestrator: läuft bei jedem Merge nach main (und auf PRs gegen main).
+# Pfad A laut User-Entscheidung 2026-05-27:
+#   - CI-Gate: Build + Typecheck + Tests + Supabase Linter + Security-Scan + Schlüssel-Guards
+#   - Auto-Fix-Scope: NUR Edge-Function-Drift wird autonom redeployed (User-Memory-Core-Regel)
+#   - Bei Fail: GitHub-Issue + Branch-Protection blockt Merge (Regression Freeze)
+#   - Bei Grün: Summary "Published-Update freigegeben" → User klickt manuell in Lovable auf Update
+#   (Lovable bietet keine API zum Trigger der Published-Aktualisierung — bewusst kein Fake-Auto-Publish)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: merge-publish-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # 1) Build + Typecheck — Pflicht-Gate
+  # ─────────────────────────────────────────────────────────
+  build:
+    name: Production Build + Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci --legacy-peer-deps
+      - name: TypeScript check
+        run: npx tsc --noEmit
+      - name: Vite production build
+        run: npm run build
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 3
+
+  # ─────────────────────────────────────────────────────────
+  # 2) Unit Tests
+  # ─────────────────────────────────────────────────────────
+  tests:
+    name: Vitest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci --legacy-peer-deps
+      - run: npx vitest run --reporter=verbose
+
+  # ─────────────────────────────────────────────────────────
+  # 3) Security Re-Scan: npm audit + Supabase-Linter-Tag
+  # ─────────────────────────────────────────────────────────
+  security-rescan:
+    name: Security Re-Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci --legacy-peer-deps
+      - name: npm audit (high+critical)
+        run: |
+          set +e
+          OUT=$(npm audit --audit-level=high --json 2>/dev/null)
+          HIGH=$(echo "$OUT" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);const m=j.metadata?.vulnerabilities||{};console.log((m.high||0)+(m.critical||0));}catch{console.log(0);}})")
+          echo "## 🔒 Security Re-Scan" >> $GITHUB_STEP_SUMMARY
+          echo "high+critical: **$HIGH**" >> $GITHUB_STEP_SUMMARY
+          if [ "$HIGH" -gt 0 ]; then
+            echo "::error::Security re-scan found $HIGH high/critical vulnerabilities"
+            exit 1
+          fi
+
+  # ─────────────────────────────────────────────────────────
+  # 4) Schlüssel-Guards (SSOT-Drift)
+  #    Bündelt die wichtigsten existierenden Guards in einem Job.
+  # ─────────────────────────────────────────────────────────
+  ssot-guards:
+    name: SSOT Guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - run: |
+          set -e
+          echo "## 🛡️ SSOT Guards" >> $GITHUB_STEP_SUMMARY
+          for guard in \
+            scripts/guards/architecture-continuity-guard.mjs \
+            scripts/guards/audit-write-contract-guard.mjs \
+            scripts/guards/canonical-identity-contract-guard.mjs \
+            scripts/guards/strict-event-package-id-guard.mjs \
+            scripts/guards/status-revert-guard.mjs ; do
+            if [ -f "$guard" ]; then
+              echo "→ $guard"
+              node "$guard" || { echo "::error::Guard failed: $guard"; exit 1; }
+              echo "- ✅ $(basename $guard)" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+  # ─────────────────────────────────────────────────────────
+  # 5) Edge-Function Auto-Deploy bei Drift
+  #    NUR auf push→main, NICHT auf PRs (kein Production-Write von Forks).
+  #    Deployt nur geänderte Funktionen. Bei Fehler → Issue.
+  # ─────────────────────────────────────────────────────────
+  edge-auto-deploy:
+    name: Edge Auto-Deploy (drift)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, tests, security-rescan, ssot-guards]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed edge functions
+        id: changed
+        run: |
+          BEFORE="${{ github.event.before }}"
+          # Fallback wenn before nicht da (erster Push)
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            BEFORE="HEAD~1"
+          fi
+          set +e
+          DIFF=$(git diff --name-only "$BEFORE" HEAD 2>/dev/null)
+          set -e
+
+          SHARED_CHANGED=0
+          FNS=()
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              supabase/functions/_shared/*)
+                SHARED_CHANGED=1
+                ;;
+              supabase/functions/*/*)
+                NAME=$(echo "$f" | cut -d/ -f3)
+                FNS+=("$NAME")
+                ;;
+            esac
+          done <<< "$DIFF"
+
+          if [ "$SHARED_CHANGED" = "1" ]; then
+            # _shared verändert → alle Funktionen redeployen
+            ALL=$(ls supabase/functions | grep -v '^_shared$' | tr '\n' ' ')
+            echo "fns=$ALL" >> $GITHUB_OUTPUT
+            echo "reason=shared_changed" >> $GITHUB_OUTPUT
+          elif [ "${#FNS[@]}" -gt 0 ]; then
+            UNIQ=$(printf "%s\n" "${FNS[@]}" | sort -u | tr '\n' ' ')
+            echo "fns=$UNIQ" >> $GITHUB_OUTPUT
+            echo "reason=function_changed" >> $GITHUB_OUTPUT
+          else
+            echo "fns=" >> $GITHUB_OUTPUT
+            echo "reason=no_change" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Skip if no edge changes
+        if: steps.changed.outputs.fns == ''
+        run: |
+          echo "## 🟢 Edge Auto-Deploy" >> $GITHUB_STEP_SUMMARY
+          echo "Keine Edge-Function-Änderungen → nichts zu deployen." >> $GITHUB_STEP_SUMMARY
+
+      - name: Validate deploy secrets
+        if: steps.changed.outputs.fns != ''
+        run: |
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ] || [ -z "${{ secrets.SUPABASE_PROJECT_REF }}" ]; then
+            echo "::warning::SUPABASE_ACCESS_TOKEN oder SUPABASE_PROJECT_REF fehlt — Auto-Deploy übersprungen. Bitte als Repo-Secret setzen (https://supabase.com/dashboard/account/tokens, project ref: ubdvvvsiryenhrfmqsvw)."
+            echo "## ⚠️ Edge Auto-Deploy übersprungen" >> $GITHUB_STEP_SUMMARY
+            echo "Secrets fehlen: SUPABASE_ACCESS_TOKEN und/oder SUPABASE_PROJECT_REF." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          echo "secrets_ok=1" >> $GITHUB_ENV
+
+      - name: Setup Supabase CLI
+        if: steps.changed.outputs.fns != '' && env.secrets_ok == '1'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy changed functions
+        if: steps.changed.outputs.fns != '' && env.secrets_ok == '1'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -e
+          FNS="${{ steps.changed.outputs.fns }}"
+          REASON="${{ steps.changed.outputs.reason }}"
+          echo "## 🚀 Edge Auto-Deploy" >> $GITHUB_STEP_SUMMARY
+          echo "Reason: \`$REASON\`" >> $GITHUB_STEP_SUMMARY
+          echo "| Function | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          FAILED=()
+          for fn in $FNS; do
+            [ -d "supabase/functions/$fn" ] || continue
+            echo "→ Deploying $fn"
+            if supabase functions deploy "$fn" \
+                 --project-ref "$SUPABASE_PROJECT_REF" \
+                 --no-verify-jwt >/tmp/deploy.log 2>&1; then
+              echo "| $fn | ✅ deployed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $fn | ❌ failed |" >> $GITHUB_STEP_SUMMARY
+              cat /tmp/deploy.log
+              FAILED+=("$fn")
+            fi
+          done
+          if [ "${#FAILED[@]}" -gt 0 ]; then
+            echo "::error::Edge deploy failed for: ${FAILED[*]}"
+            exit 1
+          fi
+
+      - name: Create issue on failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_NAME: "Merge → Publish Gate · Edge Auto-Deploy"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/ci/issue-on-fail.mjs
+
+  # ─────────────────────────────────────────────────────────
+  # 6) Final Gate Summary — markiert Published-Update als freigegeben
+  # ─────────────────────────────────────────────────────────
+  publish-ready:
+    name: Published-Update Freigabe
+    needs: [build, tests, security-rescan, ssot-guards]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate gate result
+        run: |
+          B="${{ needs.build.result }}"
+          T="${{ needs.tests.result }}"
+          S="${{ needs.security-rescan.result }}"
+          G="${{ needs.ssot-guards.result }}"
+          echo "## 📦 Merge → Publish Gate" >> $GITHUB_STEP_SUMMARY
+          echo "| Gate | Ergebnis |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build + Typecheck | $B |" >> $GITHUB_STEP_SUMMARY
+          echo "| Vitest | $T |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Re-Scan | $S |" >> $GITHUB_STEP_SUMMARY
+          echo "| SSOT Guards | $G |" >> $GITHUB_STEP_SUMMARY
+          if [ "$B" = "success" ] && [ "$T" = "success" ] && [ "$S" = "success" ] && [ "$G" = "success" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Published-Update freigegeben.**" >> $GITHUB_STEP_SUMMARY
+            echo "Bitte in Lovable auf **Update** klicken, um https://examfit.de zu aktualisieren." >> $GITHUB_STEP_SUMMARY
+            echo "(Lovable bietet keine API zum automatischen Re-Publish — bewusster Human-in-the-Loop nach NO_AUTONOMOUS_PRODUCTION_WRITES.)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🛑 **Regression Freeze aktiv.** Publish NICHT klicken bis alle Gates grün sind." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Create issue on gate failure
+        if: failure() && github.event_name == 'push'
+        uses: actions/checkout@v5
+
+      - name: Run issue-on-fail
+        if: failure() && github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_NAME: "Merge → Publish Gate (Regression Freeze)"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/ci/issue-on-fail.mjs
