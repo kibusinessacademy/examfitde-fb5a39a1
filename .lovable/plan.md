@@ -1,80 +1,94 @@
-## BerufAgentOS — Premium Enterprise Vertical Outcome AgentOS
+# BerufAgentOS v1.1 — Premium Depth Layer
 
-Existing foundation we extend (no rebuild):
-- **Phase 6 AgentOS** (`berufs_ki_agents`, `berufs_ki_agent_runs`, `berufs_ki_agent_orchestrations`, `berufs_ki_agent_memory`) — 6 Seed-Agenten, HITL, Confidence-Gate, Graph-Bridge, `/admin/berufs-ki/agents` + `/admin/berufs-ki/control-center`.
-- **Safe Actions Framework** (`runtime_safe_actions`, dispatcher RPC, Reason ≥8, Audit) — bestehender Approval-Pfad.
-- **Berufs-KI Workflows** (`WorkflowDefinition`, Curriculum/Lernfeld/Kompetenz/Blueprint-Bridge) — Berufs-/Branchen-Kontext-Vertrag.
-- **BerufOS-Modulregistry** — AgentOS-Slot in `BERUFOS_MODULES` (`/berufos/agent-os`).
-- **Architectural Continuity Guard** + **Audit Write Contract** + **Test-Fixture Contract**.
-
-Wir bauen NICHT neu: keine zweite agents-Tabelle, kein paralleles Approval-System, keine eigene Audit-Pipeline.
+Ziel: Aus „funktioniert" wird **verkaufbarer Premium-Wow**. Keine neue Breite — nur die 6 Tiefenhebel auf der bestehenden Cut-1-Infrastruktur (`vertical_dna`, `agent_outcome_bundles`, `agent_outcome_artifacts`, `berufs_ki_agents`, `runtime_safe_actions`).
 
 ---
 
-### Scope dieses Cuts (BerufAgentOS Cut 1 — Outcome Bundle + Vertical DNA + Mission Control)
+## Sub-Cut 1.1.A — Berufs-DNA Viewer vertiefen
 
-**1. Vertical/Branchen-DNA SSOT (DB)**
-- `vertical_dna` (industry_key UNIQUE, name, roles[], kpis jsonb, risks jsonb, pain_points jsonb, sops jsonb, automation_potential jsonb, regulatory_context jsonb, is_active).
-- 10 Seed-Branchen: public_admin, hr, real_estate, healthcare, banking, crafts, education, funding, consulting, support.
-- Bridge: `berufs_ki_agents.vertical_keys text[]` + `berufs_ki_agent_runs.vertical_key`.
-- Pflicht-Audit Contract: `vertical_dna_seeded`.
+**Bestehend:** Vertical-DNA-Tab in `OutcomeBundleDetailPage` zeigt rohes JSON.
+**Neu:** Strukturierter Viewer mit 6 Sektionen (Roles, KPIs, Risks, SOPs, Regulatory, Stakeholder-Map) + Vergleich „DNA-Slice → Bundle-Output" (welche DNA-Felder wurden tatsächlich genutzt).
 
-**2. Outcome Bundle SSOT**
-- `agent_outcome_bundles` (run_id FK auf `berufs_ki_agent_runs`, outcome_goal text NOT NULL, vertical_key, business_case jsonb, process_model jsonb, kpi_impact jsonb, workflow_graph jsonb, risk_register jsonb, sops jsonb, roadmap jsonb, rollout_plan jsonb, dashboard_spec jsonb, artifacts jsonb, test_matrix jsonb, rollback_plan jsonb, review_status enum proposed|in_review|approved|rejected|applied|rolled_back, confidence numeric, completeness_pct numeric GENERATED).
-- `agent_outcome_artifacts` (bundle_id, kind enum sop|workflow|api_contract|ui_spec|dashboard|test|seo_brief|compliance_note|business_case|roadmap, title, payload jsonb, export_format, sha256).
-- SSOT-Regel als DB-Trigger: kein Bundle ohne `outcome_goal` + `vertical_key`; kein Workflow-Eintrag ohne min. 1 KPI.
+- Neue Komponente `src/components/berufs-ki/VerticalDnaViewer.tsx` — Tabs + Token-Highlight
+- Neue Page `/admin/berufs-ki/vertical-dna` + `/admin/berufs-ki/vertical-dna/:industryKey` (Detail)
+- RPC `admin_get_vertical_dna_full(industry_key)` (existiert bereits als `admin_get_vertical_dna`, ggf. erweitern um `linked_bundles_count`)
 
-**3. Agent Team Erweiterung (Seed)**
-Ergänze die bestehenden 6 Agenten um die 10 Premium-Rollen aus dem Brief — als zusätzliche Rows in `berufs_ki_agents` (kein Parallel-Schema):
-- strategy, product, workflow, build, ux, seo_authority, growth, security, compliance, executive.
-- Jeder mit `governance_rules.outcome_contract` (welche Bundle-Felder er MUSS produzieren), `vertical_keys`, `requires_human_approval=true`, `confidence_threshold=0.75`.
+## Sub-Cut 1.1.B — Branchen-DNA Mapping sichtbar machen
 
-**4. Outcome Run-Pipeline (Edge)**
-- Neue Edge-Function `berufs-agent-outcome-run` (nicht Ersatz von `berufs-ki-agent-run`, sondern Orchestrator-Wrapper).
-- Input: `{ outcome_goal, vertical_key, agent_team[], context }`.
-- Lädt Vertical DNA + Berufs-DNA aus Curricula → injiziert in System-Prompt jedes Agenten.
-- Ruft `berufs-ki-agent-run` sequentiell pro Agent (Strategy → Product → Workflow → Build → UX → SEO → Growth → Security → Compliance → Executive).
-- Aggregiert Outputs in `agent_outcome_bundles`. Erzeugt Review-Queue-Eintrag via bestehende `runtime_safe_actions` (`action_key='approve_outcome_bundle'`, Reason ≥8 Pflicht).
-- Audit: `outcome_bundle_created`, `outcome_bundle_review_dispatched`.
+**Bestehend:** `berufs_ki_agents.vertical_keys` bridge existiert.
+**Neu:** Visual Matrix „Agent × Branche × Outcome-Coverage" — zeigt welche Agenten welche Verticals abdecken und wie viele erfolgreiche Bundles je Kombination existieren.
 
-**5. RPCs (SECURITY DEFINER, has_role-gated)**
-- `admin_get_outcome_bundle(_bundle_id)` — vollständiges Bundle + Artifacts.
-- `admin_list_outcome_bundles(_vertical, _status, _limit)`.
-- `admin_decide_outcome_bundle(_bundle_id, _decision, _reason)` — approve|reject|apply|rollback (Reason ≥8).
-- `admin_get_vertical_dna(_industry_key)`.
-- `admin_outcome_control_center()` — KPIs für Mission-Control.
+- View `v_agent_vertical_coverage` (agent_key, vertical_key, bundle_count, avg_completeness, last_run_at)
+- RPC `admin_get_agent_vertical_matrix()` (SECURITY DEFINER, has_role-gate)
+- Komponente `AgentVerticalMatrix.tsx` (Heatmap) im OutcomeControlCenter
 
-**6. UI — Outcome Control Center (Premium, kein Chatfenster)**
-- `/admin/berufs-ki/outcome-control` — Mission-Control-Hero (KPI-Strip: Active Bundles, Review Queue Depth, Avg Confidence, KPI-Impact-Sum, Rolled-back-Rate), Agent-Team-Board (alle 16 Agenten mit Live-Status), Outcome-Timeline.
-- `/admin/berufs-ki/outcome-bundles` — List + Filter (vertical, status, confidence).
-- `/admin/berufs-ki/outcome-bundles/:id` — Bundle-Detail mit Tabs: Business Case · Process Model · KPI Impact · Workflow Graph · Risk Register · SOPs · Roadmap · Rollout · Dashboard Spec · Artifacts · Test Matrix · Rollback. Approve/Reject/Apply-Dialog mit Reason-Textarea (min 8).
-- `/admin/berufs-ki/vertical-dna` — Branchen-Registry mit DNA-Karten.
-- Erweiterung `/berufos/agent-os` Public-Landing um Outcome-Claims aus Brief.
+## Sub-Cut 1.1.C — KPI Impact Panel realer/vergleichbarer machen
 
-**7. Architecture Continuity Proposal**
-- Vor Migration: `docs/examples/architecture-proposals/berufagentos-outcome-bundle-approved.json` als signierter Proposal-Eintrag (EXTEND_EXISTING — wir spiegeln Bundle als Knoten in `berufs_ki_graph_nodes` via Trigger).
+**Bestehend:** `kpi_impact` JSON-Section.
+**Neu:** Strukturierte KPI-Tabelle mit Baseline → Target → Delta + Branchen-Benchmark (aus `vertical_dna.industry_kpis`) + Confidence-Indikator.
 
-**8. Memory + Audit**
-- `mem://architektur/conversationos/...` ist falscher Pfad — wir nutzen `mem://features/berufs-ki/cut1-outcome-bundle-vertical-dna-v1.md`.
-- Index-Update mit zwei Memory-Einträgen (Outcome Bundle SSOT + Vertical DNA).
+- Schema-Erweiterung: trigger `fn_compute_kpi_delta` auf `agent_outcome_bundles` — extrahiert `kpi_impact.metrics[]` → schreibt in neue View `v_bundle_kpi_impact_normalized`
+- RPC `admin_get_bundle_kpi_impact(bundle_id)`
+- Komponente `KpiImpactPanel.tsx` mit Recharts-Bars + Benchmark-Linie
 
-**9. Tests**
-- `src/test/berufs-ki/outcome-bundle-contract.test.ts` — Schema-Coverage (alle 13 Pflicht-Felder).
-- `src/test/berufs-ki/vertical-dna-seed.test.ts` — 10 Branchen, eindeutige Keys.
-- Edge-Smoke: `supabase/functions/berufs-agent-outcome-run/_smoke.ts` (per Fixture-Factory).
+## Sub-Cut 1.1.D — Outcome Bundle als „Executive Brief" exportierbar
 
-### Explizit ausgeschlossen (folgt in späteren Cuts)
-- Apply-Engine (PR-Bot, Code-Mutation) — Cut 2.
-- SEO-Authority + Growth tatsächliches Output-Ranking — Cut 2.
-- Multi-Agent-Parallel-Execution (aktuell sequentiell) — Cut 3 (nutzt vorbereitetes `berufs_ki_agent_orchestrations`).
-- Marketplace, Customer-Facing-Outcome-Catalog — Marktaktivierungs-Cut.
+**Bestehend:** Section-Download als JSON.
+**Neu:** Ein-Klick „Executive Brief"-Export als Markdown (v1) — strukturiert: Cover (Vertical, Goal, Completeness, KPI-Top3) → Business Case → KPI Impact → Roadmap → Risks → Next Steps → Audit-Trail.
 
-### Reihenfolge der Tool-Calls
-1. `supabase--migration` (vertical_dna + agent_outcome_bundles + agent_outcome_artifacts + Trigger + Seeds + 10 neue Agenten + RPCs + GRANTs + RLS + Audit-Contracts).
-2. User-Approval abwarten.
-3. Edge-Function `berufs-agent-outcome-run` schreiben + Deploy.
-4. UI-Pages + Hooks parallel schreiben.
-5. Tests + Memory-Update parallel.
-6. Vercel-Deploy läuft automatisch via Merge-Gate.
+- Edge Function `berufs-agent-outcome-export` — Input: `bundle_id`, Output: Markdown-Blob
+- Audit-Contract `outcome_bundle_exported` (bundle_id, format, exported_by, byte_size)
+- UI-Button „Executive Brief exportieren" in BundleDetail-Header
 
-Wenn OK, starte ich mit der Migration.
+## Sub-Cut 1.1.E — Review Queue mit Risiko-Badges + Freigabehistorie
+
+**Bestehend:** `runtime_safe_actions` Review-Queue.
+**Neu:**
+- Risiko-Score je Bundle (LOW/MEDIUM/HIGH) abgeleitet aus: completeness_pct, vertical_dna.risk_level, agent confidence avg, regulatory_flags Anzahl
+- Freigabehistorie-Timeline pro Bundle (alle Decisions chronologisch mit Reason, Actor, Timestamp)
+
+- Generated Column `agent_outcome_bundles.risk_tier` (computed via `fn_compute_bundle_risk_tier`)
+- View `v_bundle_decision_history` über `auto_heal_log` action_type=outcome_bundle_decision
+- Komponente `BundleRiskBadge.tsx` + `BundleDecisionTimeline.tsx` in BundleDetail
+
+## Sub-Cut 1.1.F — Demo-Cases je Branche seedbar
+
+**Bestehend:** 10 Vertical-DNA-Seeds.
+**Neu:** Pro Vertical genau 1 vorgefertigtes Demo-Bundle (status=approved, completeness=92%, alle 11 Sections gefüllt, risk_tier=LOW) als Sales-Demo-Material.
+
+- Migration `seed_demo_bundles_v1` — 10 fertige Bundles mit `is_demo=true` Flag
+- Spalte `agent_outcome_bundles.is_demo BOOLEAN DEFAULT false`
+- Filter-Toggle „Demo Cases anzeigen" in `OutcomeControlCenterPage`
+- Audit `demo_bundle_seeded` Contract
+
+---
+
+## Reihenfolge & Migrations-Disziplin
+
+1. **DB-Migration** (5 Concerns, separat):
+   - M1: `agent_outcome_bundles.is_demo` + `risk_tier` + `fn_compute_bundle_risk_tier` + Trigger
+   - M2: `v_agent_vertical_coverage` + `admin_get_agent_vertical_matrix` RPC
+   - M3: `v_bundle_kpi_impact_normalized` + `admin_get_bundle_kpi_impact` RPC
+   - M4: `v_bundle_decision_history` View
+   - M5: Audit-Contracts: `outcome_bundle_exported`, `demo_bundle_seeded`
+2. **Demo-Bundles Seed** (`supabase--insert`, 10 Rows)
+3. **Edge Function** `berufs-agent-outcome-export` (deploy via tool)
+4. **UI-Komponenten** (6 neue + 2 Page-Edits)
+5. **Smoke-Tests** `scripts/berufagentos-v1-1-smoke.mjs`
+6. **Memory-Freeze** Update
+
+## Explizit NICHT in 1.1
+
+- PDF/PPTX Export (1.2)
+- Multi-Bundle-Vergleich (1.2)
+- Agent-Performance-Forensics (1.3)
+- Marketplace-Listings (Market-Activation)
+- Neue Verticals (bleibt bei 10)
+
+## Architekturkonformität
+
+- SSOT-First: erweitert bestehende Tabellen, keine Parallel-Systeme
+- Bridge-Don't-Fork: nutzt `auto_heal_log` + `runtime_safe_actions` weiter
+- Auditable Mutations: alle 6 Cuts loggen via `fn_emit_audit`
+- Security Inherits: alle neuen RPCs SECURITY DEFINER + `has_role(auth.uid(),'admin')`
+- No Hidden State: alle neuen Spalten/Views in Cockpit sichtbar
