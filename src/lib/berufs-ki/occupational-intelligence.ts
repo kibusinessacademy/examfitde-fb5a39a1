@@ -186,3 +186,123 @@ export async function getVerwaltungDepartmentDna(
   return data as unknown as VerwaltungDepartmentDna;
 }
 
+// =============================================================================
+// VerwaltungsOS — DailyBrief v1 (read-only Governance Intelligence)
+// =============================================================================
+
+export interface VDailyBriefScores {
+  buergerverstaendlichkeit: number | null;
+  deeskalation: number | null;
+  governance_sicherheit: number | null;
+  empathie: number | null;
+  fachlichkeit: number | null;
+}
+
+export interface VDailyBriefSignals {
+  sessions_24h: number;
+  sessions_7d: number;
+  sessions_30d: number;
+  avg_escalation: number | null;
+  max_escalation: number | null;
+  high_conflict_pct: number | null;
+  finalized_sessions: number;
+  scores: VDailyBriefScores;
+  top_emotions: Record<string, number> | null;
+  top_personas: Array<{ persona: string; count: number }> | null;
+}
+
+export interface VDailyBriefDepartment {
+  department_key: string;
+  department_name: string;
+  category: string;
+  window_days: number;
+  signals: VDailyBriefSignals;
+  weakest_dimension: { label: string; score: number };
+  kpis: VDNamedItem[];
+  risks: VDNamedItem[];
+  communication_patterns: VDNamedItem[];
+  escalation_paths: VDNamedItem[];
+  recommendation: string;
+  generated_at: string;
+}
+
+export interface VDailyBriefExecutive {
+  window_days: number;
+  totals: {
+    sessions_24h: number;
+    sessions_7d: number;
+    avg_escalation: number | null;
+    avg_high_conflict_pct: number | null;
+  };
+  clusters: Array<{
+    category: string;
+    departments_active: number;
+    sessions_7d: number | null;
+    avg_escalation: number | null;
+    high_conflict_pct: number | null;
+  }>;
+  hotspots: Array<{
+    department_key: string;
+    department_name: string;
+    category: string;
+    sessions_7d: number;
+    avg_escalation: number | null;
+    high_conflict_pct: number | null;
+    weakest_score: number | null;
+  }>;
+  generated_at: string;
+}
+
+export interface VDailyBriefGovernanceRisks {
+  window_days: number;
+  risks: Array<{
+    department_key: string;
+    department_name: string;
+    category: string;
+    risk_type: string;
+    sessions_7d: number;
+    avg_escalation: number | null;
+    high_conflict_pct: number | null;
+    scores: Partial<VDailyBriefScores>;
+  }>;
+  generated_at: string;
+}
+
+export async function getVerwaltungDailyBriefDepartment(
+  departmentKey: string,
+  windowDays = 7,
+): Promise<VDailyBriefDepartment | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("verwaltung_daily_brief_department", {
+    _department_key: departmentKey,
+    _window_days: windowDays,
+  });
+  if (error || !data || (data as { error?: string }).error) return null;
+  return data as VDailyBriefDepartment;
+}
+
+export async function getVerwaltungDailyBriefExecutive(
+  windowDays = 7,
+): Promise<VDailyBriefExecutive | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("verwaltung_daily_brief_executive", {
+    _window_days: windowDays,
+  });
+  if (error || !data || (data as { error?: string }).error) return null;
+  return data as VDailyBriefExecutive;
+}
+
+export async function getVerwaltungDailyBriefGovernanceRisks(
+  windowDays = 7,
+): Promise<VDailyBriefGovernanceRisks | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)(
+    "verwaltung_daily_brief_governance_risks",
+    { _window_days: windowDays },
+  );
+  if (error || !data || (data as { error?: string }).error) return null;
+  return data as VDailyBriefGovernanceRisks;
+}
+
+
+

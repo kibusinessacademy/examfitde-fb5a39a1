@@ -226,6 +226,7 @@ const BerufAgentOSLandingPage = lazyRetry(() => import('@/pages/products/BerufAg
 const VerticalsHubPage = lazyRetry(() => import('@/pages/verticals/VerticalsHubPage'));
 const VerticalDetailPage = lazyRetry(() => import('@/pages/verticals/VerticalDetailPage'));
 const VerwaltungOralRunner = lazyRetry(() => import('@/pages/verwaltung/VerwaltungOralRunner'));
+const VerwaltungDailyBriefPage = lazyRetry(() => import('@/pages/verwaltung/VerwaltungDailyBriefPage'));
 
 const MarketingProductPagesAdminPage = lazyRetry(() => import('@/pages/admin/MarketingProductPagesAdminPage'));
 
@@ -460,6 +461,7 @@ const AppRoutes = () => {
         {/* BerufOS Branchenbetriebssysteme — 11 Verticals (B2B SaaS) */}
         <Route path="/branchen" element={<VerticalsHubPage />} />
         <Route path="/branchen/verwaltung/oral/:departmentKey/:oralCaseKey" element={<VerwaltungOralRunner />} />
+        <Route path="/admin/verwaltung/daily-brief" element={<VerwaltungDailyBriefPage />} />
         <Route path="/branchen/:slug" element={<VerticalDetailPage />} />
 
 
