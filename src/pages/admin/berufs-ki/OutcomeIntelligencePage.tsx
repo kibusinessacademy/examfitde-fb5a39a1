@@ -340,7 +340,12 @@ export default function OutcomeIntelligencePage() {
             Strikt read-only — keine autonomen Änderungen.
           </p>
         </div>
-        <RecordDialog onCreated={load} />
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a href="/admin/berufs-ki/fix-queue">Operations Review Center →</a>
+          </Button>
+          <RecordDialog onCreated={load} />
+        </div>
       </header>
 
       {/* Outcome Radar — KPI tiles */}
