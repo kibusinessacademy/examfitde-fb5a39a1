@@ -125,6 +125,13 @@ Charakter-Varianten von ${characterName} (Painpoints mit charakter-spezifischer 
 Mikro-State-Signale pro Kandidaten-Turn (linguistische Marker, die State subtle beeinflussen — z.B. filler_words, subjunctive_cluster, apology_cluster, monologue_excessive): ${JSON.stringify((turns ?? []).filter((t: any) => t.role === 'user' && (t.metadata?.micro_state?.applied_signals?.length ?? 0) > 0).map((t: any) => ({ turn: t.turn_index, signals: t.metadata?.micro_state?.applied_signals ?? [], micro_deltas: t.metadata?.micro_state?.micro_deltas ?? {} })))}
 State-Verlauf (Trust/Tension/Confidence/Rapport pro Kandidaten-Turn): ${JSON.stringify((turns ?? []).filter((t: any) => t.role === 'user').map((t: any) => ({ turn: t.turn_index, state: t.state_snapshot, delta: t.state_delta })))}
 Finaler interner Zustand: ${JSON.stringify(session.conversation_state)}
+${adaptiveContext}
+
+WICHTIG zur Adaptive Engine (Cut E):
+- Nutze die Hidden-States (skepsis/pressure/interest/fatigue) als Beweismaterial für recruiter_journey.
+- Wenn Widersprüche erkannt wurden, MUSS mindestens ein dramaturgy_pattern oder critical_moment darauf eingehen — mit beiden Zitaten und der Eskalations-Konsequenz.
+- adaptive_outcome MUSS ehrlich aus dem Verlauf abgeleitet werden, nicht beschönigt. Wenn der Live-Outcome 'recruiter_disengaged' war, ist das ein klares Signal.
+- recruiter_journey beschreibt die Charakter-ENTWICKLUNG: wie der Recruiter sich DURCH den Kandidaten verändert hat (z.B. "Werner startete neutral, wurde nach Turn 5 spürbar skeptischer, in Turn 9 aggressiv — Auslöser waren Widerspruch zu Stabilität + 3 Hedging-Cluster in Folge").
 
 Erstelle das Debrief.`,
           },
