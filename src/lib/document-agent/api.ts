@@ -9,8 +9,8 @@ const TPL_COLS =
   "id,slug,title,description,document_type,category,profession_id,required_inputs,optional_inputs,output_sections,compliance_rules,risk_level,review_required,tier_required,model_recommendation,is_active,version";
 
 export async function listTemplates(): Promise<DocTemplate[]> {
-  const { data, error } = await supabase
-    .from("document_agent_templates")
+  const { data, error } = await (supabase as any)
+    .from("document_agent_templates_public")
     .select(TPL_COLS)
     .eq("is_active", true)
     .order("category", { ascending: true })
@@ -20,8 +20,8 @@ export async function listTemplates(): Promise<DocTemplate[]> {
 }
 
 export async function getTemplateBySlug(slug: string): Promise<DocTemplate | null> {
-  const { data, error } = await supabase
-    .from("document_agent_templates")
+  const { data, error } = await (supabase as any)
+    .from("document_agent_templates_public")
     .select(TPL_COLS)
     .eq("slug", slug)
     .eq("is_active", true)
