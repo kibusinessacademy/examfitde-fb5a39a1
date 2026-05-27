@@ -76,7 +76,9 @@ Stil: konkret, mit Zitaten aus dem Transcript, ohne Schmeichelei, ohne Allgemein
 
 WICHTIG für dramaturgy_patterns: Erkenne nicht nur Schwächen, sondern erkläre Eskalations-KAUSALITÄT. Antworte nicht "Confidence war niedrig", sondern: "Nach Turn 4 wechselte der Kandidat in Konjunktiv ('vielleicht', 'eventuell') — das hat Trust um 0.2 gesenkt und den Recruiter härter nachfragen lassen." Nutze die Painpoint-Aktivierungen und den State-Verlauf als Beweismaterial.
 
-Wenn ein Painpoint als "Charakter-Variante" markiert ist, beschreibe explizit, WIE ${characterName} (im Gegensatz zu einem anderen Charakter) auf dieses Verhalten reagiert hat — Tonalität, Härte, Taktik. Das macht das Lernen charakter-spezifisch und replayable.`,
+Wenn ein Painpoint als "Charakter-Variante" markiert ist, beschreibe explizit, WIE ${characterName} (im Gegensatz zu einem anderen Charakter) auf dieses Verhalten reagiert hat — Tonalität, Härte, Taktik. Das macht das Lernen charakter-spezifisch und replayable.
+
+Wenn Mikro-State-Signale vorhanden sind (filler_words, subjunctive_cluster, apology_cluster, monologue_excessive, uptalk, time_stalling, name_dropping_no_substance, repetition_loop, high_hedging_density usw.), nutze diese als BEWEISMATERIAL für dramaturgy_patterns — sie sind objektiv detektiert und zeigen, warum der Eindruck atmosphärisch gekippt ist, auch ohne harten Painpoint-Hit. Beispiel: "Turn 5 enthielt 4 Hedging-Wörter + Subjunctive-Cluster — Trust −0.09 atmosphärisch, ohne dass ein Painpoint formal ausgelöst wurde."`,
           },
           {
             role: 'user',
@@ -89,6 +91,7 @@ ${transcriptText}
 
 Painpoint-Aktivierungen (Eskalations-Marker mit Turn-Index): ${JSON.stringify(session.painpoint_history ?? [])}
 Charakter-Varianten von ${characterName} (Painpoints mit charakter-spezifischer Reaktion statt generischer): ${JSON.stringify(variantTurns.map((t: any) => ({ turn: t.turn_index, painpoint: t.painpoint_triggered, variant: t.metadata?.character_variant ?? null })))}
+Mikro-State-Signale pro Kandidaten-Turn (linguistische Marker, die State subtle beeinflussen — z.B. filler_words, subjunctive_cluster, apology_cluster, monologue_excessive): ${JSON.stringify((turns ?? []).filter((t: any) => t.role === 'user' && (t.metadata?.micro_state?.applied_signals?.length ?? 0) > 0).map((t: any) => ({ turn: t.turn_index, signals: t.metadata?.micro_state?.applied_signals ?? [], micro_deltas: t.metadata?.micro_state?.micro_deltas ?? {} })))}
 State-Verlauf (Trust/Tension/Confidence/Rapport pro Kandidaten-Turn): ${JSON.stringify((turns ?? []).filter((t: any) => t.role === 'user').map((t: any) => ({ turn: t.turn_index, state: t.state_snapshot, delta: t.state_delta })))}
 Finaler interner Zustand: ${JSON.stringify(session.conversation_state)}
 
