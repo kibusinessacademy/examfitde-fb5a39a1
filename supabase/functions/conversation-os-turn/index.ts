@@ -272,6 +272,223 @@ function applyStateDeltas(state: State, deltas: Record<string, number>): State {
 }
 
 // ============================================================
+// CUT E — Adaptive Conversation Engine
+// ============================================================
+//
+// Hidden adaptive states (live in session.metadata.adaptive):
+//   skepticism, pressure, interest, fatigue, performance_score
+// Plus: phase, momentum, character_drift, user_claims, drill_chain.
+//
+// Goal: make the interview feel ALIVE (not Q&A) — dynamic difficulty,
+// contradiction memory, momentum, multi-phase structure, drill-deeper,
+// personality drift.
+// ============================================================
+
+type AdaptiveState = {
+  skepticism: number;     // 0..1 — Recruiter-Skepsis
+  pressure: number;       // 0..1 — Druck, den Recruiter aufbaut
+  interest: number;       // 0..1 — Interesse des Recruiters
+  fatigue: number;        // 0..1 — Recruiter-Erschöpfung (verliert Geduld)
+  performance_score: number; // 0..1 — laufender Kandidaten-Score
+};
+
+type AdaptiveMeta = {
+  adaptive_state: AdaptiveState;
+  phase: 'warmup' | 'evaluation' | 'stress' | 'decision';
+  momentum: 'strong' | 'neutral' | 'weak';
+  difficulty: 'easy' | 'standard' | 'hard' | 'edge_case';
+  character_drift: 'neutral' | 'respectful' | 'skeptical' | 'aggressive' | 'disengaged' | 'curious';
+  user_claims: Array<{ turn: number; topic: string; polarity: 'pos' | 'neg'; quote: string }>;
+  drill_chain: { topic: string | null; depth: number };
+  outcome_signals: Record<string, number>; // accumulated for outcome derivation
+};
+
+const DEFAULT_ADAPTIVE: AdaptiveMeta = {
+  adaptive_state: { skepticism: 0.3, pressure: 0.2, interest: 0.5, fatigue: 0.0, performance_score: 0.5 },
+  phase: 'warmup',
+  momentum: 'neutral',
+  difficulty: 'standard',
+  character_drift: 'neutral',
+  user_claims: [],
+  drill_chain: { topic: null, depth: 0 },
+  outcome_signals: {},
+};
+
+function loadAdaptive(meta: any): AdaptiveMeta {
+  const a = meta?.adaptive;
+  if (!a) return JSON.parse(JSON.stringify(DEFAULT_ADAPTIVE));
+  return {
+    adaptive_state: { ...DEFAULT_ADAPTIVE.adaptive_state, ...(a.adaptive_state ?? {}) },
+    phase: a.phase ?? 'warmup',
+    momentum: a.momentum ?? 'neutral',
+    difficulty: a.difficulty ?? 'standard',
+    character_drift: a.character_drift ?? 'neutral',
+    user_claims: Array.isArray(a.user_claims) ? a.user_claims : [],
+    drill_chain: a.drill_chain ?? { topic: null, depth: 0 },
+    outcome_signals: a.outcome_signals ?? {},
+  };
+}
+
+// ---- Contradiction Memory ------------------------------------
+// Tiny lexicon of antonym/conflict pairs. Each pair = (topic, positive markers, negative markers).
+const CLAIM_AXES: { topic: string; pos: RegExp; neg: RegExp }[] = [
+  { topic: 'teamarbeit',     pos: /\b(team(arbeit)?|gemeinsam|miteinander|kollabor|kollegen)\b.*\b(wichtig|liebe|gerne|stark|gut)\b/, neg: /\b(team(arbeit)?|gemeinsam|kollegen)\b.*\b(schwierig|nicht|lieber allein|ungern)\b|\b(arbeite|arbeiten)\b.*\b(allein|alleine|für mich)\b/ },
+  { topic: 'stabilitaet',    pos: /\b(stabil|langfrist|treue|loyal|kontinuität)\b/, neg: /\b(wechsel|gewechselt|verschiedene\s+(arbeitgeber|firmen)|kurzfristig|abwechslung)\b/ },
+  { topic: 'führung',        pos: /\b(führ(en|ung)|leiten|verantwortung übernehmen|menschen führen)\b.*\b(gerne|wichtig|liebe|stark)\b/, neg: /\b(führung)\b.*\b(nicht|ungern|schwierig|überfordert)\b|\b(lieber)\b.*\b(ausführen|umsetzen)\b/ },
+  { topic: 'detail',         pos: /\b(detail|präzise|genau|akkurat|gründlich)\b/, neg: /\b(big picture|großes ganze|details? sind nicht|ungeduldig mit details)\b/ },
+  { topic: 'risiko',         pos: /\b(risiko|risikobereit|wagen|sprung|mutig)\b/, neg: /\b(sicher(heit)?|risikoarm|vorsichtig|absichern|kein risiko)\b/ },
+  { topic: 'kommunikation',  pos: /\b(offen(e)? kommunikation|transparent|direkt|feedback geben)\b/, neg: /\b(zurückhaltend|nicht so gerne|konflikt(scheu|vermeid)|um den heißen brei)\b/ },
+];
+
+function extractClaim(text: string): { topic: string; polarity: 'pos' | 'neg' } | null {
+  const t = text.toLowerCase();
+  for (const ax of CLAIM_AXES) {
+    if (ax.pos.test(t)) return { topic: ax.topic, polarity: 'pos' };
+    if (ax.neg.test(t)) return { topic: ax.topic, polarity: 'neg' };
+  }
+  return null;
+}
+
+function detectContradiction(
+  newClaim: { topic: string; polarity: 'pos' | 'neg' },
+  history: AdaptiveMeta['user_claims'],
+): { earlier_turn: number; earlier_quote: string } | null {
+  const opposite = history
+    .filter((c) => c.topic === newClaim.topic && c.polarity !== newClaim.polarity)
+    .sort((a, b) => a.turn - b.turn)[0];
+  return opposite ? { earlier_turn: opposite.turn, earlier_quote: opposite.quote } : null;
+}
+
+// ---- Performance scoring per turn ----------------------------
+function scoreUserTurn(signals: Set<string>): number {
+  // 0..1, 0.5 = neutral
+  let s = 0.5;
+  const positives = ['substantive_answer', 'concrete_example', 'user_provides_number'];
+  const negatives = ['vague_quantifier', 'high_hedging_density', 'subjunctive_cluster', 'wordcount_low',
+    'topic_drift', 'name_dropping_no_substance', 'no_concrete_example', 'external_blame',
+    'apology_cluster', 'monologue_excessive', 'repetition_loop', 'superlative_overuse',
+    'filler_words', 'time_stalling', 'uptalk'];
+  for (const p of positives) if (signals.has(p)) s += 0.12;
+  for (const n of negatives) if (signals.has(n)) s += -0.07;
+  return Math.max(0, Math.min(1, s));
+}
+
+// ---- Adaptive state evolution --------------------------------
+function evolveAdaptive(prev: AdaptiveState, perf: number, signals: Set<string>): AdaptiveState {
+  // Exponential moving averages
+  const next: AdaptiveState = { ...prev };
+  next.performance_score = prev.performance_score * 0.6 + perf * 0.4;
+
+  // Skepticism rises with weak performance + hedging/contradiction, falls with strong perf
+  let skepDelta = (0.5 - perf) * 0.25;
+  if (signals.has('high_hedging_density') || signals.has('subjunctive_cluster')) skepDelta += 0.05;
+  if (signals.has('contradiction_detected')) skepDelta += 0.18;
+  if (signals.has('external_blame')) skepDelta += 0.08;
+  if (signals.has('substantive_answer')) skepDelta -= 0.07;
+  next.skepticism = clamp(prev.skepticism + skepDelta);
+
+  // Pressure: rises with skepticism, falls in warmup/strong streaks
+  let pressDelta = (next.skepticism - 0.4) * 0.15;
+  if (signals.has('topic_drift') || signals.has('time_stalling')) pressDelta += 0.05;
+  if (perf > 0.7) pressDelta -= 0.04;
+  next.pressure = clamp(prev.pressure + pressDelta);
+
+  // Interest: rises with concrete/substantive answers, falls with monologue/repetition/vague
+  let intDelta = 0;
+  if (signals.has('substantive_answer')) intDelta += 0.06;
+  if (signals.has('concrete_example')) intDelta += 0.04;
+  if (signals.has('user_provides_number')) intDelta += 0.05;
+  if (signals.has('monologue_excessive')) intDelta -= 0.05;
+  if (signals.has('repetition_loop')) intDelta -= 0.04;
+  if (signals.has('vague_quantifier') && signals.has('no_concrete_example')) intDelta -= 0.05;
+  next.interest = clamp(prev.interest + intDelta);
+
+  // Fatigue: slow rise — drains the recruiter's patience
+  let fatDelta = 0.01; // baseline drift
+  if (signals.has('monologue_excessive')) fatDelta += 0.04;
+  if (signals.has('repetition_loop')) fatDelta += 0.03;
+  if (signals.has('time_stalling')) fatDelta += 0.02;
+  if (signals.has('substantive_answer')) fatDelta -= 0.02;
+  next.fatigue = clamp(prev.fatigue + fatDelta);
+
+  return next;
+}
+
+// ---- Phase derivation ----------------------------------------
+function derivePhase(turnIdx: number, adaptive: AdaptiveState, prevPhase: AdaptiveMeta['phase']): AdaptiveMeta['phase'] {
+  // Decision mode: late or extreme states
+  if (turnIdx >= 16 || adaptive.skepticism > 0.8 || adaptive.fatigue > 0.7 || adaptive.interest < 0.15) return 'decision';
+  // Stress phase: high pressure or pronounced skepticism
+  if (turnIdx >= 9 || adaptive.pressure > 0.55 || adaptive.skepticism > 0.6) return 'stress';
+  if (turnIdx >= 4) return 'evaluation';
+  // No backward drift from later phases — once stress, stay ≥ stress
+  if (prevPhase === 'stress' || prevPhase === 'decision') return prevPhase;
+  return 'warmup';
+}
+
+// ---- Momentum from rolling perf score ------------------------
+function deriveMomentum(perfHistory: number[]): AdaptiveMeta['momentum'] {
+  const last3 = perfHistory.slice(-3);
+  if (last3.length === 0) return 'neutral';
+  const avg = last3.reduce((s, x) => s + x, 0) / last3.length;
+  if (avg >= 0.65) return 'strong';
+  if (avg <= 0.4) return 'weak';
+  return 'neutral';
+}
+
+// ---- Adaptive difficulty -------------------------------------
+function deriveDifficulty(adaptive: AdaptiveState, momentum: AdaptiveMeta['momentum'], phase: AdaptiveMeta['phase']): AdaptiveMeta['difficulty'] {
+  if (phase === 'warmup') return 'easy';
+  if (momentum === 'strong' && phase === 'stress') return 'edge_case';
+  if (momentum === 'strong') return 'hard';
+  if (momentum === 'weak' && adaptive.skepticism > 0.6) return 'hard';
+  return 'standard';
+}
+
+// ---- Personality drift ---------------------------------------
+function deriveDrift(adaptive: AdaptiveState, momentum: AdaptiveMeta['momentum']): AdaptiveMeta['character_drift'] {
+  if (adaptive.interest < 0.2 && adaptive.fatigue > 0.5) return 'disengaged';
+  if (adaptive.skepticism > 0.7 && adaptive.pressure > 0.55) return 'aggressive';
+  if (adaptive.skepticism > 0.55) return 'skeptical';
+  if (momentum === 'strong' && adaptive.interest > 0.65) return 'curious';
+  if (momentum === 'strong' && adaptive.skepticism < 0.35) return 'respectful';
+  return 'neutral';
+}
+
+// ---- Drill-deeper detection ----------------------------------
+function isProbingQuestion(text: string): boolean {
+  const t = text.toLowerCase();
+  return /\b(warum|wieso|weshalb|konkret|beispiel|genauer|was genau|wie\s+(genau|kam)|begründ)\b/.test(t) && /\?/.test(text);
+}
+
+// Extracts a coarse "topic" anchor word from last assistant question (longest noun-ish token).
+function extractTopicAnchor(text: string): string | null {
+  const caps = text.match(/\b[A-ZÄÖÜ][a-zäöüß]{4,}\b/g) ?? [];
+  if (caps.length > 0) return caps[caps.length - 1].toLowerCase();
+  const words = (text.toLowerCase().match(/\b[a-zäöüß]{6,}\b/g) ?? [])
+    .filter((w) => !/^(warum|wieso|weshalb|konkret|beispiel|genauer|begründen|machen|werden|haben)$/.test(w));
+  return words.length > 0 ? words[words.length - 1] : null;
+}
+
+// ---- Outcome derivation (for debrief, computed here for live preview too) ----
+type Outcome =
+  | 'strong_overall' | 'high_potential_but_risky' | 'technically_strong_socially_weak'
+  | 'confident_but_vague' | 'rejected_due_to_inconsistency' | 'promising_under_pressure'
+  | 'recruiter_uncertain' | 'recruiter_disengaged' | 'weak_overall';
+
+function deriveOutcome(adaptive: AdaptiveState, contradictionCount: number, momentum: AdaptiveMeta['momentum'], drift: AdaptiveMeta['character_drift']): Outcome {
+  if (contradictionCount >= 2) return 'rejected_due_to_inconsistency';
+  if (drift === 'disengaged') return 'recruiter_disengaged';
+  if (adaptive.performance_score >= 0.7 && adaptive.skepticism < 0.4 && momentum === 'strong') return 'strong_overall';
+  if (adaptive.performance_score >= 0.6 && adaptive.skepticism > 0.55) return 'high_potential_but_risky';
+  if (adaptive.performance_score >= 0.6 && adaptive.interest < 0.4) return 'technically_strong_socially_weak';
+  if (adaptive.performance_score >= 0.55 && adaptive.skepticism > 0.5 && momentum === 'neutral') return 'confident_but_vague';
+  if (adaptive.performance_score >= 0.5 && adaptive.pressure > 0.6) return 'promising_under_pressure';
+  if (adaptive.performance_score < 0.4) return 'weak_overall';
+  return 'recruiter_uncertain';
+}
+
+// ============================================================
 // Main handler
 // ============================================================
 Deno.serve(async (req) => {
