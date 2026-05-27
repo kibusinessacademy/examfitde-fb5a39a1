@@ -223,6 +223,8 @@ const BerufOSModulePage = lazyRetry(() => import('@/pages/berufos/BerufOSModuleP
 const ProduktHubPage = lazyRetry(() => import('@/pages/products/ProduktHubPage'));
 const BerufOSProductLandingPage = lazyRetry(() => import('@/pages/products/ProductLandingPage'));
 const BerufAgentOSLandingPage = lazyRetry(() => import('@/pages/products/BerufAgentOSLandingPage'));
+const VerticalsHubPage = lazyRetry(() => import('@/pages/verticals/VerticalsHubPage'));
+const VerticalDetailPage = lazyRetry(() => import('@/pages/verticals/VerticalDetailPage'));
 const MarketingProductPagesAdminPage = lazyRetry(() => import('@/pages/admin/MarketingProductPagesAdminPage'));
 
 // Berufs-KI public pages (eigenständige Produktlinie)
@@ -452,6 +454,10 @@ const AppRoutes = () => {
         <Route path="/beruf-agent-os" element={<Navigate to="/berufagentos" replace />} />
         <Route path="/app/beruf-agent-os" element={<OutcomeControlCenterPage />} />
         <Route path="/app/beruf-agent-os/bundle/:id" element={<OutcomeBundleDetailPage />} />
+
+        {/* BerufOS Branchenbetriebssysteme — 11 Verticals (B2B SaaS) */}
+        <Route path="/branchen" element={<VerticalsHubPage />} />
+        <Route path="/branchen/:slug" element={<VerticalDetailPage />} />
 
         {/* Public Marketing Suiten — Packaging & Positionierung */}
         <Route path="/suites" element={<SuitesHubPage />} />
