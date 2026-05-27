@@ -144,6 +144,70 @@ export default function ConversationOSDebriefPage() {
           </CardContent>
         </Card>
 
+        {/* Dramaturgy Patterns — Cut A: Eskalations-Kausalität */}
+        {Array.isArray(debrief.dramaturgy_patterns) && debrief.dramaturgy_patterns.length > 0 && (
+          <Card className="border-orange-500/30 bg-gradient-to-br from-orange-500/5 to-transparent">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Flame className="h-4 w-4 text-orange-500" />
+                Warum hat das Gespräch eskaliert?
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Sprachliche und strukturelle Muster, die den Gesprächsverlauf erklären — nicht nur, dass es schwierig wurde.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {debrief.dramaturgy_patterns.map((p: any, i: number) => {
+                const sevColor =
+                  p.severity === 'high' ? 'destructive' :
+                  p.severity === 'medium' ? 'default' : 'outline';
+                return (
+                  <div key={i} className="border border-border rounded-lg p-4 space-y-3 bg-card">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{p.pattern_label}</span>
+                        <Badge variant={sevColor as any} className="text-[10px] uppercase">{p.severity}</Badge>
+                      </div>
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {p.frequency}× im Gespräch
+                      </span>
+                    </div>
+
+                    {Array.isArray(p.evidence_quotes) && p.evidence_quotes.length > 0 && (
+                      <div className="space-y-1.5">
+                        {p.evidence_quotes.slice(0, 3).map((q: string, qi: number) => (
+                          <blockquote key={qi} className="text-xs italic border-l-2 border-orange-500/40 pl-2 text-muted-foreground">
+                            <Quote className="h-3 w-3 inline mr-1 opacity-60" />&quot;{q}&quot;
+                          </blockquote>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="grid sm:grid-cols-2 gap-2 text-xs">
+                      <div className="bg-orange-500/10 border border-orange-500/20 rounded p-2">
+                        <div className="font-medium text-orange-700 dark:text-orange-300 mb-1">Wirkung im State</div>
+                        <div className="text-muted-foreground">{p.state_impact}</div>
+                      </div>
+                      <div className="bg-muted/40 border border-border rounded p-2">
+                        <div className="font-medium mb-1">Warum es eskaliert ist</div>
+                        <div className="text-muted-foreground">{p.why_it_escalated}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 items-start text-xs bg-primary/5 border border-primary/20 rounded p-2">
+                      <Wrench className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-medium">Fix: </span>
+                        <span>{p.fix}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Improvement Plan */}
         <Card>
           <CardHeader>
