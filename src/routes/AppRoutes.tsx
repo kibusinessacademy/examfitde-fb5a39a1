@@ -780,6 +780,7 @@ const AppRoutes = () => {
           <Route path="berufs-ki/outcome-bundles/:id" element={<OutcomeBundleDetailPage />} />
           <Route path="berufs-ki/business-intents" element={<BusinessIntentsPage />} />
           <Route path="berufs-ki/intelligence-memory" element={<IntelligenceMemoryPage />} />
+          <Route path="berufs-ki/outcome-intelligence" element={<OutcomeIntelligencePage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
