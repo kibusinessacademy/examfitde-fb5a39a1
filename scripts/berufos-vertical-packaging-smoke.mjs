@@ -74,7 +74,9 @@ const leak = ["price_1Tbj0M", "price_1Tbj0O"].some((id) => b2cPricingSrc.include
 if (leak) fail("Vertical-Price-ID leak in B2C-pricing.ts SSOT — SSOT-Trennung verletzt!");
 ok("Pricing-SSOT-Trennung intakt (Vertical ≠ B2C 24,90€)");
 
-if (/unlimited/i.test(pricingSrc)) fail("Pricing enthält 'unlimited' — verbotene Vermarktung");
+// Skip comments — Anti-Drift-Regel selbst nennt "unlimited" als verbotenes Wort
+const pricingNoComments = pricingSrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+if (/unlimited/i.test(pricingNoComments)) fail("Pricing enthält 'unlimited' im Code — verbotene Vermarktung");
 if (!/monthlyVorgangLimit/.test(pricingSrc)) fail("Pricing kommuniziert nicht in Vorgängen");
 ok("Pricing: in Vorgängen, niemals 'unlimited'");
 
