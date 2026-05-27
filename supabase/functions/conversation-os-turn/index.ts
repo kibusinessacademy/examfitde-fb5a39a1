@@ -67,28 +67,64 @@ function runInputQualityGate(raw: string, characterName: string): GateResult {
 }
 
 // ============================================================
-// Deterministic User Signal Detector
+// Deterministic User Signal Detector — Cut C: erweiterte linguistic markers
 // Rule-based; no LLM. Returns set of signal flags from user text.
 // ============================================================
 function detectUserSignals(text: string, lastAssistantContent: string): Set<string> {
   const signals = new Set<string>();
-  const t = text.toLowerCase().trim();
+  const raw = text.trim();
+  const t = raw.toLowerCase();
   const wc = t.split(/\s+/).filter(Boolean).length;
 
-  // Vagueness / avoidance
+  // --- Vagueness / avoidance ---
   if (wc < 8) signals.add('wordcount_low');
   if (/\b(irgendwie|so ungefähr|ein bisschen|relativ|vielleicht|eventuell|grundsätzlich|prinzipiell)\b/.test(t))
     signals.add('vague_quantifier');
-  if (/\b(könnte|würde|hätte|sollte|möglicherweise|denke ich|glaube ich|vermutlich)\b/.test(t))
-    signals.add('hedging_words');
 
-  // Numbers — for salary scenarios
+  // Hedging — count occurrences for density
+  const hedgingRe = /\b(könnte|würde|hätte|sollte|möglicherweise|denke ich|glaube ich|vermutlich|wahrscheinlich|gewissermaßen|sozusagen)\b/g;
+  const hedgingHits = (t.match(hedgingRe) ?? []).length;
+  if (hedgingHits >= 1) signals.add('hedging_words');
+  if (hedgingHits >= 3 || (wc > 0 && hedgingHits / wc > 0.12)) signals.add('high_hedging_density');
+
+  // Subjunctive clustering — ≥2 distinct Konjunktiv-II verbs in same turn
+  const subjMatches = new Set((t.match(/\b(würde|hätte|könnte|sollte|wäre|müsste|dürfte|möchte)\b/g) ?? []));
+  if (subjMatches.size >= 2) signals.add('subjunctive_cluster');
+
+  // --- Filler / stalling ---
+  if (/\b(äh+|ähm+|hm+|also halt|ja eben|so quasi)\b/.test(t)) signals.add('filler_words');
+  if (/\b(lassen sie mich überlegen|gute frage|moment mal|wie soll ich sagen|wie sagt man)\b/.test(t))
+    signals.add('time_stalling');
+
+  // Self-correction
+  if (/\b(ich meine|also nein|korrekt|äh nein|moment, ich)\b/.test(t)) signals.add('self_correction');
+
+  // Apology cluster — ≥2 markers
+  const apologyHits = (t.match(/\b(entschuldigung|tut mir leid|sorry|verzeihen sie|pardon)\b/g) ?? []).length;
+  if (apologyHits >= 1) signals.add('apology_words');
+  if (apologyHits >= 2) signals.add('apology_cluster');
+
+  // Uptalk — statement that ends with question mark (likely upward inflection in voice mode)
+  if (/[a-zäöü][^?!]{15,}\?\s*$/.test(raw) && !/\b(wie|was|warum|wann|wo|wer|wieso|weshalb)\b/.test(t.slice(0, 40))) {
+    signals.add('uptalk');
+  }
+
+  // Monologue length
+  if (wc > 80) signals.add('monologue_length');
+  if (wc > 140) signals.add('monologue_excessive');
+
+  // Repetition — same 5+ char word repeated ≥3 times
+  const wordCounts: Record<string, number> = {};
+  for (const w of t.match(/\b[a-zäöüß]{5,}\b/g) ?? []) wordCounts[w] = (wordCounts[w] ?? 0) + 1;
+  if (Object.values(wordCounts).some((c) => c >= 3)) signals.add('repetition_loop');
+
+  // --- Numbers / substance (sales/negotiation) ---
   const hasNumber = /\b\d{2,6}(\.\d{3})?\b|\beuro\b|\b€\b/.test(t);
-  const numberQuestionContext = /(gehalt|wunschgehalt|vorstellung|zahl|betrag|euro)/.test(lastAssistantContent.toLowerCase());
+  const numberQuestionContext = /(gehalt|wunschgehalt|vorstellung|zahl|betrag|euro|preis|budget)/.test(lastAssistantContent.toLowerCase());
   if (numberQuestionContext && !hasNumber) signals.add('user_avoids_number');
   if (numberQuestionContext && hasNumber) signals.add('user_provides_number');
 
-  // Justification / defensiveness
+  // --- Justification / defensiveness ---
   if (/\b(aber|allerdings|jedoch|trotzdem|natürlich nicht|so war das nicht)\b/.test(t)) {
     if (wc > 15) signals.add('justification_excess');
   }
@@ -98,14 +134,22 @@ function detectUserSignals(text: string, lastAssistantContent: string): Set<stri
     signals.add('external_blame');
   }
 
-  // Concrete example
+  // Concrete example presence
   if (!/\b(zum beispiel|beispielsweise|konkret|einmal als|damals als|in dem projekt|bei firma)\b/.test(t)) {
     signals.add('no_concrete_example');
+  } else {
+    signals.add('concrete_example');
   }
 
   // Superlatives / overconfidence
   if (/\b(immer|nie|am besten|herausragend|exzellent|perfekt|der beste|absolute spitze)\b/.test(t)) {
     signals.add('superlative_overuse');
+  }
+
+  // Name-dropping without substance: ≥2 Capitalized non-stopword tokens + no number + short
+  const caps = (raw.match(/\b[A-ZÄÖÜ][a-zäöüß]{3,}\b/g) ?? []).filter((w) => !/^(Ich|Wir|Sie|Der|Die|Das|Ein|Eine|Mein|Unser|Aber|Und|Oder|Weil|Als|Wenn|Dann|Also)$/.test(w));
+  if (caps.length >= 2 && !hasNumber && wc < 30 && !/\b(zum beispiel|konkret)\b/.test(t)) {
+    signals.add('name_dropping_no_substance');
   }
 
   // Topic drift detection — does response share keywords with question?
@@ -119,7 +163,54 @@ function detectUserSignals(text: string, lastAssistantContent: string): Set<stri
     signals.add('sandwich_overuse');
   }
 
+  // Strong substantive turn — used for positive micro-deltas
+  if (wc >= 20 && /\b(zum beispiel|konkret|deshalb|weil|aus folgenden gründen)\b/.test(t) && !signals.has('vague_quantifier') && !signals.has('hedging_words')) {
+    signals.add('substantive_answer');
+  }
+
   return signals;
+}
+
+// ============================================================
+// Cut C: Micro-State Atmospheric Deltas — applied per turn from raw signals,
+// independent of painpoint activation. Small values (≤0.06) accumulate to make
+// pressure feel "atmospheric" without changing painpoint thresholds.
+// ============================================================
+const MICRO_DELTAS: Record<string, Partial<State>> = {
+  filler_words:                 { tension: +0.02 },
+  time_stalling:                { tension: +0.03, confidence: -0.02 },
+  self_correction:              { confidence: -0.04 },
+  apology_cluster:              { trust: -0.03, confidence: -0.05 },
+  uptalk:                       { confidence: -0.03 },
+  monologue_length:             { rapport: -0.03 },
+  monologue_excessive:          { rapport: -0.05, tension: +0.02 },
+  repetition_loop:              { confidence: -0.04, rapport: -0.02 },
+  high_hedging_density:         { trust: -0.05, confidence: -0.04 },
+  subjunctive_cluster:          { trust: -0.04 },
+  superlative_overuse:          { trust: -0.04 },
+  topic_drift:                  { trust: -0.06, rapport: -0.03 },
+  name_dropping_no_substance:   { trust: -0.04 },
+  user_provides_number:         { trust: +0.05, confidence: +0.03 },
+  substantive_answer:           { trust: +0.04, confidence: +0.04, rapport: +0.02 },
+  concrete_example:             { trust: +0.03, confidence: +0.02 },
+};
+
+function computeMicroDeltas(signals: Set<string>): { deltas: Record<string, number>; appliedSignals: string[] } {
+  const agg: Record<string, number> = {};
+  const applied: string[] = [];
+  for (const sig of signals) {
+    const delta = MICRO_DELTAS[sig];
+    if (!delta) continue;
+    applied.push(sig);
+    for (const k of Object.keys(delta)) {
+      agg[k] = (agg[k] ?? 0) + (delta as any)[k];
+    }
+  }
+  // Cap atmospheric delta per dimension to prevent runaway
+  for (const k of Object.keys(agg)) {
+    agg[k] = Math.max(-0.12, Math.min(0.12, agg[k]));
+  }
+  return { deltas: agg, appliedSignals: applied };
 }
 
 // ============================================================
