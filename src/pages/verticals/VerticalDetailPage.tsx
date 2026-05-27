@@ -235,6 +235,91 @@ export default function VerticalDetailPage() {
               )}
             </div>
 
+            {/* Operative Berufsintelligenz — KPI / Communication / Decision / Document Models */}
+            {(dna.vertical.kpi_models?.length > 0 ||
+              dna.vertical.communication_models?.length > 0 ||
+              dna.vertical.decision_models?.length > 0 ||
+              dna.vertical.document_intelligence?.length > 0) && (
+              <div className="mt-10 pt-8 border-t border-border">
+                <h3 className="text-lg font-semibold text-text-1 mb-1">Operative Berufsintelligenz</h3>
+                <p className="text-text-3 text-sm mb-6">
+                  Strukturierte Modelle für Outcomes, Kommunikation, Entscheidungen und Dokumentlogik —
+                  Fundament für DailyBrief, Persona-Simulation, Governance und Document-Workflows.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {dna.vertical.kpi_models?.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-text-2 mb-3 uppercase tracking-wide">KPI-Modelle</h4>
+                      <ul className="space-y-2">
+                        {dna.vertical.kpi_models.slice(0, 6).map((k) => (
+                          <li key={k.key} className="text-sm rounded-md border border-border bg-surface-2 px-3 py-2">
+                            <div className="text-text-1 font-medium">{k.label}</div>
+                            {typeof k.target === "string" && (
+                              <div className="text-text-3 text-xs mt-0.5">Ziel: {k.target}</div>
+                            )}
+                            {typeof k.risk === "string" && (
+                              <div className="text-text-3 text-xs">Risiko: {k.risk}</div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {dna.vertical.communication_models?.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-text-2 mb-3 uppercase tracking-wide">Kommunikations-Modelle</h4>
+                      <ul className="space-y-2">
+                        {dna.vertical.communication_models.slice(0, 6).map((c) => (
+                          <li key={c.key} className="text-sm rounded-md border border-border bg-surface-2 px-3 py-2">
+                            <div className="text-text-1 font-medium">{c.label}</div>
+                            {typeof c.participants === "string" && (
+                              <div className="text-text-3 text-xs mt-0.5">Beteiligte: {c.participants}</div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {dna.vertical.decision_models?.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-text-2 mb-3 uppercase tracking-wide">Entscheidungs-Modelle</h4>
+                      <ul className="space-y-2">
+                        {dna.vertical.decision_models.slice(0, 6).map((d) => (
+                          <li key={d.key} className="text-sm rounded-md border border-border bg-surface-2 px-3 py-2">
+                            <div className="text-text-1 font-medium">{d.label}</div>
+                            {typeof d.approver === "string" && (
+                              <div className="text-text-3 text-xs mt-0.5">Freigabe: {d.approver}</div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {dna.vertical.document_intelligence?.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-text-2 mb-3 uppercase tracking-wide">Dokument-Intelligenz</h4>
+                      <ul className="space-y-2">
+                        {dna.vertical.document_intelligence.slice(0, 6).map((d) => (
+                          <li key={d.key} className="text-sm rounded-md border border-border bg-surface-2 px-3 py-2">
+                            <div className="text-text-1 font-medium">{d.label}</div>
+                            {Array.isArray(d.required_fields) && d.required_fields.length > 0 && (
+                              <div className="text-text-3 text-xs mt-0.5">
+                                Pflichtfelder: {(d.required_fields as string[]).slice(0, 4).join(", ")}
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <p className="text-xs text-text-3 mt-8">
               Quelle: BerufOS Berufs-Graph (Branche {industryKey}). Read-only Bridge —
               kein generiertes Wissen, keine Halluzination.
