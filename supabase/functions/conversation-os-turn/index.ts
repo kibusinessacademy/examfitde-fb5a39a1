@@ -321,12 +321,21 @@ Deno.serve(async (req) => {
     let currentState = session.conversation_state as State;
     const selectedPp = selectPainpoint(signals, currentState, painpoints ?? [], activationCounts, currentTurnIndex, lastActivations);
 
-    // 3) Apply state delta
+    // 3) Apply state delta — Cut B: merge scenario.painpoint_overrides[painpoint_key]
     let stateDelta: Record<string, number> = {};
     let painpointTriggered: string | null = null;
+    let characterVariantApplied = false;
+    let mergedReaction: any = {};
+    const painpointOverrides = (scenario.painpoint_overrides as Record<string, any>) ?? {};
     if (selectedPp) {
-      stateDelta = selectedPp.state_deltas ?? {};
+      const override = painpointOverrides[selectedPp.painpoint_key] ?? null;
+      const baseDeltas = selectedPp.state_deltas ?? {};
+      const overrideDeltas = override?.state_deltas ?? null;
+      stateDelta = overrideDeltas ? { ...baseDeltas, ...overrideDeltas } : baseDeltas;
       painpointTriggered = selectedPp.painpoint_key;
+      mergedReaction = { ...(selectedPp.character_reaction ?? {}), ...(override ?? {}) };
+      delete mergedReaction.state_deltas;
+      characterVariantApplied = !!override;
       currentState = applyStateDeltas(currentState, stateDelta);
     }
 
@@ -340,7 +349,8 @@ Deno.serve(async (req) => {
       state_snapshot: currentState,
       state_delta: stateDelta,
       painpoint_triggered: painpointTriggered,
-      metadata: { signals: Array.from(signals) },
+      character_variant_applied: characterVariantApplied,
+      metadata: { signals: Array.from(signals), character_variant: characterVariantApplied ? mergedReaction : null },
     });
 
     // 5) Build character system prompt with state + painpoint guidance
@@ -350,8 +360,8 @@ Trust: ${currentState.trust.toFixed(2)} | Tension: ${currentState.tension.toFixe
 
     let painpointInjection = '';
     if (selectedPp) {
-      const reaction = selectedPp.character_reaction ?? {};
-      painpointInjection = `\n\n[AKTIVER PAINPOINT: ${selectedPp.painpoint_key}]
+      const reaction = mergedReaction;
+      painpointInjection = `\n\n[AKTIVER PAINPOINT: ${selectedPp.painpoint_key}${characterVariantApplied ? ' · CHARAKTER-VARIANTE' : ''}]
 Tonalitäts-Shift: ${reaction.tone_shift ?? 'neutral'}
 Druck-Level: ${reaction.pressure_level ?? 0}
 Taktik: ${reaction.tactic ?? 'fortsetzen'}
