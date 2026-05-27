@@ -202,16 +202,45 @@ Deno.serve(async (req) => {
 
     if (bErr || !bundle) throw new Error(bErr?.message ?? "bundle_insert_failed");
 
+    // Materialize artifacts from populated sections (Run → Bundle → Artifact Library)
+    const ARTIFACT_KIND: Record<string, string> = {
+      business_case: "business_case", process_model: "workflow", workflow_graph: "workflow",
+      kpi_impact: "dashboard", dashboard_spec: "dashboard", sops: "sop", risk_register: "compliance_note",
+      roadmap: "roadmap", rollout_plan: "roadmap", test_matrix: "test", rollback_plan: "compliance_note",
+    };
+    const ARTIFACT_TITLE: Record<string, string> = {
+      business_case: "Business Case", process_model: "Prozess-Modell", workflow_graph: "Workflow-Graph",
+      kpi_impact: "KPI-Impact-Set", dashboard_spec: "Dashboard-Spezifikation", sops: "SOP-Sammlung",
+      risk_register: "Risiko-Register", roadmap: "Roadmap", rollout_plan: "Rollout-Plan",
+      test_matrix: "Test-Matrix", rollback_plan: "Rollback-Plan",
+    };
+    const artifactRows: Array<Record<string, unknown>> = [];
+    for (const [key, val] of Object.entries(agg)) {
+      const populated = Array.isArray(val) ? val.length > 0 : Object.keys(val as object).length > 0;
+      if (!populated) continue;
+      artifactRows.push({
+        bundle_id: bundle.id,
+        kind: ARTIFACT_KIND[key] ?? "business_case",
+        title: ARTIFACT_TITLE[key] ?? key,
+        payload: val,
+        export_format: "json",
+      });
+    }
+    if (artifactRows.length > 0) {
+      const { error: aErr } = await admin.from("agent_outcome_artifacts").insert(artifactRows);
+      if (aErr) console.warn("artifact_insert_partial:", aErr.message);
+    }
+
     // Audit
     await admin.rpc("fn_emit_audit", {
       _action_type: "outcome_bundle_created",
-      _payload: { bundle_id: bundle.id, vertical_key: body.vertical_key, agent_count: agents.length },
+      _payload: { bundle_id: bundle.id, vertical_key: body.vertical_key, agent_count: agents.length, artifacts: artifactRows.length },
     }).then(() => undefined).catch(async () => {
       await admin.from("auto_heal_log").insert({
         action_type: "outcome_bundle_created",
         target_type: "agent_outcome_bundle",
         result_status: "success",
-        metadata: { bundle_id: bundle.id, vertical_key: body.vertical_key },
+        metadata: { bundle_id: bundle.id, vertical_key: body.vertical_key, artifacts: artifactRows.length },
       });
     });
 
@@ -221,6 +250,7 @@ Deno.serve(async (req) => {
       completeness_pct: bundle.completeness_pct,
       confidence: bundle.confidence,
       agent_team: agents.map((a) => a.slug),
+      artifacts: artifactRows.length,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
