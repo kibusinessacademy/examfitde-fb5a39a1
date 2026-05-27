@@ -285,6 +285,7 @@ const OutcomeControlCenterPage = lazyRetry(() => import('@/pages/admin/berufs-ki
 const OutcomeBundleDetailPage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeBundleDetailPage'));
 const BusinessIntentsPage = lazyRetry(() => import('@/pages/admin/berufs-ki/BusinessIntentsPage'));
 const IntelligenceMemoryPage = lazyRetry(() => import('@/pages/admin/berufs-ki/IntelligenceMemoryPage'));
+const OutcomeIntelligencePage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeIntelligencePage'));
 
 
 // Learner Pages
