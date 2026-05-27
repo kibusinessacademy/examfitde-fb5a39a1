@@ -287,6 +287,7 @@ const BusinessIntentsPage = lazyRetry(() => import('@/pages/admin/berufs-ki/Busi
 const IntelligenceMemoryPage = lazyRetry(() => import('@/pages/admin/berufs-ki/IntelligenceMemoryPage'));
 const OutcomeIntelligencePage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeIntelligencePage'));
 const OutcomeFixQueuePage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeFixQueuePage'));
+const PersonaSimulationPage = lazyRetry(() => import('@/pages/admin/berufs-ki/PersonaSimulationPage'));
 
 
 // Learner Pages
@@ -783,6 +784,7 @@ const AppRoutes = () => {
           <Route path="berufs-ki/intelligence-memory" element={<IntelligenceMemoryPage />} />
           <Route path="berufs-ki/outcome-intelligence" element={<OutcomeIntelligencePage />} />
           <Route path="berufs-ki/fix-queue" element={<OutcomeFixQueuePage />} />
+          <Route path="berufs-ki/persona-sim" element={<PersonaSimulationPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
