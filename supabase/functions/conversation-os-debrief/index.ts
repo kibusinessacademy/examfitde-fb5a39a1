@@ -55,6 +55,37 @@ Deno.serve(async (req) => {
     const characterName = (session.conversation_os_scenarios?.character_brief as any)?.name ?? 'Charakter';
     const variantTurns = (turns ?? []).filter((t: any) => t.character_variant_applied);
 
+    // Cut E: adaptive context from session.metadata.adaptive
+    const sessionMeta = (session.metadata as any) ?? {};
+    const adaptive = sessionMeta.adaptive ?? null;
+    const userClaims = adaptive?.user_claims ?? [];
+    const contradictionPairs: Array<{ topic: string; turn_pos: number; turn_neg: number; quote_pos: string; quote_neg: string }> = [];
+    const seenPairs = new Set<string>();
+    for (const a of userClaims) {
+      for (const b of userClaims) {
+        if (a.turn >= b.turn) continue;
+        if (a.topic !== b.topic) continue;
+        if (a.polarity === b.polarity) continue;
+        const key = `${a.topic}|${a.turn}|${b.turn}`;
+        if (seenPairs.has(key)) continue;
+        seenPairs.add(key);
+        const pos = a.polarity === 'pos' ? a : b;
+        const neg = a.polarity === 'neg' ? a : b;
+        contradictionPairs.push({
+          topic: a.topic,
+          turn_pos: pos.turn, quote_pos: pos.quote,
+          turn_neg: neg.turn, quote_neg: neg.quote,
+        });
+      }
+    }
+    const adaptiveContext = adaptive ? `
+Adaptive Engine — Endzustand:
+- Hidden States: skepsis=${adaptive.adaptive_state?.skepticism?.toFixed(2)} pressure=${adaptive.adaptive_state?.pressure?.toFixed(2)} interest=${adaptive.adaptive_state?.interest?.toFixed(2)} fatigue=${adaptive.adaptive_state?.fatigue?.toFixed(2)} performance=${adaptive.adaptive_state?.performance_score?.toFixed(2)}
+- Finale Phase: ${adaptive.phase} · Momentum: ${adaptive.momentum} · Difficulty: ${adaptive.difficulty} · Character-Drift: ${adaptive.character_drift}
+- Live-Outcome-Vorhersage: ${adaptive.outcome_live ?? '(keine)'}
+- Erkannte Widersprüche (${contradictionPairs.length}): ${JSON.stringify(contradictionPairs)}
+- Drill-Chain Endzustand: ${JSON.stringify(adaptive.drill_chain ?? {})}` : '';
+
 
     const rubric = session.conversation_os_scenarios?.scoring_rubric ?? {};
     const rubricDimensions = Object.keys(rubric);
@@ -94,6 +125,13 @@ Charakter-Varianten von ${characterName} (Painpoints mit charakter-spezifischer 
 Mikro-State-Signale pro Kandidaten-Turn (linguistische Marker, die State subtle beeinflussen — z.B. filler_words, subjunctive_cluster, apology_cluster, monologue_excessive): ${JSON.stringify((turns ?? []).filter((t: any) => t.role === 'user' && (t.metadata?.micro_state?.applied_signals?.length ?? 0) > 0).map((t: any) => ({ turn: t.turn_index, signals: t.metadata?.micro_state?.applied_signals ?? [], micro_deltas: t.metadata?.micro_state?.micro_deltas ?? {} })))}
 State-Verlauf (Trust/Tension/Confidence/Rapport pro Kandidaten-Turn): ${JSON.stringify((turns ?? []).filter((t: any) => t.role === 'user').map((t: any) => ({ turn: t.turn_index, state: t.state_snapshot, delta: t.state_delta })))}
 Finaler interner Zustand: ${JSON.stringify(session.conversation_state)}
+${adaptiveContext}
+
+WICHTIG zur Adaptive Engine (Cut E):
+- Nutze die Hidden-States (skepsis/pressure/interest/fatigue) als Beweismaterial für recruiter_journey.
+- Wenn Widersprüche erkannt wurden, MUSS mindestens ein dramaturgy_pattern oder critical_moment darauf eingehen — mit beiden Zitaten und der Eskalations-Konsequenz.
+- adaptive_outcome MUSS ehrlich aus dem Verlauf abgeleitet werden, nicht beschönigt. Wenn der Live-Outcome 'recruiter_disengaged' war, ist das ein klares Signal.
+- recruiter_journey beschreibt die Charakter-ENTWICKLUNG: wie der Recruiter sich DURCH den Kandidaten verändert hat (z.B. "Werner startete neutral, wurde nach Turn 5 spürbar skeptischer, in Turn 9 aggressiv — Auslöser waren Widerspruch zu Stabilität + 3 Hedging-Cluster in Folge").
 
 Erstelle das Debrief.`,
           },
@@ -185,8 +223,36 @@ Erstelle das Debrief.`,
                   },
                   total_score: { type: 'number', description: 'Gewichteter Gesamtscore 0-100' },
                   certificate_eligible: { type: 'boolean', description: 'true wenn ≥75' },
+                  adaptive_outcome: {
+                    type: 'string',
+                    enum: ['strong_overall', 'high_potential_but_risky', 'technically_strong_socially_weak', 'confident_but_vague', 'rejected_due_to_inconsistency', 'promising_under_pressure', 'recruiter_uncertain', 'recruiter_disengaged', 'weak_overall'],
+                    description: 'Ehrliches Outcome-Label aus Sicht des Recruiters. Nicht beschönigen — am Live-Outcome + Hidden-States + Widersprüchen orientieren.',
+                  },
+                  adaptive_outcome_rationale: {
+                    type: 'string',
+                    description: '2-3 Sätze: warum dieses Outcome — mit Bezug auf Phase-Verlauf, Skepsis/Pressure, Widersprüche, Drift.',
+                  },
+                  recruiter_journey: {
+                    type: 'string',
+                    description: 'Wie sich der Charakter DURCH das Gespräch verändert hat — Charakter-Entwicklung mit Turn-Bezug, kausal.',
+                  },
+                  contradictions_addressed: {
+                    type: 'array',
+                    description: 'Konkret benannte Widersprüche (falls vorhanden), je mit Topic + früherem + späterem Zitat + Auflösungs-Vorschlag.',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        topic: { type: 'string' },
+                        earlier_quote: { type: 'string' },
+                        later_quote: { type: 'string' },
+                        why_problematic: { type: 'string' },
+                        resolution_advice: { type: 'string' },
+                      },
+                      required: ['topic', 'earlier_quote', 'later_quote', 'why_problematic', 'resolution_advice'],
+                    },
+                  },
                 },
-                required: ['executive_summary', 'rubric_breakdown', 'critical_moments', 'transcript_annotations', 'improvement_plan', 'dramaturgy_patterns', 'total_score', 'certificate_eligible'],
+                required: ['executive_summary', 'rubric_breakdown', 'critical_moments', 'transcript_annotations', 'improvement_plan', 'dramaturgy_patterns', 'total_score', 'certificate_eligible', 'adaptive_outcome', 'adaptive_outcome_rationale', 'recruiter_journey'],
               },
             },
           },
@@ -216,7 +282,8 @@ Erstelle das Debrief.`,
       .filter((t) => t.role === 'user')
       .map((t) => ({ turn_index: t.turn_index, ...(t.state_snapshot as any) }));
 
-    // Persist debrief
+
+    // Persist debrief — Cut E adaptive fields stashed in metadata
     const { data: debrief, error: dbErr } = await admin
       .from('conversation_os_debriefs')
       .insert({
@@ -232,6 +299,14 @@ Erstelle das Debrief.`,
         certificate_eligible: parsed.certificate_eligible,
         generated_by_model: 'google/gemini-2.5-pro',
         generation_ms: Date.now() - startedAt,
+        metadata: {
+          adaptive_outcome: parsed.adaptive_outcome,
+          adaptive_outcome_rationale: parsed.adaptive_outcome_rationale,
+          recruiter_journey: parsed.recruiter_journey,
+          contradictions_addressed: parsed.contradictions_addressed ?? [],
+          adaptive_final: adaptive,
+          contradiction_pairs: contradictionPairs,
+        },
       })
       .select()
       .single();
@@ -259,6 +334,12 @@ Erstelle das Debrief.`,
         character_name: characterName,
         variants_used: variantTurns.length,
         variant_painpoints: Array.from(new Set(variantTurns.map((t: any) => t.painpoint_triggered).filter(Boolean))),
+      },
+      adaptive_meta: {
+        outcome: parsed.adaptive_outcome,
+        rationale: parsed.adaptive_outcome_rationale,
+        recruiter_journey: parsed.recruiter_journey,
+        contradiction_count: contradictionPairs.length,
       },
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
