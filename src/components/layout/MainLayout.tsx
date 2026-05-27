@@ -204,6 +204,7 @@ export default function MainLayout() {
                 <Link to="/ihk-pruefungen" className="hover:text-foreground transition-colors">IHK-Prüfungen</Link>
                 <Link to="/wissen" className="hover:text-foreground transition-colors">Wissen & Blog</Link>
                 <Link to="/unternehmen" className="hover:text-foreground transition-colors">Für Unternehmen</Link>
+                <Link to="/branchen" className="hover:text-foreground transition-colors">Branchenlösungen</Link>
               </nav>
             </div>
 

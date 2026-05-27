@@ -128,9 +128,12 @@ serve(async (req) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log("ERROR", { msg });
+    const isAuth = /not authenticated|Authorization header required/i.test(msg);
+    const isValidation = /unknown vertical_slug|unknown or non-selfservice tier/i.test(msg);
+    const status = isAuth ? 401 : isValidation ? 400 : 500;
     return new Response(JSON.stringify({ error: msg }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status,
     });
   }
 });

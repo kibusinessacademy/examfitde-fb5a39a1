@@ -10,10 +10,10 @@ export default function VerticalsHubPage() {
   return (
     <main className="min-h-screen bg-background">
       <Helmet>
-        <title>Branchenbetriebssysteme — BerufOS für Praxen, Steuerbüros, Handwerk & mehr</title>
+        <title>Branchenbetriebssysteme — Digitale Entlastung für Praxen, Kanzleien, Betriebe</title>
         <meta
           name="description"
-          content="Produktisierte AI-Branchenassistenten für den deutschen Mittelstand. PraxisOS, SteuerOS, HandwerkOS, VerwaltungsOS u.v.m. EU-gehostet, DSGVO- und AI-Act-ready."
+          content="Digitale Branchenassistenten für den deutschen Mittelstand: PraxisOS, SteuerOS, HandwerkOS, VerwaltungsOS u.v.m. Dokumentation, Kommunikation und Tagesorganisation — EU-gehostet, DSGVO- und AI-Act-konform."
         />
         <link rel="canonical" href="https://berufos.com/branchen" />
       </Helmet>

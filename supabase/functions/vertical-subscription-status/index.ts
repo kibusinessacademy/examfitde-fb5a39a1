@@ -122,9 +122,10 @@ serve(async (req) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     log("ERROR", { msg });
+    const isAuth = /not authenticated|Authorization header required/i.test(msg);
     return new Response(JSON.stringify({ error: msg }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: isAuth ? 401 : 500,
     });
   }
 });
