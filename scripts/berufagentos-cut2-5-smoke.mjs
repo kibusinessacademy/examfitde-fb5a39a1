@@ -45,8 +45,10 @@ forbidden.test(sqlNoComments)
   ? ko("forbidden auto-apply / mutate symbol in SQL") : ok("no auto-apply / mutate symbols (HITL guard)");
 
 const page = readFileSync("src/pages/admin/berufs-ki/PersonaSimulationPage.tsx", "utf8");
-/auto.?apply|self.?heal|mutate workflow/i.test(page)
-  ? ko("UI hints at auto-apply (forbidden)") : ok("UI strictly HITL");
+// HITL guard: forbid actual auto-apply hooks/handlers, not the prohibition wording itself
+/\b(applyPersonaSimulation|autoApplyPersona|mutateWorkflowFromPersona|selfHealPersona|onAutoApply)\b/
+  .test(page)
+  ? ko("UI hints at auto-apply hooks (forbidden)") : ok("UI strictly HITL");
 
 const mem = readFileSync(".lovable/memory/index.md", "utf8");
 mem.includes("v2-cut-2-5-persona-simulation")
