@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, ArrowLeft, Shield, AlertCircle, Layers } from "lucide-react";
 import { VerwaltungDepartmentsSection } from "@/components/verticals/VerwaltungDepartmentsSection";
 import { VerwaltungBundLagebildSection } from "@/components/verticals/VerwaltungBundLagebildSection";
+import { VerwaltungArbeitsmarktSection } from "@/components/verticals/VerwaltungArbeitsmarktSection";
 import { toast } from "sonner";
 
 export default function VerticalDetailPage() {
@@ -334,6 +335,7 @@ export default function VerticalDetailPage() {
       {vertical.slug === "verwaltung" && (
         <>
           <VerwaltungDepartmentsSection />
+          <VerwaltungArbeitsmarktSection />
           <VerwaltungBundLagebildSection />
         </>
       )}
