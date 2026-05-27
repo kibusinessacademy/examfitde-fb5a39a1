@@ -423,3 +423,202 @@ export async function classifyOutcomeIntelligence(
 }
 
 
+
+// ============================================================================
+// v2 Cut 2.4 — Controlled Recommendations Layer (HITL, never auto-apply)
+// ============================================================================
+
+export type OutcomeFixProposalType =
+  | "kpi_drift_fix" | "workflow_stall_fix" | "ux_friction_fix"
+  | "governance_remediation" | "revenue_leak_fix" | "seo_recovery"
+  | "support_signal_response" | "generic_recommendation";
+
+export type OutcomeFixProposalSource =
+  | "workflow_intelligence" | "ux_intelligence" | "governance_intelligence"
+  | "seo_intelligence" | "revenue_intelligence" | "support_intelligence"
+  | "manual_curation";
+
+export type OutcomeFixReviewState =
+  | "draft" | "in_review" | "approved" | "rejected"
+  | "changes_requested" | "withdrawn" | "expired";
+
+export type OutcomeFixReviewDecision = "approved" | "rejected" | "changes_requested";
+
+export interface OutcomeFixProposal {
+  id: string;
+  proposal_key: string;
+  proposal_type: OutcomeFixProposalType;
+  proposal_source: OutcomeFixProposalSource;
+  vertical_key: string;
+  finding_id: string | null;
+  business_intent_id: string | null;
+  bundle_id: string | null;
+  title: string;
+  proposal_summary: string;
+  suggested_fix: string;
+  expected_outcome: string;
+  risk_summary: string;
+  rollback_plan: string;
+  test_strategy: string;
+  proposal_evidence: Record<string, unknown>;
+  affected_scope: Record<string, unknown>;
+  severity: OutcomeIntelligenceSeverity;
+  confidence_score: number;
+  business_impact_score: number;
+  risk_score: number;
+  priority_score: number;
+  expected_kpi_delta_pct_min: number | null;
+  expected_kpi_delta_pct_max: number | null;
+  review_state: OutcomeFixReviewState;
+  review_state_note: string | null;
+  review_state_changed_at: string | null;
+  expires_at: string | null;
+  source: string;
+  created_at: string;
+  updated_at: string;
+  finding_title: string | null;
+  finding_key: string | null;
+  business_intent_title: string | null;
+  review_count: number;
+}
+
+export interface OutcomeFixReview {
+  id: string;
+  proposal_id: string;
+  reviewer_id: string | null;
+  decision: OutcomeFixReviewDecision;
+  reason: string;
+  recommended_followup: string | null;
+  created_at: string;
+}
+
+export interface OutcomeFixSummary {
+  total: number;
+  in_review: number;
+  changes_requested: number;
+  approved: number;
+  rejected: number;
+  withdrawn: number;
+  critical_open: number;
+  high_open: number;
+  recent_24h: number;
+  recent_7d: number;
+  avg_priority: number | null;
+  by_type: Array<{ proposal_type: string; count: number }>;
+  by_source: Array<{ proposal_source: string; count: number }>;
+  by_vertical: Array<{ vertical_key: string; count: number }>;
+}
+
+export async function listFixProposals(args?: {
+  state?: OutcomeFixReviewState | null;
+  proposalType?: OutcomeFixProposalType | null;
+  proposalSource?: OutcomeFixProposalSource | null;
+  vertical?: string | null;
+  businessIntentId?: string | null;
+  limit?: number;
+}): Promise<OutcomeFixProposal[]> {
+  const { data, error } = await sb.rpc("admin_list_fix_proposals", {
+    _state: args?.state ?? null,
+    _proposal_type: args?.proposalType ?? null,
+    _proposal_source: args?.proposalSource ?? null,
+    _vertical_key: args?.vertical ?? null,
+    _business_intent_id: args?.businessIntentId ?? null,
+    _limit: args?.limit ?? 100,
+  });
+  if (error) throw error;
+  return (data ?? []) as OutcomeFixProposal[];
+}
+
+export async function getFixProposalsSummary(): Promise<OutcomeFixSummary> {
+  const { data, error } = await sb.rpc("admin_get_fix_proposals_summary");
+  if (error) throw error;
+  return data as OutcomeFixSummary;
+}
+
+export async function getFixProposal(proposalId: string): Promise<{ proposal: OutcomeFixProposal; reviews: OutcomeFixReview[] }> {
+  const { data, error } = await sb.rpc("admin_get_fix_proposal", { _proposal_id: proposalId });
+  if (error) throw error;
+  return data as { proposal: OutcomeFixProposal; reviews: OutcomeFixReview[] };
+}
+
+export async function proposeOutcomeFix(args: {
+  proposalKey: string;
+  proposalType: OutcomeFixProposalType;
+  proposalSource: OutcomeFixProposalSource;
+  verticalKey: string;
+  title: string;
+  proposalSummary: string;
+  suggestedFix: string;
+  expectedOutcome: string;
+  riskSummary: string;
+  rollbackPlan: string;
+  testStrategy: string;
+  proposalEvidence?: Record<string, unknown>;
+  affectedScope?: Record<string, unknown>;
+  findingId?: string | null;
+  businessIntentId?: string | null;
+  bundleId?: string | null;
+  severity?: OutcomeIntelligenceSeverity;
+  confidenceScore?: number;
+  businessImpactScore?: number;
+  riskScore?: number;
+  expectedKpiDeltaPctMin?: number | null;
+  expectedKpiDeltaPctMax?: number | null;
+  source?: string;
+}): Promise<{ proposal_id: string; proposal_key: string }> {
+  const { data, error } = await sb.rpc("admin_propose_outcome_fix", {
+    _proposal_key: args.proposalKey,
+    _proposal_type: args.proposalType,
+    _proposal_source: args.proposalSource,
+    _vertical_key: args.verticalKey,
+    _title: args.title,
+    _proposal_summary: args.proposalSummary,
+    _suggested_fix: args.suggestedFix,
+    _expected_outcome: args.expectedOutcome,
+    _risk_summary: args.riskSummary,
+    _rollback_plan: args.rollbackPlan,
+    _test_strategy: args.testStrategy,
+    _proposal_evidence: args.proposalEvidence ?? {},
+    _affected_scope: args.affectedScope ?? {},
+    _finding_id: args.findingId ?? null,
+    _business_intent_id: args.businessIntentId ?? null,
+    _bundle_id: args.bundleId ?? null,
+    _severity: args.severity ?? "medium",
+    _confidence_score: args.confidenceScore ?? 0.5,
+    _business_impact_score: args.businessImpactScore ?? 0.5,
+    _risk_score: args.riskScore ?? 0.5,
+    _expected_kpi_delta_pct_min: args.expectedKpiDeltaPctMin ?? null,
+    _expected_kpi_delta_pct_max: args.expectedKpiDeltaPctMax ?? null,
+    _source: args.source ?? "auto_detector",
+  });
+  if (error) throw error;
+  return data as { proposal_id: string; proposal_key: string };
+}
+
+export async function submitFixReview(
+  proposalId: string,
+  decision: OutcomeFixReviewDecision,
+  reason: string,
+  recommendedFollowup?: string,
+): Promise<{ proposal_id: string; review_state: OutcomeFixReviewState }> {
+  const { data, error } = await sb.rpc("admin_submit_fix_review", {
+    _proposal_id: proposalId,
+    _decision: decision,
+    _reason: reason,
+    _recommended_followup: recommendedFollowup ?? null,
+  });
+  if (error) throw error;
+  return data as { proposal_id: string; review_state: OutcomeFixReviewState };
+}
+
+export async function withdrawFixProposal(
+  proposalId: string,
+  reason: string,
+): Promise<{ proposal_id: string; review_state: OutcomeFixReviewState }> {
+  const { data, error } = await sb.rpc("admin_withdraw_fix_proposal", {
+    _proposal_id: proposalId,
+    _reason: reason,
+  });
+  if (error) throw error;
+  return data as { proposal_id: string; review_state: OutcomeFixReviewState };
+}
