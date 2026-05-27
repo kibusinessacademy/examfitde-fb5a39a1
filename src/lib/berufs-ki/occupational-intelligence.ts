@@ -73,6 +73,10 @@ export interface VerticalOccupationalDna {
     escalations: OINamedItem[];
     outcomes: OINamedItem[];
     persona_seeds: OINamedItem[];
+    kpi_models: OINamedItem[];
+    communication_models: OINamedItem[];
+    decision_models: OINamedItem[];
+    document_intelligence: OINamedItem[];
   };
   summary: Partial<Omit<VerticalOIRowSummary, "vertical_slug" | "vertical_name" | "industry_key">>;
   certifications: OICertification[];
