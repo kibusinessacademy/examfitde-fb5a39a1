@@ -5,6 +5,7 @@
  * Erscheint nur auf /branchen/verwaltung. Keine generative AI, kein Shadow-State.
  */
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   listVerwaltungDepartments,
   getVerwaltungDepartmentDna,
@@ -12,8 +13,10 @@ import {
   type VerwaltungDepartmentDna,
 } from "@/lib/berufs-ki/occupational-intelligence";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, MessageSquare, AlertTriangle, Workflow, FileText, Target, Users2, ShieldAlert } from "lucide-react";
+import { Building2, MessageSquare, AlertTriangle, Workflow, FileText, Target, Users2, ShieldAlert, Play } from "lucide-react";
+
 
 const CLUSTER_ORDER = [
   "Service",
@@ -232,8 +235,16 @@ function DepartmentDetail({ dna }: { dna: VerwaltungDepartmentDna }) {
                 {o.training_focus && (
                   <div className="text-xs text-text-3 mt-1 italic">{o.training_focus}</div>
                 )}
+                <div className="mt-2">
+                  <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                    <Link to={`/branchen/verwaltung/oral/${dna.department_key}/${o.key}`}>
+                      <Play className="h-3 w-3 mr-1" /> Simulation starten
+                    </Link>
+                  </Button>
+                </div>
               </li>
             ))}
+
           </ul>
         </div>
       )}
