@@ -38,26 +38,25 @@ function check(name, ok, detail = "") {
   if (!ok) failed++;
 }
 
-// 1. anon → executive RPC must return forbidden (function exists, gate works)
+// anon should be blocked — either PostgREST 401 (no execute grant) or RPC body 'forbidden'
+function anonBlocked(status, json) {
+  if (status === 401 || status === 403) return true;
+  return json && typeof json === "object" && json.error === "forbidden";
+}
+
 {
   const { status, json } = await rpc("verwaltung_daily_brief_executive", { _window_days: 7 });
-  // PostgREST returns 200 with {error:'forbidden'} from the function body
-  const isForbidden = (json && typeof json === "object" && json.error === "forbidden");
-  check("executive RPC gates anon", status === 200 && isForbidden, `status=${status}`);
+  check("executive RPC blocks anon", anonBlocked(status, json), `status=${status}`);
 }
-
-// 2. anon → governance risks RPC
 {
-  const { json } = await rpc("verwaltung_daily_brief_governance_risks", { _window_days: 7 });
-  check("governance-risks RPC gates anon", json?.error === "forbidden");
+  const { status, json } = await rpc("verwaltung_daily_brief_governance_risks", { _window_days: 7 });
+  check("governance-risks RPC blocks anon", anonBlocked(status, json), `status=${status}`);
 }
-
-// 3. anon → department RPC needs dept key; should still be forbidden first
 {
-  const { json } = await rpc("verwaltung_daily_brief_department", {
+  const { status, json } = await rpc("verwaltung_daily_brief_department", {
     _department_key: "buergeramt", _window_days: 7,
   });
-  check("department RPC gates anon", json?.error === "forbidden");
+  check("department RPC blocks anon", anonBlocked(status, json), `status=${status}`);
 }
 
 // 4. service-role (if available) → shape check
