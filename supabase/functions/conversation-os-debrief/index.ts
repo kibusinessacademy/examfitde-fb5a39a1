@@ -249,7 +249,15 @@ Erstelle das Debrief.`,
       })
       .eq('id', session_id);
 
-    return new Response(JSON.stringify({ debrief, cached: false }), {
+    return new Response(JSON.stringify({
+      debrief,
+      cached: false,
+      character_variant_meta: {
+        character_name: characterName,
+        variants_used: variantTurns.length,
+        variant_painpoints: Array.from(new Set(variantTurns.map((t: any) => t.painpoint_triggered).filter(Boolean))),
+      },
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
