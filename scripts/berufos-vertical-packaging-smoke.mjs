@@ -111,4 +111,12 @@ if (url && anon) {
   console.log("ℹ Edge-Smoke skipped (kein SUPABASE_URL/ANON)");
 }
 
+// ---------- 6. Occupational Intelligence Bridge ----------
+const oiLib = fs.readFileSync(path.join(ROOT, "src/lib/berufs-ki/occupational-intelligence.ts"), "utf8");
+if (!/get_vertical_occupational_dna/.test(oiLib)) fail("Reader-Lib ruft RPC nicht auf");
+if (!/VERTICAL_INDUSTRY_KEY/.test(verticalsSrc)) fail("verticals.ts hat kein industry_key Mapping");
+if (!/Strukturierte Berufs-DNA/.test(detail)) fail("Detail-Page zeigt keine Berufs-DNA-Sektion");
+if (!/Berufs-Graph/.test(detail)) fail("Detail-Page nennt Berufs-Graph nicht als Quelle");
+ok("Occupational Intelligence Bridge: Reader + Mapping + UI-Sektion vorhanden");
+
 console.log("\n✅ BerufOS Vertical Packaging v1 — smoke green");

@@ -41,6 +41,25 @@ export interface VerticalDefinition {
   accent: "petrol" | "mint" | "amber" | "rose" | "violet" | "slate";
 }
 
+/**
+ * Bridge-Mapping vertical_slug → vertical_dna.industry_key (SSOT).
+ * `vertical_dna.vertical_slug` ist der primäre Join-Key in DB/RPC;
+ * dieses Mapping ist Drift-Schutz für Code, der nur industry_key kennt.
+ */
+export const VERTICAL_INDUSTRY_KEY: Record<VerticalSlug, string> = {
+  praxis: "healthcare",
+  steuer: "tax_office",
+  verwaltung: "public_admin",
+  notar: "notary_office",
+  handwerk: "crafts",
+  gartenbau: "landscaping",
+  pflege: "healthcare_nursing",
+  krankenkasse: "healthcare_payer",
+  kanzlei: "law_firm",
+  makler: "real_estate",
+  foerdermittel: "funding",
+};
+
 export const VERTICALS: VerticalDefinition[] = [
   {
     slug: "praxis",

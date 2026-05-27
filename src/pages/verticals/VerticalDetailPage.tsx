@@ -1,13 +1,17 @@
 import { useParams, Navigate, Link, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getVertical } from "@/data/verticals";
+import { getVertical, VERTICAL_INDUSTRY_KEY, type VerticalSlug } from "@/data/verticals";
 import { VERTICAL_TIERS, type VerticalTier } from "@/config/verticalPricing";
+import {
+  getVerticalOccupationalDna,
+  type VerticalOccupationalDna,
+} from "@/lib/berufs-ki/occupational-intelligence";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, ArrowLeft, Shield, AlertCircle } from "lucide-react";
+import { CheckCircle2, ArrowLeft, Shield, AlertCircle, Layers } from "lucide-react";
 import { toast } from "sonner";
 
 export default function VerticalDetailPage() {
@@ -15,8 +19,17 @@ export default function VerticalDetailPage() {
   const [searchParams] = useSearchParams();
   const vertical = slug ? getVertical(slug) : undefined;
   const [loadingTier, setLoadingTier] = useState<VerticalTier | null>(null);
+  const [dna, setDna] = useState<VerticalOccupationalDna | null>(null);
+
+  useEffect(() => {
+    if (!vertical) return;
+    let alive = true;
+    getVerticalOccupationalDna(vertical.slug).then((d) => { if (alive) setDna(d); });
+    return () => { alive = false; };
+  }, [vertical?.slug]);
 
   if (!vertical) return <Navigate to="/branchen" replace />;
+  const industryKey = VERTICAL_INDUSTRY_KEY[vertical.slug as VerticalSlug];
 
   const checkoutStatus = searchParams.get("checkout");
 
@@ -115,6 +128,57 @@ export default function VerticalDetailPage() {
           ))}
         </ul>
       </section>
+
+      {/* STRUKTURIERTE BERUFS-DNA — Bridge auf bestehende SSOT (Curricula/Lernfelder/Kompetenzen) */}
+      {dna && dna.summary && (dna.summary.certifications_count ?? 0) > 0 && (
+        <section className="border-t border-border bg-surface-1">
+          <div className="container mx-auto px-4 py-12 max-w-5xl">
+            <div className="flex items-center gap-2 mb-2">
+              <Layers className="h-5 w-5 text-primary" />
+              <h2 className="text-2xl font-bold text-text-1">Strukturierte Berufs-DNA</h2>
+            </div>
+            <p className="text-text-2 mb-6">
+              {vertical.brand} arbeitet auf der zertifizierten Berufsstruktur der Branche
+              (Berufsbilder · Lernfelder · Kompetenzen). Kein generisches Modell-Wissen — sondern Berufsgrammatik.
+            </p>
+
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+              {[
+                { label: "Berufszertifikate", value: dna.summary.certifications_count ?? 0 },
+                { label: "Berufsbilder", value: dna.summary.curricula_count ?? 0 },
+                { label: "Lernfelder", value: dna.summary.learning_fields_count ?? 0 },
+                { label: "Kompetenzen", value: dna.summary.competencies_count ?? 0 },
+                { label: "Prüfungs-Blueprints", value: dna.summary.blueprints_count ?? 0 },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg border border-border bg-surface-2 p-4">
+                  <div className="text-2xl font-bold text-text-1">{(s.value as number).toLocaleString("de-DE")}</div>
+                  <div className="text-xs text-text-3 mt-1">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {dna.certifications.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-text-2 mb-3 uppercase tracking-wide">Verankerte Berufszertifikate</h3>
+                <div className="flex flex-wrap gap-2">
+                  {dna.certifications.slice(0, 12).map((c) => (
+                    <Badge key={c.id} variant="outline" className="font-normal">{c.title}</Badge>
+                  ))}
+                  {dna.certifications.length > 12 && (
+                    <Badge variant="outline" className="font-normal">+{dna.certifications.length - 12} weitere</Badge>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-text-3">
+              Quelle: BerufOS Berufs-Graph (Branche {industryKey}). Read-only Bridge —
+              kein generiertes Wissen, keine Halluzination.
+            </p>
+          </div>
+        </section>
+      )}
+
 
       {/* PRICING */}
       <section id="pricing" className="border-t border-border bg-surface-1">
