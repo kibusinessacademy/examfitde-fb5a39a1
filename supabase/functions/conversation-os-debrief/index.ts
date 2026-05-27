@@ -68,7 +68,9 @@ Deno.serve(async (req) => {
             role: 'system',
             content: `Du bist ein Senior-Coach für berufliche Gesprächsführung. Analysiere ein simuliertes Trainingsgespräch und erstelle ein präzises, ehrliches Debrief auf Premium-Niveau.
 
-Stil: konkret, mit Zitaten aus dem Transcript, ohne Schmeichelei, ohne Allgemeinplätze. Jede Aussage muss aus dem Transcript belegbar sein.`,
+Stil: konkret, mit Zitaten aus dem Transcript, ohne Schmeichelei, ohne Allgemeinplätze. Jede Aussage muss aus dem Transcript belegbar sein.
+
+WICHTIG für dramaturgy_patterns: Erkenne nicht nur Schwächen, sondern erkläre Eskalations-KAUSALITÄT. Antworte nicht "Confidence war niedrig", sondern: "Nach Turn 4 wechselte der Kandidat in Konjunktiv ('vielleicht', 'eventuell') — das hat Trust um 0.2 gesenkt und den Recruiter härter nachfragen lassen." Nutze die Painpoint-Aktivierungen und den State-Verlauf als Beweismaterial.`,
           },
           {
             role: 'user',
@@ -79,7 +81,8 @@ Bewertungsdimensionen: ${rubricDimensions.join(', ') || 'klarheit, fachlichkeit,
 Transcript:
 ${transcriptText}
 
-Painpoint-Aktivierungen (Eskalations-Marker): ${JSON.stringify(session.painpoint_history ?? [])}
+Painpoint-Aktivierungen (Eskalations-Marker mit Turn-Index): ${JSON.stringify(session.painpoint_history ?? [])}
+State-Verlauf (Trust/Tension/Confidence/Rapport pro Kandidaten-Turn): ${JSON.stringify((turns ?? []).filter((t: any) => t.role === 'user').map((t: any) => ({ turn: t.turn_index, state: t.state_snapshot, delta: t.state_delta })))}
 Finaler interner Zustand: ${JSON.stringify(session.conversation_state)}
 
 Erstelle das Debrief.`,
@@ -152,10 +155,28 @@ Erstelle das Debrief.`,
                       required: ['focus', 'why', 'drill_suggestion'],
                     },
                   },
+                  dramaturgy_patterns: {
+                    type: 'array',
+                    description: 'Eskalations-Kausalität. Erkenne sprachliche/strukturelle Muster, die den Gesprächsverlauf erklären. Nur Muster nennen, die tatsächlich im Transcript belegbar sind (>=1 Zitat). Reihenfolge: schwerwiegendste zuerst. Maximal 5.',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        pattern_key: { type: 'string', enum: ['evasion', 'hedging', 'missing_concretization', 'defensive_language', 'missing_structure', 'over_apologizing', 'monologue', 'interruption_avoidance', 'rambling', 'name_dropping_without_substance'] },
+                        pattern_label: { type: 'string', description: 'kurzer deutscher Klartext-Name, z.B. "Ausweichantworten"' },
+                        severity: { type: 'string', enum: ['low', 'medium', 'high'] },
+                        frequency: { type: 'number', description: 'Anzahl der Belege im Transcript' },
+                        evidence_quotes: { type: 'array', items: { type: 'string' }, description: '1-3 wörtliche Zitate aus Kandidaten-Turns' },
+                        state_impact: { type: 'string', description: 'Welche State-Dimension hat das gekippt? (z.B. "Trust -0.3, Tension +0.4 nach Turn 5")' },
+                        why_it_escalated: { type: 'string', description: 'Warum hat dieses Muster den Gesprächsdruck erhöht? Konkret, nicht generisch.' },
+                        fix: { type: 'string', description: 'Konkrete Alternative-Formulierung oder Technik, die genau dieses Muster ersetzt.' },
+                      },
+                      required: ['pattern_key', 'pattern_label', 'severity', 'frequency', 'evidence_quotes', 'state_impact', 'why_it_escalated', 'fix'],
+                    },
+                  },
                   total_score: { type: 'number', description: 'Gewichteter Gesamtscore 0-100' },
                   certificate_eligible: { type: 'boolean', description: 'true wenn ≥75' },
                 },
-                required: ['executive_summary', 'rubric_breakdown', 'critical_moments', 'transcript_annotations', 'improvement_plan', 'total_score', 'certificate_eligible'],
+                required: ['executive_summary', 'rubric_breakdown', 'critical_moments', 'transcript_annotations', 'improvement_plan', 'dramaturgy_patterns', 'total_score', 'certificate_eligible'],
               },
             },
           },
@@ -196,6 +217,7 @@ Erstelle das Debrief.`,
         critical_moments: parsed.critical_moments,
         transcript_annotations: parsed.transcript_annotations,
         improvement_plan: parsed.improvement_plan,
+        dramaturgy_patterns: parsed.dramaturgy_patterns ?? [],
         state_trajectory: stateTrajectory,
         certificate_eligible: parsed.certificate_eligible,
         generated_by_model: 'google/gemini-2.5-pro',
