@@ -148,6 +148,9 @@ export default function OutcomeFixQueuePage() {
               ))}
             </SelectContent>
           </Select>
+          <Button asChild variant="outline">
+            <a href="/admin/berufs-ki/outcome-intelligence">← Intelligence</a>
+          </Button>
           <Button variant="outline" onClick={() => void load()}>Neu laden</Button>
         </div>
       </header>
