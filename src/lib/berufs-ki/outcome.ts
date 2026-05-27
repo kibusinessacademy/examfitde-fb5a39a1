@@ -295,3 +295,131 @@ export async function classifyIntelligenceMemory(
   return data as boolean;
 }
 
+// ============================================================================
+// v2 Cut 2.3 — Continuous Outcome Intelligence (READ-ONLY)
+// ============================================================================
+
+export type OutcomeIntelligenceKind =
+  | "workflow_intelligence"
+  | "outcome_drift"
+  | "ux_friction"
+  | "governance_risk"
+  | "seo_intelligence"
+  | "support_signal";
+
+export type OutcomeIntelligenceSeverity = "info" | "low" | "medium" | "high" | "critical";
+
+export type OutcomeIntelligenceStatus = "open" | "acknowledged" | "muted" | "resolved_observed";
+
+export interface OutcomeIntelligenceFinding {
+  id: string;
+  finding_key: string;
+  kind: OutcomeIntelligenceKind;
+  vertical_key: string;
+  business_intent_id: string | null;
+  bundle_id: string | null;
+  title: string;
+  interpretation: string;
+  affected_scope: Record<string, unknown>;
+  signals: unknown[];
+  recommended_inspection: string | null;
+  severity: OutcomeIntelligenceSeverity;
+  confidence_score: number;
+  severity_score: number;
+  business_impact_score: number;
+  priority_score: number;
+  status: OutcomeIntelligenceStatus;
+  status_note: string | null;
+  status_changed_at: string | null;
+  detected_at: string;
+  last_seen_at: string;
+  source: string;
+  business_intent_title: string | null;
+}
+
+export interface OutcomeIntelligenceSummary {
+  total_open: number;
+  critical_open: number;
+  high_open: number;
+  avg_priority: number | null;
+  by_kind: Array<{ kind: string; count: number }>;
+  by_vertical: Array<{ vertical_key: string; count: number }>;
+  recent_24h: number;
+  recent_7d: number;
+}
+
+export async function listOutcomeIntelligence(args?: {
+  kind?: OutcomeIntelligenceKind | null;
+  vertical?: string | null;
+  status?: OutcomeIntelligenceStatus | null;
+  limit?: number;
+}): Promise<OutcomeIntelligenceFinding[]> {
+  const { data, error } = await sb.rpc("admin_list_outcome_intelligence", {
+    _kind: args?.kind ?? null,
+    _vertical_key: args?.vertical ?? null,
+    _status: args?.status ?? null,
+    _limit: args?.limit ?? 100,
+  });
+  if (error) throw error;
+  return (data ?? []) as OutcomeIntelligenceFinding[];
+}
+
+export async function getOutcomeIntelligenceSummary(): Promise<OutcomeIntelligenceSummary> {
+  const { data, error } = await sb.rpc("admin_get_outcome_intelligence_summary");
+  if (error) throw error;
+  return data as OutcomeIntelligenceSummary;
+}
+
+export async function recordOutcomeIntelligence(args: {
+  findingKey: string;
+  kind: OutcomeIntelligenceKind;
+  verticalKey: string;
+  title: string;
+  interpretation: string;
+  severity?: OutcomeIntelligenceSeverity;
+  confidenceScore?: number;
+  severityScore?: number;
+  businessImpactScore?: number;
+  recommendedInspection?: string;
+  affectedScope?: Record<string, unknown>;
+  signals?: unknown[];
+  businessIntentId?: string | null;
+  bundleId?: string | null;
+  source?: string;
+}): Promise<{ finding_id: string; finding_key: string }> {
+  const { data, error } = await sb.rpc("admin_record_outcome_intelligence", {
+    _finding_key: args.findingKey,
+    _kind: args.kind,
+    _vertical_key: args.verticalKey,
+    _title: args.title,
+    _interpretation: args.interpretation,
+    _affected_scope: args.affectedScope ?? {},
+    _signals: args.signals ?? [],
+    _recommended_inspection: args.recommendedInspection ?? null,
+    _severity: args.severity ?? "medium",
+    _confidence_score: args.confidenceScore ?? 0.5,
+    _severity_score: args.severityScore ?? 0.5,
+    _business_impact_score: args.businessImpactScore ?? 0.5,
+    _business_intent_id: args.businessIntentId ?? null,
+    _bundle_id: args.bundleId ?? null,
+    _source: args.source ?? "manual",
+  });
+  if (error) throw error;
+  return data as { finding_id: string; finding_key: string };
+}
+
+export async function classifyOutcomeIntelligence(
+  findingId: string,
+  newStatus: OutcomeIntelligenceStatus,
+  reason: string,
+): Promise<{ finding_id: string; status: OutcomeIntelligenceStatus }> {
+  const { data, error } = await sb.rpc("admin_classify_outcome_intelligence", {
+    _finding_id: findingId,
+    _new_status: newStatus,
+    _reason: reason,
+  });
+  if (error) throw error;
+  return data as { finding_id: string; status: OutcomeIntelligenceStatus };
+}
+
+
