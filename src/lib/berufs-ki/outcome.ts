@@ -622,3 +622,123 @@ export async function withdrawFixProposal(
   if (error) throw error;
   return data as { proposal_id: string; review_state: OutcomeFixReviewState };
 }
+
+// ============================================================================
+// v2 Cut 2.5 — Persona Simulation Layer (HITL-only, kein Auto-Apply)
+// ============================================================================
+
+export type PersonaKey =
+  | "azubi" | "ausbilder" | "hr_leitung" | "berufsschule_ihk" | "admin_ops";
+
+export interface PersonaRegistryEntry {
+  persona_key: PersonaKey;
+  display_name: string;
+  description: string;
+  responsibility_scope: string;
+  default_risk_profile: "low" | "medium" | "high";
+  sort_order: number;
+}
+
+export interface PersonaSimulation {
+  id: string;
+  persona_key: PersonaKey;
+  persona_name: string;
+  responsibility_scope: string;
+  default_risk_profile: "low" | "medium" | "high";
+  utility_score: number;
+  risk_score: number;
+  comprehension_score: number;
+  conversion_learning_score: number;
+  composite_score: number;
+  rationale: string;
+  evidence: Record<string, unknown>;
+  simulated_by: string | null;
+  simulated_at: string;
+  updated_at: string;
+}
+
+export interface PersonaMatrixRow {
+  proposal_id: string;
+  proposal_key: string;
+  title: string;
+  vertical_key: string;
+  review_state: OutcomeFixReviewState;
+  priority_score: number | null;
+  personas_simulated: number;
+  avg_composite: number | null;
+  best_persona: PersonaKey | null;
+  worst_persona: PersonaKey | null;
+  max_utility: number | null;
+  min_utility: number | null;
+  max_risk: number | null;
+  utility_spread: number | null;
+  is_conflicted: boolean;
+}
+
+export async function listPersonas(): Promise<PersonaRegistryEntry[]> {
+  const { data, error } = await sb.rpc("admin_list_personas");
+  if (error) throw error;
+  return (data ?? []) as PersonaRegistryEntry[];
+}
+
+export async function getPersonaSimulations(proposalId: string): Promise<{
+  proposal_id: string;
+  simulations: PersonaSimulation[];
+  matrix: PersonaMatrixRow | null;
+}> {
+  const { data, error } = await sb.rpc("admin_get_persona_simulations", { _proposal_id: proposalId });
+  if (error) throw error;
+  return data as { proposal_id: string; simulations: PersonaSimulation[]; matrix: PersonaMatrixRow | null };
+}
+
+export async function simulateProposalPersona(args: {
+  proposalId: string;
+  personaKey: PersonaKey;
+  utilityScore: number;
+  riskScore: number;
+  comprehensionScore: number;
+  conversionLearningScore: number;
+  rationale: string;
+  evidence?: Record<string, unknown>;
+}): Promise<{ simulation_id: string; composite_score: number; proposal_id: string; persona_key: PersonaKey }> {
+  const { data, error } = await sb.rpc("admin_simulate_proposal_persona", {
+    _proposal_id: args.proposalId,
+    _persona_key: args.personaKey,
+    _utility_score: args.utilityScore,
+    _risk_score: args.riskScore,
+    _comprehension_score: args.comprehensionScore,
+    _conversion_learning_score: args.conversionLearningScore,
+    _rationale: args.rationale,
+    _evidence: args.evidence ?? {},
+  });
+  if (error) throw error;
+  return data as { simulation_id: string; composite_score: number; proposal_id: string; persona_key: PersonaKey };
+}
+
+export async function clearPersonaSimulation(
+  proposalId: string,
+  personaKey: PersonaKey,
+  reason: string,
+): Promise<{ deleted: number }> {
+  const { data, error } = await sb.rpc("admin_clear_persona_simulation", {
+    _proposal_id: proposalId,
+    _persona_key: personaKey,
+    _reason: reason,
+  });
+  if (error) throw error;
+  return data as { deleted: number };
+}
+
+export async function getPersonaConflictMatrix(args?: {
+  vertical?: string | null;
+  onlyConflicts?: boolean;
+  limit?: number;
+}): Promise<PersonaMatrixRow[]> {
+  const { data, error } = await sb.rpc("admin_get_persona_conflict_matrix", {
+    _vertical_key: args?.vertical ?? null,
+    _only_conflicts: args?.onlyConflicts ?? false,
+    _limit: args?.limit ?? 100,
+  });
+  if (error) throw error;
+  return (data ?? []) as PersonaMatrixRow[];
+}
