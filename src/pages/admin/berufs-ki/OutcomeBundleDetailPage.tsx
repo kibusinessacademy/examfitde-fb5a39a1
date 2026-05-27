@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, ArrowLeft, Download } from "lucide-react";
+import { AlertCircle, ArrowLeft, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { decideOutcomeBundle, getOutcomeBundle, type OutcomeReviewStatus } from "@/lib/berufs-ki/outcome";
+import { decideOutcomeBundle, exportOutcomeBundle, getOutcomeBundle, type BundleRiskTier, type OutcomeReviewStatus } from "@/lib/berufs-ki/outcome";
+import { BundleRiskBadge } from "@/components/berufs-ki/BundleRiskBadge";
+import { KpiImpactPanel } from "@/components/berufs-ki/KpiImpactPanel";
+import { BundleDecisionTimeline } from "@/components/berufs-ki/BundleDecisionTimeline";
 
 type Bundle = Record<string, unknown> & {
   id: string; outcome_goal: string; vertical_key: string;
