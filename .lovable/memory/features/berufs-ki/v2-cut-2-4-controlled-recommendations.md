@@ -4,7 +4,17 @@ description: HITL Operations Review Center — Detection→Proposal→Review. KE
 type: feature
 ---
 
-# Cut 2.4 — Controlled Recommendations Layer (LIVE 2026-05-27)
+# Cut 2.4 — Controlled Recommendations Layer (FROZEN 2026-05-27)
+
+**Status:** ❄️ FROZEN — keine Erweiterung Richtung Auto-Apply / Self-Heal / Workflow-Mutation / Autonomous Deployment. Nächster Cut: 2.5 Persona Simulation Layer.
+
+**Freeze-Verifikation 2026-05-27:**
+- Smoke `scripts/berufagentos-cut2-4-smoke.mjs` — 33/33 ✅
+- DB-Objekte: `outcome_fix_proposals`, `outcome_fix_reviews`, `fn_outcome_fix_priority(numeric,numeric,numeric,numeric)` vorhanden
+- Audit-Contracts in `ops_audit_contract`: recorded · review_decided · withdrawn (3/3)
+- Routing: `/admin/berufs-ki/fix-queue` aktiv + Cross-Link Intelligence ↔ Fix-Queue
+- Empty / Loading / Error States in `OutcomeFixQueuePage` produktionsfertig
+- HITL-Guard: keine `auto_apply` / `self_heal_proposal` / `apply_outcome_fix` / `mutate_workflow_from_proposal` Symbole im SQL
 
 **Scope:** Detection → Proposal → Review Queue. STRIKT HITL.
 
