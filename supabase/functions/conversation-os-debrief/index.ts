@@ -74,7 +74,9 @@ Deno.serve(async (req) => {
 
 Stil: konkret, mit Zitaten aus dem Transcript, ohne Schmeichelei, ohne Allgemeinplätze. Jede Aussage muss aus dem Transcript belegbar sein.
 
-WICHTIG für dramaturgy_patterns: Erkenne nicht nur Schwächen, sondern erkläre Eskalations-KAUSALITÄT. Antworte nicht "Confidence war niedrig", sondern: "Nach Turn 4 wechselte der Kandidat in Konjunktiv ('vielleicht', 'eventuell') — das hat Trust um 0.2 gesenkt und den Recruiter härter nachfragen lassen." Nutze die Painpoint-Aktivierungen und den State-Verlauf als Beweismaterial.`,
+WICHTIG für dramaturgy_patterns: Erkenne nicht nur Schwächen, sondern erkläre Eskalations-KAUSALITÄT. Antworte nicht "Confidence war niedrig", sondern: "Nach Turn 4 wechselte der Kandidat in Konjunktiv ('vielleicht', 'eventuell') — das hat Trust um 0.2 gesenkt und den Recruiter härter nachfragen lassen." Nutze die Painpoint-Aktivierungen und den State-Verlauf als Beweismaterial.
+
+Wenn ein Painpoint als "Charakter-Variante" markiert ist, beschreibe explizit, WIE ${'${characterName}'} (im Gegensatz zu einem anderen Charakter) auf dieses Verhalten reagiert hat — Tonalität, Härte, Taktik. Das macht das Lernen charakter-spezifisch und replayable.
           },
           {
             role: 'user',
