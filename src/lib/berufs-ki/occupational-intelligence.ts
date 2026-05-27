@@ -48,6 +48,12 @@ export interface OICurriculum {
   learning_fields: OILearningField[];
 }
 
+export interface OINamedItem {
+  key: string;
+  label: string;
+  [extra: string]: unknown;
+}
+
 export interface VerticalOccupationalDna {
   vertical: {
     id: string;
@@ -56,11 +62,17 @@ export interface VerticalOccupationalDna {
     name: string;
     description: string | null;
     roles: string[];
-    kpis: unknown;
-    risks: unknown;
-    pain_points: unknown;
+    kpis: OINamedItem[];
+    risks: OINamedItem[];
+    pain_points: OINamedItem[];
     sops: unknown;
     regulatory_context: unknown;
+    processes: OINamedItem[];
+    documents: OINamedItem[];
+    workflow_types: OINamedItem[];
+    escalations: OINamedItem[];
+    outcomes: OINamedItem[];
+    persona_seeds: OINamedItem[];
   };
   summary: Partial<Omit<VerticalOIRowSummary, "vertical_slug" | "vertical_name" | "industry_key">>;
   certifications: OICertification[];
