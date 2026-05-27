@@ -307,6 +307,39 @@ Erstelle das Debrief.`,
       return new Response(JSON.stringify({ error: 'debrief_persist_failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Persist debrief — Cut E adaptive fields stashed in metadata
+    const { data: debrief, error: dbErr } = await admin
+      .from('conversation_os_debriefs')
+      .insert({
+        session_id,
+        user_id: user.id,
+        executive_summary: parsed.executive_summary,
+        rubric_breakdown: parsed.rubric_breakdown,
+        critical_moments: parsed.critical_moments,
+        transcript_annotations: parsed.transcript_annotations,
+        improvement_plan: parsed.improvement_plan,
+        dramaturgy_patterns: parsed.dramaturgy_patterns ?? [],
+        state_trajectory: stateTrajectory,
+        certificate_eligible: parsed.certificate_eligible,
+        generated_by_model: 'google/gemini-2.5-pro',
+        generation_ms: Date.now() - startedAt,
+        metadata: {
+          adaptive_outcome: parsed.adaptive_outcome,
+          adaptive_outcome_rationale: parsed.adaptive_outcome_rationale,
+          recruiter_journey: parsed.recruiter_journey,
+          contradictions_addressed: parsed.contradictions_addressed ?? [],
+          adaptive_final: adaptive,
+          contradiction_pairs: contradictionPairs,
+        },
+      })
+      .select()
+      .single();
+
+    if (dbErr) {
+      console.error('debrief insert', dbErr);
+      return new Response(JSON.stringify({ error: 'debrief_persist_failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // Update session
     await admin
       .from('conversation_os_sessions')
@@ -325,6 +358,12 @@ Erstelle das Debrief.`,
         character_name: characterName,
         variants_used: variantTurns.length,
         variant_painpoints: Array.from(new Set(variantTurns.map((t: any) => t.painpoint_triggered).filter(Boolean))),
+      },
+      adaptive_meta: {
+        outcome: parsed.adaptive_outcome,
+        rationale: parsed.adaptive_outcome_rationale,
+        recruiter_journey: parsed.recruiter_journey,
+        contradiction_count: contradictionPairs.length,
       },
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
