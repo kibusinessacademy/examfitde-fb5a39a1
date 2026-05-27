@@ -284,6 +284,7 @@ const DocumentAgentTemplatesPage = lazyRetry(() => import('@/pages/admin/v2/Docu
 const OutcomeControlCenterPage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeControlCenterPage'));
 const OutcomeBundleDetailPage = lazyRetry(() => import('@/pages/admin/berufs-ki/OutcomeBundleDetailPage'));
 const BusinessIntentsPage = lazyRetry(() => import('@/pages/admin/berufs-ki/BusinessIntentsPage'));
+const IntelligenceMemoryPage = lazyRetry(() => import('@/pages/admin/berufs-ki/IntelligenceMemoryPage'));
 
 
 // Learner Pages
@@ -777,6 +778,7 @@ const AppRoutes = () => {
           <Route path="berufs-ki/outcome-control" element={<OutcomeControlCenterPage />} />
           <Route path="berufs-ki/outcome-bundles/:id" element={<OutcomeBundleDetailPage />} />
           <Route path="berufs-ki/business-intents" element={<BusinessIntentsPage />} />
+          <Route path="berufs-ki/intelligence-memory" element={<IntelligenceMemoryPage />} />
           <Route path="*" element={<Navigate to="/admin/command" replace />} />
 
         </Route>
