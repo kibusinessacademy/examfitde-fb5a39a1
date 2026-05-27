@@ -208,7 +208,9 @@ export default function PersonaSimulationPage() {
           reale Nutzerrollen simuliert (Nutzen, Risiko, Verständnis, Conversion-/Lernwirkung).
           <strong className="ml-1 text-text-primary">Kein Auto-Apply.</strong> Entscheidungen erfolgen
           ausschließlich in der{" "}
-          <Link to="/admin/berufs-ki/fix-queue" className="underline">Fix-Queue</Link>.
+          <Link to="/admin/berufs-ki/fix-queue" className="underline">Fix-Queue</Link>
+          {" · "}aggregierte Sicht im{" "}
+          <Link to="/admin/berufs-ki/mission-control" className="underline">Mission Control</Link>.
         </p>
       </header>
 
