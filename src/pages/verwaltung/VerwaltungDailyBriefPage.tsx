@@ -81,12 +81,15 @@ export default function VerwaltungDailyBriefPage() {
     void Promise.all([
       getVerwaltungDailyBriefExecutive(days),
       getVerwaltungDailyBriefGovernanceRisks(days),
-    ]).then(([e, r]) => {
+      getVerwaltungDailyBriefRealityBridge(days, 20),
+    ]).then(([e, r, rb]) => {
       setExec(e);
       setRisks(r);
+      setReality(rb);
       setLoading(false);
     });
   }, [windowDays]);
+
 
   useEffect(() => {
     if (!selectedDept) return;
