@@ -444,24 +444,44 @@ export default function VerwaltungOralRunner() {
           )}
         </div>
 
-        {/* Voice-Toggle */}
-        <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2">
-          {voiceMode ? <Mic className="h-4 w-4 text-primary" /> : <MicOff className="h-4 w-4 text-text-3" />}
-          <Label htmlFor="vos-voice-mode" className="text-xs cursor-pointer select-none">Voice-Modus</Label>
-          <Switch
-            id="vos-voice-mode"
-            checked={voiceMode}
-            onCheckedChange={(v) => {
-              setVoiceMode(v);
-              if (!v && audioElRef.current) audioElRef.current.pause();
-            }}
-          />
-          {personaSpeaking && (
-            <span className="ml-1 inline-flex items-center gap-1 text-xs text-primary">
-              <Volume2 className="h-3.5 w-3.5 animate-pulse" /> Persona spricht
-            </span>
-          )}
+        {/* Toggles */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2">
+            {voiceMode ? <Mic className="h-4 w-4 text-primary" /> : <MicOff className="h-4 w-4 text-text-3" />}
+            <Label htmlFor="vos-voice-mode" className="text-xs cursor-pointer select-none">Voice-Modus</Label>
+            <Switch
+              id="vos-voice-mode"
+              checked={voiceMode}
+              disabled={realtimeMode}
+              onCheckedChange={(v) => {
+                setVoiceMode(v);
+                if (!v && audioElRef.current) audioElRef.current.pause();
+              }}
+            />
+            {personaSpeaking && (
+              <span className="ml-1 inline-flex items-center gap-1 text-xs text-primary">
+                <Volume2 className="h-3.5 w-3.5 animate-pulse" /> Persona spricht
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2">
+            <Radio className={`h-4 w-4 ${realtimeMode ? "text-primary" : "text-text-3"}`} />
+            <Label htmlFor="vos-realtime-mode" className="text-xs cursor-pointer select-none">Realtime (WebRTC)</Label>
+            <Switch
+              id="vos-realtime-mode"
+              checked={realtimeMode}
+              disabled={voiceMode || conversation.status === "connected"}
+              onCheckedChange={(v) => setRealtimeMode(v)}
+            />
+            {conversation.status === "connected" && (
+              <span className="ml-1 inline-flex items-center gap-1 text-xs text-primary">
+                <Volume2 className="h-3.5 w-3.5 animate-pulse" />
+                {conversation.isSpeaking ? "Persona spricht" : "Hört zu"}
+              </span>
+            )}
+          </div>
         </div>
+      </div>
       </div>
 
       {!sessionId ? (
