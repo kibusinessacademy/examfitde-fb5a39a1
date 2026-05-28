@@ -18,6 +18,7 @@ import {
   getVerwaltungDailyBriefExecutive,
   getVerwaltungDailyBriefGovernanceRisks,
   getVerwaltungDailyBriefRealityBridge,
+  getVerwaltungDailyBriefWorkflowPressure,
   getVerwaltungLiveJobsForQuery,
   type VerwaltungDepartmentSummary,
   type VDailyBriefDepartment,
@@ -26,13 +27,16 @@ import {
   type VRealityBridge,
   type VRealityDepartment,
   type VRealityJobsSummary,
+  type VWorkflowPressure,
+  type VWorkflowPressureDept,
 } from "@/lib/berufs-ki/occupational-intelligence";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Flame, ShieldAlert, Activity, MessageSquare, Building2, TrendingDown, Briefcase, Link2, ExternalLink } from "lucide-react";
+import { AlertTriangle, Flame, ShieldAlert, Activity, MessageSquare, Building2, TrendingDown, Briefcase, Link2, ExternalLink, Workflow, Zap } from "lucide-react";
+
 
 
 const WINDOWS = [
@@ -63,6 +67,7 @@ export default function VerwaltungDailyBriefPage() {
   const [risks, setRisks] = useState<VDailyBriefGovernanceRisks | null>(null);
   const [deptBrief, setDeptBrief] = useState<VDailyBriefDepartment | null>(null);
   const [reality, setReality] = useState<VRealityBridge | null>(null);
+  const [wfPressure, setWfPressure] = useState<VWorkflowPressure | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingDept, setLoadingDept] = useState(false);
 
@@ -82,13 +87,16 @@ export default function VerwaltungDailyBriefPage() {
       getVerwaltungDailyBriefExecutive(days),
       getVerwaltungDailyBriefGovernanceRisks(days),
       getVerwaltungDailyBriefRealityBridge(days, 20),
-    ]).then(([e, r, rb]) => {
+      getVerwaltungDailyBriefWorkflowPressure(days),
+    ]).then(([e, r, rb, wp]) => {
       setExec(e);
       setRisks(r);
       setReality(rb);
+      setWfPressure(wp);
       setLoading(false);
     });
   }, [windowDays]);
+
 
 
   useEffect(() => {
@@ -197,6 +205,11 @@ export default function VerwaltungDailyBriefPage() {
 
       {/* Reality-Bridge v1: Oral-Eskalation × Live-Arbeitsmarkt */}
       <RealityBridgeSection reality={reality} loading={loading} />
+
+      {/* DailyBrief v2: AgentOS Workflow-Pressure */}
+      <WorkflowPressureSection wfPressure={wfPressure} loading={loading} />
+
+
 
 
       {/* Governance Risks */}
@@ -439,3 +452,104 @@ function RealityBridgeSection({
     </section>
   );
 }
+
+function classificationBadge(c: VWorkflowPressureDept["classification"]): { variant: "default" | "secondary" | "destructive" | "outline"; label: string } {
+  switch (c) {
+    case "WORKFLOW_PRESSURE":     return { variant: "destructive", label: "Workflow-Druck" };
+    case "AUTOMATION_OPPORTUNITY":return { variant: "secondary",   label: "Automatisierbar" };
+    case "GOVERNANCE_GAP":        return { variant: "outline",     label: "Governance-Lücke" };
+    default:                      return { variant: "default",     label: "OK" };
+  }
+}
+
+function WorkflowPressureSection({
+  wfPressure,
+  loading,
+}: {
+  wfPressure: VWorkflowPressure | null;
+  loading: boolean;
+}) {
+  return (
+    <section>
+      <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
+        <Workflow className="h-5 w-5" /> AgentOS · Workflow-Pressure
+      </h2>
+      {loading ? (
+        <Skeleton className="h-48" />
+      ) : !wfPressure || wfPressure.top_pressure.length === 0 ? (
+        <Card className="p-4 text-sm text-muted-foreground">
+          Keine Workflow-Drift-Signale im Fenster.
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            <Card className="p-3">
+              <div className="text-xs text-muted-foreground">Fachbereiche</div>
+              <div className="text-xl font-semibold mt-1">{wfPressure.department_count}</div>
+            </Card>
+            <Card className="p-3">
+              <div className="text-xs text-muted-foreground">Ø Pressure-Score</div>
+              <div className="text-xl font-semibold mt-1">{wfPressure.pressure_avg ?? "—"}</div>
+            </Card>
+            {(["WORKFLOW_PRESSURE","AUTOMATION_OPPORTUNITY","GOVERNANCE_GAP"] as const).map((k) => (
+              <Card key={k} className="p-3">
+                <div className="text-xs text-muted-foreground">{classificationBadge(k).label}</div>
+                <div className="text-xl font-semibold mt-1">{wfPressure.classification_mix?.[k] ?? 0}</div>
+              </Card>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {wfPressure.top_pressure.map((d) => {
+              const b = classificationBadge(d.classification);
+              return (
+                <Card key={d.department_key} className="p-4">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div>
+                      <div className="text-xs text-muted-foreground">{d.department_key}</div>
+                      <div className="font-semibold">{d.display_name ?? d.department_key}</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge variant={b.variant}>{b.label}</Badge>
+                      <span className="text-xs text-muted-foreground">Score {d.pressure_score}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs mb-3">
+                    <div><span className="text-muted-foreground">Workflows:</span> <strong>{d.workflow_count}</strong></div>
+                    <div><span className="text-muted-foreground">Eskal.-Trigger:</span> <strong>{d.pct_with_escalations ?? 0}%</strong></div>
+                    <div><span className="text-muted-foreground">Automation:</span> <strong>{d.pct_with_automation ?? 0}%</strong></div>
+                    <div className={escalationTone(d.avg_escalation)}>
+                      <span className="text-muted-foreground">Ø Eskalation:</span> <strong>{d.avg_escalation ?? "—"}</strong>
+                    </div>
+                    <div><span className="text-muted-foreground">High-Conflict:</span> <strong>{d.high_conflict_pct ?? 0}%</strong></div>
+                    <div><span className="text-muted-foreground">Sessions:</span> <strong>{d.sessions_in_window}</strong></div>
+                  </div>
+                  {d.top_workflows && d.top_workflows.length > 0 && (
+                    <div className="border-t pt-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <Zap className="h-3 w-3" /> Top-Workflows
+                      </div>
+                      <div className="space-y-1">
+                        {d.top_workflows.map((w) => (
+                          <div key={w.workflow_key} className="flex items-center justify-between text-xs">
+                            <span className="truncate mr-2">{w.workflow_name}</span>
+                            <span className="text-muted-foreground whitespace-nowrap">
+                              esc {w.escalation_count} · auto {w.automation_count} · kpi {w.kpi_count}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Quelle: <code>verwaltung_agent_workflows</code> × Oral-Bridge. Klassifikation deterministisch im SECURITY-DEFINER-RPC.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
