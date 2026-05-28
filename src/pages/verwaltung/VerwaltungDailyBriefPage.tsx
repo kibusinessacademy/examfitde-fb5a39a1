@@ -327,3 +327,110 @@ export default function VerwaltungDailyBriefPage() {
     </div>
   );
 }
+
+function RealityBridgeSection({
+  reality,
+  loading,
+}: {
+  reality: VRealityBridge | null;
+  loading: boolean;
+}) {
+  const top = useMemo(
+    () =>
+      (reality?.departments ?? [])
+        .filter((d) => d.reality_priority === "HIGH" || d.reality_priority === "MEDIUM")
+        .slice(0, 6),
+    [reality],
+  );
+  const [jobsByDept, setJobsByDept] = useState<Record<string, VRealityJobsSummary | null>>({});
+
+  useEffect(() => {
+    let alive = true;
+    if (top.length === 0) return;
+    Promise.all(
+      top.map(async (d) => {
+        if (!d.market_query) return [d.department_key, null] as const;
+        const j = await getVerwaltungLiveJobsForQuery(d.market_query);
+        return [d.department_key, j] as const;
+      }),
+    ).then((results) => {
+      if (!alive) return;
+      const next: Record<string, VRealityJobsSummary | null> = {};
+      for (const [k, v] of results) next[k] = v;
+      setJobsByDept(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [top]);
+
+  return (
+    <section>
+      <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
+        <Link2 className="h-5 w-5" /> Reality-Bridge — Eskalation × Arbeitsmarkt
+      </h2>
+      {loading ? (
+        <Skeleton className="h-40" />
+      ) : top.length === 0 ? (
+        <Card className="p-4 text-sm text-muted-foreground">
+          Keine Hot-Spots mit Marktbezug im Fenster.
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {top.map((d) => {
+            const jobs = jobsByDept[d.department_key];
+            return (
+              <Card key={d.department_key} className="p-4">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div>
+                    <div className="text-xs text-muted-foreground">{d.category}</div>
+                    <div className="font-semibold">{d.department_name}</div>
+                  </div>
+                  <Badge variant={d.reality_priority === "HIGH" ? "destructive" : "secondary"}>
+                    {d.reality_priority}
+                  </Badge>
+                </div>
+                <div className="text-sm flex items-center gap-4 mb-2">
+                  <span className={escalationTone(d.avg_escalation)}>
+                    Ø Eskalation <strong>{d.avg_escalation}</strong>
+                  </span>
+                  <span className="text-muted-foreground">
+                    {d.oral_sessions} Sessions · {d.high_conflict_pct}% High-Conflict
+                  </span>
+                </div>
+                <div className="text-sm border-t pt-2 flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  {jobs === undefined ? (
+                    <span className="text-muted-foreground">lade Markt…</span>
+                  ) : jobs == null ? (
+                    <span className="text-muted-foreground italic">Keine Marktdaten</span>
+                  ) : (
+                    <>
+                      <strong>{jobs.total.toLocaleString("de-DE")}</strong>{" "}
+                      <span className="text-muted-foreground">
+                        offene Stellen · neu 7d: {jobs.trend_7d}
+                      </span>
+                      <a
+                        href={`https://www.arbeitsagentur.de/jobsuche/suche?was=${encodeURIComponent(
+                          d.market_query ?? "",
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-auto text-xs text-primary inline-flex items-center gap-1"
+                      >
+                        BA <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground mt-2">
+        Quelle: Oral-Bridge-Signale × BA-Jobsuche (live, keyless). Read-only Korrelation, keine Persistenz.
+      </p>
+    </section>
+  );
+}
