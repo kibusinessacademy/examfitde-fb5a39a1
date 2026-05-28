@@ -56,3 +56,16 @@ Erst danach gibt der Token-Endpoint ein WebRTC-Token aus.
 - Persona-Mapping spiegelt Voice-Layer-Pattern (`verwaltung_persona_voice_id`) — Tabelle statt SQL-Function, weil agent_ids nach Provisioning gepflegt werden müssen.
 - Auth-Pattern aus `verwaltung-voice-tts` (Authorization-Header → authClient.getUser() → admin-Client für DB-Writes).
 - Audit-Pattern aus B1 (`fn_emit_audit` mit named-params, 3 separate action_types).
+
+## Cut B2b — UI-Integration (2026-05-28)
+
+`VerwaltungOralRunner`:
+- `@elevenlabs/react` `useConversation` Hook mit `onConnect/onDisconnect/onError/onMessage`.
+- Header bekommt zweiten Toggle "Realtime (WebRTC)" — mutual exclusive mit Voice-Toggle (gegenseitig disabled).
+- Realtime-Connect-Button ersetzt Textarea/Push-to-Talk wenn aktiv: holt Token via `verwaltung-realtime-token` (`session_id`), startet WebRTC-Session, ruft `verwaltung_start_realtime_session` RPC mit Convai-Session-ID.
+- onDisconnect ruft best-effort `verwaltung_end_realtime_session` RPC.
+- onMessage spiegelt user/ai-Transcripts in `turns`-Liste (read-only, kein Bridge-Score/Evaluation — Convai läuft eigenständig).
+- Fehlerpfade: 412 → "Agent nicht provisioniert"-Toast, 503 → "Realtime nicht konfiguriert".
+- BRIDGE_DONT_FORK: nutzt vorhandene Bridge-Session als Anker (RPC scoping per session_id), kein paralleles Session-Modell.
+
+Anti-Drift weiterhin gültig: kein Score/Debrief im Realtime-Pfad (kommt in B3 via Convai-Webhook-Bridge), keine Mixed-Mode-Sessions Voice+Realtime.

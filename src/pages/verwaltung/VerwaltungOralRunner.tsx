@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useConversation } from "@elevenlabs/react";
 import {
   getVerwaltungDepartmentDna,
   type VerwaltungDepartmentDna,
@@ -27,7 +28,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   ChevronLeft, MessagesSquare, AlertTriangle, ShieldCheck,
-  Loader2, Flame, Mic, MicOff, Volume2,
+  Loader2, Flame, Mic, MicOff, Volume2, Radio, PhoneOff,
 } from "lucide-react";
 
 type TurnEntry = {
@@ -78,7 +79,6 @@ export default function VerwaltungOralRunner() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState<null | boolean>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
   // ---- Voice (Cut B1b) ----
   const [voiceMode, setVoiceMode] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -87,6 +87,37 @@ export default function VerwaltungOralRunner() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
+
+  // ---- Realtime (Cut B2b) ----
+  const [realtimeMode, setRealtimeMode] = useState(false);
+  const [realtimeConnecting, setRealtimeConnecting] = useState(false);
+  const realtimeConvaiSidRef = useRef<string | null>(null);
+
+  const conversation = useConversation({
+    onConnect: () => {
+      toast.success("Realtime verbunden");
+    },
+    onDisconnect: () => {
+      // best-effort: end RPC if we have a session
+      if (sessionId && realtimeConvaiSidRef.current) {
+        void (supabase.rpc as any)("verwaltung_end_realtime_session", { _session_id: sessionId });
+      }
+      realtimeConvaiSidRef.current = null;
+    },
+    onError: (e: any) => {
+      console.error("[verwaltung-realtime]", e);
+      toast.error("Realtime-Fehler", { description: typeof e === "string" ? e : e?.message });
+    },
+    onMessage: (msg: any) => {
+      // Mirror Convai transcripts into the turn-list (read-only — Bridge-Score is bypassed in realtime)
+      if (msg?.source === "user" && msg?.message) {
+        setTurns((t) => [...t, { role: "user", content: String(msg.message) }]);
+      } else if (msg?.source === "ai" && msg?.message) {
+        setTurns((t) => [...t, { role: "persona", content: String(msg.message) }]);
+      }
+    },
+  });
+
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuthReady(!!data.session));
@@ -275,6 +306,52 @@ export default function VerwaltungOralRunner() {
     } catch { setPersonaSpeaking(false); }
   };
 
+  // ---- Realtime connect/disconnect (Cut B2b) ----
+  const startRealtime = async () => {
+    if (!sessionId) { toast.error("Erst Simulation starten"); return; }
+    if (conversation.status === "connected") return;
+    setRealtimeConnecting(true);
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) throw new Error("Auth abgelaufen");
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verwaltung-realtime-token`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authSession.access_token}` },
+          body: JSON.stringify({ session_id: sessionId }),
+        },
+      );
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        if (resp.status === 412) toast.error("Agent nicht provisioniert", { description: "Persona hat noch keinen ElevenLabs-Agent." });
+        else if (resp.status === 503) toast.error("Realtime nicht konfiguriert");
+        else toast.error("Token-Fehler", { description: data?.error });
+        return;
+      }
+      if (!data?.token) throw new Error("Kein Token erhalten");
+      const convaiSid = await conversation.startSession({
+        conversationToken: data.token,
+        connectionType: "webrtc",
+      });
+      realtimeConvaiSidRef.current = convaiSid ?? null;
+      await (supabase.rpc as any)("verwaltung_start_realtime_session", {
+        _session_id: sessionId,
+        _convai_session_id: convaiSid ?? "unknown",
+      });
+    } catch (e: any) {
+      toast.error("Realtime-Start fehlgeschlagen", { description: e?.message });
+    } finally {
+      setRealtimeConnecting(false);
+    }
+  };
+
+  const stopRealtime = async () => {
+    try { await conversation.endSession(); } catch {}
+  };
+
+
   async function handleSend(overrideText?: string) {
     const msg = (overrideText ?? input).trim();
     if (!sessionId || !msg) return;
@@ -367,23 +444,42 @@ export default function VerwaltungOralRunner() {
           )}
         </div>
 
-        {/* Voice-Toggle */}
-        <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2">
-          {voiceMode ? <Mic className="h-4 w-4 text-primary" /> : <MicOff className="h-4 w-4 text-text-3" />}
-          <Label htmlFor="vos-voice-mode" className="text-xs cursor-pointer select-none">Voice-Modus</Label>
-          <Switch
-            id="vos-voice-mode"
-            checked={voiceMode}
-            onCheckedChange={(v) => {
-              setVoiceMode(v);
-              if (!v && audioElRef.current) audioElRef.current.pause();
-            }}
-          />
-          {personaSpeaking && (
-            <span className="ml-1 inline-flex items-center gap-1 text-xs text-primary">
-              <Volume2 className="h-3.5 w-3.5 animate-pulse" /> Persona spricht
-            </span>
-          )}
+        {/* Toggles */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2">
+            {voiceMode ? <Mic className="h-4 w-4 text-primary" /> : <MicOff className="h-4 w-4 text-text-3" />}
+            <Label htmlFor="vos-voice-mode" className="text-xs cursor-pointer select-none">Voice-Modus</Label>
+            <Switch
+              id="vos-voice-mode"
+              checked={voiceMode}
+              disabled={realtimeMode}
+              onCheckedChange={(v) => {
+                setVoiceMode(v);
+                if (!v && audioElRef.current) audioElRef.current.pause();
+              }}
+            />
+            {personaSpeaking && (
+              <span className="ml-1 inline-flex items-center gap-1 text-xs text-primary">
+                <Volume2 className="h-3.5 w-3.5 animate-pulse" /> Persona spricht
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2">
+            <Radio className={`h-4 w-4 ${realtimeMode ? "text-primary" : "text-text-3"}`} />
+            <Label htmlFor="vos-realtime-mode" className="text-xs cursor-pointer select-none">Realtime (WebRTC)</Label>
+            <Switch
+              id="vos-realtime-mode"
+              checked={realtimeMode}
+              disabled={voiceMode || conversation.status === "connected"}
+              onCheckedChange={(v) => setRealtimeMode(v)}
+            />
+            {conversation.status === "connected" && (
+              <span className="ml-1 inline-flex items-center gap-1 text-xs text-primary">
+                <Volume2 className="h-3.5 w-3.5 animate-pulse" />
+                {conversation.isSpeaking ? "Persona spricht" : "Hört zu"}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -454,7 +550,29 @@ export default function VerwaltungOralRunner() {
               )}
             </div>
             <div className="border-t border-border p-3 flex gap-2">
-              {voiceMode ? (
+              {realtimeMode ? (
+                <div className="flex-1 flex items-center justify-center">
+                  {conversation.status === "connected" ? (
+                    <Button size="lg" variant="destructive" onClick={stopRealtime} className="min-w-[220px]">
+                      <PhoneOff className="h-5 w-5 mr-2" /> Realtime beenden
+                    </Button>
+                  ) : (
+                    <Button
+                      size="lg"
+                      variant="petrol"
+                      onClick={startRealtime}
+                      disabled={realtimeConnecting || !!debrief}
+                      className="min-w-[220px]"
+                    >
+                      {realtimeConnecting ? (
+                        <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Verbinde…</>
+                      ) : (
+                        <><Radio className="h-5 w-5 mr-2" /> Realtime verbinden</>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              ) : voiceMode ? (
                 <div className="flex-1 flex items-center justify-center">
                   <Button
                     size="lg"
@@ -490,7 +608,7 @@ export default function VerwaltungOralRunner() {
                 />
               )}
               <div className="flex flex-col gap-2">
-                {!voiceMode && (
+                {!voiceMode && !realtimeMode && (
                   <Button onClick={() => handleSend()} disabled={loading || !input.trim() || !!debrief}>Senden</Button>
                 )}
                 <Button variant="outline" onClick={handleDebrief} disabled={debriefing || !!debrief || turns.length < 3}>
