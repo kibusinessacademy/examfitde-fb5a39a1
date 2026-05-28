@@ -73,10 +73,20 @@ function escalationTone(v: number | null | undefined): string {
 
 export default function VerwaltungCockpitPage() {
   const [windowDays, setWindowDays] = useState("7");
+  const [persona, setPersona] = useState<ExecutivePersona>(() => {
+    if (typeof window === "undefined") return "amtsleiter";
+    const v = window.localStorage.getItem(PERSONA_KEY);
+    return (v === "buergermeister" || v === "amtsleiter" || v === "governance") ? (v as ExecutivePersona) : "amtsleiter";
+  });
   const [cockpit, setCockpit] = useState<VExecutiveCockpit | null>(null);
   const [loading, setLoading] = useState(true);
   const [lagebild, setLagebild] = useState<BundLagebild | null>(null);
   const [jobsByDept, setJobsByDept] = useState<Record<string, VRealityJobsSummary | null>>({});
+
+  useEffect(() => {
+    if (typeof window !== "undefined") window.localStorage.setItem(PERSONA_KEY, persona);
+  }, [persona]);
+
 
   useEffect(() => {
     let cancelled = false;
