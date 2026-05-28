@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
     // Audit attempt with stub session_id to satisfy contract
     await admin.rpc("fn_emit_audit", {
       _action_type: "verwaltung_realtime_webhook_received",
-      _payload: {
+      _target_type: "system", _payload: {
         convai_session_id: "unknown",
         session_id: null,
         outcome: "signature_invalid",
@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
   try { payload = JSON.parse(rawBody); } catch {
     await admin.rpc("fn_emit_audit", {
       _action_type: "verwaltung_realtime_webhook_received",
-      _payload: { convai_session_id: "unknown", session_id: null, outcome: "parse_error", caller_role: "service_role" },
+      _target_type: "system", _payload: { convai_session_id: "unknown", session_id: null, outcome: "parse_error", caller_role: "service_role" },
     });
     return json(400, { error: "invalid_json" });
   }
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
   // Audit accepted before processing
   await admin.rpc("fn_emit_audit", {
     _action_type: "verwaltung_realtime_webhook_received",
-    _payload: {
+    _target_type: "system", _payload: {
       convai_session_id: convaiId,
       session_id: null,
       outcome: "accepted",
