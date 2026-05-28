@@ -122,6 +122,19 @@ export default function VerwaltungCockpitPage() {
     return () => { cancelled = true; };
   }, [windowDays]);
 
+  // Cut A4 — Modernisierungs-Intelligence (window-unabhängig: Workflow-Struktur)
+  useEffect(() => {
+    let cancelled = false;
+    setModernizationLoading(true);
+    getVerwaltungModernizationOpportunities(50).then((m) => {
+      if (cancelled) return;
+      setModernization(m);
+      setModernizationLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+
   // Parallel live-Arbeitsmarkt-Trends für Top-Reality-Departments
   useEffect(() => {
     const depts = (cockpit?.reality?.departments ?? []).slice(0, 4);
