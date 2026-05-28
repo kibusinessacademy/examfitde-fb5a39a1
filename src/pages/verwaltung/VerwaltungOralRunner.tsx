@@ -482,7 +482,6 @@ export default function VerwaltungOralRunner() {
           </div>
         </div>
       </div>
-      </div>
 
       {!sessionId ? (
         <Card className="p-8 text-center bg-surface-1">
