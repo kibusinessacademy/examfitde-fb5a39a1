@@ -120,12 +120,17 @@ export default function VerwaltungDailyBriefPage() {
             Fachbereiche, Cluster, Kommunikationsmuster, Governance-Risiken.
           </p>
         </div>
-        <Select value={windowDays} onValueChange={setWindowDays}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {WINDOWS.map((w) => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a href="/admin/verwaltung/cockpit">Executive Cockpit</a>
+          </Button>
+          <Select value={windowDays} onValueChange={setWindowDays}>
+            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {WINDOWS.map((w) => <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </header>
 
       {/* Executive Totals */}

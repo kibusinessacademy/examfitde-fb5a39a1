@@ -378,6 +378,31 @@ export async function getVerwaltungLiveJobsForQuery(
   };
 }
 
+// =============================================================================
+// VerwaltungsOS — Executive Cockpit v1 (server-aggregierter Premium-Payload)
+// =============================================================================
+
+export interface VExecutiveCockpit {
+  window_days: number;
+  generated_at: string;
+  executive: VDailyBriefExecutive | null;
+  risks: VDailyBriefGovernanceRisks | null;
+  reality: VRealityBridge | null;
+}
+
+/** Executive Cockpit — admin-gated, eine Server-Aggregation für DailyBrief + Risks + Reality. */
+export async function getVerwaltungExecutiveCockpit(
+  windowDays = 7,
+): Promise<VExecutiveCockpit | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("verwaltung_executive_cockpit", {
+    _window_days: windowDays,
+  });
+  if (error || !data || (data as { error?: string }).error) return null;
+  return data as VExecutiveCockpit;
+}
+
+
 
 
 
