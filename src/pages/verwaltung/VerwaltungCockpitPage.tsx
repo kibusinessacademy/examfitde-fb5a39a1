@@ -145,6 +145,40 @@ export default function VerwaltungCockpitPage() {
     return () => { cancelled = true; };
   }, []);
 
+  // Cut A5 — Outcome Loop
+  const loadOutcome = () => {
+    setOutcomeLoading(true);
+    getVerwaltungWorkflowOutcomeLoop(30, 25).then((o) => {
+      setOutcome(o);
+      setOutcomeLoading(false);
+    });
+  };
+  useEffect(() => {
+    let cancelled = false;
+    setOutcomeLoading(true);
+    getVerwaltungWorkflowOutcomeLoop(30, 25).then((o) => {
+      if (cancelled) return;
+      setOutcome(o);
+      setOutcomeLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleCaptureSnapshot = async () => {
+    setCapturing(true);
+    try {
+      const r = await captureVerwaltungModernizationSnapshot();
+      if (!r) {
+        toast.error("Snapshot fehlgeschlagen — Admin-Rolle prüfen");
+      } else {
+        toast.success(`Snapshot erfasst: ${r.workflows_captured} Workflows (${r.inserted} neu / ${r.updated} aktualisiert)`);
+        loadOutcome();
+      }
+    } finally {
+      setCapturing(false);
+    }
+  };
+
 
   // Parallel live-Arbeitsmarkt-Trends für Top-Reality-Departments
   useEffect(() => {
