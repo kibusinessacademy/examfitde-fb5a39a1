@@ -18,6 +18,7 @@ import {
   getVerwaltungDailyBriefExecutive,
   getVerwaltungDailyBriefGovernanceRisks,
   getVerwaltungDailyBriefRealityBridge,
+  getVerwaltungDailyBriefWorkflowPressure,
   getVerwaltungLiveJobsForQuery,
   type VerwaltungDepartmentSummary,
   type VDailyBriefDepartment,
@@ -26,13 +27,16 @@ import {
   type VRealityBridge,
   type VRealityDepartment,
   type VRealityJobsSummary,
+  type VWorkflowPressure,
+  type VWorkflowPressureDept,
 } from "@/lib/berufs-ki/occupational-intelligence";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Flame, ShieldAlert, Activity, MessageSquare, Building2, TrendingDown, Briefcase, Link2, ExternalLink } from "lucide-react";
+import { AlertTriangle, Flame, ShieldAlert, Activity, MessageSquare, Building2, TrendingDown, Briefcase, Link2, ExternalLink, Workflow, Zap } from "lucide-react";
+
 
 
 const WINDOWS = [
