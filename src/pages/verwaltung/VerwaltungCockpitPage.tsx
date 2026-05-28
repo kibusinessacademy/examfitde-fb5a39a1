@@ -506,6 +506,98 @@ export default function VerwaltungCockpitPage() {
           )}
         </Card>
 
+        {/* Cut A5 — Operations Outcome Loop */}
+        <Card className="p-5 space-y-4 shadow-elev-1">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wide">Operations Outcome Loop</h2>
+                <p className="text-[11px] text-muted-foreground">
+                  Vorher/Nachher pro Workflow: hat die Modernisierungs-Empfehlung den Score gesenkt?
+                  Δ ≤ −5 = IMPROVED · Δ ≥ +5 = REGRESSED · sonst STABLE. Baseline ≥ 30 Tage.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2 py-1 rounded border text-[11px] bg-status-bg-success-subtle text-status-fg-success border-status-border-success">
+                ↓ {outcome?.totals?.improved ?? 0}
+              </span>
+              <span className="px-2 py-1 rounded border text-[11px] bg-status-bg-danger-subtle text-status-fg-danger border-status-border-danger">
+                ↑ {outcome?.totals?.regressed ?? 0}
+              </span>
+              <span className="px-2 py-1 rounded border text-[11px] bg-muted text-muted-foreground border-border">
+                = {outcome?.totals?.stable ?? 0}
+              </span>
+              <span className="px-2 py-1 rounded border text-[11px] bg-status-bg-info-subtle text-status-fg-info border-status-border-info">
+                ø {outcome?.totals?.no_baseline ?? 0}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCaptureSnapshot}
+                disabled={capturing}
+                className="h-7 text-[11px]"
+              >
+                {capturing ? "Erfasse…" : "Snapshot erfassen"}
+              </Button>
+            </div>
+          </div>
+
+          {outcomeLoading ? (
+            <Skeleton className="h-40 w-full" />
+          ) : !outcome || outcome.totals.workflows_total === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Noch keine Snapshots vorhanden. Klicke „Snapshot erfassen", um die erste Baseline zu setzen.
+            </p>
+          ) : (
+            <>
+              <div className="text-[11px] text-muted-foreground">
+                {outcome.totals.workflows_total} Workflows · {outcome.totals.departments} Fachbereiche ·
+                Ø Δ-Score {outcome.totals.avg_delta_score ?? "—"} · Baseline {outcome.lookback_days} Tage
+              </div>
+
+              {outcome.top_movers.length > 0 ? (
+                <div className="space-y-1.5">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Top Mover</div>
+                  {outcome.top_movers.slice(0, 8).map((m) => (
+                    <div
+                      key={m.workflow_id}
+                      className={`flex items-center justify-between gap-2 text-[11px] border rounded px-2 py-1.5 ${
+                        m.outcome_class === "IMPROVED"
+                          ? "bg-status-bg-success-subtle text-status-fg-success border-status-border-success"
+                          : "bg-status-bg-danger-subtle text-status-fg-danger border-status-border-danger"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{m.workflow_key}</div>
+                        <div className="opacity-75 text-[10px]">{m.department_key}</div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 tabular-nums">
+                        <span className="opacity-70">{m.score_baseline} →</span>
+                        <span className="font-semibold">{m.score_now}</span>
+                        <span className="font-semibold">
+                          {m.delta_score > 0 ? `+${m.delta_score}` : m.delta_score}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted-foreground border border-dashed border-border rounded p-3">
+                  Noch keine Baseline (älter als {outcome.lookback_days} Tage) vorhanden — alle Workflows zählen aktuell als
+                  NO_BASELINE. Nach dem ersten Snapshot füllt sich diese Karte automatisch über die Zeit.
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground border-t border-border pt-2 flex items-center gap-1">
+                <Sparkles className="h-3 w-3" />
+                Quelle: verwaltung_modernization_snapshots · deterministisches Delta · Audit-attribuiert.
+              </p>
+            </>
+          )}
+        </Card>
+
 
         {/* Cluster-Heat + Risk-Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
