@@ -124,11 +124,16 @@ export default function VerwaltungCockpitPage() {
   const risks = cockpit?.risks?.risks ?? [];
   const reality = cockpit?.reality?.departments ?? [];
   const ninaItems = lagebild?.nina?.items ?? [];
+  const pressure = cockpit?.workflow_pressure ?? null;
+  const pressureTop = pressure?.top_pressure ?? [];
+  const pressureMix = pressure?.classification_mix ?? {};
 
   const highReality = useMemo(
     () => reality.filter((d) => d.reality_priority === "HIGH" || d.reality_priority === "MEDIUM").slice(0, 4),
     [reality],
   );
+
+  const personaHint = PERSONAS.find((p) => p.value === persona)?.hint ?? "";
 
   return (
     <div className="min-h-screen bg-background">
