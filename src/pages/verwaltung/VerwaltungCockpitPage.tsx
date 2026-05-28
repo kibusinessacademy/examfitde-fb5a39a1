@@ -156,7 +156,17 @@ export default function VerwaltungCockpitPage() {
                 und Bund-Lagebild. Read-only, source-attribuiert.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={persona} onValueChange={(v) => setPersona(v as ExecutivePersona)}>
+                <SelectTrigger className="w-[180px]" aria-label="Executive Persona">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PERSONAS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={windowDays} onValueChange={setWindowDays}>
                 <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -171,6 +181,7 @@ export default function VerwaltungCockpitPage() {
               </Button>
             </div>
           </div>
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Fokus · {personaHint}</div>
 
           {/* KPI-Strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
