@@ -402,6 +402,66 @@ export async function getVerwaltungExecutiveCockpit(
   return data as VExecutiveCockpit;
 }
 
+// ============================================================
+// VerwaltungsAgentOS v1 — Workflow-SSOT Reader
+// ============================================================
+
+export interface VAgentSummary {
+  department_key: string;
+  department_name: string;
+  category: string;
+  workflow_count: number;
+  roles_count: number;
+  processes_count: number;
+}
+
+export interface VAgentWorkflow {
+  id: string;
+  department_key: string;
+  workflow_key: string;
+  workflow_name: string;
+  category: "process" | "document" | "communication" | "governance" | "executive" | "fachverfahren";
+  summary: string;
+  process_steps: Array<{ step: string }>;
+  kpi_targets: Array<Record<string, unknown>>;
+  doc_outputs: Array<{ doc: string }>;
+  escalation_triggers: Array<{ trigger: string; escalate_to: string }>;
+  automation_hints: Array<{ hint: string }>;
+  governance_notes: string | null;
+  version: number;
+}
+
+export interface VAgentBundle {
+  dna: Record<string, unknown> | null;
+  workflows: VAgentWorkflow[];
+}
+
+export async function listVerwaltungAgents(): Promise<VAgentSummary[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("list_verwaltung_agents");
+  if (error || !Array.isArray(data)) return [];
+  return data as VAgentSummary[];
+}
+
+export async function listVerwaltungWorkflows(departmentKey: string): Promise<VAgentWorkflow[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("list_verwaltung_workflows", {
+    _department_key: departmentKey,
+  });
+  if (error || !Array.isArray(data)) return [];
+  return data as VAgentWorkflow[];
+}
+
+export async function getVerwaltungAgent(departmentKey: string): Promise<VAgentBundle | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)("get_verwaltung_agent", {
+    _department_key: departmentKey,
+  });
+  if (error || !data) return null;
+  return data as VAgentBundle;
+}
+
+
 
 
 
