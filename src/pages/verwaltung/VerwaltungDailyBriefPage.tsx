@@ -62,8 +62,10 @@ export default function VerwaltungDailyBriefPage() {
   const [exec, setExec] = useState<VDailyBriefExecutive | null>(null);
   const [risks, setRisks] = useState<VDailyBriefGovernanceRisks | null>(null);
   const [deptBrief, setDeptBrief] = useState<VDailyBriefDepartment | null>(null);
+  const [reality, setReality] = useState<VRealityBridge | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingDept, setLoadingDept] = useState(false);
+
 
   useEffect(() => {
     void listVerwaltungDepartments().then((d) => {
