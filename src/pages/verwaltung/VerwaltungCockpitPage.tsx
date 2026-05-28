@@ -13,6 +13,8 @@ import {
   getVerwaltungExecutiveCockpit,
   getVerwaltungLiveJobsForQuery,
   getVerwaltungModernizationOpportunities,
+  getVerwaltungWorkflowOutcomeLoop,
+  captureVerwaltungModernizationSnapshot,
   type VExecutiveCockpit,
   type VRealityDepartment,
   type VRealityJobsSummary,
@@ -20,7 +22,11 @@ import {
   type VModernizationOpportunities,
   type VModernizationDept,
   type VModernizationClassification,
+  type VOutcomeLoop,
+  type VOutcomeClass,
 } from "@/lib/berufs-ki/occupational-intelligence";
+import { toast } from "sonner";
+
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
