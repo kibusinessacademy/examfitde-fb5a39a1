@@ -12,10 +12,14 @@ import { Link } from "react-router-dom";
 import {
   getVerwaltungExecutiveCockpit,
   getVerwaltungLiveJobsForQuery,
+  getVerwaltungModernizationOpportunities,
   type VExecutiveCockpit,
   type VRealityDepartment,
   type VRealityJobsSummary,
   type VWorkflowPressureDept,
+  type VModernizationOpportunities,
+  type VModernizationDept,
+  type VModernizationClassification,
 } from "@/lib/berufs-ki/occupational-intelligence";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -25,8 +29,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Activity, AlertTriangle, ArrowRight, Briefcase, Building2,
-  Flame, Gauge, Radio, ShieldAlert, Siren, TrendingUp, Workflow,
+  Flame, Gauge, Radio, Rocket, ShieldAlert, Siren, Sparkles, TrendingUp, Workflow,
 } from "lucide-react";
+
 
 type ExecutivePersona = "buergermeister" | "amtsleiter" | "governance";
 const PERSONAS: { value: ExecutivePersona; label: string; hint: string }[] = [
@@ -42,6 +47,14 @@ function pressureTone(c: VWorkflowPressureDept["classification"]): string {
   if (c === "GOVERNANCE_GAP") return "bg-status-bg-info-subtle text-status-fg-info border-status-border-info";
   return "bg-muted text-muted-foreground border-border";
 }
+
+function modernizationTone(c: VModernizationClassification): string {
+  if (c === "HIGH_OPPORTUNITY")   return "bg-status-bg-danger-subtle text-status-fg-danger border-status-border-danger";
+  if (c === "MEDIUM_OPPORTUNITY") return "bg-status-bg-warning-subtle text-status-fg-warning border-status-border-warning";
+  if (c === "LOW_OPPORTUNITY")    return "bg-status-bg-info-subtle text-status-fg-info border-status-border-info";
+  return "bg-muted text-muted-foreground border-border";
+}
+
 
 const WINDOWS = [
   { value: "1", label: "24 Stunden" },
@@ -82,6 +95,9 @@ export default function VerwaltungCockpitPage() {
   const [loading, setLoading] = useState(true);
   const [lagebild, setLagebild] = useState<BundLagebild | null>(null);
   const [jobsByDept, setJobsByDept] = useState<Record<string, VRealityJobsSummary | null>>({});
+  const [modernization, setModernization] = useState<VModernizationOpportunities | null>(null);
+  const [modernizationLoading, setModernizationLoading] = useState(true);
+
 
   useEffect(() => {
     if (typeof window !== "undefined") window.localStorage.setItem(PERSONA_KEY, persona);
@@ -105,6 +121,19 @@ export default function VerwaltungCockpitPage() {
     });
     return () => { cancelled = true; };
   }, [windowDays]);
+
+  // Cut A4 — Modernisierungs-Intelligence (window-unabhängig: Workflow-Struktur)
+  useEffect(() => {
+    let cancelled = false;
+    setModernizationLoading(true);
+    getVerwaltungModernizationOpportunities(50).then((m) => {
+      if (cancelled) return;
+      setModernization(m);
+      setModernizationLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
 
   // Parallel live-Arbeitsmarkt-Trends für Top-Reality-Departments
   useEffect(() => {
@@ -343,6 +372,95 @@ export default function VerwaltungCockpitPage() {
             </>
           )}
         </Card>
+
+        {/* Cut A4 — Modernisierungs-Intelligence (lightweight Process-Mining) */}
+        <Card className="p-5 space-y-4 shadow-elev-1">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-primary" />
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wide">Modernisierungs-Intelligence</h2>
+                <p className="text-[11px] text-muted-foreground">
+                  Process-Mining über alle aktiven Fachverfahren-Workflows. Score 0–100 aus
+                  Automation-Hints, Step-Komplexität, KPI-Tracking, Eskalations-Risiko, Governance-Lücken.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 text-[11px]">
+              <span className="px-2 py-1 rounded border bg-status-bg-danger-subtle text-status-fg-danger border-status-border-danger">
+                HIGH {modernization?.totals?.high ?? 0}
+              </span>
+              <span className="px-2 py-1 rounded border bg-status-bg-warning-subtle text-status-fg-warning border-status-border-warning">
+                MED {modernization?.totals?.medium ?? 0}
+              </span>
+              <span className="px-2 py-1 rounded border bg-status-bg-info-subtle text-status-fg-info border-status-border-info">
+                LOW {modernization?.totals?.low ?? 0}
+              </span>
+              <span className="px-2 py-1 rounded border bg-muted text-muted-foreground border-border">
+                OK {modernization?.totals?.ok ?? 0}
+              </span>
+            </div>
+          </div>
+
+          {modernizationLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : !modernization || modernization.by_department.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Keine Workflow-Daten verfügbar.</p>
+          ) : (
+            <>
+              <div className="text-[11px] text-muted-foreground">
+                {modernization.totals.workflows_total} Workflows · {modernization.totals.departments} Fachbereiche
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {modernization.by_department.slice(0, 6).map((d: VModernizationDept) => (
+                  <div key={d.department_key} className="border border-border rounded p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">{d.department_key}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {d.workflows_total} Workflows · Ø {d.avg_score?.toFixed?.(1) ?? "—"} · Max {d.max_score}
+                        </div>
+                      </div>
+                      <div className="flex gap-1 text-[10px] shrink-0">
+                        {d.high > 0  && <Badge variant="destructive">{d.high} H</Badge>}
+                        {d.medium > 0 && <Badge variant="outline">{d.medium} M</Badge>}
+                      </div>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {(d.top_workflows ?? []).slice(0, 3).map((w) => (
+                        <li
+                          key={w.workflow_id}
+                          className={`text-[11px] border rounded px-2 py-1.5 ${modernizationTone(w.classification)}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium truncate" title={w.workflow_name}>
+                              {w.workflow_name}
+                            </span>
+                            <span className="tabular-nums font-semibold shrink-0">{w.opportunity_score}</span>
+                          </div>
+                          {w.reasons?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1 opacity-80">
+                              {w.reasons.map((r) => (
+                                <span key={r} className="text-[9px] px-1 py-0.5 rounded bg-background/40 border border-current/20">
+                                  {r}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground border-t border-border pt-2 flex items-center gap-1">
+                <Sparkles className="h-3 w-3" />
+                Quelle: verwaltung_agent_workflows · deterministisches Scoring in SQL · kein LLM · Audit-attribuiert.
+              </p>
+            </>
+          )}
+        </Card>
+
 
         {/* Cluster-Heat + Risk-Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
