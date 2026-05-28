@@ -17,17 +17,23 @@ import {
   getVerwaltungDailyBriefDepartment,
   getVerwaltungDailyBriefExecutive,
   getVerwaltungDailyBriefGovernanceRisks,
+  getVerwaltungDailyBriefRealityBridge,
+  getVerwaltungLiveJobsForQuery,
   type VerwaltungDepartmentSummary,
   type VDailyBriefDepartment,
   type VDailyBriefExecutive,
   type VDailyBriefGovernanceRisks,
+  type VRealityBridge,
+  type VRealityDepartment,
+  type VRealityJobsSummary,
 } from "@/lib/berufs-ki/occupational-intelligence";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Flame, ShieldAlert, Activity, MessageSquare, Building2, TrendingDown } from "lucide-react";
+import { AlertTriangle, Flame, ShieldAlert, Activity, MessageSquare, Building2, TrendingDown, Briefcase, Link2, ExternalLink } from "lucide-react";
+
 
 const WINDOWS = [
   { value: "1", label: "24 Stunden" },
