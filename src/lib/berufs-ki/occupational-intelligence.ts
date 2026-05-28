@@ -518,3 +518,121 @@ export async function getVerwaltungDailyBriefWorkflowPressure(
 
 
 
+
+// ────────────────────────────────────────────────────────────────────
+// Cut A3 — Governance Intelligence Layer
+// ────────────────────────────────────────────────────────────────────
+
+export interface VGovernanceAuditEvent {
+  id: string;
+  created_at: string;
+  action_type: string;
+  audit_category: "verwaltung_native" | "tutor_governance" | "refusal_event" | "general";
+  result_status: string | null;
+  trigger_source: string | null;
+  target_id: string | null;
+  target_type: string | null;
+  error_message: string | null;
+  duration_ms: number | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface VGovernanceAuditTrail {
+  summary: {
+    window_days: number;
+    total_events: number;
+    by_category: Record<string, number>;
+    by_status: Record<string, number>;
+  };
+  recent: VGovernanceAuditEvent[];
+  generated_at: string;
+}
+
+export interface VGovernanceRefusalDept {
+  department_key: string;
+  total_turns: number;
+  refusal_turns: number;
+  refusal_qualified: number;
+  refusal_rate: number;
+  qualified_rate: number;
+  classification: "NO_DATA" | "NO_REFUSALS" | "OVER_REFUSING" | "LOW_QUALITY_REFUSALS" | "OK";
+}
+
+export interface VGovernanceRefusalQuality {
+  window_days: number;
+  totals: { turns: number; refusals: number; refusals_qualified: number };
+  by_department: VGovernanceRefusalDept[];
+  generated_at: string;
+}
+
+export interface VGovernanceDeadWorkflow {
+  department_key: string;
+  workflow_key: string;
+  workflow_name: string;
+  category: string;
+  kpi_count: number;
+  escalation_count: number;
+  automation_count: number;
+  coverage_status: "DEAD_WORKFLOW" | "METADATA_GAP";
+}
+
+export interface VGovernanceCoverageDept {
+  department_key: string;
+  workflow_count: number;
+  covered_count: number;
+  dead_count: number;
+  no_activity_count: number;
+  metadata_gap_count: number;
+}
+
+export interface VGovernanceSourceCoverage {
+  window_days: number;
+  totals: {
+    workflows: number;
+    covered: number;
+    dead: number;
+    no_activity: number;
+    metadata_gap: number;
+  };
+  dead_workflows: VGovernanceDeadWorkflow[];
+  by_department: VGovernanceCoverageDept[];
+  generated_at: string;
+}
+
+export async function getVerwaltungGovernanceAuditTrail(
+  windowDays = 7,
+  limit = 200,
+): Promise<VGovernanceAuditTrail | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)(
+    "verwaltung_governance_audit_trail",
+    { _window_days: windowDays, _limit: limit },
+  );
+  if (error || !data) return null;
+  return data as VGovernanceAuditTrail;
+}
+
+export async function getVerwaltungGovernanceRefusalQuality(
+  windowDays = 14,
+): Promise<VGovernanceRefusalQuality | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)(
+    "verwaltung_governance_refusal_quality",
+    { _window_days: windowDays },
+  );
+  if (error || !data) return null;
+  return data as VGovernanceRefusalQuality;
+}
+
+export async function getVerwaltungGovernanceSourceCoverage(
+  windowDays = 30,
+): Promise<VGovernanceSourceCoverage | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)(
+    "verwaltung_governance_source_coverage",
+    { _window_days: windowDays },
+  );
+  if (error || !data) return null;
+  return data as VGovernanceSourceCoverage;
+}
+

@@ -229,6 +229,7 @@ const VerwaltungOralRunner = lazyRetry(() => import('@/pages/verwaltung/Verwaltu
 const VerwaltungDailyBriefPage = lazyRetry(() => import('@/pages/verwaltung/VerwaltungDailyBriefPage'));
 const VerwaltungCockpitPage = lazyRetry(() => import('@/pages/verwaltung/VerwaltungCockpitPage'));
 const VerwaltungAgentsPage = lazyRetry(() => import('@/pages/verwaltung/VerwaltungAgentsPage'));
+const VerwaltungGovernancePage = lazyRetry(() => import('@/pages/verwaltung/VerwaltungGovernancePage'));
 
 const MarketingProductPagesAdminPage = lazyRetry(() => import('@/pages/admin/MarketingProductPagesAdminPage'));
 
@@ -464,7 +465,8 @@ const AppRoutes = () => {
         <Route path="/branchen" element={<VerticalsHubPage />} />
         <Route path="/branchen/verwaltung/oral/:departmentKey/:oralCaseKey" element={<VerwaltungOralRunner />} />
         <Route path="/admin/verwaltung/daily-brief" element={<VerwaltungDailyBriefPage />} />
-        <Route path="/admin/verwaltung/cockpit" element={<VerwaltungCockpitPage />} />
+        <Route path="/admin/verwaltung/agents" element={<VerwaltungAgentsPage />} />
+        <Route path="/admin/verwaltung/governance" element={<VerwaltungGovernancePage />} />
         <Route path="/admin/verwaltung/agents" element={<VerwaltungAgentsPage />} />
         <Route path="/branchen/:slug" element={<VerticalDetailPage />} />
 
