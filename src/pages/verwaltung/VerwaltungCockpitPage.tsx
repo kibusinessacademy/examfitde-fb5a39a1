@@ -40,8 +40,16 @@ const PERSONAS: { value: ExecutivePersona; label: string; hint: string }[] = [
   { value: "governance", label: "Governance", hint: "Risiken · KPI-Drift · Cluster" },
 ];
 const PERSONA_KEY = "verwaltungsos.cockpit.persona";
+  return "bg-muted text-muted-foreground border-border";
+}
 
-function pressureTone(c: VWorkflowPressureDept["classification"]): string {
+function modernizationTone(c: VModernizationClassification): string {
+  if (c === "HIGH_OPPORTUNITY")   return "bg-status-bg-danger-subtle text-status-fg-danger border-status-border-danger";
+  if (c === "MEDIUM_OPPORTUNITY") return "bg-status-bg-warning-subtle text-status-fg-warning border-status-border-warning";
+  if (c === "LOW_OPPORTUNITY")    return "bg-status-bg-info-subtle text-status-fg-info border-status-border-info";
+  return "bg-muted text-muted-foreground border-border";
+}
+
   if (c === "WORKFLOW_PRESSURE") return "bg-status-bg-danger-subtle text-status-fg-danger border-status-border-danger";
   if (c === "AUTOMATION_OPPORTUNITY") return "bg-status-bg-warning-subtle text-status-fg-warning border-status-border-warning";
   if (c === "GOVERNANCE_GAP") return "bg-status-bg-info-subtle text-status-fg-info border-status-border-info";
