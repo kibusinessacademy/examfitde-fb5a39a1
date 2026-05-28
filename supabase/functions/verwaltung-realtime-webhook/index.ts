@@ -209,9 +209,23 @@ Deno.serve(async (req) => {
     });
     return json(200, { ok: false, reason: "session_not_found" });
   }
-  if (sess.scores && sess.debrief) {
+  const scoresFilled  = sess.scores  && typeof sess.scores  === "object" && Object.keys(sess.scores  as Json).length > 0;
+  const debriefFilled = sess.debrief && typeof sess.debrief === "object" && Object.keys(sess.debrief as Json).length > 0;
+  if (scoresFilled && debriefFilled) {
     return json(200, { ok: true, idempotent: true });
   }
+
+  // Ensure the session carries a realtime_convai_session_id so the finalize RPC
+  // (which looks sessions up by that column) can find it. In the VibeOS flow we
+  // use external_id || session_id as the canonical correlation key.
+  const correlationId = externalId ?? sessionId;
+  await admin
+    .from("verwaltung_oral_sessions")
+    .update({ realtime_convai_session_id: correlationId, realtime_started_at: new Date().toISOString() })
+    .eq("id", sessionId)
+    .is("realtime_convai_session_id", null);
+
+
 
   const category = String((sess.scenario_snapshot as Json)?.category ?? "Service");
 
