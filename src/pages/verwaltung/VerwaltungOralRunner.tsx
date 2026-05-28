@@ -79,7 +79,6 @@ export default function VerwaltungOralRunner() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState<null | boolean>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
   // ---- Voice (Cut B1b) ----
   const [voiceMode, setVoiceMode] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -87,6 +86,37 @@ export default function VerwaltungOralRunner() {
   const [personaSpeaking, setPersonaSpeaking] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+
+  // ---- Realtime (Cut B2b) ----
+  const [realtimeMode, setRealtimeMode] = useState(false);
+  const [realtimeConnecting, setRealtimeConnecting] = useState(false);
+  const realtimeConvaiSidRef = useRef<string | null>(null);
+
+  const conversation = useConversation({
+    onConnect: () => {
+      toast.success("Realtime verbunden");
+    },
+    onDisconnect: () => {
+      // best-effort: end RPC if we have a session
+      if (sessionId && realtimeConvaiSidRef.current) {
+        supabase.rpc("verwaltung_end_realtime_session", { _session_id: sessionId }).catch(() => {});
+      }
+      realtimeConvaiSidRef.current = null;
+    },
+    onError: (e: any) => {
+      console.error("[verwaltung-realtime]", e);
+      toast.error("Realtime-Fehler", { description: typeof e === "string" ? e : e?.message });
+    },
+    onMessage: (msg: any) => {
+      // Mirror Convai transcripts into the turn-list (read-only — Bridge-Score is bypassed in realtime)
+      if (msg?.source === "user" && msg?.message) {
+        setTurns((t) => [...t, { role: "user", content: String(msg.message) }]);
+      } else if (msg?.source === "ai" && msg?.message) {
+        setTurns((t) => [...t, { role: "persona", content: String(msg.message) }]);
+      }
+    },
+  });
   const audioElRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
