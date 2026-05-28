@@ -209,9 +209,12 @@ Deno.serve(async (req) => {
     });
     return json(200, { ok: false, reason: "session_not_found" });
   }
-  if (sess.scores && sess.debrief) {
+  const scoresFilled  = sess.scores  && typeof sess.scores  === "object" && Object.keys(sess.scores  as Json).length > 0;
+  const debriefFilled = sess.debrief && typeof sess.debrief === "object" && Object.keys(sess.debrief as Json).length > 0;
+  if (scoresFilled && debriefFilled) {
     return json(200, { ok: true, idempotent: true });
   }
+
 
   const category = String((sess.scenario_snapshot as Json)?.category ?? "Service");
 
