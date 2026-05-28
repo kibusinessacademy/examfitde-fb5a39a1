@@ -691,3 +691,85 @@ export async function getVerwaltungGovernanceSourceCoverage(
   return data as VGovernanceSourceCoverage;
 }
 
+
+// ────────────────────────────────────────────────────────────────────
+// Cut A5 — Operations Outcome Loop (Modernization Snapshots)
+// ────────────────────────────────────────────────────────────────────
+
+export type VOutcomeClass = "IMPROVED" | "REGRESSED" | "STABLE" | "NO_BASELINE";
+
+export interface VOutcomeLoopTotals {
+  workflows_total: number;
+  improved: number;
+  regressed: number;
+  stable: number;
+  no_baseline: number;
+  avg_delta_score: number | null;
+  departments: number;
+}
+
+export interface VOutcomeLoopDept {
+  department_key: string;
+  workflows_total: number;
+  improved: number;
+  regressed: number;
+  stable: number;
+  no_baseline: number;
+  avg_delta_score: number | null;
+}
+
+export interface VOutcomeLoopMover {
+  workflow_id: string;
+  department_key: string;
+  workflow_key: string;
+  score_now: number;
+  score_baseline: number | null;
+  class_now: string;
+  class_baseline: string | null;
+  oral_now: number;
+  oral_baseline: number;
+  refusal_now: number;
+  refusal_baseline: number;
+  date_now: string;
+  date_baseline: string | null;
+  outcome_class: VOutcomeClass;
+  delta_score: number;
+}
+
+export interface VOutcomeLoop {
+  generated_at: string;
+  lookback_days: number;
+  totals: VOutcomeLoopTotals;
+  by_department: VOutcomeLoopDept[];
+  top_movers: VOutcomeLoopMover[];
+}
+
+export interface VOutcomeCaptureResult {
+  snapshot_date: string;
+  workflows_captured: number;
+  inserted: number;
+  updated: number;
+}
+
+export async function getVerwaltungWorkflowOutcomeLoop(
+  lookbackDays = 30,
+  limit = 50,
+): Promise<VOutcomeLoop | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)(
+    "verwaltung_workflow_outcome_loop",
+    { _lookback_days: lookbackDays, _limit: limit },
+  );
+  if (error || !data) return null;
+  return data as VOutcomeLoop;
+}
+
+export async function captureVerwaltungModernizationSnapshot(): Promise<VOutcomeCaptureResult | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)(
+    "verwaltung_capture_modernization_snapshot",
+  );
+  if (error || !data) return null;
+  return data as VOutcomeCaptureResult;
+}
+
