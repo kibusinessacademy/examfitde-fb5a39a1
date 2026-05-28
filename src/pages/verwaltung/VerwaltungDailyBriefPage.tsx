@@ -190,6 +190,10 @@ export default function VerwaltungDailyBriefPage() {
         )}
       </section>
 
+      {/* Reality-Bridge v1: Oral-Eskalation × Live-Arbeitsmarkt */}
+      <RealityBridgeSection reality={reality} loading={loading} />
+
+
       {/* Governance Risks */}
       <section>
         <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
