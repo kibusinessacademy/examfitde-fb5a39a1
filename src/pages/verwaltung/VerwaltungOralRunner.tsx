@@ -550,7 +550,29 @@ export default function VerwaltungOralRunner() {
               )}
             </div>
             <div className="border-t border-border p-3 flex gap-2">
-              {voiceMode ? (
+              {realtimeMode ? (
+                <div className="flex-1 flex items-center justify-center">
+                  {conversation.status === "connected" ? (
+                    <Button size="lg" variant="destructive" onClick={stopRealtime} className="min-w-[220px]">
+                      <PhoneOff className="h-5 w-5 mr-2" /> Realtime beenden
+                    </Button>
+                  ) : (
+                    <Button
+                      size="lg"
+                      variant="petrol"
+                      onClick={startRealtime}
+                      disabled={realtimeConnecting || !!debrief}
+                      className="min-w-[220px]"
+                    >
+                      {realtimeConnecting ? (
+                        <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Verbinde…</>
+                      ) : (
+                        <><Radio className="h-5 w-5 mr-2" /> Realtime verbinden</>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              ) : voiceMode ? (
                 <div className="flex-1 flex items-center justify-center">
                   <Button
                     size="lg"
@@ -586,9 +608,13 @@ export default function VerwaltungOralRunner() {
                 />
               )}
               <div className="flex flex-col gap-2">
-                {!voiceMode && (
+                {!voiceMode && !realtimeMode && (
                   <Button onClick={() => handleSend()} disabled={loading || !input.trim() || !!debrief}>Senden</Button>
                 )}
+                <Button variant="outline" onClick={handleDebrief} disabled={debriefing || !!debrief || turns.length < 3}>
+                  {debriefing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Debrief"}
+                </Button>
+              </div>
                 <Button variant="outline" onClick={handleDebrief} disabled={debriefing || !!debrief || turns.length < 3}>
                   {debriefing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Debrief"}
                 </Button>
