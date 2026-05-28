@@ -281,6 +281,69 @@ export default function VerwaltungCockpitPage() {
           </Card>
         </div>
 
+        {/* Workflow-Pressure (AgentOS Signal Bridge) */}
+        <Card className="p-5 space-y-4 shadow-elev-1">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Workflow className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold uppercase tracking-wide">
+                Workflow-Druck · AgentOS-Signale × Eskalation
+              </h2>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Gauge className="h-3 w-3" /> Ø Pressure&nbsp;
+                <strong className="text-foreground tabular-nums">{pressure?.pressure_avg ?? "—"}</strong>
+              </span>
+              <span>{pressure?.department_count ?? 0} Fachbereiche</span>
+            </div>
+          </div>
+          {loading ? <Skeleton className="h-32 w-full" /> : !pressure ? (
+            <p className="text-sm text-muted-foreground">Keine Workflow-Signale im Zeitfenster.</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(pressureMix).map(([k, v]) => (
+                  <Badge key={k} variant="outline" className="text-[10px] font-mono">
+                    {k} · {String(v)}
+                  </Badge>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {pressureTop.slice(0, 6).map((d) => (
+                  <div key={d.department_key} className={`rounded-lg border p-3 space-y-2 ${pressureTone(d.classification)}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">{d.display_name ?? d.department_key}</div>
+                        <div className="text-[11px] opacity-70">{d.workflow_count} Workflows · Esk Ø {d.avg_escalation?.toFixed?.(2) ?? "—"}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-semibold tabular-nums leading-none">{d.pressure_score}</div>
+                        <Badge variant="outline" className="text-[9px] mt-1 bg-background/60">{d.classification}</Badge>
+                      </div>
+                    </div>
+                    {Array.isArray(d.top_workflows) && d.top_workflows.length > 0 && (
+                      <ul className="text-[11px] space-y-0.5 pt-1 border-t border-current/20">
+                        {d.top_workflows.slice(0, 3).map((wf) => (
+                          <li key={wf.workflow_key} className="flex items-center justify-between gap-2">
+                            <span className="truncate">{wf.workflow_name}</span>
+                            <span className="opacity-70 shrink-0">
+                              esc {wf.escalation_count} · auto {wf.automation_count} · kpi {wf.kpi_count}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground border-t border-border pt-2">
+                Quelle: verwaltung_agent_workflows × verwaltung_oral_sessions · deterministisch in SQL, kein LLM.
+              </p>
+            </>
+          )}
+        </Card>
+
         {/* Cluster-Heat + Risk-Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="p-5 space-y-4 shadow-elev-1">
