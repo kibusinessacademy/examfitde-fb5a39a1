@@ -15,6 +15,7 @@ import {
   type VExecutiveCockpit,
   type VRealityDepartment,
   type VRealityJobsSummary,
+  type VWorkflowPressureDept,
 } from "@/lib/berufs-ki/occupational-intelligence";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -24,8 +25,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Activity, AlertTriangle, ArrowRight, Briefcase, Building2,
-  Flame, Radio, ShieldAlert, Siren, TrendingUp,
+  Flame, Gauge, Radio, ShieldAlert, Siren, TrendingUp, Workflow,
 } from "lucide-react";
+
+type ExecutivePersona = "buergermeister" | "amtsleiter" | "governance";
+const PERSONAS: { value: ExecutivePersona; label: string; hint: string }[] = [
+  { value: "buergermeister", label: "Bürgermeister", hint: "Lagebild · Bürgerfront · Eskalationen" },
+  { value: "amtsleiter", label: "Amtsleiter", hint: "Workflow-Druck · Reality · Hotspots" },
+  { value: "governance", label: "Governance", hint: "Risiken · KPI-Drift · Cluster" },
+];
+const PERSONA_KEY = "verwaltungsos.cockpit.persona";
+
+function pressureTone(c: VWorkflowPressureDept["classification"]): string {
+  if (c === "WORKFLOW_PRESSURE") return "bg-status-bg-danger-subtle text-status-fg-danger border-status-border-danger";
+  if (c === "AUTOMATION_OPPORTUNITY") return "bg-status-bg-warning-subtle text-status-fg-warning border-status-border-warning";
+  if (c === "GOVERNANCE_GAP") return "bg-status-bg-info-subtle text-status-fg-info border-status-border-info";
+  return "bg-muted text-muted-foreground border-border";
+}
 
 const WINDOWS = [
   { value: "1", label: "24 Stunden" },
