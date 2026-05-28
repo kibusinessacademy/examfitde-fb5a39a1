@@ -67,6 +67,7 @@ export default function VerwaltungDailyBriefPage() {
   const [risks, setRisks] = useState<VDailyBriefGovernanceRisks | null>(null);
   const [deptBrief, setDeptBrief] = useState<VDailyBriefDepartment | null>(null);
   const [reality, setReality] = useState<VRealityBridge | null>(null);
+  const [wfPressure, setWfPressure] = useState<VWorkflowPressure | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingDept, setLoadingDept] = useState(false);
 
@@ -86,13 +87,16 @@ export default function VerwaltungDailyBriefPage() {
       getVerwaltungDailyBriefExecutive(days),
       getVerwaltungDailyBriefGovernanceRisks(days),
       getVerwaltungDailyBriefRealityBridge(days, 20),
-    ]).then(([e, r, rb]) => {
+      getVerwaltungDailyBriefWorkflowPressure(days),
+    ]).then(([e, r, rb, wp]) => {
       setExec(e);
       setRisks(r);
       setReality(rb);
+      setWfPressure(wp);
       setLoading(false);
     });
   }, [windowDays]);
+
 
 
   useEffect(() => {
