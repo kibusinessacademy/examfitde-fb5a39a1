@@ -512,11 +512,66 @@ export async function getVerwaltungDailyBriefWorkflowPressure(
   return data as VWorkflowPressure;
 }
 
+// ────────────────────────────────────────────────────────────────────
+// Cut A4 — Modernisierungs-Intelligence (lightweight Process-Mining)
+// ────────────────────────────────────────────────────────────────────
 
+export type VModernizationClassification =
+  | "HIGH_OPPORTUNITY"
+  | "MEDIUM_OPPORTUNITY"
+  | "LOW_OPPORTUNITY"
+  | "OK";
 
+export interface VModernizationWorkflow {
+  workflow_id: string;
+  workflow_key: string;
+  workflow_name: string;
+  category: string | null;
+  opportunity_score: number;
+  classification: VModernizationClassification;
+  reasons: string[];
+  step_count: number;
+  automation_hint_count: number;
+  escalation_trigger_count: number;
+  kpi_target_count: number;
+}
 
+export interface VModernizationDept {
+  department_key: string;
+  workflows_total: number;
+  high: number;
+  medium: number;
+  low: number;
+  ok: number;
+  avg_score: number;
+  max_score: number;
+  top_workflows: VModernizationWorkflow[];
+}
 
+export interface VModernizationOpportunities {
+  generated_at: string;
+  totals: {
+    workflows_total: number;
+    high: number;
+    medium: number;
+    low: number;
+    ok: number;
+    departments: number;
+  };
+  by_department: VModernizationDept[];
+}
 
+export async function getVerwaltungModernizationOpportunities(
+  limit = 50,
+): Promise<VModernizationOpportunities | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)(
+    "verwaltung_modernization_opportunities",
+    { _limit: limit },
+  );
+  if (error || !data) return null;
+  return data as VModernizationOpportunities;
+}
 
 
 // ────────────────────────────────────────────────────────────────────
