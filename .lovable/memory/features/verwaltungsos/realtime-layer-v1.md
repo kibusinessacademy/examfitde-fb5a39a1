@@ -1,92 +1,67 @@
 ---
-name: VerwaltungsOS Realtime-Layer Foundation
-description: Cut B2 — Persona→Agent-Mapping (verwaltung_persona_agent_map), Realtime-State-Felder auf verwaltung_oral_sessions, Edge Function verwaltung-realtime-token (ElevenLabs Convai WebRTC), Start/End-RPCs mit Audit. BRIDGE_DONT_FORK von Voice-Layer-Patterns.
+name: VibeOS Voice Agent v1 (Verwaltungs-Oral)
+description: Voice-Stack für Verwaltungs-Oral-Sim — komplett ohne ElevenLabs. B1 (Server STT/TTS), B2 (Browser Web Speech API), B3 (generischer HMAC-Webhook).
 type: feature
 ---
 
-# VerwaltungsOS Realtime-Layer — FROZEN 2026-05-28 (Cut B2)
+# VibeOS Voice Agent v1 — Verwaltungs-Oral
 
-Foundation für Full-Duplex Persona-Konversationen via ElevenLabs Conversational AI Agents (WebRTC). Anders als Voice-Layer (Push-to-Talk auf bestehender Turn-Engine) ist Realtime ein paralleler Pfad: Agent läuft komplett auf ElevenLabs-Seite, Lovable speichert nur Mapping + Session-State + Audit.
+**Verworfen 2026-05-28: ElevenLabs Convai / @elevenlabs/react.** Kein externer Realtime-Provider, kein Convai-Agent, keine WebRTC-Provider-Session. Begründung: Provider-Lock-in vermeiden, Voice-Stack vollständig im eigenen Stack (Browser + Lovable AI Gateway + eigener HMAC-Webhook).
 
-## SSOT
-- `verwaltung_persona_agent_map(persona_key UNIQUE, elevenlabs_agent_id, notes, active)` — 9 Personas seeded, agent_id bleibt NULL bis manuell in ElevenLabs-UI provisioniert.
-- `verwaltung_oral_sessions.realtime_mode`, `.realtime_convai_session_id`, `.realtime_started_at`, `.realtime_ended_at`.
-- `public.verwaltung_resolve_persona_agent(_persona)` STABLE SECURITY DEFINER — returns agent_id or NULL.
+## Modi (mutually exclusive)
 
-## RPCs (SECURITY DEFINER, user-scoped)
-- `verwaltung_start_realtime_session(_session_id uuid, _convai_session_id text)` — setzt realtime_mode=true + emit `verwaltung_realtime_session_started`.
-- `verwaltung_end_realtime_session(_session_id uuid)` — clear realtime_mode + duration + emit `verwaltung_realtime_session_ended`.
+| Mode | STT | LLM | TTS | Trigger |
+|------|-----|-----|-----|---------|
+| **Text** | — | `verwaltung-oral-bridge` (Lovable AI Gateway) | — | Textarea + Senden |
+| **Voice (Server)** B1b | Edge `verwaltung-voice-stt` | Bridge | Edge `verwaltung-voice-tts` | Push-to-Talk |
+| **VibeOS Voice Agent** B2 | Browser `SpeechRecognition` (de-DE) | Bridge | Browser `SpeechSynthesisUtterance` (de-DE Voice) | Start/Stop, kontinuierlicher Loop |
 
-## Edge Function
-`verwaltung-realtime-token` — Auth-gated, body `{session_id?, agent_id?}`. Resolved Persona aus Session, fragt `/v1/convai/conversation/token?agent_id=...` ab, schreibt Audit `verwaltung_realtime_token_issued`. Fehlerpfade:
-- 401 `auth_required` / `invalid_user`
-- 404 `session_not_found`
-- 412 `agent_not_provisioned` (Persona-Mapping vorhanden, aber agent_id NULL)
-- 502 `elevenlabs_token_failed`
-- 503 `voice_not_configured` (Secret fehlt)
+UI-Toggles in `src/pages/verwaltung/VerwaltungOralRunner.tsx` (Header). Switches gegenseitig deaktiviert. VibeOS-Toggle disabled wenn Browser kein Web Speech API hat (Hinweis "nicht verfügbar" — Safari kann fehlen).
 
-## Audit-Contracts (ops_audit_contract, owner=verwaltungsos.realtime)
-- `verwaltung_realtime_token_issued` — session_id, persona, agent_id, caller_role
-- `verwaltung_realtime_session_started` — session_id, persona, agent_id, convai_session_id, caller_role
-- `verwaltung_realtime_session_ended` — session_id, convai_session_id, duration_seconds, caller_role
+## VibeOS Voice Agent Loop (B2)
 
-## Provisioning-Workflow (out-of-band)
-Cut B2 stellt die DB- und API-Foundation; konkrete ElevenLabs-Agents werden in der ElevenLabs-Webkonsole pro Persona angelegt (System-Prompt + Voice + Tools + Language=de). Sobald ein Agent existiert: 
-```sql
-UPDATE public.verwaltung_persona_agent_map
-   SET elevenlabs_agent_id = 'agent_xxx'
- WHERE persona_key = 'buerger_neutral';
-```
-Erst danach gibt der Token-Endpoint ein WebRTC-Token aus.
+1. `startAgent()` → primt Mic-Permission, spricht letzte Persona-Utterance, dann `startAgentListening()`.
+2. `SpeechRecognition` (continuous=false, single utterance) → `onresult` → `handleSend(transcript)`.
+3. `handleSend` postet an `verwaltung-oral-bridge` → `agentSpeak(data.persona_utterance)` → nach `onend` re-arm `startAgentListening()`.
+4. `stopAgent()` setzt `agentLiveRef=false`, cancelt SpeechSynthesis, stoppt Recognition.
 
-## Anti-Drift (NICHT in Cut B2)
-- Keine UI-Integration (separater Cut B2b — `useConversation`-Hook + Connect/Disconnect-Button in `VerwaltungOralRunner`).
-- Keine automatische Agent-Provisionierung über die ElevenLabs-API (manueller Schritt absichtlich — System-Prompts brauchen Review).
-- Keine Bridging-Logik Voice→Realtime in derselben Session (Realtime ist Replacement, nicht Add-on; Toggle ist exclusiv).
-- Kein Audit auf Turn-Ebene (Convai-Agent betreibt eigenes Logging; nur Session-Start/Ende werden gespiegelt).
-- Kein Score-/Debrief-Pfad in B2 (Realtime-Sessions enden ohne Scorecard — kommt in B3 via Convai-Webhook-Bridge).
+Refs: `agentLiveRef` (sync mirror für event handlers), `ttsVoiceRef` (de-Voice ausgewählt einmalig bei `voiceschanged`).
 
-## Secrets-Requirement
-`ELEVENLABS_API_KEY` (bereits gesetzt). Optional: `ELEVENLABS_AGENT_DEFAULT` für Override — derzeit nicht implementiert.
+## B3 — VibeOS Webhook (post-session)
 
-## Smoke
-`scripts/verwaltung-realtime-b2-smoke.mjs` — 9 Personas seeded · Resolver NULL-safe · 3 Audit-Contracts · realtime_* Spalten · Edge auth_required/voice_not_configured · State-RPCs anon-blocked.
+- Edge: `supabase/functions/verwaltung-realtime-webhook` (Name beibehalten für DB-Audit-Kompatibilität, intern komplett provider-neutral).
+- Auth: HMAC-SHA256 + Secret `VIBEOS_WEBHOOK_SECRET`. Header `vibeos-signature: t=<unix>,v0=<hex>`. 30-min Toleranzfenster.
+- `verify_jwt=false` in `supabase/config.toml`.
+- Payload (generisch):
+  ```json
+  {
+    "session_id": "<uuid>",
+    "external_id": "<optional trace>",
+    "transcript": [{ "role": "user|persona|agent", "content": "…" }],
+    "metadata": { }
+  }
+  ```
+- Findet Bridge-Session per `session_id` direkt (kein Convai-Lookup mehr).
+- Generiert Debrief via Lovable AI Gateway (`google/gemini-3-flash-preview`, `response_format: json_object`), wichtet 6 Dimensionen per Cluster.
+- Persistiert via `verwaltung_finalize_realtime_session` (SECURITY DEFINER, service_role only, idempotent).
+- Audit-Contracts unverändert: `verwaltung_realtime_webhook_received` (outcomes: accepted/signature_invalid/parse_error), `verwaltung_realtime_debrief_generated`.
 
-## Bridge
-- Persona-Mapping spiegelt Voice-Layer-Pattern (`verwaltung_persona_voice_id`) — Tabelle statt SQL-Function, weil agent_ids nach Provisioning gepflegt werden müssen.
-- Auth-Pattern aus `verwaltung-voice-tts` (Authorization-Header → authClient.getUser() → admin-Client für DB-Writes).
-- Audit-Pattern aus B1 (`fn_emit_audit` mit named-params, 3 separate action_types).
+## Trigger-Optionen für B3
 
-## Cut B2b — UI-Integration (2026-05-28)
+- Manueller cURL (eigenes Script signiert + postet)
+- n8n / eigener Cron mit HMAC-Generator
+- Optional: Browser-Trigger nach `stopAgent` (TODO — Browser dürfte VIBEOS_WEBHOOK_SECRET nicht halten; stattdessen `verwaltung-oral-bridge action=debrief` aus UI nutzen, was bereits live ist)
 
-`VerwaltungOralRunner`:
-- `@elevenlabs/react` `useConversation` Hook mit `onConnect/onDisconnect/onError/onMessage`.
-- Header bekommt zweiten Toggle "Realtime (WebRTC)" — mutual exclusive mit Voice-Toggle (gegenseitig disabled).
-- Realtime-Connect-Button ersetzt Textarea/Push-to-Talk wenn aktiv: holt Token via `verwaltung-realtime-token` (`session_id`), startet WebRTC-Session, ruft `verwaltung_start_realtime_session` RPC mit Convai-Session-ID.
-- onDisconnect ruft best-effort `verwaltung_end_realtime_session` RPC.
-- onMessage spiegelt user/ai-Transcripts in `turns`-Liste (read-only, kein Bridge-Score/Evaluation — Convai läuft eigenständig).
-- Fehlerpfade: 412 → "Agent nicht provisioniert"-Toast, 503 → "Realtime nicht konfiguriert".
-- BRIDGE_DONT_FORK: nutzt vorhandene Bridge-Session als Anker (RPC scoping per session_id), kein paralleles Session-Modell.
+## Anti-Drift
 
-Anti-Drift weiterhin gültig: kein Score/Debrief im Realtime-Pfad (kommt in B3 via Convai-Webhook-Bridge), keine Mixed-Mode-Sessions Voice+Realtime.
+- **Nicht** `@elevenlabs/react` o.ä. wieder einführen.
+- **Nicht** Convai-Agent-Provisionierung wieder bauen.
+- **Nicht** B2/B3-Scores auf Turn-Ebene mischen (Turn-Ebene = Bridge; Debrief = Bridge oder Webhook).
+- **Nicht** Browser-seitig den Webhook-Secret verwenden.
+- Mixed-Mode (Voice + Agent gleichzeitig) verboten — Toggles mutually disabled.
 
-## Cut B3 — Convai-Webhook-Bridge (2026-05-28, FROZEN)
+## Entfernt 2026-05-28
 
-Post-Session-Loop für Realtime: Convai-Server pingt Lovable-Webhook nach Session-Ende → Transcript persistiert + AI-Debrief generiert + Audit.
-
-**Schema**: `verwaltung_oral_sessions.realtime_transcript JSONB`.
-
-**RPC `verwaltung_finalize_realtime_session(_convai_session_id, _transcript, _scores, _debrief)`**: SECURITY DEFINER, service_role only. Idempotent UPDATE per convai_session_id. Returns `{ok, session_id}` oder `{ok:false, reason:'session_not_found'}`. Emit `verwaltung_realtime_debrief_generated` via fn_emit_audit (named params).
-
-**Edge `verwaltung-realtime-webhook`** (`verify_jwt=false` in config.toml): HMAC-SHA256-Signaturcheck via `ELEVENLABS_WEBHOOK_SECRET` (Header `elevenlabs-signature: t=…,v0=…`). Bei fehlendem Secret → 503 `webhook_not_configured`. Extrahiert Transcript (turns user/persona), ruft Lovable AI Gateway (`google/gemini-2.5-flash`, JSON-mode) für multidimensionale Scorecard (0–100, department-weighted) + Debrief. Audit `verwaltung_realtime_webhook_received` (outcome=processed|signature_invalid|session_not_found|debrief_failed).
-
-**Audit-Contracts (owner=verwaltungsos.realtime)**:
-- `verwaltung_realtime_webhook_received` — convai_session_id, session_id, outcome, caller_role
-- `verwaltung_realtime_debrief_generated` — convai_session_id, session_id, user_id, overall_score, caller_role
-
-**Secret-Provisioning**: `ELEVENLABS_WEBHOOK_SECRET` muss in Lovable Cloud gesetzt + im ElevenLabs Convai-Agent als Post-Call-Webhook-Secret hinterlegt werden. Bis dahin liefert Edge 503 (Smoke akzeptiert).
-
-**Smoke `scripts/verwaltung-realtime-webhook-b3-smoke.mjs`** — GREEN 2026-05-28: 2 Contracts · Schema-Spalte · anon blocked · session_not_found · 503/401-Pfad. Valid-Signature-Pfad nur wenn Secret im Shell-Env.
-
-**Anti-Drift**: Kein Realtime-Score auf Turn-Ebene (Convai logged eigen), keine Doppel-Bewertung wenn Realtime+Voice gemischt (B2b verhindert Mixed-Mode), kein Email-Versand aus Webhook (gehört in separaten Notification-Loop).
-
+- `supabase/functions/verwaltung-realtime-token` (Convai-Agent-Provisioning).
+- npm dep `@elevenlabs/react`.
+- Secrets `ELEVENLABS_*` werden vom Webhook nicht mehr gelesen.
