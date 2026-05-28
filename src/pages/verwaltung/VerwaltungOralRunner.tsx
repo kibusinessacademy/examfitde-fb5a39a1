@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useConversation } from "@elevenlabs/react";
 import {
   getVerwaltungDepartmentDna,
   type VerwaltungDepartmentDna,
@@ -27,7 +28,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   ChevronLeft, MessagesSquare, AlertTriangle, ShieldCheck,
-  Loader2, Flame, Mic, MicOff, Volume2,
+  Loader2, Flame, Mic, MicOff, Volume2, Radio, PhoneOff,
 } from "lucide-react";
 
 type TurnEntry = {
