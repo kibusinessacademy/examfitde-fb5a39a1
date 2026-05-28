@@ -12,10 +12,14 @@ import { Link } from "react-router-dom";
 import {
   getVerwaltungExecutiveCockpit,
   getVerwaltungLiveJobsForQuery,
+  getVerwaltungModernizationOpportunities,
   type VExecutiveCockpit,
   type VRealityDepartment,
   type VRealityJobsSummary,
   type VWorkflowPressureDept,
+  type VModernizationOpportunities,
+  type VModernizationDept,
+  type VModernizationClassification,
 } from "@/lib/berufs-ki/occupational-intelligence";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -25,8 +29,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Activity, AlertTriangle, ArrowRight, Briefcase, Building2,
-  Flame, Gauge, Radio, ShieldAlert, Siren, TrendingUp, Workflow,
+  Flame, Gauge, Radio, Rocket, ShieldAlert, Siren, Sparkles, TrendingUp, Workflow,
 } from "lucide-react";
+
 
 type ExecutivePersona = "buergermeister" | "amtsleiter" | "governance";
 const PERSONAS: { value: ExecutivePersona; label: string; hint: string }[] = [
