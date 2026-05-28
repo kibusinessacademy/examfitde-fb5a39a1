@@ -133,6 +133,9 @@ export default function VerwaltungCockpitPage() {
                 </SelectContent>
               </Select>
               <Button asChild variant="outline" size="sm">
+                <Link to="/admin/verwaltung/agents">AgentOS · Workflows <ArrowRight className="ml-1 h-3 w-3" /></Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
                 <Link to="/admin/verwaltung/daily-brief">DailyBrief · Drilldown <ArrowRight className="ml-1 h-3 w-3" /></Link>
               </Button>
             </div>
