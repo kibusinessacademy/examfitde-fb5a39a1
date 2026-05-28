@@ -100,7 +100,7 @@ export default function VerwaltungOralRunner() {
     onDisconnect: () => {
       // best-effort: end RPC if we have a session
       if (sessionId && realtimeConvaiSidRef.current) {
-        supabase.rpc("verwaltung_end_realtime_session", { _session_id: sessionId }).catch(() => {});
+        void (supabase.rpc as any)("verwaltung_end_realtime_session", { _session_id: sessionId });
       }
       realtimeConvaiSidRef.current = null;
     },
@@ -117,7 +117,7 @@ export default function VerwaltungOralRunner() {
       }
     },
   });
-  const audioElRef = useRef<HTMLAudioElement | null>(null);
+
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuthReady(!!data.session));
