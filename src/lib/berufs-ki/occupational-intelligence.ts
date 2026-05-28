@@ -388,6 +388,7 @@ export interface VExecutiveCockpit {
   executive: VDailyBriefExecutive | null;
   risks: VDailyBriefGovernanceRisks | null;
   reality: VRealityBridge | null;
+  workflow_pressure?: VWorkflowPressure | null;
 }
 
 /** Executive Cockpit — admin-gated, eine Server-Aggregation für DailyBrief + Risks + Reality. */
