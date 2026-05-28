@@ -69,3 +69,24 @@ Erst danach gibt der Token-Endpoint ein WebRTC-Token aus.
 - BRIDGE_DONT_FORK: nutzt vorhandene Bridge-Session als Anker (RPC scoping per session_id), kein paralleles Session-Modell.
 
 Anti-Drift weiterhin gültig: kein Score/Debrief im Realtime-Pfad (kommt in B3 via Convai-Webhook-Bridge), keine Mixed-Mode-Sessions Voice+Realtime.
+
+## Cut B3 — Convai-Webhook-Bridge (2026-05-28, FROZEN)
+
+Post-Session-Loop für Realtime: Convai-Server pingt Lovable-Webhook nach Session-Ende → Transcript persistiert + AI-Debrief generiert + Audit.
+
+**Schema**: `verwaltung_oral_sessions.realtime_transcript JSONB`.
+
+**RPC `verwaltung_finalize_realtime_session(_convai_session_id, _transcript, _scores, _debrief)`**: SECURITY DEFINER, service_role only. Idempotent UPDATE per convai_session_id. Returns `{ok, session_id}` oder `{ok:false, reason:'session_not_found'}`. Emit `verwaltung_realtime_debrief_generated` via fn_emit_audit (named params).
+
+**Edge `verwaltung-realtime-webhook`** (`verify_jwt=false` in config.toml): HMAC-SHA256-Signaturcheck via `ELEVENLABS_WEBHOOK_SECRET` (Header `elevenlabs-signature: t=…,v0=…`). Bei fehlendem Secret → 503 `webhook_not_configured`. Extrahiert Transcript (turns user/persona), ruft Lovable AI Gateway (`google/gemini-2.5-flash`, JSON-mode) für multidimensionale Scorecard (0–100, department-weighted) + Debrief. Audit `verwaltung_realtime_webhook_received` (outcome=processed|signature_invalid|session_not_found|debrief_failed).
+
+**Audit-Contracts (owner=verwaltungsos.realtime)**:
+- `verwaltung_realtime_webhook_received` — convai_session_id, session_id, outcome, caller_role
+- `verwaltung_realtime_debrief_generated` — convai_session_id, session_id, user_id, overall_score, caller_role
+
+**Secret-Provisioning**: `ELEVENLABS_WEBHOOK_SECRET` muss in Lovable Cloud gesetzt + im ElevenLabs Convai-Agent als Post-Call-Webhook-Secret hinterlegt werden. Bis dahin liefert Edge 503 (Smoke akzeptiert).
+
+**Smoke `scripts/verwaltung-realtime-webhook-b3-smoke.mjs`** — GREEN 2026-05-28: 2 Contracts · Schema-Spalte · anon blocked · session_not_found · 503/401-Pfad. Valid-Signature-Pfad nur wenn Secret im Shell-Env.
+
+**Anti-Drift**: Kein Realtime-Score auf Turn-Ebene (Convai logged eigen), keine Doppel-Bewertung wenn Realtime+Voice gemischt (B2b verhindert Mixed-Mode), kein Email-Versand aus Webhook (gehört in separaten Notification-Loop).
+
