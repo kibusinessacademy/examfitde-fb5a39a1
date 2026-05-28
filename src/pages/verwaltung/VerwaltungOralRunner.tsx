@@ -306,6 +306,52 @@ export default function VerwaltungOralRunner() {
     } catch { setPersonaSpeaking(false); }
   };
 
+  // ---- Realtime connect/disconnect (Cut B2b) ----
+  const startRealtime = async () => {
+    if (!sessionId) { toast.error("Erst Simulation starten"); return; }
+    if (conversation.status === "connected") return;
+    setRealtimeConnecting(true);
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) throw new Error("Auth abgelaufen");
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verwaltung-realtime-token`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authSession.access_token}` },
+          body: JSON.stringify({ session_id: sessionId }),
+        },
+      );
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        if (resp.status === 412) toast.error("Agent nicht provisioniert", { description: "Persona hat noch keinen ElevenLabs-Agent." });
+        else if (resp.status === 503) toast.error("Realtime nicht konfiguriert");
+        else toast.error("Token-Fehler", { description: data?.error });
+        return;
+      }
+      if (!data?.token) throw new Error("Kein Token erhalten");
+      const convaiSid = await conversation.startSession({
+        conversationToken: data.token,
+        connectionType: "webrtc",
+      });
+      realtimeConvaiSidRef.current = convaiSid ?? null;
+      await (supabase.rpc as any)("verwaltung_start_realtime_session", {
+        _session_id: sessionId,
+        _convai_session_id: convaiSid ?? "unknown",
+      });
+    } catch (e: any) {
+      toast.error("Realtime-Start fehlgeschlagen", { description: e?.message });
+    } finally {
+      setRealtimeConnecting(false);
+    }
+  };
+
+  const stopRealtime = async () => {
+    try { await conversation.endSession(); } catch {}
+  };
+
+
   async function handleSend(overrideText?: string) {
     const msg = (overrideText ?? input).trim();
     if (!sessionId || !msg) return;
