@@ -251,9 +251,114 @@ function DepartmentDetail({ dna }: { dna: VerwaltungDepartmentDna }) {
           </ul>
         </div>
       )}
+
+      {/* Reality-Bridge v1: Live Arbeitsmarkt aus BA-Jobsuche */}
+      <DepartmentLiveMarketCard
+        departmentKey={dna.department_key}
+        departmentName={dna.department_name}
+      />
     </div>
   );
 }
+
+function DepartmentLiveMarketCard({
+  departmentKey,
+  departmentName,
+}: {
+  departmentKey: string;
+  departmentName: string;
+}) {
+  const [jobs, setJobs] = useState<VRealityJobsSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Kanonische Marktquery: identisch zu fn_verwaltung_market_query in der DB.
+  const marketQuery = useMemo(
+    () => departmentName.split("/")[0].split("(")[0].trim(),
+    [departmentName],
+  );
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError(null);
+    setJobs(null);
+    getVerwaltungLiveJobsForQuery(marketQuery)
+      .then((res) => {
+        if (!alive) return;
+        if (!res) setError("Keine Live-Marktdaten verfügbar");
+        else setJobs(res);
+      })
+      .catch(() => alive && setError("Verbindung zur Bundesagentur fehlgeschlagen"))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [departmentKey, marketQuery]);
+
+  return (
+    <div className="mt-6 pt-5 border-t border-border">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-semibold text-text-2 uppercase tracking-wide flex items-center gap-2">
+          <Briefcase className="h-4 w-4" /> Arbeitsmarkt-Realität
+        </h4>
+        <span className="text-xs text-text-3">Quelle: BA Jobsuche · live</span>
+      </div>
+      {loading ? (
+        <Skeleton className="h-20 w-full" />
+      ) : error ? (
+        <div className="text-sm text-text-3 italic">{error}</div>
+      ) : jobs ? (
+        <div className="rounded-md border border-border bg-surface-1 p-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <Kpi label="Offene Stellen" value={jobs.total.toLocaleString("de-DE")} />
+            <Kpi label="Neu 7 Tage" value={jobs.trend_7d.toString()} />
+            <Kpi label="Neu 14 Tage" value={jobs.trend_14d.toString()} />
+            <Kpi label="Neu 30 Tage" value={jobs.trend_30d.toString()} />
+          </div>
+          {jobs.top_arbeitgeber.length > 0 && (
+            <div className="text-xs text-text-2">
+              <span className="text-text-3">Top-Arbeitgeber:</span>{" "}
+              {jobs.top_arbeitgeber.slice(0, 3).map((a) => `${a.name} (${a.count})`).join(" · ")}
+            </div>
+          )}
+          {jobs.top_orte.length > 0 && (
+            <div className="text-xs text-text-2 mt-1">
+              <span className="text-text-3">Top-Standorte:</span>{" "}
+              {jobs.top_orte.slice(0, 3).map((o) => `${o.name} (${o.count})`).join(" · ")}
+            </div>
+          )}
+          <div className="mt-3 flex items-center justify-between">
+            <span className="text-xs text-text-3">
+              Suche: <code className="text-text-2">{jobs.market_query}</code>
+            </span>
+            <a
+              href={`https://www.arbeitsagentur.de/jobsuche/suche?was=${encodeURIComponent(jobs.market_query)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+            >
+              Alle Stellen <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Kpi({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-surface-2 p-2">
+      <div className="text-[10px] uppercase tracking-wide text-text-3">{label}</div>
+      <div className="text-lg font-semibold text-text-1 leading-tight flex items-center gap-1">
+        {value}
+        <TrendingUp className="h-3 w-3 text-text-3" />
+      </div>
+    </div>
+  );
+}
+
 
 function Block({
   icon,
