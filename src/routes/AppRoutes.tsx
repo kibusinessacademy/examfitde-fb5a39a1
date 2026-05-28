@@ -228,6 +228,7 @@ const VerticalDetailPage = lazyRetry(() => import('@/pages/verticals/VerticalDet
 const VerwaltungOralRunner = lazyRetry(() => import('@/pages/verwaltung/VerwaltungOralRunner'));
 const VerwaltungDailyBriefPage = lazyRetry(() => import('@/pages/verwaltung/VerwaltungDailyBriefPage'));
 const VerwaltungCockpitPage = lazyRetry(() => import('@/pages/verwaltung/VerwaltungCockpitPage'));
+const VerwaltungAgentsPage = lazyRetry(() => import('@/pages/verwaltung/VerwaltungAgentsPage'));
 
 const MarketingProductPagesAdminPage = lazyRetry(() => import('@/pages/admin/MarketingProductPagesAdminPage'));
 
