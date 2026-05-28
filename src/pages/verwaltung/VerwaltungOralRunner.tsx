@@ -615,10 +615,6 @@ export default function VerwaltungOralRunner() {
                   {debriefing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Debrief"}
                 </Button>
               </div>
-                <Button variant="outline" onClick={handleDebrief} disabled={debriefing || !!debrief || turns.length < 3}>
-                  {debriefing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Debrief"}
-                </Button>
-              </div>
             </div>
             {errorMsg && <p className="text-sm text-destructive px-4 pb-3">{errorMsg}</p>}
           </Card>
