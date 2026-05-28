@@ -304,5 +304,80 @@ export async function getVerwaltungDailyBriefGovernanceRisks(
   return data as VDailyBriefGovernanceRisks;
 }
 
+// =============================================================================
+// VerwaltungsOS — Reality-Bridge v1 (DNA × Oral × Arbeitsmarkt)
+// =============================================================================
+
+export interface VRealityDepartment {
+  department_key: string;
+  department_name: string;
+  category: string;
+  market_query: string | null;
+  oral_sessions: number;
+  avg_escalation: number;
+  high_conflict_pct: number;
+  use_case_count: number;
+  oral_case_count: number;
+  reality_priority: "HIGH" | "MEDIUM" | "LOW" | "IDLE";
+}
+
+export interface VRealityBridge {
+  window_days: number;
+  generated_at: string;
+  departments: VRealityDepartment[];
+}
+
+/** DailyBrief Reality-Bridge — admin-gated, server-aggregiert. */
+export async function getVerwaltungDailyBriefRealityBridge(
+  windowDays = 7,
+  limit = 20,
+): Promise<VRealityBridge | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)(
+    "verwaltung_daily_brief_reality_bridge",
+    { _window_days: windowDays, _limit: limit },
+  );
+  if (error || !data || (data as { error?: string }).error) return null;
+  return data as VRealityBridge;
+}
+
+export interface VRealityJobsSummary {
+  total: number;
+  trend_7d: number;
+  trend_14d: number;
+  trend_30d: number;
+  top_arbeitgeber: { name: string; count: number }[];
+  top_orte: { name: string; count: number }[];
+  fetched_at: string;
+  source: string;
+  market_query: string;
+}
+
+/** Live BA-Jobsuche-Aggregat (Pass-Through zur Edge `verwaltung-arbeitsmarkt`). */
+export async function getVerwaltungLiveJobsForQuery(
+  marketQuery: string,
+): Promise<VRealityJobsSummary | null> {
+  if (!marketQuery || marketQuery.length < 2) return null;
+  const { data, error } = await supabase.functions.invoke("verwaltung-arbeitsmarkt", {
+    body: { was: marketQuery, size: 25 },
+  });
+  if (error || !data) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = data as any;
+  if (!d.aggregation) return null;
+  return {
+    total: d.aggregation.total ?? 0,
+    trend_7d: d.aggregation.trend?.last_7_days ?? 0,
+    trend_14d: d.aggregation.trend?.last_14_days ?? 0,
+    trend_30d: d.aggregation.trend?.last_30_days ?? 0,
+    top_arbeitgeber: (d.aggregation.top_arbeitgeber ?? []).slice(0, 5),
+    top_orte: (d.aggregation.top_orte ?? []).slice(0, 5),
+    fetched_at: d.fetched_at ?? new Date().toISOString(),
+    source: d.source ?? "BA_JOBSUCHE",
+    market_query: marketQuery,
+  };
+}
+
+
 
 
