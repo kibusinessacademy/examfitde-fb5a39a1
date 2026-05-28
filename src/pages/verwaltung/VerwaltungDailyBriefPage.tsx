@@ -206,6 +206,11 @@ export default function VerwaltungDailyBriefPage() {
       {/* Reality-Bridge v1: Oral-Eskalation × Live-Arbeitsmarkt */}
       <RealityBridgeSection reality={reality} loading={loading} />
 
+      {/* DailyBrief v2: AgentOS Workflow-Pressure */}
+      <WorkflowPressureSection wfPressure={wfPressure} loading={loading} />
+
+
+
 
       {/* Governance Risks */}
       <section>
