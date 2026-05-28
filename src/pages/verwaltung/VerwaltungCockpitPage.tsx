@@ -103,6 +103,11 @@ export default function VerwaltungCockpitPage() {
   const [jobsByDept, setJobsByDept] = useState<Record<string, VRealityJobsSummary | null>>({});
   const [modernization, setModernization] = useState<VModernizationOpportunities | null>(null);
   const [modernizationLoading, setModernizationLoading] = useState(true);
+  // Cut A5 — Outcome Loop
+  const [outcome, setOutcome] = useState<VOutcomeLoop | null>(null);
+  const [outcomeLoading, setOutcomeLoading] = useState(true);
+  const [capturing, setCapturing] = useState(false);
+
 
 
   useEffect(() => {
