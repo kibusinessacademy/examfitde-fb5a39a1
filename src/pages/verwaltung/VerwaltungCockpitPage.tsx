@@ -95,6 +95,9 @@ export default function VerwaltungCockpitPage() {
   const [loading, setLoading] = useState(true);
   const [lagebild, setLagebild] = useState<BundLagebild | null>(null);
   const [jobsByDept, setJobsByDept] = useState<Record<string, VRealityJobsSummary | null>>({});
+  const [modernization, setModernization] = useState<VModernizationOpportunities | null>(null);
+  const [modernizationLoading, setModernizationLoading] = useState(true);
+
 
   useEffect(() => {
     if (typeof window !== "undefined") window.localStorage.setItem(PERSONA_KEY, persona);
