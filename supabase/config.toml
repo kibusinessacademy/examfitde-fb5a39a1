@@ -507,3 +507,6 @@ verify_jwt = false
 
 [functions.verwaltung-bund-lagebild]
 verify_jwt = false
+
+[functions.verwaltung-realtime-webhook]
+verify_jwt = false
