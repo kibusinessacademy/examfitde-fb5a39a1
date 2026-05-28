@@ -49,3 +49,15 @@ Override via `scenario_snapshot.voice_id` möglich.
 
 ## Bridge
 Voll spiegelnde Patterns aus `conversation-os-tts/-stt`. ConversationOS bleibt für HR-Szenarien, VerwaltungsOS hat eigene Domain-Funktionen (Persona→Voice via SQL-Function statt character_brief.voice_id). Kein Fork des Engine-Pfads.
+
+## Cut B1b — UI-Integration (2026-05-28)
+
+`VerwaltungOralRunner` (`/branchen/verwaltung/oral/:departmentKey/:oralCaseKey`):
+- Voice-Toggle (Switch) im Header — Persist nur Session-lokal.
+- Push-to-Talk-Button ersetzt Textarea wenn voiceMode aktiv (mousedown/touchstart → start, mouseup/mouseleave/touchend → stop).
+- TTS-Auto-Playback nach jeder Persona-Reaktion via `verwaltung-voice-tts` (session_id+text; voice_id wird serverseitig aus `verwaltung_oral_sessions.persona` resolved).
+- STT via `verwaltung-voice-stt?session_id=<uuid>` (audio/webm; opus). Quality-Gate-Fail → Toast + bleibt im Voice-Modus.
+- 503 `voice_not_configured` → automatisches Fallback in Text-Modus + Toast.
+- BRIDGE_DONT_FORK: spiegelt `ConversationOSRunPage` Patterns (MediaRecorder, blob→fetch, audio.play).
+
+Anti-Drift weiterhin gültig: kein WebRTC/Full-Duplex, kein Interrupt während TTS, kein State-Schreiben auf Quality-Gate.
