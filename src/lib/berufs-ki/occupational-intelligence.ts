@@ -461,6 +461,57 @@ export async function getVerwaltungAgent(departmentKey: string): Promise<VAgentB
   return data as VAgentBundle;
 }
 
+// ---------------------------------------------------------------------------
+// VerwaltungsOS DailyBrief v2 — Workflow-Pressure (Cut A1)
+// ---------------------------------------------------------------------------
+
+export interface VWorkflowPressureTopWorkflow {
+  workflow_key: string;
+  workflow_name: string;
+  category: string;
+  escalation_count: number;
+  automation_count: number;
+  kpi_count: number;
+}
+
+export interface VWorkflowPressureDept {
+  department_key: string;
+  display_name: string | null;
+  classification: "WORKFLOW_PRESSURE" | "AUTOMATION_OPPORTUNITY" | "GOVERNANCE_GAP" | "OK";
+  pressure_score: number;
+  workflow_count: number;
+  pct_with_escalations: number | null;
+  pct_with_automation: number | null;
+  pct_with_kpis: number | null;
+  avg_escalation: number | null;
+  high_conflict_pct: number | null;
+  sessions_in_window: number;
+  top_workflows: VWorkflowPressureTopWorkflow[] | null;
+}
+
+export interface VWorkflowPressure {
+  window_days: number;
+  generated_at: string;
+  department_count: number;
+  pressure_avg: number | null;
+  classification_mix: Record<string, number>;
+  top_pressure: VWorkflowPressureDept[];
+  departments: VWorkflowPressureDept[];
+}
+
+export async function getVerwaltungDailyBriefWorkflowPressure(
+  windowDays = 7,
+): Promise<VWorkflowPressure | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)(
+    "verwaltung_daily_brief_workflow_pressure",
+    { _window_days: windowDays },
+  );
+  if (error || !data) return null;
+  return data as VWorkflowPressure;
+}
+
+
 
 
 
