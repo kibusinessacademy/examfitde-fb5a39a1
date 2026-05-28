@@ -214,13 +214,13 @@ if (ue || !u?.id) {
 
 // Verify audit trail for last accepted webhook
 console.log("\n[Audit trail]");
-const auditRes = await fetch(`${URL}/rest/v1/auto_heal_log?action_type=eq.verwaltung_realtime_webhook_received&order=created_at.desc&limit=5&select=created_at,result_status,context`, {
+const auditRes = await fetch(`${URL}/rest/v1/auto_heal_log?action_type=eq.verwaltung_realtime_webhook_received&order=created_at.desc&limit=5&select=created_at,result_status,metadata,input_params`, {
   headers: { apikey: SR, Authorization: `Bearer ${SR}` },
 });
 const audits = await auditRes.json();
 if (Array.isArray(audits) && audits.length >= 3) {
   ok(`recent webhook audits: ${audits.length} rows`);
-  const outcomes = new Set(audits.map(a => a.context?.outcome).filter(Boolean));
+  const outcomes = new Set(audits.map(a => a.metadata?.outcome ?? a.input_params?.outcome).filter(Boolean));
   console.log(`     outcomes seen: ${[...outcomes].join(", ")}`);
 } else {
   bad(`audit trail missing: ${JSON.stringify(audits).slice(0,200)}`);
