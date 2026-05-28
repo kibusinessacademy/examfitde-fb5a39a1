@@ -24,7 +24,7 @@ const bad  = (m) => { console.log(`  ✗ ${m}`); failed++; };
 console.log("\n[1] anon must be blocked");
 {
   const { error } = await anon.rpc("verwaltung_daily_brief_workflow_pressure", { _window_days: 7 });
-  if (error && /admin role required/i.test(error.message)) ok("anon blocked (admin role required)");
+  if (error && /(admin role required|permission denied)/i.test(error.message)) ok(`anon blocked: ${error.message}`);
   else bad(`anon NOT blocked: ${error?.message ?? "no error"}`);
 }
 
