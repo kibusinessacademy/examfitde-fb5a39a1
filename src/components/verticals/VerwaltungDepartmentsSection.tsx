@@ -9,13 +9,16 @@ import { Link } from "react-router-dom";
 import {
   listVerwaltungDepartments,
   getVerwaltungDepartmentDna,
+  getVerwaltungLiveJobsForQuery,
   type VerwaltungDepartmentSummary,
   type VerwaltungDepartmentDna,
+  type VRealityJobsSummary,
 } from "@/lib/berufs-ki/occupational-intelligence";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, MessageSquare, AlertTriangle, Workflow, FileText, Target, Users2, ShieldAlert, Play } from "lucide-react";
+import { Building2, MessageSquare, AlertTriangle, Workflow, FileText, Target, Users2, ShieldAlert, Play, Briefcase, TrendingUp, ExternalLink } from "lucide-react";
+
 
 
 const CLUSTER_ORDER = [
