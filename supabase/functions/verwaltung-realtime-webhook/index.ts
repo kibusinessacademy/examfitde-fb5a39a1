@@ -1,32 +1,37 @@
 /**
- * VerwaltungsOS Realtime Webhook — Cut B3
+ * VerwaltungsOS Voice-Session Webhook (VibeOS Native) — Cut B3
  *
- * ElevenLabs post-call webhook receiver. Validates HMAC signature, extracts
- * the Convai transcript, generates a Verwaltungs-Debrief via the Lovable AI
- * Gateway, and persists scorecard + debrief on verwaltung_oral_sessions via
- * verwaltung_finalize_realtime_session (service-role, idempotent).
+ * Generischer Webhook-Endpoint für post-session Debrief & Scorecard.
+ * Akzeptiert ein provider-neutrales Payload (z. B. vom VibeOS Native Voice
+ * Agent im Browser oder von einem eigenen Cron/n8n-Trigger).
  *
- * Auth: Public (no JWT) — verified by ELEVENLABS_WEBHOOK_SECRET HMAC-SHA256.
+ * Auth: Public (no JWT) — verifiziert per HMAC-SHA256 + VIBEOS_WEBHOOK_SECRET.
+ * Signatur-Header: `vibeos-signature: t=<unix>,v0=<hex>` (kompatibles Format).
  *
- * ElevenLabs Webhook-Konfiguration in der Web-Konsole:
- *   URL:     <PROJECT_URL>/functions/v1/verwaltung-realtime-webhook
- *   Events:  post_call_transcription
- *   Secret:  ELEVENLABS_WEBHOOK_SECRET
+ * Erwartetes Payload (alle Felder generisch — kein Provider-Lock-in):
+ *   {
+ *     "session_id":      "<uuid>",                  // Bridge-Session (Pflicht)
+ *     "external_id":     "<string>",                // optional, Trace-ID des Triggers
+ *     "transcript": [                               // Pflicht
+ *       { "role": "user|persona|agent", "content": "..." }
+ *     ],
+ *     "metadata": { ... }                           // optional
+ *   }
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, elevenlabs-signature",
+  "Access-Control-Allow-Headers": "content-type, vibeos-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SUPABASE_URL  = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const WEBHOOK_SECRET = Deno.env.get("ELEVENLABS_WEBHOOK_SECRET") ?? "";
+const SUPABASE_URL   = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const WEBHOOK_SECRET = Deno.env.get("VIBEOS_WEBHOOK_SECRET") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
-const MODEL = "google/gemini-2.5-flash";
+const MODEL  = "google/gemini-3-flash-preview";
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 type Json = Record<string, unknown>;
@@ -37,7 +42,7 @@ function json(status: number, body: Json) {
   });
 }
 
-// ---- HMAC verification (ElevenLabs format: t=<ts>,v0=<hex>) ----
+// ---- HMAC-SHA256: header format `t=<unix>,v0=<hex>` ----
 async function verifySignature(rawBody: string, header: string | null, secret: string): Promise<boolean> {
   if (!header || !secret) return false;
   const parts = Object.fromEntries(header.split(",").map(p => {
@@ -47,7 +52,6 @@ async function verifySignature(rawBody: string, header: string | null, secret: s
   const ts = parts["t"];
   const sig = parts["v0"];
   if (!ts || !sig) return false;
-  // 30-min tolerance
   const tsNum = Number(ts);
   if (!Number.isFinite(tsNum) || Math.abs(Date.now() / 1000 - tsNum) > 1800) return false;
 
@@ -57,24 +61,18 @@ async function verifySignature(rawBody: string, header: string | null, secret: s
   );
   const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`${ts}.${rawBody}`));
   const hex = Array.from(new Uint8Array(mac)).map(b => b.toString(16).padStart(2, "0")).join("");
-  // timing-safe compare
   if (hex.length !== sig.length) return false;
   let diff = 0;
   for (let i = 0; i < hex.length; i++) diff |= hex.charCodeAt(i) ^ sig.charCodeAt(i);
   return diff === 0;
 }
 
-// ---- AI Debrief ----
 async function callAI(messages: Array<{ role: string; content: string }>): Promise<Json> {
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY_MISSING");
   const res = await fetch(AI_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      response_format: { type: "json_object" },
-    }),
+    body: JSON.stringify({ model: MODEL, messages, response_format: { type: "json_object" } }),
   });
   if (!res.ok) throw new Error(`AI_ERROR_${res.status}`);
   const data = await res.json();
@@ -107,19 +105,20 @@ function buildScorecard(globalScores: Json, category: string) {
   return { per_dim, overall: Math.round(overall), weights_used: w, category };
 }
 
-// Normalize Convai transcript → role/content turns + plain transcript text
-function normalizeTranscript(payload: Json): { turns: Array<{ role: string; content: string }>; text: string; convaiId: string | null } {
-  // ElevenLabs post_call_transcription payload shape:
-  //   { type: "post_call_transcription", data: { conversation_id, transcript: [ { role: "user"|"agent", message } ] } }
-  const data = (payload?.data ?? payload) as Json;
-  const convaiId = (data?.conversation_id as string) ?? (data?.conversation?.["id"] as string) ?? null;
-  const rawTurns = (data?.transcript as Json[]) ?? (data?.messages as Json[]) ?? [];
-  const turns = rawTurns.map(t => ({
-    role: String(t?.role ?? "agent") === "user" ? "user" : "persona",
-    content: String(t?.message ?? t?.content ?? t?.text ?? "").trim(),
-  })).filter(t => t.content.length > 0);
+function normalizeTranscript(payload: Json): { turns: Array<{ role: string; content: string }>; text: string; sessionId: string | null; externalId: string | null } {
+  const sessionId  = (payload?.session_id as string) ?? null;
+  const externalId = (payload?.external_id as string) ?? null;
+  const rawTurns   = (payload?.transcript as Json[]) ?? (payload?.messages as Json[]) ?? [];
+  const turns = rawTurns.map(t => {
+    const role = String(t?.role ?? "agent");
+    const normRole = role === "user" ? "user" : "persona";
+    return {
+      role: normRole,
+      content: String(t?.message ?? t?.content ?? t?.text ?? "").trim(),
+    };
+  }).filter(t => t.content.length > 0);
   const text = turns.map((t, i) => `[${i}] ${t.role}: ${t.content}`).join("\n");
-  return { turns, text, convaiId };
+  return { turns, text, sessionId, externalId };
 }
 
 function debriefSystem(category: string): string {
@@ -148,7 +147,6 @@ Liefere strikt JSON:
 }`;
 }
 
-// ---- handler ----
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "POST")    return json(405, { error: "method_not_allowed" });
@@ -156,12 +154,11 @@ Deno.serve(async (req) => {
   if (!WEBHOOK_SECRET) return json(503, { error: "webhook_not_configured" });
 
   const rawBody = await req.text();
-  const sigHeader = req.headers.get("elevenlabs-signature") ?? req.headers.get("ElevenLabs-Signature");
+  const sigHeader = req.headers.get("vibeos-signature") ?? req.headers.get("VibeOS-Signature");
   const valid = await verifySignature(rawBody, sigHeader, WEBHOOK_SECRET);
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
   if (!valid) {
-    // Audit attempt with stub session_id to satisfy contract
     await admin.rpc("fn_emit_audit", {
       _action_type: "verwaltung_realtime_webhook_received",
       _target_type: "system", _payload: {
@@ -183,33 +180,29 @@ Deno.serve(async (req) => {
     return json(400, { error: "invalid_json" });
   }
 
-  const { turns, text, convaiId } = normalizeTranscript(payload);
-  if (!convaiId) return json(400, { error: "missing_conversation_id" });
+  const { turns, text, sessionId, externalId } = normalizeTranscript(payload);
+  if (!sessionId) return json(400, { error: "missing_session_id" });
 
-  // Audit accepted before processing
+  // Audit accepted before processing — convai_session_id slot now holds external_id || session_id for trace
   await admin.rpc("fn_emit_audit", {
     _action_type: "verwaltung_realtime_webhook_received",
     _target_type: "system", _payload: {
-      convai_session_id: convaiId,
-      session_id: null,
+      convai_session_id: externalId ?? sessionId,
+      session_id: sessionId,
       outcome: "accepted",
       caller_role: "service_role",
     },
   });
 
-  // Resolve session (only to get category for weight selection)
   const { data: sess } = await admin
     .from("verwaltung_oral_sessions")
     .select("id, scenario_snapshot, scores, debrief")
-    .eq("realtime_convai_session_id", convaiId)
-    .order("realtime_started_at", { ascending: false, nullsFirst: false })
-    .limit(1)
+    .eq("id", sessionId)
     .maybeSingle();
 
   if (!sess) {
-    // Persist via RPC to log session_not_found audit — RPC handles missing path
     await admin.rpc("verwaltung_finalize_realtime_session", {
-      _convai_session_id: convaiId,
+      _convai_session_id: externalId ?? sessionId,
       _transcript: { turns, raw: payload },
       _scores: null,
       _debrief: null,
@@ -226,13 +219,12 @@ Deno.serve(async (req) => {
   try {
     debriefAI = await callAI([
       { role: "system", content: debriefSystem(category) },
-      { role: "user", content: `Transkript:\n${text || "(leer)"}` },
+      { role: "user",   content: `Transkript:\n${text || "(leer)"}` },
     ]);
   } catch (e) {
-    console.error("[verwaltung-realtime-webhook] AI fail", e);
-    // Persist transcript-only finalize so re-runs don't try forever
+    console.error("[vibeos-webhook] AI fail", e);
     await admin.rpc("verwaltung_finalize_realtime_session", {
-      _convai_session_id: convaiId,
+      _convai_session_id: externalId ?? sessionId,
       _transcript: { turns, raw: payload },
       _scores: { per_dim: {}, overall: 0, weights_used: {}, category, ai_error: String(e) },
       _debrief: { overall_outcome: "verfehlt", ai_error: String(e) },
@@ -241,16 +233,16 @@ Deno.serve(async (req) => {
   }
 
   const scorecard = buildScorecard((debriefAI?.scores ?? {}) as Json, category);
-  const debrief = { ...debriefAI, scorecard, source: "convai_webhook" };
+  const debrief   = { ...debriefAI, scorecard, source: "vibeos_webhook" };
 
   const { data: finRes, error: finErr } = await admin.rpc("verwaltung_finalize_realtime_session", {
-    _convai_session_id: convaiId,
+    _convai_session_id: externalId ?? sessionId,
     _transcript: { turns, raw: payload },
     _scores: scorecard,
     _debrief: debrief,
   });
   if (finErr) {
-    console.error("[verwaltung-realtime-webhook] finalize fail", finErr);
+    console.error("[vibeos-webhook] finalize fail", finErr);
     return json(500, { error: "finalize_failed", detail: finErr.message });
   }
 
