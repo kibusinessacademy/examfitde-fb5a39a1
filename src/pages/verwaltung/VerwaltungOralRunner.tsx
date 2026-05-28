@@ -1,11 +1,14 @@
 /**
- * VerwaltungsOS Oral Bridge v1 — Runner UI
+ * VerwaltungsOS Oral Bridge v1 — Runner UI (+ Cut B1b Voice-Layer)
  *
  * Route: /branchen/verwaltung/oral/:departmentKey/:oralCaseKey
  * Lädt DNA-Szenario (read-only), startet Bridge-Session, führt Turn-Loop,
  * zeigt Eskalations-Meter + Live-Eval + Debrief-Scorecard.
+ *
+ * Cut B1b: Voice-Toggle + Push-to-Talk + Persona-TTS-Playback.
+ * BRIDGE_DONT_FORK: spiegelt ConversationOSRunPage Voice-Pattern.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -19,7 +22,13 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, MessagesSquare, AlertTriangle, ShieldCheck, Loader2, Flame } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import {
+  ChevronLeft, MessagesSquare, AlertTriangle, ShieldCheck,
+  Loader2, Flame, Mic, MicOff, Volume2,
+} from "lucide-react";
 
 type TurnEntry = {
   role: "persona" | "user";
@@ -70,6 +79,15 @@ export default function VerwaltungOralRunner() {
   const [authReady, setAuthReady] = useState<null | boolean>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // ---- Voice (Cut B1b) ----
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [personaSpeaking, setPersonaSpeaking] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuthReady(!!data.session));
   }, []);
@@ -88,6 +106,116 @@ export default function VerwaltungOralRunner() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [turns, debrief]);
+
+  // Cleanup audio on unmount
+  useEffect(() => () => { audioElRef.current?.pause(); }, []);
+
+  // ---- TTS Playback ----
+  const speak = useCallback(async (text: string) => {
+    if (!voiceMode || !text || !sessionId) return;
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) return;
+      setPersonaSpeaking(true);
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verwaltung-voice-tts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authSession.access_token}`,
+          },
+          body: JSON.stringify({ session_id: sessionId, text }),
+        },
+      );
+      if (!resp.ok) {
+        const detail = await resp.json().catch(() => ({}));
+        if (resp.status === 503 && detail?.error === "voice_not_configured") {
+          toast.error("Voice-Layer nicht konfiguriert", { description: "Text-Modus bleibt nutzbar." });
+          setVoiceMode(false);
+        }
+        setPersonaSpeaking(false);
+        return;
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      if (audioElRef.current) audioElRef.current.pause();
+      const audio = new Audio(url);
+      audioElRef.current = audio;
+      audio.onended = () => { setPersonaSpeaking(false); URL.revokeObjectURL(url); };
+      audio.onerror = () => { setPersonaSpeaking(false); URL.revokeObjectURL(url); };
+      await audio.play();
+    } catch (e) {
+      console.error("[verwaltung-tts] play error", e);
+      setPersonaSpeaking(false);
+    }
+  }, [voiceMode, sessionId]);
+
+  // ---- Push-to-Talk ----
+  const startRecording = async () => {
+    if (isRecording || loading || isTranscribing || !!debrief) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const mr = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      audioChunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        await transcribeAndSend(blob);
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setIsRecording(true);
+    } catch (e: any) {
+      toast.error("Mikrofon-Zugriff verweigert", { description: e?.message });
+    }
+  };
+
+  const stopRecording = () => {
+    if (!isRecording) return;
+    setIsRecording(false);
+    mediaRecorderRef.current?.stop();
+  };
+
+  const transcribeAndSend = async (blob: Blob) => {
+    if (!sessionId) return;
+    setIsTranscribing(true);
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) throw new Error("Auth abgelaufen");
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verwaltung-voice-stt?session_id=${encodeURIComponent(sessionId)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": blob.type || "audio/webm",
+            Authorization: `Bearer ${authSession.access_token}`,
+          },
+          body: blob,
+        },
+      );
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        if (resp.status === 503 && data?.error === "voice_not_configured") {
+          toast.error("Voice-Layer nicht konfiguriert");
+          setVoiceMode(false);
+        } else {
+          toast.error("Transkription fehlgeschlagen", { description: data?.error });
+        }
+        return;
+      }
+      const transcript = (data?.transcript ?? "").trim();
+      if (!transcript) { toast("Nichts erkannt. Bitte nochmal sprechen."); return; }
+      await handleSend(transcript);
+    } catch (e: any) {
+      toast.error("Sprach-Fehler", { description: e?.message });
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
 
   async function invokeBridge(payload: Record<string, unknown>) {
     const { data, error } = await supabase.functions.invoke("verwaltung-oral-bridge", { body: payload });
@@ -109,6 +237,10 @@ export default function VerwaltungOralRunner() {
       setSessionId(data.session_id);
       setEscalation(data.escalation_state ?? 0);
       setTurns([{ role: "persona", content: data.persona_utterance, emotion: data.persona_emotion }]);
+      if (voiceMode && data.persona_utterance) {
+        // speak() reads sessionId from state — defer to next tick
+        setTimeout(() => { void speakWith(data.session_id, data.persona_utterance); }, 50);
+      }
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e));
     } finally {
@@ -116,11 +248,38 @@ export default function VerwaltungOralRunner() {
     }
   }
 
-  async function handleSend() {
-    if (!sessionId || !input.trim()) return;
+  // Local speak that doesn't depend on stale sessionId in closure
+  const speakWith = async (sid: string, text: string) => {
+    if (!voiceMode || !text) return;
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession) return;
+      setPersonaSpeaking(true);
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verwaltung-voice-tts`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authSession.access_token}` },
+          body: JSON.stringify({ session_id: sid, text }),
+        },
+      );
+      if (!resp.ok) { setPersonaSpeaking(false); return; }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      if (audioElRef.current) audioElRef.current.pause();
+      const audio = new Audio(url);
+      audioElRef.current = audio;
+      audio.onended = () => { setPersonaSpeaking(false); URL.revokeObjectURL(url); };
+      audio.onerror = () => { setPersonaSpeaking(false); URL.revokeObjectURL(url); };
+      await audio.play();
+    } catch { setPersonaSpeaking(false); }
+  };
+
+  async function handleSend(overrideText?: string) {
+    const msg = (overrideText ?? input).trim();
+    if (!sessionId || !msg) return;
     setErrorMsg(null);
-    const msg = input.trim();
-    setInput("");
+    if (!overrideText) setInput("");
     setTurns((t) => [...t, { role: "user", content: msg }]);
     setLoading(true);
     try {
@@ -128,7 +287,6 @@ export default function VerwaltungOralRunner() {
       setEscalation(data.escalation_state ?? 0);
       setTurns((t) => {
         const updated = [...t];
-        // attach eval to last user turn
         for (let i = updated.length - 1; i >= 0; i--) {
           if (updated[i].role === "user") { updated[i] = { ...updated[i], evaluation: data.evaluation }; break; }
         }
@@ -140,6 +298,9 @@ export default function VerwaltungOralRunner() {
         });
         return updated;
       });
+      if (voiceMode && data.persona_utterance) {
+        void speak(data.persona_utterance);
+      }
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e));
     } finally {
@@ -192,17 +353,38 @@ export default function VerwaltungOralRunner() {
         <ChevronLeft className="h-4 w-4 mr-1" /> Zurück zur Fachbereichs-Übersicht
       </Link>
 
-      <div className="mb-6">
-        <Badge variant="outline" className="mb-2">{dna.category} · {dna.department_name}</Badge>
-        <h1 className="text-2xl md:text-3xl font-bold text-text-1">{oralCase.scenario_title}</h1>
-        <div className="flex flex-wrap gap-2 mt-2 text-sm text-text-2">
-          {oralCase.role_counterpart && <span>Gegenüber: <strong className="text-text-1">{oralCase.role_counterpart}</strong></span>}
-          <span>· Konflikt: <strong className={conflict === "high" ? "text-destructive" : conflict === "medium" ? "text-warning" : "text-text-1"}>{conflict}</strong></span>
-          {oralCase.legal_complexity && <span>· Recht: {oralCase.legal_complexity}</span>}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Badge variant="outline" className="mb-2">{dna.category} · {dna.department_name}</Badge>
+          <h1 className="text-2xl md:text-3xl font-bold text-text-1">{oralCase.scenario_title}</h1>
+          <div className="flex flex-wrap gap-2 mt-2 text-sm text-text-2">
+            {oralCase.role_counterpart && <span>Gegenüber: <strong className="text-text-1">{oralCase.role_counterpart}</strong></span>}
+            <span>· Konflikt: <strong className={conflict === "high" ? "text-destructive" : conflict === "medium" ? "text-warning" : "text-text-1"}>{conflict}</strong></span>
+            {oralCase.legal_complexity && <span>· Recht: {oralCase.legal_complexity}</span>}
+          </div>
+          {oralCase.training_focus && (
+            <p className="text-sm text-text-3 mt-2 italic">Trainings-Fokus: {oralCase.training_focus}</p>
+          )}
         </div>
-        {oralCase.training_focus && (
-          <p className="text-sm text-text-3 mt-2 italic">Trainings-Fokus: {oralCase.training_focus}</p>
-        )}
+
+        {/* Voice-Toggle */}
+        <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2">
+          {voiceMode ? <Mic className="h-4 w-4 text-primary" /> : <MicOff className="h-4 w-4 text-text-3" />}
+          <Label htmlFor="vos-voice-mode" className="text-xs cursor-pointer select-none">Voice-Modus</Label>
+          <Switch
+            id="vos-voice-mode"
+            checked={voiceMode}
+            onCheckedChange={(v) => {
+              setVoiceMode(v);
+              if (!v && audioElRef.current) audioElRef.current.pause();
+            }}
+          />
+          {personaSpeaking && (
+            <span className="ml-1 inline-flex items-center gap-1 text-xs text-primary">
+              <Volume2 className="h-3.5 w-3.5 animate-pulse" /> Persona spricht
+            </span>
+          )}
+        </div>
       </div>
 
       {!sessionId ? (
@@ -212,6 +394,7 @@ export default function VerwaltungOralRunner() {
           <p className="text-text-2 mb-6 max-w-xl mx-auto">
             Du übernimmst die Rolle des Verwaltungsmitarbeiters. Das Gegenüber reagiert dynamisch auf
             deine Antworten — Eskalation, Emotion und Governance-Bewertung laufen live mit.
+            {voiceMode && " Voice-Modus aktiv: Push-to-Talk + Persona-Stimme."}
           </p>
           <Button size="lg" onClick={handleStart} disabled={starting}>
             {starting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird vorbereitet…</> : "Simulation starten"}
@@ -249,6 +432,11 @@ export default function VerwaltungOralRunner() {
                   <Loader2 className="h-4 w-4 animate-spin" /> Persona reagiert…
                 </div>
               )}
+              {isTranscribing && (
+                <div className="flex items-center gap-2 text-text-3 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Transkribiere Sprachaufnahme…
+                </div>
+              )}
               {debrief && (
                 <Card className="mt-4 p-4 bg-surface-2 border-primary/30">
                   <h3 className="font-semibold text-text-1 mb-3 flex items-center gap-2">
@@ -266,17 +454,45 @@ export default function VerwaltungOralRunner() {
               )}
             </div>
             <div className="border-t border-border p-3 flex gap-2">
-              <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSend(); }}
-                placeholder={debrief ? "Simulation abgeschlossen." : "Deine Antwort als Verwaltungsmitarbeiter… (Cmd/Ctrl+Enter)"}
-                disabled={loading || !!debrief}
-                rows={2}
-                className="resize-none"
-              />
+              {voiceMode ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <Button
+                    size="lg"
+                    variant={isRecording ? "destructive" : "petrol"}
+                    onMouseDown={startRecording}
+                    onMouseUp={stopRecording}
+                    onMouseLeave={isRecording ? stopRecording : undefined}
+                    onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
+                    onTouchEnd={(e) => { e.preventDefault(); stopRecording(); }}
+                    disabled={loading || isTranscribing || personaSpeaking || !!debrief}
+                    className="min-w-[220px] select-none"
+                  >
+                    {isRecording ? (
+                      <><Mic className="h-5 w-5 mr-2 animate-pulse" /> Aufnahme läuft – loslassen zum Senden</>
+                    ) : isTranscribing ? (
+                      <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Transkribiere…</>
+                    ) : personaSpeaking ? (
+                      <><Volume2 className="h-5 w-5 mr-2" /> Persona spricht…</>
+                    ) : (
+                      <><Mic className="h-5 w-5 mr-2" /> Push-to-Talk – gedrückt halten</>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSend(); }}
+                  placeholder={debrief ? "Simulation abgeschlossen." : "Deine Antwort als Verwaltungsmitarbeiter… (Cmd/Ctrl+Enter)"}
+                  disabled={loading || !!debrief}
+                  rows={2}
+                  className="resize-none"
+                />
+              )}
               <div className="flex flex-col gap-2">
-                <Button onClick={handleSend} disabled={loading || !input.trim() || !!debrief}>Senden</Button>
+                {!voiceMode && (
+                  <Button onClick={() => handleSend()} disabled={loading || !input.trim() || !!debrief}>Senden</Button>
+                )}
                 <Button variant="outline" onClick={handleDebrief} disabled={debriefing || !!debrief || turns.length < 3}>
                   {debriefing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Debrief"}
                 </Button>
