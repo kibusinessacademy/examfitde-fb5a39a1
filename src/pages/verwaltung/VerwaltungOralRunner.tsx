@@ -1,17 +1,18 @@
 /**
- * VerwaltungsOS Oral Bridge v1 — Runner UI (+ Cut B1b Voice-Layer)
+ * VerwaltungsOS Oral Bridge v1 — Runner UI
  *
- * Route: /branchen/verwaltung/oral/:departmentKey/:oralCaseKey
- * Lädt DNA-Szenario (read-only), startet Bridge-Session, führt Turn-Loop,
- * zeigt Eskalations-Meter + Live-Eval + Debrief-Scorecard.
+ * Cuts:
+ *  - B1a (Bridge text-turn loop + escalation/eval)
+ *  - B1b (Server Voice-Modus: STT/TTS Edge-Functions, Push-to-Talk)
+ *  - B2  (VibeOS Native Voice Agent: Browser Web Speech API STT + Lovable AI
+ *         Gateway via Bridge + SpeechSynthesis TTS — kein externer Provider)
+ *  - B3  (VibeOS Webhook: post-session Debrief + Scorecard via HMAC)
  *
- * Cut B1b: Voice-Toggle + Push-to-Talk + Persona-TTS-Playback.
- * BRIDGE_DONT_FORK: spiegelt ConversationOSRunPage Voice-Pattern.
+ * Anti-Drift: Kein ElevenLabs, kein Convai, kein WebRTC-Provider.
  */
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useConversation } from "@elevenlabs/react";
 import {
   getVerwaltungDepartmentDna,
   type VerwaltungDepartmentDna,
@@ -61,6 +62,12 @@ function emotionTone(e?: string) {
   }
 }
 
+// Browser-native Web Speech API capability detection
+function getSpeechRecognition(): any | null {
+  if (typeof window === "undefined") return null;
+  return (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null;
+}
+
 export default function VerwaltungOralRunner() {
   const { departmentKey = "", oralCaseKey = "" } = useParams();
   const navigate = useNavigate();
@@ -79,7 +86,8 @@ export default function VerwaltungOralRunner() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState<null | boolean>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // ---- Voice (Cut B1b) ----
+
+  // ---- Server-Voice (Cut B1b) ----
   const [voiceMode, setVoiceMode] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -88,36 +96,15 @@ export default function VerwaltungOralRunner() {
   const audioChunksRef = useRef<Blob[]>([]);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
 
-  // ---- Realtime (Cut B2b) ----
-  const [realtimeMode, setRealtimeMode] = useState(false);
-  const [realtimeConnecting, setRealtimeConnecting] = useState(false);
-  const realtimeConvaiSidRef = useRef<string | null>(null);
-
-  const conversation = useConversation({
-    onConnect: () => {
-      toast.success("Realtime verbunden");
-    },
-    onDisconnect: () => {
-      // best-effort: end RPC if we have a session
-      if (sessionId && realtimeConvaiSidRef.current) {
-        void (supabase.rpc as any)("verwaltung_end_realtime_session", { _session_id: sessionId });
-      }
-      realtimeConvaiSidRef.current = null;
-    },
-    onError: (e: any) => {
-      console.error("[verwaltung-realtime]", e);
-      toast.error("Realtime-Fehler", { description: typeof e === "string" ? e : e?.message });
-    },
-    onMessage: (msg: any) => {
-      // Mirror Convai transcripts into the turn-list (read-only — Bridge-Score is bypassed in realtime)
-      if (msg?.source === "user" && msg?.message) {
-        setTurns((t) => [...t, { role: "user", content: String(msg.message) }]);
-      } else if (msg?.source === "ai" && msg?.message) {
-        setTurns((t) => [...t, { role: "persona", content: String(msg.message) }]);
-      }
-    },
-  });
-
+  // ---- VibeOS Native Voice Agent (Cut B2 — Browser Web Speech API) ----
+  const [agentMode, setAgentMode] = useState(false);
+  const [agentLive, setAgentLive] = useState(false);
+  const [agentListening, setAgentListening] = useState(false);
+  const [agentSpeaking, setAgentSpeaking] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const agentLiveRef = useRef(false);   // mirrors agentLive in event handlers
+  const ttsVoiceRef  = useRef<SpeechSynthesisVoice | null>(null);
+  const speechSupported = useMemo(() => !!getSpeechRecognition() && typeof window !== "undefined" && "speechSynthesis" in window, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuthReady(!!data.session));
@@ -138,10 +125,29 @@ export default function VerwaltungOralRunner() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [turns, debrief]);
 
-  // Cleanup audio on unmount
-  useEffect(() => () => { audioElRef.current?.pause(); }, []);
+  // Pick a German voice once available
+  useEffect(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const pick = () => {
+      const voices = window.speechSynthesis.getVoices();
+      ttsVoiceRef.current =
+        voices.find(v => v.lang?.toLowerCase().startsWith("de")) ??
+        voices.find(v => v.default) ??
+        voices[0] ?? null;
+    };
+    pick();
+    window.speechSynthesis.addEventListener?.("voiceschanged", pick);
+    return () => window.speechSynthesis.removeEventListener?.("voiceschanged", pick);
+  }, []);
 
-  // ---- TTS Playback ----
+  // Cleanup on unmount
+  useEffect(() => () => {
+    audioElRef.current?.pause();
+    try { recognitionRef.current?.stop?.(); } catch {}
+    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+  }, []);
+
+  // ---- Server-TTS (B1b) ----
   const speak = useCallback(async (text: string) => {
     if (!voiceMode || !text || !sessionId) return;
     try {
@@ -152,10 +158,7 @@ export default function VerwaltungOralRunner() {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verwaltung-voice-tts`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authSession.access_token}`,
-          },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authSession.access_token}` },
           body: JSON.stringify({ session_id: sessionId, text }),
         },
       );
@@ -182,7 +185,7 @@ export default function VerwaltungOralRunner() {
     }
   }, [voiceMode, sessionId]);
 
-  // ---- Push-to-Talk ----
+  // ---- Server STT push-to-talk (B1b) ----
   const startRecording = async () => {
     if (isRecording || loading || isTranscribing || !!debrief) return;
     try {
@@ -221,10 +224,7 @@ export default function VerwaltungOralRunner() {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verwaltung-voice-stt?session_id=${encodeURIComponent(sessionId)}`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": blob.type || "audio/webm",
-            Authorization: `Bearer ${authSession.access_token}`,
-          },
+          headers: { "Content-Type": blob.type || "audio/webm", Authorization: `Bearer ${authSession.access_token}` },
           body: blob,
         },
       );
@@ -255,6 +255,97 @@ export default function VerwaltungOralRunner() {
     return data;
   }
 
+  // ---- VibeOS Native Voice Agent: SpeechSynthesis TTS ----
+  const agentSpeak = useCallback((text: string): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!text || typeof window === "undefined" || !("speechSynthesis" in window)) { resolve(); return; }
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = "de-DE";
+        if (ttsVoiceRef.current) u.voice = ttsVoiceRef.current;
+        u.rate = 1.0; u.pitch = 1.0;
+        u.onstart = () => setAgentSpeaking(true);
+        u.onend = () => { setAgentSpeaking(false); resolve(); };
+        u.onerror = () => { setAgentSpeaking(false); resolve(); };
+        window.speechSynthesis.speak(u);
+      } catch { setAgentSpeaking(false); resolve(); }
+    });
+  }, []);
+
+  // ---- VibeOS Native Voice Agent: SpeechRecognition (continuous, single utterance per cycle) ----
+  const startAgentListening = useCallback(() => {
+    const SR = getSpeechRecognition();
+    if (!SR || !agentLiveRef.current) return;
+    try {
+      const rec = new SR();
+      rec.lang = "de-DE";
+      rec.interimResults = false;
+      rec.continuous = false;
+      rec.maxAlternatives = 1;
+      recognitionRef.current = rec;
+      setAgentListening(true);
+      rec.onresult = async (e: any) => {
+        const transcript = String(e?.results?.[0]?.[0]?.transcript ?? "").trim();
+        setAgentListening(false);
+        if (!transcript) {
+          // re-arm
+          if (agentLiveRef.current) setTimeout(() => startAgentListening(), 250);
+          return;
+        }
+        await handleSend(transcript);
+        // after persona response speaks (handled in handleSend), re-arm in onend (see agentSpeak chain)
+      };
+      rec.onerror = (e: any) => {
+        setAgentListening(false);
+        if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
+          toast.error("Mikrofon-Zugriff verweigert");
+          agentLiveRef.current = false; setAgentLive(false);
+          return;
+        }
+        if (agentLiveRef.current) setTimeout(() => startAgentListening(), 400);
+      };
+      rec.onend = () => {
+        setAgentListening(false);
+      };
+      rec.start();
+    } catch (err: any) {
+      setAgentListening(false);
+      toast.error("Spracherkennung-Fehler", { description: err?.message });
+    }
+  }, []);
+
+  const stopAgent = useCallback(() => {
+    agentLiveRef.current = false;
+    setAgentLive(false);
+    setAgentListening(false);
+    try { recognitionRef.current?.stop?.(); } catch {}
+    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    setAgentSpeaking(false);
+  }, []);
+
+  const startAgent = useCallback(async () => {
+    if (!sessionId) { toast.error("Erst Simulation starten"); return; }
+    if (!speechSupported) {
+      toast.error("Browser unterstützt Web Speech API nicht", { description: "Bitte Chrome oder Edge verwenden." });
+      return;
+    }
+    try {
+      // Prime mic permission early
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+    } catch (e: any) {
+      toast.error("Mikrofon-Zugriff verweigert", { description: e?.message });
+      return;
+    }
+    agentLiveRef.current = true;
+    setAgentLive(true);
+    // Speak last persona utterance (if any) so user has context, then listen
+    const lastPersona = [...turns].reverse().find(t => t.role === "persona");
+    if (lastPersona?.content) await agentSpeak(lastPersona.content);
+    if (agentLiveRef.current) startAgentListening();
+  }, [sessionId, speechSupported, turns, agentSpeak, startAgentListening]);
+
   async function handleStart() {
     setErrorMsg(null);
     setStarting(true);
@@ -269,7 +360,6 @@ export default function VerwaltungOralRunner() {
       setEscalation(data.escalation_state ?? 0);
       setTurns([{ role: "persona", content: data.persona_utterance, emotion: data.persona_emotion }]);
       if (voiceMode && data.persona_utterance) {
-        // speak() reads sessionId from state — defer to next tick
         setTimeout(() => { void speakWith(data.session_id, data.persona_utterance); }, 50);
       }
     } catch (e) {
@@ -279,7 +369,6 @@ export default function VerwaltungOralRunner() {
     }
   }
 
-  // Local speak that doesn't depend on stale sessionId in closure
   const speakWith = async (sid: string, text: string) => {
     if (!voiceMode || !text) return;
     try {
@@ -305,52 +394,6 @@ export default function VerwaltungOralRunner() {
       await audio.play();
     } catch { setPersonaSpeaking(false); }
   };
-
-  // ---- Realtime connect/disconnect (Cut B2b) ----
-  const startRealtime = async () => {
-    if (!sessionId) { toast.error("Erst Simulation starten"); return; }
-    if (conversation.status === "connected") return;
-    setRealtimeConnecting(true);
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      const { data: { session: authSession } } = await supabase.auth.getSession();
-      if (!authSession) throw new Error("Auth abgelaufen");
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verwaltung-realtime-token`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${authSession.access_token}` },
-          body: JSON.stringify({ session_id: sessionId }),
-        },
-      );
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        if (resp.status === 412) toast.error("Agent nicht provisioniert", { description: "Persona hat noch keinen ElevenLabs-Agent." });
-        else if (resp.status === 503) toast.error("Realtime nicht konfiguriert");
-        else toast.error("Token-Fehler", { description: data?.error });
-        return;
-      }
-      if (!data?.token) throw new Error("Kein Token erhalten");
-      const convaiSid = await conversation.startSession({
-        conversationToken: data.token,
-        connectionType: "webrtc",
-      });
-      realtimeConvaiSidRef.current = convaiSid ?? null;
-      await (supabase.rpc as any)("verwaltung_start_realtime_session", {
-        _session_id: sessionId,
-        _convai_session_id: convaiSid ?? "unknown",
-      });
-    } catch (e: any) {
-      toast.error("Realtime-Start fehlgeschlagen", { description: e?.message });
-    } finally {
-      setRealtimeConnecting(false);
-    }
-  };
-
-  const stopRealtime = async () => {
-    try { await conversation.endSession(); } catch {}
-  };
-
 
   async function handleSend(overrideText?: string) {
     const msg = (overrideText ?? input).trim();
@@ -378,6 +421,10 @@ export default function VerwaltungOralRunner() {
       if (voiceMode && data.persona_utterance) {
         void speak(data.persona_utterance);
       }
+      if (agentLiveRef.current && data.persona_utterance) {
+        await agentSpeak(data.persona_utterance);
+        if (agentLiveRef.current && !debrief) startAgentListening();
+      }
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : String(e));
     } finally {
@@ -387,6 +434,7 @@ export default function VerwaltungOralRunner() {
 
   async function handleDebrief() {
     if (!sessionId) return;
+    if (agentLiveRef.current) stopAgent();
     setErrorMsg(null);
     setDebriefing(true);
     try {
@@ -448,11 +496,11 @@ export default function VerwaltungOralRunner() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2">
             {voiceMode ? <Mic className="h-4 w-4 text-primary" /> : <MicOff className="h-4 w-4 text-text-3" />}
-            <Label htmlFor="vos-voice-mode" className="text-xs cursor-pointer select-none">Voice-Modus</Label>
+            <Label htmlFor="vos-voice-mode" className="text-xs cursor-pointer select-none">Voice (Server STT/TTS)</Label>
             <Switch
               id="vos-voice-mode"
               checked={voiceMode}
-              disabled={realtimeMode}
+              disabled={agentMode || agentLive}
               onCheckedChange={(v) => {
                 setVoiceMode(v);
                 if (!v && audioElRef.current) audioElRef.current.pause();
@@ -465,18 +513,20 @@ export default function VerwaltungOralRunner() {
             )}
           </div>
           <div className="flex items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-2">
-            <Radio className={`h-4 w-4 ${realtimeMode ? "text-primary" : "text-text-3"}`} />
-            <Label htmlFor="vos-realtime-mode" className="text-xs cursor-pointer select-none">Realtime (WebRTC)</Label>
+            <Radio className={`h-4 w-4 ${agentMode ? "text-primary" : "text-text-3"}`} />
+            <Label htmlFor="vos-agent-mode" className="text-xs cursor-pointer select-none">
+              VibeOS Voice Agent {!speechSupported && "(nicht verfügbar)"}
+            </Label>
             <Switch
-              id="vos-realtime-mode"
-              checked={realtimeMode}
-              disabled={voiceMode || conversation.status === "connected"}
-              onCheckedChange={(v) => setRealtimeMode(v)}
+              id="vos-agent-mode"
+              checked={agentMode}
+              disabled={voiceMode || agentLive || !speechSupported}
+              onCheckedChange={(v) => setAgentMode(v)}
             />
-            {conversation.status === "connected" && (
+            {agentLive && (
               <span className="ml-1 inline-flex items-center gap-1 text-xs text-primary">
                 <Volume2 className="h-3.5 w-3.5 animate-pulse" />
-                {conversation.isSpeaking ? "Persona spricht" : "Hört zu"}
+                {agentSpeaking ? "Persona spricht" : agentListening ? "Hört zu" : "Pause"}
               </span>
             )}
           </div>
@@ -490,7 +540,8 @@ export default function VerwaltungOralRunner() {
           <p className="text-text-2 mb-6 max-w-xl mx-auto">
             Du übernimmst die Rolle des Verwaltungsmitarbeiters. Das Gegenüber reagiert dynamisch auf
             deine Antworten — Eskalation, Emotion und Governance-Bewertung laufen live mit.
-            {voiceMode && " Voice-Modus aktiv: Push-to-Talk + Persona-Stimme."}
+            {voiceMode && " Server-Voice aktiv: Push-to-Talk + Persona-Stimme."}
+            {agentMode && " VibeOS Native Voice Agent aktiv: Browser-Spracherkennung + lokale Sprachausgabe."}
           </p>
           <Button size="lg" onClick={handleStart} disabled={starting}>
             {starting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Wird vorbereitet…</> : "Simulation starten"}
@@ -550,25 +601,21 @@ export default function VerwaltungOralRunner() {
               )}
             </div>
             <div className="border-t border-border p-3 flex gap-2">
-              {realtimeMode ? (
+              {agentMode ? (
                 <div className="flex-1 flex items-center justify-center">
-                  {conversation.status === "connected" ? (
-                    <Button size="lg" variant="destructive" onClick={stopRealtime} className="min-w-[220px]">
-                      <PhoneOff className="h-5 w-5 mr-2" /> Realtime beenden
+                  {agentLive ? (
+                    <Button size="lg" variant="destructive" onClick={stopAgent} className="min-w-[220px]">
+                      <PhoneOff className="h-5 w-5 mr-2" /> Voice Agent beenden
                     </Button>
                   ) : (
                     <Button
                       size="lg"
                       variant="petrol"
-                      onClick={startRealtime}
-                      disabled={realtimeConnecting || !!debrief}
+                      onClick={startAgent}
+                      disabled={!!debrief || !speechSupported}
                       className="min-w-[220px]"
                     >
-                      {realtimeConnecting ? (
-                        <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Verbinde…</>
-                      ) : (
-                        <><Radio className="h-5 w-5 mr-2" /> Realtime verbinden</>
-                      )}
+                      <Radio className="h-5 w-5 mr-2" /> Voice Agent starten
                     </Button>
                   )}
                 </div>
@@ -608,7 +655,7 @@ export default function VerwaltungOralRunner() {
                 />
               )}
               <div className="flex flex-col gap-2">
-                {!voiceMode && !realtimeMode && (
+                {!voiceMode && !agentMode && (
                   <Button onClick={() => handleSend()} disabled={loading || !input.trim() || !!debrief}>Senden</Button>
                 )}
                 <Button variant="outline" onClick={handleDebrief} disabled={debriefing || !!debrief || turns.length < 3}>
