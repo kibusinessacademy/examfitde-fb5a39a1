@@ -140,16 +140,16 @@ export default function AdminV2Shell({ children }: Props) {
               )}
             >
               <item.icon className="h-4 w-4 shrink-0" />
-          <div className="px-3 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-mono">
-            Weitere Tools
-          </div>
-
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
 
         <div className="px-2 mt-2 space-y-0.5 border-t border-border pt-2">
           <div className="px-3 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-mono">
-            Tools
+            Weitere Tools
           </div>
+
           {SECONDARY_ITEMS.map((item) => (
             <NavLink
               key={item.to}
