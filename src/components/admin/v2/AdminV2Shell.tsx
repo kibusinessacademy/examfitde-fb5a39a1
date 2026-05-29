@@ -140,9 +140,10 @@ export default function AdminV2Shell({ children }: Props) {
               )}
             >
               <item.icon className="h-4 w-4 shrink-0" />
-              {item.label}
-            </NavLink>
-          ))}
+          <div className="px-3 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-mono">
+            Weitere Tools
+          </div>
+
         </nav>
 
         <div className="px-2 mt-2 space-y-0.5 border-t border-border pt-2">
