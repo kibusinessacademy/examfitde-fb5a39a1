@@ -115,7 +115,9 @@ export const BERUFOS_MODULES: readonly BerufosModule[] = [
     status: "preview",
     icon: Bot,
     accent: "mint",
-    href: "/admin/berufs-ki/agents",
+    // W1: kein public-href — Admin-Surface via adminHref additiv, Public→Waitlist (D4)
+    adminHref: "/admin/berufs-ki/agents",
+
     features: [
       { title: "Agent Registry", body: "Kommunikation · Workflow · Analyse · Compliance · Karriere · Recruiting." },
       { title: "HITL-Approval", body: "Human-in-the-loop bei niedrigem Confidence." },
