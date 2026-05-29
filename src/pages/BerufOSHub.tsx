@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ExternalLink, Sparkles } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+
 import { SEOHead } from "@/components/seo/SEOHead";
 import { BERUFOS, statusLabel } from "@/lib/berufos/brand";
 import { BERUFOS_MODULES } from "@/lib/berufos/modules";
