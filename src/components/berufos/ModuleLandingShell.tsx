@@ -134,7 +134,7 @@ function PrimaryCta({ module, large = false }: { module: BerufosModule; large?: 
   );
 }
 
-}
+
 
 function PlannedWaitlist({ module }: { module: BerufosModule }) {
   const [email, setEmail] = useState("");
