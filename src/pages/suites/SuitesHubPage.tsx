@@ -10,6 +10,7 @@ import { ArrowRight, Layers, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PublicHubLayout } from "@/components/berufos/PublicHubLayout";
 import { SUITE_CONTENT, type SuiteContent } from "@/lib/suites/content";
 
 const SUITES: SuiteContent[] = Object.values(SUITE_CONTENT);
