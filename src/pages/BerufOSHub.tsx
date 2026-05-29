@@ -56,10 +56,23 @@ export default function BerufOSHub() {
       {/* Hero */}
       <section className="berufos-grid-bg">
         <div className="max-w-7xl mx-auto px-6 pt-24 pb-28">
+          {user && (
+            <div className="mb-8 inline-flex items-center gap-3 rounded-xl border berufos-hairline bg-[hsl(var(--bos-bg-elev))] px-4 py-3 text-sm">
+              <Sparkles className="w-4 h-4 berufos-mod-icon" />
+              <span className="berufos-text-dim">Willkommen zurück.</span>
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-1.5 font-medium hover:underline"
+              >
+                Weiter im Lern-Dashboard <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
           <span className="berufos-chip">
             <span className="dot" />
             AI-native Workforce Platform · v1
           </span>
+
           <h1 className="mt-6 text-4xl md:text-6xl lg:text-7xl font-semibold tracking-tight leading-[1.05] max-w-4xl">
             <span className="berufos-gradient-text">Das AI-Betriebssystem</span>
             <br />für Berufe.
