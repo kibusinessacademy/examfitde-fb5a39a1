@@ -670,8 +670,8 @@ const AppRoutes = () => {
           <Route path="/wissen/alle" element={<WissenAllePage />} />
           <Route path="/suche" element={<SearchPage />} />
           <Route path="/agb" element={<AGBPage />} />
-          <Route path="/produkte" element={<ProduktHubPage />} />
-          <Route path="/produkte/:slug" element={<BerufOSProductLandingPage />} />
+          {/* /produkte + /produkte/:slug: BerufOS-Shell ist bereits in den Seiten enthalten —
+              NICHT in SEOLayout schachteln (sonst Header-Kollision). Siehe unten. */}
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/datenschutz" element={<DatenschutzPage />} />
           <Route path="/impressum" element={<ImpressumPage />} />
@@ -682,7 +682,12 @@ const AppRoutes = () => {
           <Route path="/blog" element={<BlogIndexPage />} />
           <Route path="/blog/:slug" element={<BlogArticlePage />} />
         </Route>
-        
+
+        {/* BerufOS Produkthub — eigene Shell (BerufOSHeader+Footer), NICHT in SEOLayout */}
+        <Route path="/produkte" element={<ProduktHubPage />} />
+        <Route path="/produkte/:slug" element={<BerufOSProductLandingPage />} />
+
+
         {/* Main Layout Routes */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<AuthHomeRoute />} />
