@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { ArrowRight, ExternalLink, Check } from "lucide-react";
+import { ArrowRight, ExternalLink, Check, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
 // keep import for invoke()
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 import { BERUFOS, statusLabel } from "@/lib/berufos/brand";
 import type { BerufosModule } from "@/lib/berufos/modules";
 import { BerufOSHeader } from "./BerufOSHeader";
 import { BerufOSFooter } from "./BerufOSFooter";
 import "./berufos-theme.css";
+
 
 interface Props {
   module: BerufosModule;
