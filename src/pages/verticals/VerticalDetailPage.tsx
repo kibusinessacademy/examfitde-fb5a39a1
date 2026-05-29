@@ -16,6 +16,7 @@ import { VerwaltungDepartmentsSection } from "@/components/verticals/VerwaltungD
 import { VerwaltungBundLagebildSection } from "@/components/verticals/VerwaltungBundLagebildSection";
 import { VerwaltungArbeitsmarktSection } from "@/components/verticals/VerwaltungArbeitsmarktSection";
 import { toast } from "sonner";
+import { PublicHubLayout } from "@/components/berufos/PublicHubLayout";
 
 export default function VerticalDetailPage() {
   const { slug } = useParams<{ slug: string }>();
