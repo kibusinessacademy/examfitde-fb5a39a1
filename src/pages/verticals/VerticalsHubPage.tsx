@@ -116,5 +116,6 @@ export default function VerticalsHubPage() {
         </p>
       </section>
     </main>
+    </PublicHubLayout>
   );
 }
