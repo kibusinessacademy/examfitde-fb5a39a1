@@ -8,6 +8,7 @@ import { Shield, CheckCircle2, ArrowRight } from "lucide-react";
 import { PublicHubLayout } from "@/components/berufos/PublicHubLayout";
 export default function VerticalsHubPage() {
   return (
+    <PublicHubLayout>
     <main className="min-h-screen bg-background">
       <Helmet>
         <title>Branchenbetriebssysteme — Digitale Entlastung für Praxen, Kanzleien, Betriebe</title>
