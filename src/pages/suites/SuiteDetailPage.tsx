@@ -219,7 +219,8 @@ export default function SuiteDetailPage() {
             </Button>
           </div>
         </section>
-      </main>
     </div>
+    </PublicHubLayout>
+  );
   );
 }
