@@ -101,13 +101,14 @@ export function ModuleLandingShell({ module }: Props) {
     </div>
   );
 }
-
 function PrimaryCta({ module, large = false }: { module: BerufosModule; large?: boolean }) {
   const size = large ? "px-8 py-4 text-base" : "px-6 py-3";
-  if (module.status === "planned") {
+  // Planned OR preview-without-href → Waitlist (D4 fix: kein toter Hero ohne CTA)
+  if (module.status === "planned" || (module.status === "preview" && !module.href)) {
+    const label = module.status === "planned" ? "Auf die Warteliste" : "Frühen Zugang anfragen";
     return (
       <a href="#waitlist" className={`berufos-btn-primary inline-flex items-center gap-2 ${size}`}>
-        Auf die Warteliste <ArrowRight className="w-4 h-4" />
+        {label} <ArrowRight className="w-4 h-4" />
       </a>
     );
   }
@@ -131,6 +132,8 @@ function PrimaryCta({ module, large = false }: { module: BerufosModule; large?: 
       {label} <Icon className="w-4 h-4" />
     </Link>
   );
+}
+
 }
 
 function PlannedWaitlist({ module }: { module: BerufosModule }) {
