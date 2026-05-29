@@ -138,6 +138,27 @@ function PrimaryCta({ module, large = false }: { module: BerufosModule; large?: 
   );
 }
 
+/**
+ * W1/D8: Additiver Admin-Shortcut. Erscheint nur, wenn `module.adminHref`
+ * gesetzt UND der eingeloggte User Admin ist. Niemals als Ersatz für die
+ * Public-CTA — strikt additive Personalisierung.
+ */
+function AdminShortcut({ module }: { module: BerufosModule }) {
+  const { isAdmin } = useAuth();
+  if (!isAdmin || !module.adminHref) return null;
+  return (
+    <div className="mt-4">
+      <Link
+        to={module.adminHref}
+        className="inline-flex items-center gap-2 text-xs berufos-text-dim hover:text-foreground transition-colors"
+      >
+        <ShieldCheck className="w-3.5 h-3.5" />
+        Admin-Surface öffnen
+        <ArrowRight className="w-3 h-3" />
+      </Link>
+    </div>
+  );
+}
 
 
 function PlannedWaitlist({ module }: { module: BerufosModule }) {
