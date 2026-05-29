@@ -48,13 +48,22 @@ export interface BerufosModule {
   icon: LucideIcon;
   /** Akzent-Token (CSS-Variable Suffix) */
   accent: "petrol" | "indigo" | "amber" | "mint" | "rose" | "slate";
-  /** Externes Deep-Link-Ziel für live/preview Module */
+  /** Akzent-Token (CSS-Variable Suffix) */
+  accent: "petrol" | "indigo" | "amber" | "mint" | "rose" | "slate";
+  /** Public-Deep-Link — sichtbar für alle. Fehlt → Waitlist-Brücke (D4). */
   href?: string;
+  /**
+   * Interner Admin-Deep-Link — nur sichtbar für eingeloggte Admins als
+   * additive Sekundär-CTA (W1/D8: additiv, nicht substitutiv).
+   * Verboten als Ersatz für public `href` — sonst bricht der Public-Flow.
+   */
+  adminHref?: string;
   /** 3-6 Schlüsselfeatures */
   features: { title: string; body: string }[];
   /** Use-Cases pro Persona (für Hub-Filter) */
   personas: BerufosPersona[];
 }
+
 
 export const BERUFOS_MODULES: readonly BerufosModule[] = [
   {
