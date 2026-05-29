@@ -39,6 +39,17 @@ describe("BerufOS Module Registry", () => {
     });
   });
 
+  // W1-Invariante: Public `href` darf NIE auf eine Admin-Route zeigen.
+  // Admin-Surfaces gehören in `adminHref` (additiv, nur für Admins sichtbar).
+  it("public href zeigt NIE auf /admin/* (W1: kein Public→Login-Wall)", () => {
+    BERUFOS_MODULES.forEach((m) => {
+      if (m.href) {
+        expect(m.href.startsWith("/admin/")).toBe(false);
+      }
+    });
+  });
+
+
   it("getModule resolved bekannte Slugs und gibt undefined für unbekannte", () => {
     expect(getModule("examfit")).toBeDefined();
     expect(getModule("does-not-exist")).toBeUndefined();
