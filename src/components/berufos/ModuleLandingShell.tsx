@@ -82,7 +82,7 @@ export function ModuleLandingShell({ module }: Props) {
       {/* Footer CTA */}
       <section className="max-w-7xl mx-auto px-6 pb-24">
         <div className="berufos-card p-10 md:p-14 text-center">
-          {module.status === "planned" ? (
+          {module.status === "planned" || (module.status === "preview" && !module.href) ? (
             <PlannedWaitlist module={module} />
           ) : (
             <>
@@ -95,6 +95,7 @@ export function ModuleLandingShell({ module }: Props) {
           )}
         </div>
       </section>
+
 
       <BerufOSFooter />
     </div>
