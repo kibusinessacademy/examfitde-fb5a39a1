@@ -1,18 +1,20 @@
-import { Navigate } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
-import { lazy, Suspense } from 'react';
 
 const BerufOSHub = lazy(() => import('@/pages/BerufOSHub'));
 
 /**
  * Route-level guard for /.
- * Authenticated users → /dashboard BEFORE any HomePage rendering.
- * Unauthenticated users → BerufOSHub (Masterbrand — Hardcut 2026-05-25).
- * Vorher: HomePageV2 (ExamFit-Marketing) — jetzt unter /examfit erreichbar.
+ *
+ * D8-Fix (Brand-Drift): Auth-Status entscheidet NICHT mehr über die Brand-Heimat.
+ * Sowohl eingeloggte als auch ausgeloggte Besucher landen auf dem BerufOS-Hub
+ * (Masterbrand). Eingeloggte sehen im Hero ein personalisiertes Re-Entry-Banner
+ * → /dashboard (siehe BerufOSHub.tsx) — kein Force-Redirect mehr in das
+ * ExamFit-gebrandete /dashboard.
  */
 export default function AuthHomeRoute() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (
@@ -20,10 +22,6 @@ export default function AuthHomeRoute() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
   }
 
   return (
