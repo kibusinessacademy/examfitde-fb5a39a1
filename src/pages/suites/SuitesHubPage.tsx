@@ -110,6 +110,6 @@ const SUITES: SuiteContent[] = Object.values(SUITE_CONTENT);
           </div>
         </section>
       </main>
-    </div>
+    </PublicHubLayout>
   );
 }
