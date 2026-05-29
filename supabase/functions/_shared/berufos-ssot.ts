@@ -1,10 +1,7 @@
 /**
- * BerufOS Brand SSOT — Edge Function Mirror (Deno, no TS path aliases).
- * Halte synchron mit src/lib/berufos/brand.ts + modules.ts.
- *
- * F1-Fix (Funktionsaudit 2026-05-29): Slug-Whitelist + Legacy-Aliase leben
- * jetzt hier, damit Edge (berufos-waitlist) und Frontend nicht driften.
- * Erweitern heißt: hier + modules.ts gemeinsam pflegen.
+ * BerufOS Brand + Module SSOT — Edge Function shared mirror (Deno).
+ * Mirror of src/lib/berufos/brand.ts + modules.ts canonical slug list.
+ * Edge-Functions importieren NUR von hier (kein Cross-Tree-Import in src/).
  */
 export const BERUFOS = {
   name: "BerufOS",
@@ -35,12 +32,10 @@ export const BERUFOS_SLUG_ALIASES: Record<string, string> = {
   industry: "industries",
 };
 
-/** Normalisiert einen Input-Slug auf den Canonical-Slug (oder gibt ihn zurück). */
 export function resolveBerufosSlug(slug: string): string {
   return BERUFOS_SLUG_ALIASES[slug] ?? slug;
 }
 
-/** True, wenn slug (nach Alias-Auflösung) ein bekanntes Modul ist. */
 export function isValidBerufosSlug(slug: string): boolean {
   return (BERUFOS_MODULE_SLUGS as readonly string[]).includes(resolveBerufosSlug(slug));
 }

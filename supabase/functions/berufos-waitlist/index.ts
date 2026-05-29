@@ -1,7 +1,17 @@
 // BerufOS Waitlist Signup — accepts anonymous email signups for planned modules.
 // Routes inserts to email_delivery_queue (service-role only) + audit trail.
+//
+// F1-Fix (Funktionsaudit 2026-05-29): Slug-Whitelist kommt jetzt aus dem
+// gemeinsamen Mirror-SSOT (src/lib/berufos/deno-ssot.ts) — keine Drift mehr
+// zwischen Frontend-Modulen und Edge-Validation. Legacy-Slugs werden
+// transparent auf Canonical normalisiert, damit alte Surfaces nicht brechen.
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  isValidBerufosSlug,
+  resolveBerufosSlug,
+} from "../_shared/berufos-ssot.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,10 +19,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const VALID_SLUGS = new Set([
-  "learning", "workforce", "agents", "documents", "workflows",
-  "skills", "career", "recruit", "industry", "governance",
-]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -30,18 +36,23 @@ Deno.serve(async (req) => {
     const email = String(body.email ?? "").trim().toLowerCase();
     const slug = String(body.module_slug ?? "").trim().toLowerCase();
 
+    const email = String(body.email ?? "").trim().toLowerCase();
+    const rawSlug = String(body.module_slug ?? "").trim().toLowerCase();
+
     if (!email || !email.match(/^[^@\s]+@[^@\s]+\.[^@\s]+$/)) {
       return new Response(JSON.stringify({ error: "invalid_email" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!VALID_SLUGS.has(slug)) {
+    if (!isValidBerufosSlug(rawSlug)) {
       return new Response(JSON.stringify({ error: "invalid_module_slug" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    // Normalize legacy slugs → canonical for storage / idempotency.
+    const slug = resolveBerufosSlug(rawSlug);
 
     const sb = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -64,6 +75,11 @@ Deno.serve(async (req) => {
     if (insertErr && !String(insertErr.message).toLowerCase().includes("duplicate")) {
       console.error("[berufos-waitlist] insert failed:", insertErr);
       return new Response(JSON.stringify({ error: "insert_failed", detail: insertErr.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
