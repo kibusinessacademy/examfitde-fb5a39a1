@@ -15,8 +15,8 @@ import { SUITE_CONTENT, type SuiteContent } from "@/lib/suites/content";
 
 const SUITES: SuiteContent[] = Object.values(SUITE_CONTENT);
 
-export default function SuitesHubPage() {
   return (
+    <PublicHubLayout>
     <div className="min-h-screen bg-surface-base">
       <Helmet>
         <title>Berufs-KI Suiten — Rollenbasierte Pakete für Ausbildung & Workforce</title>
