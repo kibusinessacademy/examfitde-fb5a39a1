@@ -9,23 +9,28 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 
-/** SSOT: 10 operative areas — Platform Conscience Hub als Read-only-Einstieg über die drei Säulen. */
+/**
+ * SSOT: Admin besteht aus genau 3 operativen Bereichen (docs/admin-routing-ssot.md).
+ * Command / Studio / Queue — alles andere sind sekundäre Tools unter "Weitere Tools".
+ * Systemaudit 2026-05-29 (D5): Sidebar gesäubert auf SSOT-Primär-Nav.
+ */
 const NAV_ITEMS = [
+  { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
+  { to: '/admin/studio', label: 'Kurse', icon: Package },
+  { to: '/admin/queue', label: 'Queue', icon: ListChecks },
+] as const;
+
+/** Sekundäre Admin-Tools — bestehende Routen, nicht in Primär-Nav promotet. */
+const SECONDARY_ITEMS = [
   { to: '/admin/cockpit', label: 'Cockpit', icon: Gauge },
   { to: '/admin/founder-agents', label: 'Founder Agents', icon: Sparkles },
   { to: '/admin/platform-conscience', label: 'Conscience', icon: Eye },
-  { to: '/admin/command', label: 'Leitstelle', icon: LayoutDashboard },
-  { to: '/admin/studio', label: 'Kurse', icon: Package },
   { to: '/admin/heal', label: 'Heal Hub', icon: Heart },
   { to: '/admin/runtime', label: 'AI Runtime', icon: Cpu },
   { to: '/admin/growth', label: 'Growth', icon: Globe },
   { to: '/admin/support', label: 'Support', icon: HeadphonesIcon },
   { to: '/admin/kpi', label: 'KPIs', icon: BarChart3 },
   { to: '/admin/test', label: 'Testen', icon: Play },
-] as const;
-
-/** Sekundäre Admin-Tools (kompakter als Hauptnavigation) */
-const SECONDARY_ITEMS = [
   { to: '/admin/observatory', label: 'Stripe Observatory', icon: Webhook },
   { to: '/admin/ops/orders', label: 'Paid Orders', icon: Receipt },
   { to: '/admin/ops/funnel', label: 'Traffic Funnel', icon: TrendingUp },
@@ -46,6 +51,7 @@ const SECONDARY_ITEMS = [
   { to: '/foerdermittel/reporting', label: 'FördermittelOS Reporting', icon: BarChart3 },
   { to: '/foerdermittel/inbox', label: 'FördermittelOS Sales Inbox', icon: Inbox },
 ] as const;
+
 
 
 interface Props {
@@ -141,8 +147,9 @@ export default function AdminV2Shell({ children }: Props) {
 
         <div className="px-2 mt-2 space-y-0.5 border-t border-border pt-2">
           <div className="px-3 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-mono">
-            Tools
+            Weitere Tools
           </div>
+
           {SECONDARY_ITEMS.map((item) => (
             <NavLink
               key={item.to}
