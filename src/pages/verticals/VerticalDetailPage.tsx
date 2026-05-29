@@ -401,5 +401,6 @@ export default function VerticalDetailPage() {
         </div>
       </section>
     </main>
+    </PublicHubLayout>
   );
 }
