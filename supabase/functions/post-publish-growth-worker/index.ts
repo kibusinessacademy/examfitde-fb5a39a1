@@ -570,6 +570,13 @@ async function drainOnce(sb: any) {
 
   const results: any[] = [];
   for (const job of claimed) {
+    // Per-job heartbeat: refresh before handler invocation so later iterations
+    // of this synchronous loop do not exceed the reaper's 3min window.
+    await sb
+      .from("job_queue")
+      .update({ last_heartbeat_at: new Date().toISOString() })
+      .eq("id", job.id);
+
     const handler = HANDLERS[job.job_type];
     const pkgId = job.payload?.package_id;
     let outcome: Outcome;
