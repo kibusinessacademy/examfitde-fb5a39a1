@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, ExternalLink, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -10,8 +10,10 @@ import {
   useBerufosModules,
   BERUFOS_PERSONA_LABELS,
   BERUFOS_PERSONA_ORDER,
+  isBerufosPersona,
 } from "@/lib/berufos/useBerufosModules";
 import type { BerufosPersona } from "@/lib/berufos/modules";
+
 import { BerufOSHeader } from "@/components/berufos/BerufOSHeader";
 import { BerufOSFooter } from "@/components/berufos/BerufOSFooter";
 import "@/components/berufos/berufos-theme.css";
@@ -25,8 +27,25 @@ import "@/components/berufos/berufos-theme.css";
  * D8-Fix: Eingeloggte Besucher sehen ein Re-Entry-Banner statt Force-Redirect.
  */
 export default function BerufOSHub() {
+export default function BerufOSHub() {
   const { user } = useAuth();
-  const [persona, setPersona] = useState<BerufosPersona | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const personaParam = searchParams.get("persona");
+  const initialPersona: BerufosPersona | null =
+    personaParam && isBerufosPersona(personaParam) ? personaParam : null;
+  const [persona, setPersona] = useState<BerufosPersona | null>(initialPersona);
+
+  // Sync persona ↔ URL (shareable filter state, F2 audit fix)
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (persona) next.set("persona", persona);
+    else next.delete("persona");
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persona]);
+
   const filtered = useBerufosModules(persona);
   const live = filtered.filter((m) => m.status === "live");
   const preview = filtered.filter((m) => m.status === "preview");
