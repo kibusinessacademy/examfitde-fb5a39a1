@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { ArrowRight, ExternalLink, Check } from "lucide-react";
+import { ArrowRight, ExternalLink, Check, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SEOHead } from "@/components/seo/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
 // keep import for invoke()
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 import { BERUFOS, statusLabel } from "@/lib/berufos/brand";
 import type { BerufosModule } from "@/lib/berufos/modules";
 import { BerufOSHeader } from "./BerufOSHeader";
 import { BerufOSFooter } from "./BerufOSFooter";
 import "./berufos-theme.css";
+
 
 interface Props {
   module: BerufosModule;
@@ -53,8 +55,10 @@ export function ModuleLandingShell({ module }: Props) {
               Alle Module ansehen
             </Link>
           </div>
+          <AdminShortcut module={module} />
         </div>
       </section>
+
 
       {/* Features */}
       <section className="max-w-7xl mx-auto px-6 py-24">
@@ -134,6 +138,27 @@ function PrimaryCta({ module, large = false }: { module: BerufosModule; large?: 
   );
 }
 
+/**
+ * W1/D8: Additiver Admin-Shortcut. Erscheint nur, wenn `module.adminHref`
+ * gesetzt UND der eingeloggte User Admin ist. Niemals als Ersatz für die
+ * Public-CTA — strikt additive Personalisierung.
+ */
+function AdminShortcut({ module }: { module: BerufosModule }) {
+  const { isAdmin } = useAuth();
+  if (!isAdmin || !module.adminHref) return null;
+  return (
+    <div className="mt-4">
+      <Link
+        to={module.adminHref}
+        className="inline-flex items-center gap-2 text-xs berufos-text-dim hover:text-foreground transition-colors"
+      >
+        <ShieldCheck className="w-3.5 h-3.5" />
+        Admin-Surface öffnen
+        <ArrowRight className="w-3 h-3" />
+      </Link>
+    </div>
+  );
+}
 
 
 function PlannedWaitlist({ module }: { module: BerufosModule }) {

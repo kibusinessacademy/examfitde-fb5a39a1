@@ -48,13 +48,21 @@ export interface BerufosModule {
   icon: LucideIcon;
   /** Akzent-Token (CSS-Variable Suffix) */
   accent: "petrol" | "indigo" | "amber" | "mint" | "rose" | "slate";
-  /** Externes Deep-Link-Ziel für live/preview Module */
+
+  /** Public-Deep-Link — sichtbar für alle. Fehlt → Waitlist-Brücke (D4). */
   href?: string;
+  /**
+   * Interner Admin-Deep-Link — nur sichtbar für eingeloggte Admins als
+   * additive Sekundär-CTA (W1/D8: additiv, nicht substitutiv).
+   * Verboten als Ersatz für public `href` — sonst bricht der Public-Flow.
+   */
+  adminHref?: string;
   /** 3-6 Schlüsselfeatures */
   features: { title: string; body: string }[];
   /** Use-Cases pro Persona (für Hub-Filter) */
   personas: BerufosPersona[];
 }
+
 
 export const BERUFOS_MODULES: readonly BerufosModule[] = [
   {
@@ -107,7 +115,9 @@ export const BERUFOS_MODULES: readonly BerufosModule[] = [
     status: "preview",
     icon: Bot,
     accent: "mint",
-    href: "/admin/berufs-ki/agents",
+    // W1: kein public-href — Admin-Surface via adminHref additiv, Public→Waitlist (D4)
+    adminHref: "/admin/berufs-ki/agents",
+
     features: [
       { title: "Agent Registry", body: "Kommunikation · Workflow · Analyse · Compliance · Karriere · Recruiting." },
       { title: "HITL-Approval", body: "Human-in-the-loop bei niedrigem Confidence." },
@@ -233,7 +243,9 @@ export const BERUFOS_MODULES: readonly BerufosModule[] = [
     status: "preview",
     icon: ShieldCheck,
     accent: "slate",
-    href: "/admin/governance/architecture",
+    // W1: kein public-href — Public→Waitlist (D4), Admin-Surface additiv via adminHref
+    adminHref: "/admin/governance/architecture",
+
     features: [
       { title: "10 Architecture Rules", body: "SSOT_FIRST · NO_PARALLEL_SYSTEMS · AUDITABLE_MUTATIONS · u.a." },
       { title: "Audit-SSOT", body: "Alle Mutationen über fn_emit_audit + Contracts." },
