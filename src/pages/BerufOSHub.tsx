@@ -21,16 +21,17 @@ import "@/components/berufos/berufos-theme.css";
  *
  * Ersetzt VibeOSLandingPage (Routes /vibeos und /platform redirecten hierher).
  * SSOT für Modul-Anzeige: BERUFOS_MODULES. Persona-Filter via useBerufosModules.
+ *
+ * D8-Fix: Eingeloggte Besucher sehen ein Re-Entry-Banner statt Force-Redirect.
+ */
 export default function BerufOSHub() {
   const { user } = useAuth();
-  const [persona, setPersona] = useState<BerufosPersona | null>(null);
-  const filtered = useBerufosModules(persona);
-
   const [persona, setPersona] = useState<BerufosPersona | null>(null);
   const filtered = useBerufosModules(persona);
   const live = filtered.filter((m) => m.status === "live");
   const preview = filtered.filter((m) => m.status === "preview");
   const planned = filtered.filter((m) => m.status === "planned");
+
 
   return (
     <div className="berufos min-h-screen">
