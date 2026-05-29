@@ -82,7 +82,7 @@ export function ModuleLandingShell({ module }: Props) {
       {/* Footer CTA */}
       <section className="max-w-7xl mx-auto px-6 pb-24">
         <div className="berufos-card p-10 md:p-14 text-center">
-          {module.status === "planned" ? (
+          {module.status === "planned" || (module.status === "preview" && !module.href) ? (
             <PlannedWaitlist module={module} />
           ) : (
             <>
@@ -96,17 +96,19 @@ export function ModuleLandingShell({ module }: Props) {
         </div>
       </section>
 
+
       <BerufOSFooter />
     </div>
   );
 }
-
 function PrimaryCta({ module, large = false }: { module: BerufosModule; large?: boolean }) {
   const size = large ? "px-8 py-4 text-base" : "px-6 py-3";
-  if (module.status === "planned") {
+  // Planned OR preview-without-href → Waitlist (D4 fix: kein toter Hero ohne CTA)
+  if (module.status === "planned" || (module.status === "preview" && !module.href)) {
+    const label = module.status === "planned" ? "Auf die Warteliste" : "Frühen Zugang anfragen";
     return (
       <a href="#waitlist" className={`berufos-btn-primary inline-flex items-center gap-2 ${size}`}>
-        Auf die Warteliste <ArrowRight className="w-4 h-4" />
+        {label} <ArrowRight className="w-4 h-4" />
       </a>
     );
   }
@@ -131,6 +133,8 @@ function PrimaryCta({ module, large = false }: { module: BerufosModule; large?: 
     </Link>
   );
 }
+
+
 
 function PlannedWaitlist({ module }: { module: BerufosModule }) {
   const [email, setEmail] = useState("");
