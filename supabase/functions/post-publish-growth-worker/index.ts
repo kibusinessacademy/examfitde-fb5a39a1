@@ -545,12 +545,17 @@ async function drainOnce(sb: any) {
   const ids = candidates.map((r: any) => r.id);
 
   // Step 2: claim them (status=processing). Re-check status to avoid lost-race double-claim.
+  // PRE_HEARTBEAT_KILL fix: stamp last_heartbeat_at at claim time so the reaper
+  // (which kills jobs with started_at set but no heartbeat within 3min) does not
+  // terminal-fail jobs that sit in the synchronous for-loop below.
+  const nowIso = new Date().toISOString();
   const { data: claimed, error: claimErr } = await sb
     .from("job_queue")
     .update({
       status: "processing",
-      started_at: new Date().toISOString(),
-      locked_at: new Date().toISOString(),
+      started_at: nowIso,
+      locked_at: nowIso,
+      last_heartbeat_at: nowIso,
       locked_by: "post-publish-growth-worker",
     })
     .in("id", ids)
@@ -565,6 +570,13 @@ async function drainOnce(sb: any) {
 
   const results: any[] = [];
   for (const job of claimed) {
+    // Per-job heartbeat: refresh before handler invocation so later iterations
+    // of this synchronous loop do not exceed the reaper's 3min window.
+    await sb
+      .from("job_queue")
+      .update({ last_heartbeat_at: new Date().toISOString() })
+      .eq("id", job.id);
+
     const handler = HANDLERS[job.job_type];
     const pkgId = job.payload?.package_id;
     let outcome: Outcome;
