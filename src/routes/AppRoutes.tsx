@@ -682,7 +682,12 @@ const AppRoutes = () => {
           <Route path="/blog" element={<BlogIndexPage />} />
           <Route path="/blog/:slug" element={<BlogArticlePage />} />
         </Route>
-        
+
+        {/* BerufOS Produkthub — eigene Shell (BerufOSHeader+Footer), NICHT in SEOLayout */}
+        <Route path="/produkte" element={<ProduktHubPage />} />
+        <Route path="/produkte/:slug" element={<BerufOSProductLandingPage />} />
+
+
         {/* Main Layout Routes */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<AuthHomeRoute />} />
