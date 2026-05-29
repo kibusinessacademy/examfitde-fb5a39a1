@@ -243,7 +243,9 @@ export const BERUFOS_MODULES: readonly BerufosModule[] = [
     status: "preview",
     icon: ShieldCheck,
     accent: "slate",
-    href: "/admin/governance/architecture",
+    // W1: kein public-href — Public→Waitlist (D4), Admin-Surface additiv via adminHref
+    adminHref: "/admin/governance/architecture",
+
     features: [
       { title: "10 Architecture Rules", body: "SSOT_FIRST · NO_PARALLEL_SYSTEMS · AUDITABLE_MUTATIONS · u.a." },
       { title: "Audit-SSOT", body: "Alle Mutationen über fn_emit_audit + Contracts." },
