@@ -5,7 +5,7 @@ import { VERTICAL_TIERS } from "@/config/verticalPricing";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Shield, CheckCircle2, ArrowRight } from "lucide-react";
-
+import { PublicHubLayout } from "@/components/berufos/PublicHubLayout";
 export default function VerticalsHubPage() {
   return (
     <main className="min-h-screen bg-background">
