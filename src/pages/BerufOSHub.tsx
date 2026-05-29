@@ -27,7 +27,7 @@ import "@/components/berufos/berufos-theme.css";
  * D8-Fix: Eingeloggte Besucher sehen ein Re-Entry-Banner statt Force-Redirect.
  */
 export default function BerufOSHub() {
-export default function BerufOSHub() {
+
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const personaParam = searchParams.get("persona");
