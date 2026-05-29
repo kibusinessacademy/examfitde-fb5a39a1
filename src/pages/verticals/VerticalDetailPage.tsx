@@ -67,6 +67,7 @@ export default function VerticalDetailPage() {
   };
 
   return (
+    <PublicHubLayout>
     <main className="min-h-screen bg-background">
       <Helmet>
         <title>{`${vertical.brand} — ${vertical.tagline}`}</title>
