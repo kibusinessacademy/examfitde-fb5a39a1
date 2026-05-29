@@ -10,7 +10,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   isValidBerufosSlug,
   resolveBerufosSlug,
-} from "../../../src/lib/berufos/deno-ssot.ts";
+} from "../_shared/berufos-ssot.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
