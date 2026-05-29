@@ -42,6 +42,8 @@ Phase 2 — Produktisierung (ab P74): Leitfrage = "Welche autonomen Unternehmens
 - [BerufOS Hub Auth-Aware Re-Entry v1](mem://features/berufos/hub-auth-aware-re-entry-v1) — D8-Fix: AuthHomeRoute redirected eingeloggte User NICHT mehr in ExamFit-/dashboard. BerufOSHub rendert für alle; eingeloggte sehen Re-Entry-Banner im Hero → /dashboard. Brand-Home auth-unabhängig.
 - [BerufOS Workflow Audit Admin/Public href Split v1](mem://features/berufos/workflow-audit-admin-href-split-v1) — W1-Fix: Public `href` darf NIE auf /admin/* zeigen. Neues Feld `adminHref` für additiven Admin-Shortcut (nur isAdmin), `href` bleibt strikt public. agents+governance umgeparkt → D4-Waitlist-Brücke greift jetzt. Test-Invariante verhindert Regression.
 - [BerufOS Funktionsaudit Waitlist Slug-SSOT v1](mem://features/berufos/funktionsaudit-waitlist-slug-ssot-v1) — F1-Fix: berufos-waitlist Edge-Function whitelistete noch Pre-M1-Slugs (learning/workforce/industry) — 8/11 Module brachen mit invalid_module_slug. Shared SSOT supabase/functions/_shared/berufos-ssot.ts (Canonical + Aliase + isValid/resolve). Legacy-Slugs werden transparent normalisiert. F2: Hub-Persona-Filter persistiert in ?persona= (teilbar).
+- [Pipeline-Audit Failed-Jobs 72h SSOT v1](mem://architektur/ops/pipeline-audit-failed-jobs-72h-ssot-v1) — 2026-05-29: 118 failed + 18.973 cancelled (Cancellations governance-erwartet). v_failed_jobs_72h_clusters + admin_get_failed_jobs_72h_clusters/_by_cluster RPCs (admin-gated, REVOKEd). 16 cluster_keys, 5 unclassified. Lücken: minicheck_producer_missing (24), pool-fill-bloom-gaps Stale-Deploy (redeployed), audit_fn_signature_drift, heal_annotation_recursion, pre_heartbeat_kill seo_blog_*, deterministic_requeue_loop repair_exam_pool_lf.
+
 
 
 

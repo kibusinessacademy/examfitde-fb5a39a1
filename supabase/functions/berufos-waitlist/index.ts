@@ -80,10 +80,7 @@ Deno.serve(async (req) => {
       });
     }
 
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+
 
     // Best-effort audit (do not block on failure)
     try {
