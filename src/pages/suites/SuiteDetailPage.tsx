@@ -35,6 +35,7 @@ export default function SuiteDetailPage() {
   };
 
   return (
+    <PublicHubLayout>
     <div className="min-h-screen bg-surface-base">
       <Helmet>
         <title>{suite.hero.eyebrow} — {suite.hero.title}</title>
