@@ -48,8 +48,7 @@ export interface BerufosModule {
   icon: LucideIcon;
   /** Akzent-Token (CSS-Variable Suffix) */
   accent: "petrol" | "indigo" | "amber" | "mint" | "rose" | "slate";
-  /** Akzent-Token (CSS-Variable Suffix) */
-  accent: "petrol" | "indigo" | "amber" | "mint" | "rose" | "slate";
+
   /** Public-Deep-Link — sichtbar für alle. Fehlt → Waitlist-Brücke (D4). */
   href?: string;
   /**
