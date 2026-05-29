@@ -119,13 +119,19 @@ function AppChrome() {
       {showNativeTabBar ? <div className="h-20" /> : <div className="h-16 md:hidden" />}
       <AccessDebugPanel />
       <CookieConsentBanner />
-      <ClarityTracker />
-      {import.meta.env.PROD && typeof window !== "undefined" && /(^|\.)examfit\.de$|\.vercel\.app$/.test(window.location.hostname) && (
-        <SpeedInsights />
-      )}
-    </>
+function AppContent() {
+  return (
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
+      <AppChrome />
+    </BrowserRouter>
   );
 }
+
 
 function AppContent() {
   return (
