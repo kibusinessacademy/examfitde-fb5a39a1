@@ -79,7 +79,8 @@ export default function HomePage() {
         structuredData={[
           generateFAQSchema(FAQ_ITEMS),
           generateCourseListSchema([
-            { name: 'Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe', price: 29.90 },
+            // Reality-Audit Fix: Pricing-SSOT — Schema-Preis MUSS PRICING.individual entsprechen (vorher 29.90 hardcoded)
+            { name: 'Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe', price: PRICING.individual.ausbildung.priceCents / 100 },
           ]),
         ]}
       />
