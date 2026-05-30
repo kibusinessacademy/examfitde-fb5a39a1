@@ -94,5 +94,11 @@ export default defineConfig({
       testMatch: /.*\.spec\.ts$/,
       timeout: 90_000,
     },
+    {
+      name: 'learner-reality',
+      testDir: './tests/customer-reality/learner',
+      testMatch: /.*\.spec\.ts$/,
+      timeout: 120_000,
+    },
   ],
 });
