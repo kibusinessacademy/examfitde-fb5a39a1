@@ -1,0 +1,93 @@
+name: Learner Reality Daily QA
+
+# Täglich automatisch + manuell auslösbar. Misst Realität, keine Architektur.
+on:
+  schedule:
+    - cron: '17 6 * * *' # 06:17 UTC every day
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Override base URL (default = REALITY_BASE_URL secret or preview)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: learner-reality-daily
+  cancel-in-progress: false
+
+jobs:
+  reality:
+    name: Learner Reality Journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      REALITY_BASE_URL: ${{ github.event.inputs.base_url != '' && github.event.inputs.base_url || secrets.REALITY_BASE_URL || 'https://examfitde.lovable.app' }}
+      REALITY_LEARNER_EMAIL: ${{ secrets.REALITY_LEARNER_EMAIL }}
+      REALITY_LEARNER_PASSWORD: ${{ secrets.REALITY_LEARNER_PASSWORD }}
+      REALITY_B2B_LEARNER_EMAIL: ${{ secrets.REALITY_B2B_LEARNER_EMAIL }}
+      REALITY_B2B_LEARNER_PASSWORD: ${{ secrets.REALITY_B2B_LEARNER_PASSWORD }}
+      CHECKOUT_TEST_MODE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run learner-reality suite
+        id: pw
+        continue-on-error: true
+        run: bunx playwright test --project=learner-reality
+
+      - name: Aggregate + score
+        id: agg
+        continue-on-error: true
+        run: node scripts/learner-reality-aggregate.mjs
+
+      - name: Render summary to job log
+        if: always()
+        run: |
+          if [ -f reality-results/learner-reality-report.md ]; then
+            cat reality-results/learner-reality-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Learner Reality QA" >> "$GITHUB_STEP_SUMMARY"
+            echo "Aggregator produced no report — check Playwright artifact." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload reality-results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: learner-reality-${{ github.run_id }}
+          path: |
+            reality-results/
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Hard-fail on BLOCK or missing login
+        if: always()
+        run: |
+          if [ ! -f reality-results/learner-reality-results.json ]; then
+            echo "::error::Aggregator did not produce results.json"
+            exit 2
+          fi
+          STATUS=$(node -e "console.log(JSON.parse(require('fs').readFileSync('reality-results/learner-reality-results.json','utf8')).status)")
+          LOGIN=$(node -e "console.log(JSON.parse(require('fs').readFileSync('reality-results/learner-reality-results.json','utf8')).login_validated)")
+          echo "Status=$STATUS  Login=$LOGIN"
+          if [ "$LOGIN" != "true" ]; then
+            echo "::error::No real learner login was validated — RELEASE forbidden."
+            exit 2
+          fi
+          if [ "$STATUS" = "BLOCK" ]; then exit 2; fi
+          if [ "$STATUS" = "REVIEW" ]; then exit 1; fi
+          exit 0
