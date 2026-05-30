@@ -15,6 +15,7 @@ import { AlertCircle, ArrowDown, ArrowUp, Minus, RefreshCw } from 'lucide-react'
 interface Finding {
   fingerprint: string;
   severity: 'P0' | 'P1' | 'P2';
+  priority?: 'P0' | 'P1' | 'P2';
   kind: string;
   journey: string;
   route?: string;
@@ -25,6 +26,14 @@ interface Finding {
   occurrences: number;
   first_seen: string;
   last_seen: string;
+  classification?: 'NEW' | 'RECURRING' | 'REGRESSION_7D' | 'REGRESSION_30D';
+  delta_reason?: string;
+  first_seen_prior?: string | null;
+  last_seen_prior?: string | null;
+  gap_snapshots?: number;
+  comparison_window?: string;
+  eta_hours?: number;
+  eta_due?: string;
 }
 interface Latest {
   ts: string | null;
@@ -42,6 +51,8 @@ interface Latest {
     resolved_count: number;
     new_p0: number;
     baseline_ts: string | null;
+    regressions_7d?: number;
+    regressions_30d?: number;
   } | null;
   ttr_hours_avg: number | null;
   ttr_samples: number;
@@ -64,11 +75,24 @@ const SEV_STYLES: Record<string, string> = {
   P1: 'bg-status-warning-bg-subtle text-status-warning border-status-warning/30',
   P2: 'bg-status-info-bg-subtle text-status-info border-status-info/30',
 };
+const CLASS_STYLES: Record<string, string> = {
+  NEW: 'bg-status-info-bg-subtle text-status-info border-status-info/30',
+  RECURRING: 'bg-surface-subtle text-text-muted border-border',
+  REGRESSION_7D: 'bg-status-danger-bg-subtle text-status-danger border-status-danger/30',
+  REGRESSION_30D: 'bg-status-warning-bg-subtle text-status-warning border-status-warning/30',
+};
+const CLASS_LABEL: Record<string, string> = {
+  NEW: '🆕 NEW',
+  RECURRING: '♻️ RECURRING',
+  REGRESSION_7D: '⚠️ REG 7d',
+  REGRESSION_30D: '⚠️ REG 30d',
+};
 const OVERALL_STYLES: Record<string, string> = {
   RELEASE: 'bg-status-success-bg-subtle text-status-success border-status-success/30',
   REVIEW: 'bg-status-warning-bg-subtle text-status-warning border-status-warning/30',
   BLOCK: 'bg-status-danger-bg-subtle text-status-danger border-status-danger/30',
 };
+
 
 function fmtAgo(iso?: string | null): string {
   if (!iso) return '—';
