@@ -164,12 +164,21 @@ function windowAvg(hist: HistoryEntry[], days: number): { current: number; previ
   };
 }
 
-function regressions(latest: Latest, hist: HistoryEntry[]): Finding[] {
-  if (!hist.length) return [];
-  // Findings whose fingerprint was missing in any previous snapshot but is present now
-  const wasMissingAnyPrev = (fp: string) => hist.slice(0, -1).some((h) => !h.fingerprints.includes(fp));
-  return latest.findings.filter((f) => wasMissingAnyPrev(f.fingerprint));
+function regressions(latest: Latest): { reg7: Finding[]; reg30: Finding[] } {
+  const reg7 = latest.findings.filter((f) => f.classification === 'REGRESSION_7D');
+  const reg30 = latest.findings.filter((f) => f.classification === 'REGRESSION_30D');
+  return { reg7, reg30 };
 }
+
+function fmtEtaDue(iso?: string): string {
+  if (!iso) return '—';
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return 'overdue';
+  const h = ms / 3_600_000;
+  if (h < 48) return `in ${h.toFixed(1)}h`;
+  return `in ${Math.round(h / 24)}d`;
+}
+
 
 export default function RealityRepairPage() {
   const latestQ = useLatest();
