@@ -100,5 +100,11 @@ export default defineConfig({
       testMatch: /.*\.spec\.ts$/,
       timeout: 120_000,
     },
+    {
+      name: 'pre-customer-reality',
+      testDir: './tests/customer-reality/precustomer',
+      testMatch: /.*\.spec\.ts$/,
+      timeout: 120_000,
+    },
   ],
 });
