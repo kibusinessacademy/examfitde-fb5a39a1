@@ -25,6 +25,7 @@ const SECONDARY_ITEMS = [
   { to: '/admin/cockpit', label: 'Cockpit', icon: Gauge },
   { to: '/admin/founder-agents', label: 'Founder Agents', icon: Sparkles },
   { to: '/admin/platform-conscience', label: 'Conscience', icon: Eye },
+  { to: '/admin/reality-repair', label: 'Reality Repair', icon: ShieldCheck },
   { to: '/admin/heal', label: 'Heal Hub', icon: Heart },
   { to: '/admin/runtime', label: 'AI Runtime', icon: Cpu },
   { to: '/admin/growth', label: 'Growth', icon: Globe },
