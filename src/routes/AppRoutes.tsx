@@ -362,6 +362,10 @@ const AppRoutes = () => {
         <Route path="/shop/products" element={<Navigate to="/shop" replace />} />
         <Route path="/products" element={<Navigate to="/paket" replace />} />
         <Route path="/product/:slug" element={<LegacyParamRedirect to="/paket" />} />
+        {/* Reality-Audit Fix: Header-Label "Komplettpaket" → Direkteingabe der Singular-/Plural-Variante 404-frei */}
+        <Route path="/komplettpaket" element={<Navigate to="/paket" replace />} />
+        <Route path="/komplettpakete" element={<Navigate to="/paket" replace />} />
+        <Route path="/komplettpaket/:slug" element={<LegacyParamRedirect to="/paket" />} />
         <Route path="/category/:slug" element={<Navigate to="/wissen" replace />} />
         <Route path="/ausbildungsberufe" element={<Navigate to="/ausbildung" replace />} />
         <Route path="/apprenticeship-course-detail/:slug" element={<LegacyParamRedirect to="/ausbildung" />} />
@@ -688,9 +692,11 @@ const AppRoutes = () => {
         <Route path="/produkte/:slug" element={<BerufOSProductLandingPage />} />
 
 
+        {/* Reality-Audit Fix: BerufOSHub bringt eigenen Header → außerhalb MainLayout mounten (kein Dual-Header) */}
+        <Route path="/" element={<AuthHomeRoute />} />
+
         {/* Main Layout Routes */}
         <Route element={<MainLayout />}>
-          <Route path="/" element={<AuthHomeRoute />} />
           <Route path="/v1" element={<HomePageV1Legacy />} />
           {/* Funnel: Prüfungsreife-Check needs the marketing header for brand-trust + back-nav (Audit P0) */}
           <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />

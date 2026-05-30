@@ -1,10 +1,11 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { Home, BookOpen, Target, Award, GraduationCap, Building2, CreditCard, Menu, Search } from 'lucide-react';
+import { Home, BookOpen, Target, Award, GraduationCap, Building2, CreditCard, Menu, Search, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useState } from 'react';
 import { TopicMapNav } from '@/components/seo/TopicMapNav';
+import { useAuth } from '@/hooks/useAuth';
 
 const navigation = [
   { name: 'IHK-Prüfungen', href: '/ihk-pruefungen', icon: Home },
@@ -18,6 +19,8 @@ export default function SEOLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQ, setSearchQ] = useState('');
   const navigate = useNavigate();
+  // Reality-Audit Fix: Auth-State-Drift — SEOLayout zeigte "Login/Jetzt starten" auch für eingeloggte User
+  const { user, signOut, loading } = useAuth();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -66,16 +69,32 @@ export default function SEOLayout() {
                   />
                 </div>
               </div>
-              <Link to="/auth" className="hidden sm:block">
-                <Button variant="ghost" size="sm">
-                  Login
-                </Button>
-              </Link>
-              <Link to="/shop">
-                <Button size="sm" className="shadow-glow-sm">
-                  Jetzt starten
-                </Button>
-              </Link>
+              {loading ? null : user ? (
+                <>
+                  <Link to="/dashboard" className="hidden sm:block">
+                    <Button variant="ghost" size="sm" className="gap-1">
+                      <LayoutDashboard className="h-4 w-4" />
+                      <span className="hidden md:inline">Dashboard</span>
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" size="sm" onClick={() => signOut()} aria-label="Abmelden">
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link to="/auth" className="hidden sm:block">
+                    <Button variant="ghost" size="sm">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link to="/shop">
+                    <Button size="sm" className="shadow-glow-sm">
+                      Jetzt starten
+                    </Button>
+                  </Link>
+                </>
+              )}
 
               {/* Mobile Menu */}
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -101,19 +120,41 @@ export default function SEOLayout() {
                       );
                     })}
                     <hr className="my-4 border-border" />
-                    <Link
-                      to="/auth"
-                      onClick={() => setMobileOpen(false)}
-                      className="px-4 py-3 text-center rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                    >
-                      Login
-                    </Link>
-                    <Link
-                      to="/shop"
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      <Button className="w-full">Jetzt starten</Button>
-                    </Link>
+                    {user ? (
+                      <>
+                        <Link
+                          to="/dashboard"
+                          onClick={() => setMobileOpen(false)}
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <LayoutDashboard className="h-5 w-5 text-muted-foreground" />
+                          <span className="font-medium">Dashboard</span>
+                        </Link>
+                        <button
+                          onClick={() => { setMobileOpen(false); signOut(); }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                        >
+                          <LogOut className="h-5 w-5 text-muted-foreground" />
+                          <span className="font-medium">Abmelden</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          to="/auth"
+                          onClick={() => setMobileOpen(false)}
+                          className="px-4 py-3 text-center rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                        >
+                          Login
+                        </Link>
+                        <Link
+                          to="/shop"
+                          onClick={() => setMobileOpen(false)}
+                        >
+                          <Button className="w-full">Jetzt starten</Button>
+                        </Link>
+                      </>
+                    )}
                   </nav>
                 </SheetContent>
               </Sheet>

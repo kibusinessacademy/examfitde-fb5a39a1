@@ -27,10 +27,35 @@ export default function DailyChallengePage() {
     if (curriculumId) loadChallenge();
   }, [curriculumId, loadChallenge]);
 
+  // Reality-Audit Fix: Empty-State mit Handlungsoptionen statt Sackgasse
   if (!curriculumId) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background p-4">
-        <p className="text-muted-foreground">Kein Curriculum ausgewählt.</p>
+      <div className="flex items-center justify-center min-h-screen bg-background p-6">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white">
+            <Flame className="h-8 w-8" aria-hidden />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-foreground">Daily Challenge</h1>
+            <p className="text-muted-foreground">
+              Wähle zuerst einen Kurs aus — dann liefern wir dir täglich 5 prüfungsnahe Fragen für deinen Streak.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => navigate('/dashboard')} className="w-full" size="lg">
+              <Calendar className="h-4 w-4 mr-2" />
+              Kurs im Dashboard wählen
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/berufe')} className="w-full">
+              Alle Berufe ansehen
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+            <Button variant="ghost" onClick={() => navigate(-1)} className="w-full">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Zurück
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }

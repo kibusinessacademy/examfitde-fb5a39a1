@@ -253,13 +253,16 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
   const adaptiveBlocked = !entitlementLoading && !hasExamTrainer;
 
   // #3: Consolidated – all quick launches merged into one grid
+  // Reality-Audit Fix: Null-Curriculum darf nicht zu "?curriculum=null"-Sackgassen führen
+  const curriculumQs = activeCurriculumId ? `?curriculum=${activeCurriculumId}` : '';
+  const noCurriculum = !activeCurriculumId;
   const actions = [
-    { to: `/shuttle?curriculum=${activeCurriculumId}`, icon: Zap, label: 'Shuttle', gradient: 'bg-gradient-to-br from-primary to-secondary', blocked: false },
-    { to: `/daily-challenge?curriculum=${activeCurriculumId}`, icon: Flame, label: 'Daily', gradient: 'bg-gradient-to-br from-orange-500 to-amber-500', blocked: false },
-    { to: '/exam-trainer', icon: Target, label: t('examTrainer'), gradient: 'gradient-accent', blocked: false },
-    { to: '/exam-simulation', icon: GraduationCap, label: t('examSimulation'), gradient: 'gradient-primary', blocked: !!simulationBlocked },
+    { to: `/shuttle${curriculumQs}`, icon: Zap, label: 'Shuttle', gradient: 'bg-gradient-to-br from-primary to-secondary', blocked: noCurriculum },
+    { to: `/daily-challenge${curriculumQs}`, icon: Flame, label: 'Daily', gradient: 'bg-gradient-to-br from-orange-500 to-amber-500', blocked: noCurriculum },
+    { to: '/exam-trainer', icon: Target, label: t('examTrainer'), gradient: 'gradient-accent', blocked: noCurriculum },
+    { to: '/exam-simulation', icon: GraduationCap, label: t('examSimulation'), gradient: 'gradient-primary', blocked: !!simulationBlocked || noCurriculum },
     { to: '/oral-exam', icon: Mic, label: 'Mündlich', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', blocked: false },
-    { to: `/heatmap?curriculum=${activeCurriculumId}`, icon: Grid3X3, label: 'Heatmap', gradient: 'bg-gradient-to-br from-emerald-500 to-green-500', blocked: false },
+    { to: `/heatmap${curriculumQs}`, icon: Grid3X3, label: 'Heatmap', gradient: 'bg-gradient-to-br from-emerald-500 to-green-500', blocked: noCurriculum },
     { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', blocked: false },
     { to: '/exam-anxiety', icon: Heart, label: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', blocked: false },
   ];
