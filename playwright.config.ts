@@ -88,5 +88,11 @@ export default defineConfig({
       testMatch: /mobile-funnel-screenshots\.spec\.ts/,
       timeout: 180_000,
     },
+    {
+      name: 'customer-reality',
+      testDir: './tests/customer-reality',
+      testMatch: /.*\.spec\.ts$/,
+      timeout: 90_000,
+    },
   ],
 });
