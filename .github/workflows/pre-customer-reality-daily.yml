@@ -1,0 +1,86 @@
+name: Pre-Customer Reality Daily QA
+
+# Täglich automatisch + manuell. Misst Pre-Login-Funnel:
+# Visitor → Beruf → Kurs → Preis → CTA → Checkout-Surface.
+on:
+  schedule:
+    - cron: '37 6 * * *' # 06:37 UTC (20min nach learner-reality)
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Override base URL (default = REALITY_BASE_URL secret oder preview)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pre-customer-reality-daily
+  cancel-in-progress: false
+
+jobs:
+  reality:
+    name: Pre-Customer Funnel Reality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      REALITY_BASE_URL: ${{ github.event.inputs.base_url != '' && github.event.inputs.base_url || secrets.REALITY_BASE_URL || 'https://examfitde.lovable.app' }}
+      CHECKOUT_TEST_MODE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run pre-customer-reality suite
+        id: pw
+        continue-on-error: true
+        run: bunx playwright test --project=pre-customer-reality
+
+      - name: Aggregate + score
+        id: agg
+        continue-on-error: true
+        run: node scripts/pre-customer-reality-aggregate.mjs
+
+      - name: Render summary to job log
+        if: always()
+        run: |
+          if [ -f reality-results/pre-customer-reality-report.md ]; then
+            cat reality-results/pre-customer-reality-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Pre-Customer Reality QA" >> "$GITHUB_STEP_SUMMARY"
+            echo "Aggregator produced no report — check Playwright artifact." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload reality-results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-customer-reality-${{ github.run_id }}
+          path: |
+            reality-results/
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Hard-fail on BLOCK
+        if: always()
+        run: |
+          if [ ! -f reality-results/pre-customer-reality-results.json ]; then
+            echo "::error::Aggregator did not produce results.json"
+            exit 2
+          fi
+          STATUS=$(node -e "console.log(JSON.parse(require('fs').readFileSync('reality-results/pre-customer-reality-results.json','utf8')).status)")
+          TTC=$(node -e "const r=JSON.parse(require('fs').readFileSync('reality-results/pre-customer-reality-results.json','utf8'));console.log(r.time_to_course_ms ?? 'null')")
+          echo "Status=$STATUS  TIME_TO_COURSE=${TTC}ms"
+          if [ "$STATUS" = "BLOCK" ]; then exit 2; fi
+          if [ "$STATUS" = "REVIEW" ]; then exit 1; fi
+          exit 0
