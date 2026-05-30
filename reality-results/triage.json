@@ -21,10 +21,7 @@
     "resolved_count": 0,
     "new_p0": 0
   },
-  "ttr_hours_avg": null,
-  "ttr_samples": 0,
-  "top_causes": [],
   "findings": [],
-  "resolved_since_last": [],
-  "history_entries": 1
+  "new_findings": [],
+  "resolved_findings": []
 }
