@@ -206,8 +206,92 @@ if (overall === 'RELEASE') {
   console.log(`✅ Baseline aktualisiert: ${BASELINE_FILE}`);
 }
 
+// ── P0-D: public/reality history + latest snapshot (always written) ──────────
+const PUBLIC_DIR = path.resolve(ROOT, 'public', 'reality');
+fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+const PUBLIC_HISTORY = path.join(PUBLIC_DIR, 'history.json');
+const PUBLIC_LATEST  = path.join(PUBLIC_DIR, 'latest.json');
+
+const prevHistory = readJsonSafe(PUBLIC_HISTORY, []) ?? [];
+// First-/Last-Seen pro Fingerprint aus History rekonstruieren
+const seenMap = new Map();
+for (const entry of prevHistory) {
+  for (const fp of entry.fingerprints || []) {
+    const ex = seenMap.get(fp);
+    if (!ex) seenMap.set(fp, { first_seen: entry.ts, last_seen: entry.ts });
+    else { ex.last_seen = entry.ts; }
+  }
+}
+const enrichedTriaged = triaged.map((f) => {
+  const seen = seenMap.get(f.fingerprint);
+  return {
+    ...f,
+    first_seen: seen?.first_seen ?? triage.ts,
+    last_seen: triage.ts,
+  };
+});
+
+// Resolution-Tracking: was war in vorheriger Snapshot, ist jetzt weg?
+const prevLast = prevHistory[prevHistory.length - 1];
+const prevFps = new Set(prevLast?.fingerprints || []);
+const currentFpsList = enrichedTriaged.map((f) => f.fingerprint);
+const justResolved = [...prevFps].filter((fp) => !currentFpsList.includes(fp));
+
+// TTR berechnen für resolved findings
+const ttrSamples = [];
+for (const fp of justResolved) {
+  const seen = seenMap.get(fp);
+  if (seen?.first_seen) {
+    const ttrMs = new Date(triage.ts).getTime() - new Date(seen.first_seen).getTime();
+    ttrSamples.push(ttrMs);
+  }
+}
+const avgTtrHours = ttrSamples.length
+  ? ttrSamples.reduce((a, b) => a + b, 0) / ttrSamples.length / 3600_000
+  : null;
+
+const historyEntry = {
+  ts: triage.ts,
+  overall,
+  counts: triage.counts,
+  fingerprints: currentFpsList,
+  new_fps: newFindings.map((f) => f.fingerprint),
+  resolved_fps: justResolved,
+  runs: triage.runs,
+};
+const nextHistory = [...prevHistory, historyEntry].slice(-60); // keep 60 entries
+fs.writeFileSync(PUBLIC_HISTORY, JSON.stringify(nextHistory, null, 2));
+
+// Top 10 root causes (kind+owner)
+const causeMap = new Map();
+for (const f of enrichedTriaged) {
+  const key = `${f.owner}::${f.kind}`;
+  const c = causeMap.get(key) || { owner: f.owner, kind: f.kind, count: 0, severity: f.severity };
+  c.count += 1;
+  if (statusRank[f.severity] === undefined) {/* noop */}
+  causeMap.set(key, c);
+}
+const topCauses = [...causeMap.values()].sort((a, b) => b.count - a.count).slice(0, 10);
+
+const publicLatest = {
+  ts: triage.ts,
+  overall,
+  runs: triage.runs,
+  counts: triage.counts,
+  trend,
+  ttr_hours_avg: avgTtrHours,
+  ttr_samples: ttrSamples.length,
+  top_causes: topCauses,
+  findings: enrichedTriaged,
+  resolved_since_last: justResolved,
+  history_entries: nextHistory.length,
+};
+fs.writeFileSync(PUBLIC_LATEST, JSON.stringify(publicLatest, null, 2));
+console.log(`📊 P0-D Dashboard data: ${PUBLIC_LATEST} (history ${nextHistory.length})`);
+
 console.log(`\n=== Customer-Reality Triage — ${overall} ===`);
 console.log(`P0=${p0.length} P1=${p1.length} P2=${p2.length}  Δ=${trend.delta}  new=${trend.new_count}  resolved=${trend.resolved_count}`);
 console.log(`Issues queued: ${p0.length}  ·  Report: reality-results/triage-report.md`);
 
 process.exit(overall === 'RELEASE' ? 0 : overall === 'REVIEW' ? 1 : 2);
+
