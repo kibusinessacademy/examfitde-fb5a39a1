@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Flame, CheckCircle2, XCircle, ArrowRight, Trophy, Loader2, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CurriculumPickerGate } from '@/components/curriculum/CurriculumPickerGate';
+import { trackLearnerReality } from '@/lib/learnerInstrumentation';
 
 export default function DailyChallengePage() {
   const navigate = useNavigate();
@@ -27,6 +28,20 @@ export default function DailyChallengePage() {
   useEffect(() => {
     if (curriculumId) loadChallenge();
   }, [curriculumId, loadChallenge]);
+
+  // P0-A Instrumentation: first_question_seen — feuert genau einmal pro
+  // Lade-Session, sobald eine Frage gerendert wurde.
+  const [firstSeenFired, setFirstSeenFired] = useState(false);
+  useEffect(() => {
+    if (!firstSeenFired && currentQuestion && phase === 'active') {
+      setFirstSeenFired(true);
+      trackLearnerReality('first_question_seen', {
+        source: 'daily-challenge',
+        curriculum_id: curriculumId ?? null,
+        question_id: currentQuestion.id,
+      });
+    }
+  }, [firstSeenFired, currentQuestion, phase, curriculumId]);
 
   // P0-A: No-Dead-Ends — Picker-Gate statt Sackgasse
   if (!curriculumId) {
