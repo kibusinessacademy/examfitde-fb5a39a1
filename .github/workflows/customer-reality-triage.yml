@@ -143,20 +143,19 @@ jobs:
             }
             core.notice(`Reality-Triage: ${created} new P0 issues created, ${skipped} dedup'd.`);
 
-      - name: Commit baseline snapshot (only on RELEASE)
-        if: success()
+      - name: Commit baseline + P0-D dashboard data
+        if: always()
         run: |
-          if [ ! -f reality-baselines/last.json ]; then
-            echo "No baseline file written (overall != RELEASE) — skipping commit."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add reality-baselines/last.json
+          # Always commit public dashboard data (history + latest snapshot) — P0-D feed
+          [ -f public/reality/latest.json ] && git add public/reality/latest.json public/reality/history.json || true
+          # Baseline only when RELEASE produced new file
+          [ -f reality-baselines/last.json ] && git add reality-baselines/last.json || true
           if git diff --cached --quiet; then
-            echo "Baseline unchanged."
+            echo "Nothing to commit."
           else
-            git commit -m "chore(reality): update baseline snapshot [skip ci]"
+            git commit -m "chore(reality): triage snapshot + dashboard data [skip ci]"
             git push
           fi
 

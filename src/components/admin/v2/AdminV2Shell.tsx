@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, Package, ListChecks, Menu, X,
   LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Heart, Gauge,
-  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp, Webhook, Cpu, Eye, Inbox
+  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp, Webhook, Cpu, Eye, Inbox, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,7 @@ const SECONDARY_ITEMS = [
   { to: '/admin/cockpit', label: 'Cockpit', icon: Gauge },
   { to: '/admin/founder-agents', label: 'Founder Agents', icon: Sparkles },
   { to: '/admin/platform-conscience', label: 'Conscience', icon: Eye },
+  { to: '/admin/reality-repair', label: 'Reality Repair', icon: ShieldCheck },
   { to: '/admin/heal', label: 'Heal Hub', icon: Heart },
   { to: '/admin/runtime', label: 'AI Runtime', icon: Cpu },
   { to: '/admin/growth', label: 'Growth', icon: Globe },

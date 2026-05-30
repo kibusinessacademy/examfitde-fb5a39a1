@@ -1,0 +1,30 @@
+{
+  "ts": "2026-05-30T10:40:21.129Z",
+  "overall": "REVIEW",
+  "runs": {
+    "learner": null,
+    "pre_customer": null
+  },
+  "counts": {
+    "p0": 0,
+    "p1": 0,
+    "p2": 0,
+    "total": 0
+  },
+  "trend": {
+    "baseline_ts": null,
+    "baseline_status": null,
+    "baseline_finding_count": 0,
+    "current_finding_count": 0,
+    "delta": 0,
+    "new_count": 0,
+    "resolved_count": 0,
+    "new_p0": 0
+  },
+  "ttr_hours_avg": null,
+  "ttr_samples": 0,
+  "top_causes": [],
+  "findings": [],
+  "resolved_since_last": [],
+  "history_entries": 1
+}

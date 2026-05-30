@@ -1,0 +1,19 @@
+[
+  {
+    "ts": "2026-05-30T10:40:21.129Z",
+    "overall": "REVIEW",
+    "counts": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "total": 0
+    },
+    "fingerprints": [],
+    "new_fps": [],
+    "resolved_fps": [],
+    "runs": {
+      "learner": null,
+      "pre_customer": null
+    }
+  }
+]
