@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, Package, ListChecks, Menu, X,
   LogOut, Sparkles, Globe, Play, HeadphonesIcon, BarChart3, Heart, Gauge,
-  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp, Webhook, Cpu, Eye, Inbox
+  Shield, Upload, Activity, KeyRound, Receipt, TrendingUp, Webhook, Cpu, Eye, Inbox, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
