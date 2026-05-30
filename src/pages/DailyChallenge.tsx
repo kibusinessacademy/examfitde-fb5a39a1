@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Flame, CheckCircle2, XCircle, ArrowRight, Trophy, Loader2, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CurriculumPickerGate } from '@/components/curriculum/CurriculumPickerGate';
+import { trackLearnerReality } from '@/lib/learnerInstrumentation';
 
 export default function DailyChallengePage() {
   const navigate = useNavigate();
@@ -27,36 +29,29 @@ export default function DailyChallengePage() {
     if (curriculumId) loadChallenge();
   }, [curriculumId, loadChallenge]);
 
-  // Reality-Audit Fix: Empty-State mit Handlungsoptionen statt Sackgasse
+  // P0-A Instrumentation: first_question_seen — feuert genau einmal pro
+  // Lade-Session, sobald eine Frage gerendert wurde.
+  const [firstSeenFired, setFirstSeenFired] = useState(false);
+  useEffect(() => {
+    if (!firstSeenFired && currentQuestion && phase === 'active') {
+      setFirstSeenFired(true);
+      trackLearnerReality('first_question_seen', {
+        source: 'daily-challenge',
+        curriculum_id: curriculumId ?? null,
+        question_id: currentQuestion.id,
+      });
+    }
+  }, [firstSeenFired, currentQuestion, phase, curriculumId]);
+
+  // P0-A: No-Dead-Ends — Picker-Gate statt Sackgasse
   if (!curriculumId) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background p-6">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white">
-            <Flame className="h-8 w-8" aria-hidden />
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-foreground">Daily Challenge</h1>
-            <p className="text-muted-foreground">
-              Wähle zuerst einen Kurs aus — dann liefern wir dir täglich 5 prüfungsnahe Fragen für deinen Streak.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Button onClick={() => navigate('/dashboard')} className="w-full" size="lg">
-              <Calendar className="h-4 w-4 mr-2" />
-              Kurs im Dashboard wählen
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/berufe')} className="w-full">
-              Alle Berufe ansehen
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-            <Button variant="ghost" onClick={() => navigate(-1)} className="w-full">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Zurück
-            </Button>
-          </div>
-        </div>
-      </div>
+      <CurriculumPickerGate
+        source="daily-challenge"
+        title="Daily Challenge"
+        description="Wähle zuerst einen Beruf — dann liefern wir dir täglich 5 prüfungsnahe Fragen für deinen Streak."
+        icon={<Flame className="h-8 w-8" aria-hidden />}
+      />
     );
   }
 

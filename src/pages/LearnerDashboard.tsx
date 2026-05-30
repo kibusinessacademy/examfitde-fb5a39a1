@@ -39,6 +39,8 @@ import {
   Grid3X3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { trackLearnerReality } from '@/lib/learnerInstrumentation';
+import { CurriculumPickerGate } from '@/components/curriculum/CurriculumPickerGate';
 import {
   Collapsible,
   CollapsibleContent,
@@ -219,23 +221,17 @@ export default function LearnerDashboard() {
         {/* ━━━ SECTION 5: Quick Actions (consolidated – #3) ━━━ */}
         <QuickActionsGrid activeCurriculumId={activeCurriculumId} />
 
-        {/* Empty state */}
+        {/* Empty state — No Dead Ends: führt direkt in den Beruf-Picker */}
         {enrollments.length === 0 && !activeCurriculumId && (
-          <Card className="glass-card mt-6">
-            <CardContent className="p-10 text-center">
-              <GraduationCap className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <h3 className="text-lg font-semibold mb-1">{t('noTrainingYet')}</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {t('startPrep')}
-              </p>
-              <Link to="/courses">
-                <Button className="gradient-primary text-primary-foreground shadow-glow">
-                  Training entdecken
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <CurriculumPickerGate
+            source="dashboard:empty"
+            title={t('noTrainingYet') as string}
+            description={t('startPrep') as string}
+            primaryLabel="Beruf auswählen"
+            primaryHref="/berufe"
+            secondaryLabel="Alle Trainings"
+            secondaryHref="/courses"
+          />
         )}
       </div>
     </div>
@@ -252,45 +248,91 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
   const simulationBlocked = gate && !gate.allowed;
   const adaptiveBlocked = !entitlementLoading && !hasExamTrainer;
 
-  // #3: Consolidated – all quick launches merged into one grid
-  // Reality-Audit Fix: Null-Curriculum darf nicht zu "?curriculum=null"-Sackgassen führen
+  // P0-A: Dashboard-CTA-Resolver — kein "?curriculum=null"-Dead-End mehr.
+  // Wenn kein Curriculum aktiv ist: CTA navigiert in den Picker (/berufe)
+  // und emittiert curriculum_picker_opened. Die CTAs bleiben klickbar.
   const curriculumQs = activeCurriculumId ? `?curriculum=${activeCurriculumId}` : '';
   const noCurriculum = !activeCurriculumId;
-  const actions = [
-    { to: `/shuttle${curriculumQs}`, icon: Zap, label: 'Shuttle', gradient: 'bg-gradient-to-br from-primary to-secondary', blocked: noCurriculum },
-    { to: `/daily-challenge${curriculumQs}`, icon: Flame, label: 'Daily', gradient: 'bg-gradient-to-br from-orange-500 to-amber-500', blocked: noCurriculum },
-    { to: '/exam-trainer', icon: Target, label: t('examTrainer'), gradient: 'gradient-accent', blocked: noCurriculum },
-    { to: '/exam-simulation', icon: GraduationCap, label: t('examSimulation'), gradient: 'gradient-primary', blocked: !!simulationBlocked || noCurriculum },
+  const PICKER_ROUTE = '/berufe';
+
+  type Action = {
+    to: string;
+    icon: typeof Zap;
+    label: string;
+    gradient: string;
+    blocked: boolean;
+    /** Soft-Block: navigates to picker on click instead of being dead. */
+    needsCurriculum?: boolean;
+  };
+
+  const actions: Action[] = [
+    { to: `/shuttle${curriculumQs}`, icon: Zap, label: 'Shuttle', gradient: 'bg-gradient-to-br from-primary to-secondary', blocked: false, needsCurriculum: noCurriculum },
+    { to: `/daily-challenge${curriculumQs}`, icon: Flame, label: 'Daily', gradient: 'bg-gradient-to-br from-orange-500 to-amber-500', blocked: false, needsCurriculum: noCurriculum },
+    { to: '/exam-trainer', icon: Target, label: t('examTrainer'), gradient: 'gradient-accent', blocked: false, needsCurriculum: noCurriculum },
+    { to: '/exam-simulation', icon: GraduationCap, label: t('examSimulation'), gradient: 'gradient-primary', blocked: !!simulationBlocked, needsCurriculum: noCurriculum },
     { to: '/oral-exam', icon: Mic, label: 'Mündlich', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', blocked: false },
-    { to: `/heatmap${curriculumQs}`, icon: Grid3X3, label: 'Heatmap', gradient: 'bg-gradient-to-br from-emerald-500 to-green-500', blocked: noCurriculum },
+    { to: `/heatmap${curriculumQs}`, icon: Grid3X3, label: 'Heatmap', gradient: 'bg-gradient-to-br from-emerald-500 to-green-500', blocked: false, needsCurriculum: noCurriculum },
     { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', blocked: false },
     { to: '/exam-anxiety', icon: Heart, label: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', blocked: false },
   ];
+
+  const handleClick = (action: Action) => {
+    trackLearnerReality('dashboard_cta_clicked', {
+      cta: action.label,
+      target: action.to,
+      curriculum_id: activeCurriculumId,
+      blocked: action.blocked,
+      needs_curriculum: !!action.needsCurriculum,
+    });
+    if (action.blocked) return;
+    if (action.needsCurriculum) {
+      trackLearnerReality('curriculum_picker_opened', {
+        source: `dashboard:${action.label}`,
+        target: PICKER_ROUTE,
+      });
+      navigate(PICKER_ROUTE);
+      return;
+    }
+    navigate(action.to);
+  };
 
   return (
     <div className="mt-6">
       <h2 className="text-base font-display font-semibold mb-3">Schnellzugriff</h2>
       <div className="grid grid-cols-4 gap-2">
         {actions.map((action) => {
-          const content = (
-            <Card className={cn(
-              'glass-card transition-all touch-manipulation',
-              action.blocked ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/30 active:scale-[0.97]'
-            )}>
-              <CardContent className="p-2.5 text-center">
-                <div className={`p-2 rounded-lg ${action.gradient} inline-flex mb-1 ${action.blocked ? 'grayscale' : ''}`}>
-                  <action.icon className="h-4 w-4 text-text-on-gradient" />
-                </div>
-                <h3 className="font-medium text-[10px] leading-tight">{action.label}</h3>
-              </CardContent>
-            </Card>
+          const isHardBlocked = action.blocked;
+          return (
+            <button
+              key={action.to}
+              type="button"
+              onClick={() => handleClick(action)}
+              disabled={isHardBlocked}
+              aria-label={
+                action.needsCurriculum
+                  ? `${action.label} — zuerst Beruf auswählen`
+                  : action.label
+              }
+              className="text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
+            >
+              <Card className={cn(
+                'glass-card transition-all touch-manipulation',
+                isHardBlocked
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'hover:border-primary/30 active:scale-[0.97]'
+              )}>
+                <CardContent className="p-2.5 text-center">
+                  <div className={`p-2 rounded-lg ${action.gradient} inline-flex mb-1 ${isHardBlocked ? 'grayscale' : ''}`}>
+                    <action.icon className="h-4 w-4 text-text-on-gradient" />
+                  </div>
+                  <h3 className="font-medium text-[10px] leading-tight">{action.label}</h3>
+                  {action.needsCurriculum && (
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Beruf wählen</p>
+                  )}
+                </CardContent>
+              </Card>
+            </button>
           );
-
-          if (action.blocked) {
-            return <div key={action.to}>{content}</div>;
-          }
-
-          return <Link key={action.to} to={action.to}>{content}</Link>;
         })}
       </div>
     </div>
