@@ -1,0 +1,174 @@
+name: Customer Reality Triage Loop
+
+# Läuft nach learner-reality-daily UND pre-customer-reality-daily.
+# Konsumiert deren Artifacts, klassifiziert Findings, vergleicht gegen
+# letzte Baseline, öffnet GitHub Issues für jeden neuen P0, snapshotted
+# Baseline nur wenn beide Runs RELEASE.
+#
+# Kein neues Feature — nur Reality → Finding → Fix-Queue → Regression.
+
+on:
+  workflow_run:
+    workflows:
+      - "Pre-Customer Reality Daily QA"
+      - "Daily Learner Reality QA"
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # für Baseline-Commit
+  issues: write     # für P0-Issues
+  actions: read     # Artifacts lesen
+
+concurrency:
+  group: customer-reality-triage
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download latest learner-reality artifact
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          workflow: learner-reality-daily.yml
+          name_is_regexp: true
+          name: ^learner-reality-.*
+          path: reality-artifacts/learner
+          if_no_artifact_found: warn
+
+      - name: Download latest pre-customer artifact
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          workflow: pre-customer-reality-daily.yml
+          name_is_regexp: true
+          name: ^pre-customer-reality-.*
+          path: reality-artifacts/precustomer
+          if_no_artifact_found: warn
+
+      - name: Merge artifacts into reality-results/
+        run: |
+          mkdir -p reality-results/findings
+          for src in reality-artifacts/learner reality-artifacts/precustomer; do
+            if [ -d "$src/reality-results" ]; then
+              cp -rn "$src/reality-results/." reality-results/ || true
+            fi
+            if [ -d "$src/reality-results/findings" ]; then
+              cp -n "$src/reality-results/findings/"*.json reality-results/findings/ 2>/dev/null || true
+            fi
+          done
+          ls -la reality-results/ || true
+          echo "--- findings ---"
+          ls reality-results/findings/ 2>/dev/null | wc -l || true
+
+      - name: Run triage
+        id: triage
+        continue-on-error: true
+        run: node scripts/customer-reality-triage.mjs
+
+      - name: Render triage report to job summary
+        if: always()
+        run: |
+          if [ -f reality-results/triage-report.md ]; then
+            cat reality-results/triage-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Customer-Reality Triage" >> "$GITHUB_STEP_SUMMARY"
+            echo "Triage produced no report — check previous step." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload triage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: customer-reality-triage-${{ github.run_id }}
+          path: |
+            reality-results/triage.json
+            reality-results/triage-report.md
+            reality-results/github-issues/
+          retention-days: 30
+
+      - name: Open GitHub Issues for new P0 findings
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const dir = 'reality-results/github-issues';
+            if (!fs.existsSync(dir)) { core.info('No P0 issues queued.'); return; }
+            const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+            if (files.length === 0) { core.info('No P0 issues queued.'); return; }
+
+            // Find open issues already labelled `reality` + `p0`, match by fingerprint in body.
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'reality,p0',
+              per_page: 100,
+            });
+            const openFps = new Set(
+              existing
+                .map(i => (i.body || '').match(/Fingerprint:\s*`([^`]+)`/)?.[1])
+                .filter(Boolean)
+            );
+
+            let created = 0, skipped = 0;
+            for (const f of files) {
+              const stub = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+              if (openFps.has(stub.fingerprint)) { skipped++; continue; }
+              // Ensure labels exist (best-effort, ignore errors)
+              for (const lbl of stub.labels) {
+                try { await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: lbl, color: 'b60205' }); } catch {}
+              }
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: stub.title,
+                body: stub.body,
+                labels: stub.labels,
+              });
+              created++;
+            }
+            core.notice(`Reality-Triage: ${created} new P0 issues created, ${skipped} dedup'd.`);
+
+      - name: Commit baseline snapshot (only on RELEASE)
+        if: success()
+        run: |
+          if [ ! -f reality-baselines/last.json ]; then
+            echo "No baseline file written (overall != RELEASE) — skipping commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reality-baselines/last.json
+          if git diff --cached --quiet; then
+            echo "Baseline unchanged."
+          else
+            git commit -m "chore(reality): update baseline snapshot [skip ci]"
+            git push
+          fi
+
+      - name: Propagate triage exit status
+        if: always()
+        run: |
+          if [ ! -f reality-results/triage.json ]; then
+            echo "::error::Triage produced no output"
+            exit 2
+          fi
+          OVERALL=$(node -e "console.log(JSON.parse(require('fs').readFileSync('reality-results/triage.json','utf8')).overall)")
+          echo "Overall=$OVERALL"
+          if [ "$OVERALL" = "BLOCK" ]; then exit 2; fi
+          if [ "$OVERALL" = "REVIEW" ]; then exit 1; fi
+          exit 0

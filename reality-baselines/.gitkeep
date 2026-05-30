@@ -1,0 +1,3 @@
+# Customer-Reality baselines are committed here by the triage workflow
+# only when overall status = RELEASE. The single file `last.json`
+# represents the most recent green snapshot used for trend diffing.
