@@ -15,6 +15,7 @@ import { AlertCircle, ArrowDown, ArrowUp, Minus, RefreshCw } from 'lucide-react'
 interface Finding {
   fingerprint: string;
   severity: 'P0' | 'P1' | 'P2';
+  priority?: 'P0' | 'P1' | 'P2';
   kind: string;
   journey: string;
   route?: string;
@@ -25,6 +26,14 @@ interface Finding {
   occurrences: number;
   first_seen: string;
   last_seen: string;
+  classification?: 'NEW' | 'RECURRING' | 'REGRESSION_7D' | 'REGRESSION_30D';
+  delta_reason?: string;
+  first_seen_prior?: string | null;
+  last_seen_prior?: string | null;
+  gap_snapshots?: number;
+  comparison_window?: string;
+  eta_hours?: number;
+  eta_due?: string;
 }
 interface Latest {
   ts: string | null;
@@ -42,6 +51,8 @@ interface Latest {
     resolved_count: number;
     new_p0: number;
     baseline_ts: string | null;
+    regressions_7d?: number;
+    regressions_30d?: number;
   } | null;
   ttr_hours_avg: number | null;
   ttr_samples: number;
@@ -64,11 +75,24 @@ const SEV_STYLES: Record<string, string> = {
   P1: 'bg-status-warning-bg-subtle text-status-warning border-status-warning/30',
   P2: 'bg-status-info-bg-subtle text-status-info border-status-info/30',
 };
+const CLASS_STYLES: Record<string, string> = {
+  NEW: 'bg-status-info-bg-subtle text-status-info border-status-info/30',
+  RECURRING: 'bg-surface-subtle text-text-muted border-border',
+  REGRESSION_7D: 'bg-status-danger-bg-subtle text-status-danger border-status-danger/30',
+  REGRESSION_30D: 'bg-status-warning-bg-subtle text-status-warning border-status-warning/30',
+};
+const CLASS_LABEL: Record<string, string> = {
+  NEW: '🆕 NEW',
+  RECURRING: '♻️ RECURRING',
+  REGRESSION_7D: '⚠️ REG 7d',
+  REGRESSION_30D: '⚠️ REG 30d',
+};
 const OVERALL_STYLES: Record<string, string> = {
   RELEASE: 'bg-status-success-bg-subtle text-status-success border-status-success/30',
   REVIEW: 'bg-status-warning-bg-subtle text-status-warning border-status-warning/30',
   BLOCK: 'bg-status-danger-bg-subtle text-status-danger border-status-danger/30',
 };
+
 
 function fmtAgo(iso?: string | null): string {
   if (!iso) return '—';
@@ -140,12 +164,21 @@ function windowAvg(hist: HistoryEntry[], days: number): { current: number; previ
   };
 }
 
-function regressions(latest: Latest, hist: HistoryEntry[]): Finding[] {
-  if (!hist.length) return [];
-  // Findings whose fingerprint was missing in any previous snapshot but is present now
-  const wasMissingAnyPrev = (fp: string) => hist.slice(0, -1).some((h) => !h.fingerprints.includes(fp));
-  return latest.findings.filter((f) => wasMissingAnyPrev(f.fingerprint));
+function regressions(latest: Latest): { reg7: Finding[]; reg30: Finding[] } {
+  const reg7 = latest.findings.filter((f) => f.classification === 'REGRESSION_7D');
+  const reg30 = latest.findings.filter((f) => f.classification === 'REGRESSION_30D');
+  return { reg7, reg30 };
 }
+
+function fmtEtaDue(iso?: string): string {
+  if (!iso) return '—';
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return 'overdue';
+  const h = ms / 3_600_000;
+  if (h < 48) return `in ${h.toFixed(1)}h`;
+  return `in ${Math.round(h / 24)}d`;
+}
+
 
 export default function RealityRepairPage() {
   const latestQ = useLatest();
@@ -183,7 +216,7 @@ export default function RealityRepairPage() {
   const history = historyQ.data ?? [];
   const w7 = windowAvg(history, 7);
   const w30 = windowAvg(history, 30);
-  const regs = regressions(latest, history);
+  const { reg7, reg30 } = regressions(latest);
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -326,28 +359,50 @@ export default function RealityRepairPage() {
         </CardContent>
       </Card>
 
-      {/* Regressions */}
-      {regs.length > 0 && (
-        <Card className="border-status-warning/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-status-warning" /> Regressionen ({regs.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              {regs.slice(0, 10).map((f) => (
-                <li key={f.fingerprint} className="flex items-start gap-2">
-                  <Badge variant="outline" className={SEV_STYLES[f.severity]}>{f.severity}</Badge>
-                  <div>
-                    <div className="font-medium">{f.kind} · <span className="font-mono text-xs">{f.route ?? f.journey}</span></div>
-                    <div className="text-text-muted text-xs">{f.detail}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+      {/* Regressionen 7d / 30d */}
+      {(reg7.length > 0 || reg30.length > 0) && (
+        <div className="grid md:grid-cols-2 gap-4">
+          {[
+            { title: 'Regressionen 7d', items: reg7, tone: 'border-status-danger/30', icon: 'text-status-danger' },
+            { title: 'Regressionen 30d', items: reg30, tone: 'border-status-warning/30', icon: 'text-status-warning' },
+          ].map((b) => (
+            <Card key={b.title} className={b.tone}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertCircle className={`h-4 w-4 ${b.icon}`} /> {b.title} ({b.items.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {b.items.length === 0 ? (
+                  <p className="text-sm text-text-muted">Keine Regressionen in diesem Fenster.</p>
+                ) : (
+                  <ul className="space-y-3 text-sm">
+                    {b.items.slice(0, 8).map((f) => (
+                      <li key={f.fingerprint} className="space-y-1 border-l-2 border-border pl-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className={SEV_STYLES[f.severity]}>{f.severity}</Badge>
+                          <Badge variant="outline" className={CLASS_STYLES[f.classification ?? 'NEW']}>
+                            {CLASS_LABEL[f.classification ?? 'NEW']}
+                          </Badge>
+                          <span className="text-xs text-text-muted">ETA {f.eta_hours ?? '—'}h · {fmtEtaDue(f.eta_due)}</span>
+                        </div>
+                        <div className="font-medium">
+                          {f.kind} · <span className="font-mono text-xs bg-surface-subtle px-1.5 py-0.5 rounded">{f.route ?? f.journey}</span>
+                        </div>
+                        <div className="text-text-muted text-xs">{f.detail}</div>
+                        {f.delta_reason && (
+                          <div className="text-xs text-text-muted italic">
+                            Δ-Begründung: {f.delta_reason}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       {/* Fix-Queue */}
@@ -362,11 +417,13 @@ export default function RealityRepairPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Sev</TableHead>
+                    <TableHead>Δ</TableHead>
                     <TableHead>Owner</TableHead>
                     <TableHead>Kind</TableHead>
-                    <TableHead>Route / Journey</TableHead>
+                    <TableHead>Route / CTA</TableHead>
                     <TableHead>Detail</TableHead>
-                    <TableHead className="text-right">×</TableHead>
+                    <TableHead>Δ-Begründung</TableHead>
+                    <TableHead className="text-right">ETA</TableHead>
                     <TableHead>Erstmals</TableHead>
                     <TableHead>Fix-Hint</TableHead>
                   </TableRow>
@@ -375,16 +432,31 @@ export default function RealityRepairPage() {
                   {latest.findings.slice(0, 100).map((f) => (
                     <TableRow key={f.fingerprint}>
                       <TableCell><Badge variant="outline" className={SEV_STYLES[f.severity]}>{f.severity}</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={CLASS_STYLES[f.classification ?? 'NEW']} title={f.delta_reason}>
+                          {CLASS_LABEL[f.classification ?? 'NEW']}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{f.owner}</TableCell>
                       <TableCell className="text-xs">{f.kind}</TableCell>
                       <TableCell className="font-mono text-xs max-w-[180px] truncate" title={f.route ?? f.journey}>{f.route ?? f.journey}</TableCell>
-                      <TableCell className="text-xs max-w-[280px] truncate" title={f.detail}>{f.detail}</TableCell>
-                      <TableCell className="text-right text-xs">{f.occurrences}</TableCell>
-                      <TableCell className="text-xs text-text-muted">{fmtAgo(f.first_seen)}</TableCell>
+                      <TableCell className="text-xs max-w-[260px] truncate" title={f.detail}>{f.detail}</TableCell>
+                      <TableCell className="text-xs max-w-[280px] text-text-muted" title={f.delta_reason}>
+                        <div className="truncate">{f.delta_reason ?? '—'}</div>
+                        {f.last_seen_prior && (
+                          <div className="text-[10px] opacity-70">last_seen: {fmtAgo(f.last_seen_prior)} · gap {f.gap_snapshots ?? 0}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-xs whitespace-nowrap">
+                        {f.eta_hours ?? '—'}h
+                        <div className="text-[10px] text-text-muted">{fmtEtaDue(f.eta_due)}</div>
+                      </TableCell>
+                      <TableCell className="text-xs text-text-muted whitespace-nowrap">{fmtAgo(f.first_seen)}</TableCell>
                       <TableCell className="text-xs text-text-muted max-w-[260px] truncate" title={f.fix_hint}>{f.fix_hint}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
+
               </Table>
               {latest.findings.length > 100 && (
                 <p className="text-xs text-text-muted mt-2">Zeige 100 von {latest.findings.length} — siehe Artifact für vollständige Liste.</p>

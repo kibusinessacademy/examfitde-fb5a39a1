@@ -98,7 +98,7 @@ jobs:
             reality-results/github-issues/
           retention-days: 30
 
-      - name: Open GitHub Issues for new P0 findings
+      - name: Open / dedupe GitHub Issues for P0 + Regression findings
         if: always()
         uses: actions/github-script@v7
         with:
@@ -106,31 +106,43 @@ jobs:
             const fs = require('fs');
             const path = require('path');
             const dir = 'reality-results/github-issues';
-            if (!fs.existsSync(dir)) { core.info('No P0 issues queued.'); return; }
+            if (!fs.existsSync(dir)) { core.info('No issues queued.'); return; }
             const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
-            if (files.length === 0) { core.info('No P0 issues queued.'); return; }
+            if (files.length === 0) { core.info('No issues queued.'); return; }
 
-            // Find open issues already labelled `reality` + `p0`, match by fingerprint in body.
+            // Open issues with `reality` label — match by fingerprint in body.
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              labels: 'reality,p0',
+              labels: 'reality',
               per_page: 100,
             });
-            const openFps = new Set(
-              existing
-                .map(i => (i.body || '').match(/Fingerprint:\s*`([^`]+)`/)?.[1])
-                .filter(Boolean)
-            );
+            const openByFp = new Map();
+            for (const i of existing) {
+              const m = (i.body || '').match(/Fingerprint:\s*`([^`]+)`/);
+              if (m) openByFp.set(m[1], i);
+            }
 
-            let created = 0, skipped = 0;
+            const labelColor = { p0: 'b60205', p1: 'd93f0b', p2: 'fbca04', regression: '5319e7', reality: '0e8a16' };
+            let created = 0, updated = 0, skipped = 0;
             for (const f of files) {
               const stub = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
-              if (openFps.has(stub.fingerprint)) { skipped++; continue; }
-              // Ensure labels exist (best-effort, ignore errors)
               for (const lbl of stub.labels) {
-                try { await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: lbl, color: 'b60205' }); } catch {}
+                const color = labelColor[lbl] || labelColor[lbl.split(':')[0]] || 'ededed';
+                try { await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, name: lbl, color }); } catch {}
+              }
+              const dupe = openByFp.get(stub.fingerprint);
+              if (dupe) {
+                // Append a recurrence comment so we keep ETA + classification fresh
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: dupe.number,
+                  body: `🔄 Recurrence ${new Date().toISOString()} — classification \`${stub.classification}\`, severity ${stub.severity}.`,
+                });
+                updated++;
+                continue;
               }
               await github.rest.issues.create({
                 owner: context.repo.owner,
@@ -141,7 +153,8 @@ jobs:
               });
               created++;
             }
-            core.notice(`Reality-Triage: ${created} new P0 issues created, ${skipped} dedup'd.`);
+            core.notice(`Reality-Triage: ${created} new · ${updated} recurrence comments · ${skipped} skipped.`);
+
 
       - name: Commit baseline + P0-D dashboard data
         if: always()

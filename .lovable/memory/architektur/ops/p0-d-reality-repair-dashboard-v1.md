@@ -1,45 +1,46 @@
 ---
-name: P0-D Reality Repair Dashboard v1
-description: Single-Sicht /admin/reality-repair. Fetcht statisch public/reality/latest.json + history.json (committed by customer-reality-triage workflow). Zeigt Open P0/P1/P2, Trend 7d/30d, Top-10 Root-Causes, Regressionen, TTR, vollständige Fix-Queue mit first_seen/last_seen.
+name: P0-D Reality Repair Dashboard v1 + v2 (Triage Loop Erweiterung)
+description: /admin/reality-repair fetcht public/reality/latest.json + history.json (vom customer-reality-triage Workflow commited). Triage erweitert um classification (NEW/RECURRING/REGRESSION_7D/REGRESSION_30D), delta_reason, ETA pro Severity, Route/CTA-Markierung. Issues werden für P0 UND Regressionen auto-geöffnet, Recurrences als Kommentare.
 type: feature
 ---
 
-# P0-D Reality Repair Dashboard
+# P0-D Reality Repair Dashboard (v2)
 
-**Cut:** 2026-05-30
-**Frage die beantwortet wird:** "Ist ExamFit besser geworden?"
+**Cuts:** 2026-05-30 (v1 Dashboard) + 2026-05-30 (v2 Classification + ETA + Issue-Erweiterung)
 
-## Pipeline-Erweiterung
+## v2-Erweiterung
 
-`scripts/customer-reality-triage.mjs` schreibt jetzt **immer** (nicht nur bei RELEASE) zwei statische Files:
+### Per-Finding Felder (neu in triage.json + public/reality/latest.json)
+- `classification` ∈ `NEW` · `RECURRING` · `REGRESSION_7D` · `REGRESSION_30D`
+- `delta_reason` — Klartext-Erklärung warum Δ/Regression
+- `first_seen_prior` / `last_seen_prior` / `gap_snapshots` / `comparison_window`
+- `priority` (=severity) + `eta_hours` (P0=24h · P1=168h · P2=720h) + `eta_due` (ISO)
 
-- `public/reality/latest.json` — letzte Triage (counts, trend, top_causes, TTR, alle Findings mit first_seen/last_seen)
-- `public/reality/history.json` — Append-only Snapshot-Liste (cap 60), enthält fingerprints/new_fps/resolved_fps pro Run
+### Klassifizierungslogik (`classifyDelta`)
+- Kein vorheriger Snapshot enthält fp → `NEW`
+- fp im letzten Snapshot → `RECURRING`
+- fp war früher, dann ≥1 Snapshot sauber, jetzt wieder → Regression
+  - Lücke ≤ 7 Tage → `REGRESSION_7D`
+  - sonst → `REGRESSION_30D`
 
-Beide werden vom Workflow `customer-reality-triage` per `git add public/reality/` commited (Schritt "Commit baseline + P0-D dashboard data").
+### Auto-Issues
+- Vorher: nur P0
+- Jetzt: P0 **oder** Regression (jeder Severity)
+- Labels: `reality`, `p0|p1|p2`, `owner:<key>`, `surface:<…>`, `eta:<n>h`, optional `regression` + `regression_7d|30d`
+- Dedupe: Open Issues mit `reality` Label, Fingerprint im Body → bestehendes Issue bekommt **Recurrence-Kommentar** mit aktueller Classification statt Duplikat
 
-## Reconstructed Metrics
+### Dashboard UI
+- Pro Finding-Row: Δ-Badge (NEW/RECURRING/REG-7d/REG-30d), Δ-Begründung (Tooltip + Inline), ETA-Spalte mit due-Hint, Route/CTA als Mono-Chip
+- Zwei dedizierte Regression-Cards (7d / 30d) zeigen Severity + Class + Route + delta_reason
+- Trend-KPI behält Δ/new/resolved; report.md zeigt `regressions_7d` / `regressions_30d`
 
-- **first_seen / last_seen** pro Fingerprint aus history.json rekonstruiert
-- **TTR** = ø(now − first_seen) für Fingerprints, die im vorigen Snapshot waren und jetzt fehlen
-- **Trend 7d / 30d** = ø(total findings) im Window vs. vorheriges gleich-großes Window
-- **Regressionen** = Findings, die in mind. einem früheren Snapshot fehlten und jetzt wieder da sind
+## Pipeline (unverändert)
 
-## UI
-
-Route: `/admin/reality-repair` (Sekundär-Nav `AdminV2Shell.tsx`).
-Komponenten: shadcn/ui Card/Table/Badge + inline Sparkline (kein neues Dep).
-Refetch: 120s. Manual Refresh Button. Empty/Error State mit Anleitung "Workflow triggern".
-
-## Bewusst nicht gebaut
-
-- Keine DB-Tabelle, kein Edge-Worker, keine RPC
-- Kein Auto-Close von Issues (kommt in P0-E)
-- Kein Cross-Project-Owner-Notify (Slack/Mail) — manuell aus Dashboard heraus
+1. `learner-reality-daily.yml` → results + findings
+2. `pre-customer-reality-daily.yml` → results + findings
+3. `customer-reality-triage.yml` → triage + Issues + public/reality + Baseline-bei-RELEASE
 
 ## Querverweise
-
-- `mem://architektur/ops/customer-reality-triage-loop-v1` (P0-C)
-- `mem://architektur/ops/pre-customer-reality-daily-qa-v1` (P0-B)
+- `mem://architektur/ops/customer-reality-triage-loop-v1`
 - `scripts/customer-reality-triage.mjs` (SSOT-Producer)
 - `src/pages/admin/v2/RealityRepairPage.tsx` (Consumer)
