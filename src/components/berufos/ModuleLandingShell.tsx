@@ -43,8 +43,8 @@ export function ModuleLandingShell({ module }: Props) {
               {statusLabel(module.status)}
             </span>
           </div>
-          <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05] max-w-4xl">
-            <span className="berufos-gradient-text">{module.name}</span> — {module.tagline}
+          <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.1] max-w-4xl">
+            <span className="berufos-gradient-text inline-block pb-1">{module.name}</span> — {module.tagline}
           </h1>
           <p className="mt-6 max-w-2xl text-lg berufos-text-dim leading-relaxed">
             {module.promise}

@@ -92,9 +92,11 @@ export default function BerufOSHub() {
             AI-native Workforce Platform · v1
           </span>
 
-          <h1 className="mt-6 text-4xl md:text-6xl lg:text-7xl font-semibold tracking-tight leading-[1.05] max-w-4xl">
-            <span className="berufos-gradient-text">Das AI-Betriebssystem</span>
-            <br />für Berufe.
+          {/* Reality-Audit Fix: Hero-Typo — `leading-[1.05]` + Gradient-Clip + <br /> clippte Descender und überlappte Zeilen.
+              Lösung: leading 1.1, span als inline-block mit pb-2 (keine -webkit-text-fill-Cuts), Zeile 2 als eigener block. */}
+          <h1 className="mt-6 text-4xl md:text-6xl lg:text-7xl font-semibold tracking-tight leading-[1.1] max-w-4xl">
+            <span className="berufos-gradient-text inline-block pb-1">Das AI-Betriebssystem</span>
+            <span className="block">für Berufe.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg berufos-text-dim leading-relaxed">
             {BERUFOS.subline}
