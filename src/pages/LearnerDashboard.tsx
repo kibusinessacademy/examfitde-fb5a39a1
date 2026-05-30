@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { trackLearnerReality } from '@/lib/learnerInstrumentation';
+import { CurriculumPickerGate } from '@/components/curriculum/CurriculumPickerGate';
 import {
   Collapsible,
   CollapsibleContent,
@@ -220,23 +221,17 @@ export default function LearnerDashboard() {
         {/* ━━━ SECTION 5: Quick Actions (consolidated – #3) ━━━ */}
         <QuickActionsGrid activeCurriculumId={activeCurriculumId} />
 
-        {/* Empty state */}
+        {/* Empty state — No Dead Ends: führt direkt in den Beruf-Picker */}
         {enrollments.length === 0 && !activeCurriculumId && (
-          <Card className="glass-card mt-6">
-            <CardContent className="p-10 text-center">
-              <GraduationCap className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <h3 className="text-lg font-semibold mb-1">{t('noTrainingYet')}</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {t('startPrep')}
-              </p>
-              <Link to="/courses">
-                <Button className="gradient-primary text-primary-foreground shadow-glow">
-                  Training entdecken
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <CurriculumPickerGate
+            source="dashboard:empty"
+            title={t('noTrainingYet') as string}
+            description={t('startPrep') as string}
+            primaryLabel="Beruf auswählen"
+            primaryHref="/berufe"
+            secondaryLabel="Alle Trainings"
+            secondaryHref="/courses"
+          />
         )}
       </div>
     </div>
