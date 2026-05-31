@@ -242,11 +242,10 @@ export default function OralExamTrainer() {
 
 
   const toggleRecording = useCallback(() => {
-    if (voiceMode) {
-      if (isRecording) stopPushToTalk(); else startPushToTalk();
+    if (!recognitionRef.current) {
+      toast({ title: 'Spracheingabe nicht verfügbar', description: 'Dein Browser unterstützt keine Spracherkennung. Nutze die Texteingabe.', variant: 'destructive' });
       return;
     }
-    if (!recognitionRef.current) return;
     if (isRecording) {
       recognitionRef.current.stop();
       setIsRecording(false);
@@ -259,7 +258,7 @@ export default function OralExamTrainer() {
         toast({ title: 'Mikrofon nicht verfügbar', description: 'Bitte erlaube den Zugriff auf dein Mikrofon.', variant: 'destructive' });
       }
     }
-  }, [isRecording, toast, voiceMode, startPushToTalk, stopPushToTalk]);
+  }, [isRecording, toast]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
