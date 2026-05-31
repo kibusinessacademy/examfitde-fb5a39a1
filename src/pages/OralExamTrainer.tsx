@@ -204,143 +204,42 @@ export default function OralExamTrainer() {
     totalQuestions: 5
   });
 
-  // Premium TTS via ElevenLabs (oral-voice-tts) when voiceMode active; fallback to Web Speech API
-  const speakViaElevenLabs = useCallback(async (text: string): Promise<boolean> => {
-    if (!session?.id) return false;
-    try {
-      setVoiceStatus('speaking');
-      const { data: { session: authSess } } = await supabase.auth.getSession();
-      const token = authSess?.access_token;
-      if (!token) return false;
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/oral-voice-tts`;
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ session_id: session.id, text }),
-      });
-      if (!resp.ok) {
-        if (resp.status === 503) {
-          toast({ title: 'Voice nicht konfiguriert', description: 'Fallback auf Browser-Stimme.' });
-          setVoiceMode(false);
-        }
-        setVoiceStatus('idle');
-        return false;
-      }
-      const examMode = resp.headers.get('x-oral-examiner-mode');
-      const stressLvl = resp.headers.get('x-oral-stress-level');
-      if (examMode) setVoicePersona({ examiner_mode: examMode, stress_level: stressLvl ?? '1' });
-      const blob = await resp.blob();
-      const audio = new Audio(URL.createObjectURL(blob));
-      ttsAudioRef.current = audio;
-      setIsSpeaking(true);
-      await new Promise<void>((resolve) => {
-        audio.onended = () => { setIsSpeaking(false); setVoiceStatus('idle'); resolve(); };
-        audio.onerror = () => { setIsSpeaking(false); setVoiceStatus('idle'); resolve(); };
-        audio.play().catch(() => { setIsSpeaking(false); setVoiceStatus('idle'); resolve(); });
-      });
-      return true;
-    } catch {
-      setIsSpeaking(false);
-      setVoiceStatus('idle');
-      return false;
-    }
-  }, [session?.id, toast]);
-
-  // Text-to-Speech function (voice mode → ElevenLabs; else Web Speech API)
+  // Browser-native TTS via Web Speech API. Persona-Effekt entsteht über die
+  // Fragelogik (oral-exam Engine + Followup-Chains), nicht über Stimm-Variation.
   const speakText = useCallback((text: string, onEnd?: () => void) => {
-    if (voiceMode) {
-      speakViaElevenLabs(text).then((ok) => {
-        if (!ok && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const u = new SpeechSynthesisUtterance(text);
-          u.lang = 'de-DE'; u.rate = 0.9;
-          u.onstart = () => setIsSpeaking(true);
-          u.onend = () => { setIsSpeaking(false); onEnd?.(); };
-          u.onerror = () => { setIsSpeaking(false); onEnd?.(); };
-          window.speechSynthesis.speak(u);
-        } else {
-          onEnd?.();
-        }
-      });
-      return;
-    }
     if (!('speechSynthesis' in window)) {
-      toast({ title: 'Text-to-Speech nicht verfügbar', description: 'Dein Browser unterstützt keine Sprachausgabe.', variant: 'destructive' });
+      // Stiller Fallback in Textmodus — UI bleibt funktional.
       onEnd?.();
       return;
     }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'de-DE';
-    utterance.rate = 0.9;
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => { setIsSpeaking(false); onEnd?.(); };
     utterance.onerror = () => { setIsSpeaking(false); onEnd?.(); };
     window.speechSynthesis.speak(utterance);
-  }, [toast, voiceMode, speakViaElevenLabs]);
+  }, []);
 
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis?.cancel();
-    if (ttsAudioRef.current) { try { ttsAudioRef.current.pause(); } catch {} }
     setIsSpeaking(false);
-    setVoiceStatus('idle');
   }, []);
 
-  // Push-to-talk via ElevenLabs STT (voice mode); fallback Web Speech API
-  const startPushToTalk = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      audioChunksRef.current = [];
-      mr.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        setVoiceStatus('transcribing');
-        try {
-          const { data: { session: authSess } } = await supabase.auth.getSession();
-          const token = authSess?.access_token;
-          const sid = session?.id ?? '';
-          const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/oral-voice-stt?session_id=${sid}`;
-          const resp = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'audio/webm', Authorization: `Bearer ${token}` },
-            body: blob,
-          });
-          const json = await resp.json().catch(() => ({}));
-          if (!resp.ok) {
-            if (json?.error === 'audio_too_short' || json?.error === 'empty_transcript') {
-              toast({ title: 'Bitte vollständiger antworten', description: 'Der Prüfer konnte deine Antwort nicht verstehen.', variant: 'destructive' });
-            } else if (resp.status === 503) {
-              toast({ title: 'Voice nicht konfiguriert', description: 'Fallback auf Textmodus.' });
-              setVoiceMode(false);
-            } else {
-              toast({ title: 'Spracherkennung fehlgeschlagen', description: 'Bitte versuche es erneut.', variant: 'destructive' });
-            }
-          } else if (json?.transcript) {
-            setAnswer((prev) => (prev ? prev + ' ' : '') + json.transcript);
-          }
-        } catch {
-          toast({ title: 'Spracherkennung fehlgeschlagen', variant: 'destructive' });
-        } finally {
-          setVoiceStatus('idle');
-          setIsRecording(false);
-        }
-      };
-      mediaRecorderRef.current = mr;
-      mr.start();
-      setIsRecording(true);
-      setVoiceStatus('recording');
-    } catch {
-      toast({ title: 'Mikrofon nicht verfügbar', description: 'Bitte erlaube den Zugriff auf dein Mikrofon.', variant: 'destructive' });
-    }
-  }, [session?.id, toast]);
-
-  const stopPushToTalk = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
+  // Quality-Gate für Sprach-Antworten (Stille / leer / zu kurz / unverständlich).
+  // Reine Heuristik, kein externer Provider.
+  const evaluateTranscriptQuality = useCallback((raw: string): { ok: true } | { ok: false; reason: string } => {
+    const t = (raw ?? '').trim();
+    if (t.length === 0) return { ok: false, reason: 'Keine Sprache erkannt. Bitte sprich deutlich ins Mikrofon.' };
+    const wordCount = t.split(/\s+/).filter(Boolean).length;
+    if (t.length < 8 || wordCount < 2) return { ok: false, reason: 'Antwort zu kurz. Bitte vollständiger antworten.' };
+    const vowelRatio = (t.match(/[aeiouäöüAEIOUÄÖÜ]/g)?.length ?? 0) / Math.max(t.replace(/\s/g, '').length, 1);
+    if (vowelRatio < 0.15) return { ok: false, reason: 'Antwort unverständlich. Bitte wiederhole sie deutlicher.' };
+    return { ok: true };
   }, []);
+
 
   const toggleRecording = useCallback(() => {
     if (voiceMode) {
