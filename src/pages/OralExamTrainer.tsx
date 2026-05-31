@@ -577,6 +577,36 @@ export default function OralExamTrainer() {
         <p className="text-muted-foreground mt-2">
           {t('oralSubline')}
         </p>
+        {/* Oral Activation v2 — Persona/Dual-Examiner-Sichtbarkeit */}
+        {selectedCurriculum && oralPersona && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {curriculumTitle && (
+              <Badge variant="secondary" className="gap-1">
+                <BookOpen className="h-3 w-3" />
+                {curriculumTitle}
+              </Badge>
+            )}
+            <Badge
+              variant={oralPersona.stressLevel >= 2 ? 'destructive' : 'outline'}
+              className="gap-1"
+              aria-label={`Prüferstil: ${oralPersona.styleLabel}`}
+            >
+              <AlertCircle className="h-3 w-3" />
+              Prüferstil: {oralPersona.styleLabel}
+            </Badge>
+            {oralPersona.examinerMode === 'dual' ? (
+              <Badge variant="default" className="gap-1">
+                <MessageSquare className="h-3 w-3" />
+                Prüfer A &amp; B (Dual)
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1">
+                <MessageSquare className="h-3 w-3" />
+                Einzelprüfer
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
 
       <PageExplainer
