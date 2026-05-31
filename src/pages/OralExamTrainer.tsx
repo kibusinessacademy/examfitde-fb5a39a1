@@ -755,6 +755,11 @@ export default function OralExamTrainer() {
                 Antwort abgeben
               </Button>
             </div>
+            {speechSupported && micPermission === 'denied' && (
+              <p className="text-xs text-destructive mt-2" role="status">
+                Mikrofon-Zugriff ist blockiert. Klicke auf das Schloss-Symbol in der Adressleiste, erlaube das Mikrofon und lade die Seite neu. Die Texteingabe bleibt verfügbar.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
