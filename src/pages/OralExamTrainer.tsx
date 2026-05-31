@@ -596,27 +596,30 @@ export default function OralExamTrainer() {
                 <MessageSquare className="h-5 w-5 text-primary" />
                 Prüferfrage
               </CardTitle>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap items-center">
                 <Badge variant={phase === 'question' ? 'secondary' : 'default'}>
                   {phase === 'question' ? 'Frage wird vorgelesen...' : 'Bereit zum Antworten'}
                 </Badge>
+                {voiceMode && voicePersona && (
+                  <Badge variant="outline" className="capitalize">
+                    {voicePersona.examiner_mode} · Stress {voicePersona.stress_level}
+                  </Badge>
+                )}
+                <Button
+                  variant={voiceMode ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { stopSpeaking(); setVoiceMode((v) => !v); }}
+                  title="Premium-Stimme (ElevenLabs) statt Browser-Stimme"
+                >
+                  {voiceMode ? 'Voice: an' : 'Voice: aus'}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={isSpeaking ? stopSpeaking : handleReadQuestion}
                   disabled={isLoading}
                 >
-                  {isSpeaking ? (
-                    <>
-                      <VolumeX className="h-4 w-4 mr-1" />
-                      Stopp
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="h-4 w-4 mr-1" />
-                      Vorlesen
-                    </>
-                  )}
+                  {isSpeaking ? (<><VolumeX className="h-4 w-4 mr-1" />Stopp</>) : (<><Volume2 className="h-4 w-4 mr-1" />Vorlesen</>)}
                 </Button>
               </div>
             </div>
