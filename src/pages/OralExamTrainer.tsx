@@ -247,6 +247,29 @@ export default function OralExamTrainer() {
     }
   });
 
+  // Oral Activation v2 — Persona-Surface aus oral_exam_session_templates.
+  // Wenn kein Template existiert: Defaults (single examiner, stress=1, "sachlich").
+  // Wirkung läuft serverseitig über oral-exam Engine + Followup-Chains.
+  const { data: oralPersona } = useQuery({
+    queryKey: ['oral-persona', selectedCurriculum],
+    enabled: !!selectedCurriculum,
+    queryFn: async () => {
+      const sb = supabase as any;
+      const { data } = await sb
+        .from('oral_exam_session_templates')
+        .select('examiner_mode, stress_level, followup_chains, metadata')
+        .eq('curriculum_id', selectedCurriculum)
+        .order('sort_order', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      const examinerMode = (data?.examiner_mode as string) || 'single';
+      const stressLevel = (data?.stress_level as number) ?? 1;
+      const styleLabel =
+        stressLevel >= 3 ? 'Stress' : stressLevel === 2 ? 'kritisch' : 'sachlich';
+      return { examinerMode, stressLevel, styleLabel, hasTemplate: !!data };
+    },
+  });
+
   // Product-based access check (bridges to legacy flags during transition)
   const { data: hasAccess, isLoading: entitlementLoading } = useProductAccessByCurriculum(
     selectedCurriculum || undefined,
@@ -438,6 +461,21 @@ export default function OralExamTrainer() {
     setShowSampleAnswer(false);
   };
 
+  // Oral Activation v2 — Auto-Start aus Kursbezug.
+  // Wenn ?curriculum= gesetzt, Zugriff vorhanden und noch in setup-Phase:
+  // Session sofort starten — kein generischer Trainer-Einstieg mehr.
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    if (phase !== 'setup') return;
+    if (!selectedCurriculum) return;
+    if (entitlementLoading) return;
+    if (hasAccess !== true) return;
+    autoStartedRef.current = true;
+    handleStartExam();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, selectedCurriculum, entitlementLoading, hasAccess]);
+
   // Auto-Vorlesen bei neuer Frage (wie im Beispiel-Code)
   useEffect(() => {
     if (phase === 'question' && currentQuestion?.question_text && !isSpeaking) {
@@ -539,6 +577,36 @@ export default function OralExamTrainer() {
         <p className="text-muted-foreground mt-2">
           {t('oralSubline')}
         </p>
+        {/* Oral Activation v2 — Persona/Dual-Examiner-Sichtbarkeit */}
+        {selectedCurriculum && oralPersona && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {curriculumTitle && (
+              <Badge variant="secondary" className="gap-1">
+                <BookOpen className="h-3 w-3" />
+                {curriculumTitle}
+              </Badge>
+            )}
+            <Badge
+              variant={oralPersona.stressLevel >= 2 ? 'destructive' : 'outline'}
+              className="gap-1"
+              aria-label={`Prüferstil: ${oralPersona.styleLabel}`}
+            >
+              <AlertCircle className="h-3 w-3" />
+              Prüferstil: {oralPersona.styleLabel}
+            </Badge>
+            {oralPersona.examinerMode === 'dual' ? (
+              <Badge variant="default" className="gap-1">
+                <MessageSquare className="h-3 w-3" />
+                Prüfer A &amp; B (Dual)
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1">
+                <MessageSquare className="h-3 w-3" />
+                Einzelprüfer
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
 
       <PageExplainer
@@ -862,16 +930,28 @@ export default function OralExamTrainer() {
                 </div>
               )}
 
-              {/* Mögliche Nachfrage */}
-              {evaluation.follow_up_question && (
-                <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                  <h4 className="font-medium flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-400">
-                    <MessageSquare className="h-4 w-4" />
-                    Mögliche Nachfrage des Prüfers
-                  </h4>
-                  <p className="text-sm italic">"{evaluation.follow_up_question}"</p>
-                </div>
-              )}
+              {/* Mögliche Nachfrage — Realismus-Regel: mindestens 1 Rückfrage pro Antwort.
+                  Wenn die Engine keine Nachfrage liefert, zeigen wir eine generische,
+                  damit der Kandidat das Nachfrage-Erlebnis garantiert bekommt. */}
+              {(() => {
+                const fu = (evaluation.follow_up_question || '').trim();
+                const fallback =
+                  oralPersona?.stressLevel && oralPersona.stressLevel >= 2
+                    ? 'Bitte begründen Sie das konkret an einem Praxisbeispiel — kurz und präzise.'
+                    : 'Können Sie das an einem konkreten Praxisbeispiel aus Ihrem Betrieb erläutern?';
+                const text = fu || fallback;
+                return (
+                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                    <h4 className="font-medium flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-400">
+                      <MessageSquare className="h-4 w-4" />
+                      {oralPersona?.examinerMode === 'dual'
+                        ? 'Nachfrage Prüfer B'
+                        : 'Nachfrage des Prüfers'}
+                    </h4>
+                    <p className="text-sm italic">"{text}"</p>
+                  </div>
+                );
+              })()}
             </div>
 
             <Button className="w-full" onClick={handleNextQuestion} disabled={isLoading}>
