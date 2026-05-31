@@ -86,16 +86,6 @@ interface SpeechRecognition extends EventTarget {
   stop: () => void;
   abort: () => void;
 }
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: Event) => void) | null;
-  onend: (() => void) | null;
-  start(): void;
-  stop(): void;
-  abort(): void;
-}
 
 export default function OralExamTrainer() {
   const navigate = useNavigate();
