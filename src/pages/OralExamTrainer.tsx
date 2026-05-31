@@ -101,9 +101,12 @@ export default function OralExamTrainer() {
   const isRecordingRef = useRef(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
   const [showSampleAnswer, setShowSampleAnswer] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const lastTranscriptAtRef = useRef<number>(0);
+  const noSpeechWatchdogRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Oral Voice Activation v1 (browser-native) — Web Speech API only.
   // Persona-Wirkung läuft über Frage-/Followup-Logik (oral-exam Engine),
@@ -114,61 +117,122 @@ export default function OralExamTrainer() {
     isRecordingRef.current = isRecording;
   }, [isRecording]);
 
+  // Permissions API: passiv abfragen, falls verfügbar (Chromium).
+  useEffect(() => {
+    const nav = navigator as Navigator & { permissions?: { query: (d: { name: PermissionName }) => Promise<PermissionStatus> } };
+    if (!nav.permissions?.query) return;
+    let status: PermissionStatus | null = null;
+    nav.permissions
+      .query({ name: 'microphone' as PermissionName })
+      .then((s) => {
+        status = s;
+        setMicPermission(s.state as typeof micPermission);
+        s.onchange = () => setMicPermission(s.state as typeof micPermission);
+      })
+      .catch(() => { /* Safari/FF: ignore */ });
+    return () => { if (status) status.onchange = null; };
+  }, []);
+
+  const stopNoSpeechWatchdog = useCallback(() => {
+    if (noSpeechWatchdogRef.current) {
+      clearInterval(noSpeechWatchdogRef.current);
+      noSpeechWatchdogRef.current = null;
+    }
+  }, []);
+
+  const stopRecordingHard = useCallback((reason?: { title: string; description: string; variant?: 'default' | 'destructive' }) => {
+    stopNoSpeechWatchdog();
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    try { recognitionRef.current?.abort(); } catch { /* noop */ }
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    if (reason) toast({ title: reason.title, description: reason.description, variant: reason.variant ?? 'destructive' });
+  }, [stopNoSpeechWatchdog, toast]);
+
   // Initialize Speech Recognition
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognitionAPI();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'de-DE';
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) return;
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SpeechRecognitionAPI();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'de-DE';
 
-      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
-          } else {
-            interimTranscript += transcript;
-          }
+    rec.onstart = () => {
+      lastTranscriptAtRef.current = Date.now();
+    };
+
+    rec.onresult = (event: SpeechRecognitionEvent) => {
+      lastTranscriptAtRef.current = Date.now();
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + ' ';
         }
+      }
+      if (finalTranscript) setAnswer((prev) => prev + finalTranscript);
+    };
 
-        if (finalTranscript) {
-          setAnswer(prev => prev + finalTranscript);
-        }
-      };
+    rec.onerror = (event) => {
+      const code = event?.error ?? 'unknown';
+      // Spezifische, nicht-blockierende Behandlung pro Fehlercode.
+      switch (code) {
+        case 'not-allowed':
+        case 'service-not-allowed':
+          setMicPermission('denied');
+          stopRecordingHard({
+            title: 'Mikrofon-Zugriff blockiert',
+            description: 'Bitte erlaube den Mikrofon-Zugriff in den Browser-Einstellungen und lade die Seite neu. Texteingabe bleibt verfügbar.',
+          });
+          return;
+        case 'audio-capture':
+          stopRecordingHard({
+            title: 'Kein Mikrofon gefunden',
+            description: 'Schließe ein Mikrofon an oder wähle ein anderes Audiogerät. Texteingabe bleibt verfügbar.',
+          });
+          return;
+        case 'no-speech':
+          // Watchdog hat ggf. schon gehandelt — sanfter Hinweis, kein Hard-Stop.
+          toast({
+            title: 'Nichts gehört',
+            description: 'Sprich bitte deutlich oder beende die Aufnahme manuell.',
+          });
+          return;
+        case 'network':
+          stopRecordingHard({
+            title: 'Spracherkennung offline',
+            description: 'Verbindung zur Spracherkennung verloren. Bitte erneut versuchen oder Texteingabe nutzen.',
+          });
+          return;
+        case 'aborted':
+          // Vom Code selbst gestoppt — keine Toast-Spam.
+          return;
+        default:
+          stopRecordingHard({
+            title: 'Spracherkennung fehlgeschlagen',
+            description: `Fehler: ${code}. Bitte Texteingabe nutzen.`,
+          });
+      }
+    };
 
-      recognitionRef.current.onerror = () => {
-        setIsRecording(false);
-        toast({
-          title: 'Spracherkennung fehlgeschlagen',
-          description: 'Bitte überprüfe dein Mikrofon oder nutze die Texteingabe.',
-          variant: 'destructive'
-        });
-      };
+    rec.onend = () => {
+      if (isRecordingRef.current) {
+        try { rec.start(); } catch { stopRecordingHard(); }
+      } else {
+        stopNoSpeechWatchdog();
+      }
+    };
 
-      recognitionRef.current.onend = () => {
-        if (isRecordingRef.current) {
-          // Auto-restart if still in recording mode (uses ref to avoid stale closure)
-          try {
-            recognitionRef.current?.start();
-          } catch (e) {
-            setIsRecording(false);
-          }
-        }
-      };
-
-      setSpeechSupported(true);
-    }
+    recognitionRef.current = rec;
+    setSpeechSupported(true);
 
     return () => {
-      recognitionRef.current?.abort();
+      stopNoSpeechWatchdog();
+      try { rec.abort(); } catch { /* noop */ }
       window.speechSynthesis?.cancel();
     };
-  }, []);
+  }, [stopRecordingHard, stopNoSpeechWatchdog, toast]);
 
   const { data: curricula } = useQuery({
     queryKey: ['curricula-for-oral-exam'],
@@ -243,25 +307,114 @@ export default function OralExamTrainer() {
     return { ok: true };
   }, []);
 
+  // Explizite Mikrofon-Freigabe vor Start der Recognition.
+  // Liefert klare Fehlermeldungen statt am Recognition-Start zu hängen.
+  const ensureMicPermission = useCallback(async (): Promise<boolean> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast({
+        title: 'Mikrofon nicht verfügbar',
+        description: 'Dein Browser unterstützt keinen Mikrofon-Zugriff. Bitte Texteingabe nutzen.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Stream sofort wieder freigeben — Recognition öffnet ihren eigenen.
+      stream.getTracks().forEach((t) => t.stop());
+      setMicPermission('granted');
+      return true;
+    } catch (err) {
+      const name = (err as DOMException)?.name ?? 'Error';
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        setMicPermission('denied');
+        toast({
+          title: 'Mikrofon-Zugriff abgelehnt',
+          description: 'Bitte erlaube den Mikrofon-Zugriff im Browser (Adressleiste → Schloss-Symbol) und versuche es erneut.',
+          variant: 'destructive',
+        });
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        toast({
+          title: 'Kein Mikrofon gefunden',
+          description: 'Schließe ein Mikrofon an oder wähle ein anderes Audiogerät.',
+          variant: 'destructive',
+        });
+      } else if (name === 'NotReadableError') {
+        toast({
+          title: 'Mikrofon belegt',
+          description: 'Ein anderes Programm nutzt gerade dein Mikrofon. Bitte schließen und erneut versuchen.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Mikrofon-Fehler',
+          description: `Zugriff fehlgeschlagen (${name}). Bitte Texteingabe nutzen.`,
+          variant: 'destructive',
+        });
+      }
+      return false;
+    }
+  }, [toast]);
 
-  const toggleRecording = useCallback(() => {
+  const toggleRecording = useCallback(async () => {
     if (!recognitionRef.current) {
-      toast({ title: 'Spracheingabe nicht verfügbar', description: 'Dein Browser unterstützt keine Spracherkennung. Nutze die Texteingabe.', variant: 'destructive' });
+      toast({
+        title: 'Spracheingabe nicht verfügbar',
+        description: 'Dein Browser unterstützt keine Spracherkennung. Nutze die Texteingabe.',
+        variant: 'destructive',
+      });
       return;
     }
     if (isRecording) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
-    } else {
-      try {
-        recognitionRef.current.start();
-        setIsRecording(true);
-        toast({ title: 'Sprachaufnahme gestartet', description: 'Sprich jetzt deine Antwort...' });
-      } catch (e) {
-        toast({ title: 'Mikrofon nicht verfügbar', description: 'Bitte erlaube den Zugriff auf dein Mikrofon.', variant: 'destructive' });
-      }
+      stopRecordingHard();
+      return;
     }
-  }, [isRecording, toast]);
+    const granted = await ensureMicPermission();
+    if (!granted) return;
+
+    try {
+      recognitionRef.current.start();
+      setIsRecording(true);
+      lastTranscriptAtRef.current = Date.now();
+      toast({ title: 'Sprachaufnahme gestartet', description: 'Sprich jetzt deine Antwort...' });
+
+      // No-Speech-Watchdog: wenn 12s kein Transkript-Update, sanfter Hinweis;
+      // nach 25s harter Stop, damit der Nutzer nicht hängen bleibt.
+      stopNoSpeechWatchdog();
+      let warned = false;
+      noSpeechWatchdogRef.current = setInterval(() => {
+        const silentMs = Date.now() - lastTranscriptAtRef.current;
+        if (!warned && silentMs > 12_000) {
+          warned = true;
+          toast({
+            title: 'Noch nichts gehört',
+            description: 'Sprich lauter oder prüfe das Mikrofon. Bei Stille wird die Aufnahme automatisch beendet.',
+          });
+        }
+        if (silentMs > 25_000) {
+          stopRecordingHard({
+            title: 'Aufnahme automatisch beendet',
+            description: 'Keine Sprache erkannt. Bitte erneut starten oder Texteingabe nutzen.',
+            variant: 'default',
+          });
+        }
+      }, 2_000);
+    } catch (e) {
+      const name = (e as DOMException)?.name ?? 'Error';
+      // InvalidStateError = bereits gestartet → abort + ignore
+      if (name === 'InvalidStateError') {
+        try { recognitionRef.current.abort(); } catch { /* noop */ }
+        setIsRecording(false);
+        return;
+      }
+      toast({
+        title: 'Mikrofon nicht verfügbar',
+        description: `Spracherkennung konnte nicht starten (${name}). Bitte Texteingabe nutzen.`,
+        variant: 'destructive',
+      });
+    }
+  }, [isRecording, ensureMicPermission, stopRecordingHard, stopNoSpeechWatchdog, toast]);
+
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
