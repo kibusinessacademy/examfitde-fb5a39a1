@@ -459,8 +459,7 @@ export default function OralExamTrainer() {
 
   const handleSubmitAnswer = async () => {
     setIsTimerActive(false);
-    setIsRecording(false);
-    recognitionRef.current?.stop();
+    stopRecordingHard();
     stopSpeaking();
     // Quality-Gate vor Submit: Stille / leer / zu kurz / unverständlich.
     const gate = evaluateTranscriptQuality(answer);
