@@ -270,7 +270,7 @@ function QuickActionsGrid({ activeCurriculumId }: { activeCurriculumId: string |
     { to: `/daily-challenge${curriculumQs}`, icon: Flame, label: 'Daily', gradient: 'bg-gradient-to-br from-orange-500 to-amber-500', blocked: false, needsCurriculum: noCurriculum },
     { to: '/exam-trainer', icon: Target, label: t('examTrainer'), gradient: 'gradient-accent', blocked: false, needsCurriculum: noCurriculum },
     { to: '/exam-simulation', icon: GraduationCap, label: t('examSimulation'), gradient: 'gradient-primary', blocked: !!simulationBlocked, needsCurriculum: noCurriculum },
-    { to: '/oral-exam', icon: Mic, label: 'Mündlich', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', blocked: false },
+    { to: `/oral-exam${curriculumQs}`, icon: Mic, label: 'Mündlich', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-500', blocked: false, needsCurriculum: noCurriculum },
     { to: `/heatmap${curriculumQs}`, icon: Grid3X3, label: 'Heatmap', gradient: 'bg-gradient-to-br from-emerald-500 to-green-500', blocked: false, needsCurriculum: noCurriculum },
     { to: '/spaced-repetition', icon: Brain, label: 'Wiederholen', gradient: 'bg-gradient-to-br from-purple-500 to-indigo-600', blocked: false },
     { to: '/exam-anxiety', icon: Heart, label: 'Stressabbau', gradient: 'bg-gradient-to-br from-rose-500 to-pink-600', blocked: false },
