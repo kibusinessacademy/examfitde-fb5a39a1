@@ -306,6 +306,14 @@ export default function OralExamTrainer() {
     setIsRecording(false);
     recognitionRef.current?.stop();
     stopSpeaking();
+    // Quality-Gate vor Submit: Stille / leer / zu kurz / unverständlich.
+    const gate = evaluateTranscriptQuality(answer);
+    if (!gate.ok) {
+      toast({ title: 'Antwort nicht ausreichend', description: gate.reason, variant: 'destructive' });
+      // Timer wieder starten — Kandidat bekommt zweite Chance, kein Submit.
+      setIsTimerActive(true);
+      return;
+    }
     await submitAnswer(answer);
     setPhase('evaluation');
   };
