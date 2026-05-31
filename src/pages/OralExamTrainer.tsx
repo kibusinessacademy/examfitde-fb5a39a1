@@ -930,16 +930,28 @@ export default function OralExamTrainer() {
                 </div>
               )}
 
-              {/* Mögliche Nachfrage */}
-              {evaluation.follow_up_question && (
-                <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                  <h4 className="font-medium flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-400">
-                    <MessageSquare className="h-4 w-4" />
-                    Mögliche Nachfrage des Prüfers
-                  </h4>
-                  <p className="text-sm italic">"{evaluation.follow_up_question}"</p>
-                </div>
-              )}
+              {/* Mögliche Nachfrage — Realismus-Regel: mindestens 1 Rückfrage pro Antwort.
+                  Wenn die Engine keine Nachfrage liefert, zeigen wir eine generische,
+                  damit der Kandidat das Nachfrage-Erlebnis garantiert bekommt. */}
+              {(() => {
+                const fu = (evaluation.follow_up_question || '').trim();
+                const fallback =
+                  oralPersona?.stressLevel && oralPersona.stressLevel >= 2
+                    ? 'Bitte begründen Sie das konkret an einem Praxisbeispiel — kurz und präzise.'
+                    : 'Können Sie das an einem konkreten Praxisbeispiel aus Ihrem Betrieb erläutern?';
+                const text = fu || fallback;
+                return (
+                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                    <h4 className="font-medium flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-400">
+                      <MessageSquare className="h-4 w-4" />
+                      {oralPersona?.examinerMode === 'dual'
+                        ? 'Nachfrage Prüfer B'
+                        : 'Nachfrage des Prüfers'}
+                    </h4>
+                    <p className="text-sm italic">"{text}"</p>
+                  </div>
+                );
+              })()}
             </div>
 
             <Button className="w-full" onClick={handleNextQuestion} disabled={isLoading}>
