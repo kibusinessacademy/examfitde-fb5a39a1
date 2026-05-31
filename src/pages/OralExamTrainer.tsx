@@ -494,19 +494,11 @@ export default function OralExamTrainer() {
                 <Badge variant={phase === 'question' ? 'secondary' : 'default'}>
                   {phase === 'question' ? 'Frage wird vorgelesen...' : 'Bereit zum Antworten'}
                 </Badge>
-                {voiceMode && voicePersona && (
-                  <Badge variant="outline" className="capitalize">
-                    {voicePersona.examiner_mode} · Stress {voicePersona.stress_level}
+                {speechSupported && (
+                  <Badge variant="outline" className="text-xs">
+                    Voice: Browser
                   </Badge>
                 )}
-                <Button
-                  variant={voiceMode ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => { stopSpeaking(); setVoiceMode((v) => !v); }}
-                  title="Premium-Stimme (ElevenLabs) statt Browser-Stimme"
-                >
-                  {voiceMode ? 'Voice: an' : 'Voice: aus'}
-                </Button>
                 <Button
                   variant="outline"
                   size="sm"
