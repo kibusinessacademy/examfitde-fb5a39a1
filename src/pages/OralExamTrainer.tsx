@@ -495,7 +495,7 @@ export default function OralExamTrainer() {
     setAnswer('');
     setTimeRemaining(180);
     setIsTimerActive(false);
-    setIsRecording(false);
+    stopRecordingHard();
     setShowSampleAnswer(false);
     stopSpeaking();
   };
