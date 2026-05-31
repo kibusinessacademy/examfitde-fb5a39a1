@@ -102,6 +102,14 @@ export default function OralExamTrainer() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
+  // Oral Voice Activation v1 — Push-to-Talk + ElevenLabs TTS/STT bridge
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<'idle' | 'recording' | 'transcribing' | 'speaking'>('idle');
+  const [voicePersona, setVoicePersona] = useState<{ examiner_mode: string; stress_level: string } | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+
   // Keep ref in sync with state to avoid stale closures in callbacks
   useEffect(() => {
     isRecordingRef.current = isRecording;
