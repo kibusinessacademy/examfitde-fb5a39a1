@@ -461,6 +461,21 @@ export default function OralExamTrainer() {
     setShowSampleAnswer(false);
   };
 
+  // Oral Activation v2 — Auto-Start aus Kursbezug.
+  // Wenn ?curriculum= gesetzt, Zugriff vorhanden und noch in setup-Phase:
+  // Session sofort starten — kein generischer Trainer-Einstieg mehr.
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    if (phase !== 'setup') return;
+    if (!selectedCurriculum) return;
+    if (entitlementLoading) return;
+    if (hasAccess !== true) return;
+    autoStartedRef.current = true;
+    handleStartExam();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, selectedCurriculum, entitlementLoading, hasAccess]);
+
   // Auto-Vorlesen bei neuer Frage (wie im Beispiel-Code)
   useEffect(() => {
     if (phase === 'question' && currentQuestion?.question_text && !isSpeaking) {
