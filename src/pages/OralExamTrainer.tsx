@@ -247,6 +247,29 @@ export default function OralExamTrainer() {
     }
   });
 
+  // Oral Activation v2 — Persona-Surface aus oral_exam_session_templates.
+  // Wenn kein Template existiert: Defaults (single examiner, stress=1, "sachlich").
+  // Wirkung läuft serverseitig über oral-exam Engine + Followup-Chains.
+  const { data: oralPersona } = useQuery({
+    queryKey: ['oral-persona', selectedCurriculum],
+    enabled: !!selectedCurriculum,
+    queryFn: async () => {
+      const sb = supabase as any;
+      const { data } = await sb
+        .from('oral_exam_session_templates')
+        .select('examiner_mode, stress_level, followup_chains, metadata')
+        .eq('curriculum_id', selectedCurriculum)
+        .order('sort_order', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      const examinerMode = (data?.examiner_mode as string) || 'single';
+      const stressLevel = (data?.stress_level as number) ?? 1;
+      const styleLabel =
+        stressLevel >= 3 ? 'Stress' : stressLevel === 2 ? 'kritisch' : 'sachlich';
+      return { examinerMode, stressLevel, styleLabel, hasTemplate: !!data };
+    },
+  });
+
   // Product-based access check (bridges to legacy flags during transition)
   const { data: hasAccess, isLoading: entitlementLoading } = useProductAccessByCurriculum(
     selectedCurriculum || undefined,
