@@ -490,6 +490,7 @@ export default function OralExamTrainer() {
       speakText(currentQuestion.question_text, () => {
         // Nach dem Vorlesen automatisch auf "listening" wechseln
         setPhase('listening');
+        turnStartRef.current = Date.now();
       });
     }
   }, [currentQuestion?.id, phase]);
@@ -498,6 +499,7 @@ export default function OralExamTrainer() {
     if (currentQuestion?.question_text) {
       speakText(currentQuestion.question_text, () => {
         setPhase('listening');
+        turnStartRef.current = Date.now();
       });
     }
   };
