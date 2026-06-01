@@ -715,3 +715,23 @@ body.capacitor {
     transform: none;
   }
 }
+
+/* Oral Cinematic — Stress Vignette (radial darkening when stress_level>=3) */
+.oral-stress-vignette::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 30%,
+    hsl(var(--status-danger-text, 0 84% 30%) / 0.10) 75%,
+    hsl(0 0% 0% / 0.22) 100%
+  );
+  animation: pulse-subtle 4s ease-in-out infinite;
+}
+.oral-stress-vignette > * { position: relative; z-index: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .oral-stress-vignette::before { animation: none; }
+}
