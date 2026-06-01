@@ -18,6 +18,12 @@ import { toast } from "sonner";
 type Role = "learner" | "admin" | "teacher" | "org";
 type Creds = { email: string; password: string };
 
+const DEFAULT_TEST_PASSWORD = "ExamFit_Test_2026!";
+const DEFAULT_CREDS: Partial<Record<Role, Creds>> = {
+  learner: { email: "learner@learner.de", password: DEFAULT_TEST_PASSWORD },
+  org: { email: "org@unternehmen.de", password: DEFAULT_TEST_PASSWORD },
+};
+
 const ROLES: { id: Role; label: string; emoji: string }[] = [
   { id: "learner", label: "Learner", emoji: "🎓" },
   { id: "teacher", label: "Teacher", emoji: "🧑‍🏫" },
@@ -48,11 +54,16 @@ function isPreviewHost(): boolean {
 }
 
 function loadCreds(role: Role): Creds | null {
+  const fallback = DEFAULT_CREDS[role] ?? null;
   try {
     const raw = localStorage.getItem(`dev:role:${role}`);
-    return raw ? (JSON.parse(raw) as Creds) : null;
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw) as Creds;
+    // Keep seeded preview roles stable even if an older local placeholder password exists.
+    if (fallback && parsed.email?.trim().toLowerCase() === fallback.email) return fallback;
+    return parsed;
   } catch {
-    return null;
+    return fallback;
   }
 }
 
