@@ -1,107 +1,106 @@
+## Ziel
 
-# ExamFit Oral Trainer v2 — echte Prüfergespräche pro Kurs
+Vollständige B2B Org-Konsole als Premium-Erlebnis: vom Checkout über Mitarbeiter-Einladung, Rollen-Zuweisung, Seat-Management bis hin zu RLS-Härtung — alles in einem konsistenten, hochwertigen UI.
 
-Ziel: Jeder Kurs erhält einen echten mündlichen Trainer, der sich wie ein IHK-Fachgespräch anfühlt — nicht "Frage → Antwort → Gut". Quelle bleibt strikt SSOT (curricula, competencies, exam_blueprints, exam_questions, user_competency_progress). Keine zweite Wissensbasis.
+## Scope
 
-Anti-Drift (hart):
-- Keine neuen Frage-Inhalte erzeugen oder persistieren, die nicht auf einer `competency_id` oder `exam_question_id` referenzieren.
-- Voice ist Cut 4 — startet **nicht** mit Phase 1.
-- Mastery-Update läuft ausschließlich über existierende `update_mastery_from_minicheck`-Logik (neue RPC nutzt denselben Pfad).
-- Pro Curriculum maximal eine aktive Trainer-Route — keine parallelen Oral-Engines neben `verwaltung-oral-bridge` / `conversation-os-turn`. Bridge, don't fork.
+Das ist ein großer Cut. Ich teile in 6 logische Wellen, die ich nacheinander in **einer Antwort** durchziehe (kein Approval pro Welle). Migrations werden am Stück angelegt, UI parallel.
 
 ---
 
-## Cut 1 — SSOT-Schema + Szenario-Seed (Migration)
+### Welle 1 — Checkout → Auto-Provisioning (Backend)
 
-Neue Tabellen:
+**Problem:** Stripe-Webhook erstellt heute `learner_course_grants` nur für den Käufer. Bei B2B-Käufen (Quantity > 1, `metadata.org_id`) muss stattdessen eine **Org-License** mit N Seats angelegt werden.
 
-- `oral_exam_scenarios`
-  - `id`, `curriculum_id` (FK), `competency_ids` uuid[], `title`, `situation` (text — kontextueller Aufhänger, z. B. "Marktanteile sinken"), `role_context` (z. B. "Industriekaufmann"), `difficulty` ('easy'|'medium'|'hard'), `exam_duration_min` int, `mode` ('quick'|'fachgespraech'|'pruefung'), `source` ('seeded'|'derived_from_blueprint'), `source_blueprint_id` nullable, `created_at`
-  - GRANT: anon SELECT (für Vorschau Marketing), authenticated SELECT, service_role ALL
-  - RLS: SELECT public (kein PII), INSERT/UPDATE/DELETE nur service_role / admin via `has_role`
+**Lösung:**
+- Edge `create-product-checkout` erweitern: optionaler Parameter `org_id` + `quantity` → Stripe Checkout mit `metadata.purchase_type=b2b_license`, `metadata.org_id`, `metadata.seats=N`
+- Edge `stripe-webhook` (resp. `process-order-paid-fulfillment`) Branch:
+  - Wenn `metadata.purchase_type=b2b_license` → RPC `provision_org_license_from_order(order_id, org_id, product_id, seats, valid_months)` aufrufen statt `grant_learner_course_access`
+  - RPC legt Row in `org_licenses` an (seats_total, valid_until, source_ref=order_id)
+- Audit-Event `b2b_license_provisioned` in `auto_heal_log`
 
-- `oral_exam_conversation_blueprints`
-  - `id`, `scenario_id` (FK), `step_index` int, `state` ('INTRO'|'EXPLORE'|'CHALLENGE'|'TRANSFER'|'SUMMARY'), `prompt_type` ('opening'|'depth'|'follow_up'|'practice_transfer'|'critical_challenge'|'closing'), `prompt_text`, `expected_keywords` text[], `evaluation_focus` ('fachlichkeit'|'struktur'|'begriffe'|'praxis'|'kommunikation')
-  - GRANT/RLS analog
+### Welle 2 — Mitarbeiter-Einladungen (Backend + Edge)
 
-- `oral_exam_examiner_personas` (Seed: 4 Personas — sachlich, kritisch, praxisorientiert, stress)
-  - `id`, `key`, `name`, `style_directives` jsonb (tonality, interrupt_probability, gegenfragen_density, time_pressure), `voice_id` (für Cut 4, nullable)
+**Tabellen:**
+- `org_invitations` (id, org_id, email, role, invited_by, token UNIQUE, status: pending|accepted|revoked|expired, expires_at, accepted_by_user_id, created_at)
+- Magic-Link-Token (32-byte random hex)
 
-- `oral_exam_sessions`
-  - `id`, `user_id` (auth.users), `curriculum_id`, `scenario_id`, `mode`, `examiner_persona_key`, `state` ('INTRO'|...|'COMPLETED'|'ABORTED'), `started_at`, `completed_at`, `scores` jsonb (overall + 5 Dimensionen), `debrief` jsonb, `mastery_deltas` jsonb
-  - RLS: user_id = auth.uid()
+**RPCs:**
+- `create_org_invitation(org_id, email, role)` — manager-gated, returnt token + invite-URL
+- `bulk_create_org_invitations(org_id, emails[], role)` — bulk
+- `revoke_org_invitation(invitation_id)`
+- `accept_org_invitation(token)` — authenticated user: legt `org_memberships`-Row an + markiert invitation accepted
 
-- `oral_exam_turns`
-  - `session_id`, `turn_index`, `role` ('examiner'|'candidate'), `content`, `state` (snapshot), `prompt_blueprint_id` nullable, `evaluation` jsonb (per-dimension Score + keywords_hit), `created_at`
+**Edge `send-org-invitation-email`:** ruft Lovable-Email-Queue mit branded Template (kommt mit Welle 6 falls Mail-Infra fehlt — sonst fallback: Token im UI kopieren).
 
-Seed:
-- 4 Examiner-Personas.
-- 1 Initial-Szenario pro Curriculum, generiert aus `course_packages.title` + Top-3 Kompetenzen + 2 zufälligen `exam_questions` als Aufhänger. Quelle markiert `derived_from_blueprint`. Idempotent (UPSERT auf `(curriculum_id, source_blueprint_id, mode)`).
-- Conversation-Blueprint pro Szenario: 6 Steps (INTRO → 2× EXPLORE → CHALLENGE → TRANSFER → SUMMARY), Prompt-Texte aus exam_question.question_text + Templates.
+**Public Route:** `/org/einladung/:token` — wenn unauth: Signup-Form → nach Signup `accept_org_invitation`. Wenn auth: One-Click-Accept.
 
-Audit: `ops_audit_contract` Eintrag `oral_exam_session_started`, `oral_exam_session_completed`, `oral_exam_scenario_seeded`.
+### Welle 3 — Rollen-Zuweisung & Seat-Assignment UI
 
----
+**Premium UI Page `/app/org/team`:**
+- Header mit Org-Name, Seat-Counter (used/total), "Mitarbeiter einladen" CTA
+- 3 Tabs: **Aktive Mitarbeiter** | **Offene Einladungen** | **Seats & Lizenzen**
+- Mitarbeiter-Tabelle: Avatar, Name, Email, Rolle-Dropdown (learner/teacher/manager/admin), zugewiesene Kurse (Badge-Liste), "Entfernen"
+- Bulk-Select: "Rolle ändern für N", "Seat für Kurs X zuweisen für N"
+- Inline-Edit für Rolle via `update_org_member_role` RPC
+- Seat-Assignment-Drawer: Multi-Select Mitarbeiter + Multi-Select Lizenzen → ruft `assign_org_license_seat` in batch
 
-## Cut 2 — Conversation-Engine (Edge Function `oral-exam-turn`)
+**Einladungs-Modal:**
+- Tabs Single | Bulk (CSV-Paste oder Textarea mit Komma/Newline-Trennung)
+- Rolle-Picker, optional initiale Kurs-Zuweisung
+- Nach Submit: Liste der erzeugten Tokens mit Copy-Link-Button
 
-Lovable AI Gateway, Model `google/gemini-2.5-flash`, `response_format: json_object`. Actions:
+### Welle 4 — Premium UX Polish gesamtes Org-Backend
 
-- `start { curriculum_id, mode, scenario_id? }` → wählt Szenario (gewichtet nach Mastery-Gaps via `v_user_weakness_map`), zufällige Persona, INSERT session + ersten examiner-Turn (INTRO-Prompt aus Blueprint, durch Persona-Stil rephrased), Return `{session_id, examiner_turn, state}`.
-- `turn { session_id, candidate_text }` → INSERT candidate-Turn → State-Machine entscheidet nächsten `prompt_blueprint`-Step (oder Critical-Challenge bei schwacher Antwort, oder Transfer wenn Score solide) → parallel: (a) Evaluation der Candidate-Antwort gegen `expected_keywords` + Rubric (5 Dimensionen, 0–100) (b) Persona-formuliert nächsten Prompt → Header `x-oral-state`, `x-oral-persona`.
-- `finalize { session_id }` → Aggregiert Turn-Scores cluster-gewichtet, schreibt `scores` + `debrief` (Stärken/Schwächen/Prüfungsfallen/Nächste Übungen/Verbesserungen — strukturiertes JSON, gerendert in UI). Ruft `update_mastery_from_minicheck` pro `target_competency` mit Mapping `overall ≥ 80 → mastered`, `50–79 → partial`, `<50 → not_mastered` (nur verbessern, nicht verschlechtern unter aktuelles Level). Schreibt `mastery_deltas`.
+**Konsistente Premium-Sprache** für alle bestehenden Org-Seiten (`/app/org`, `/app/org/team`, `/app/org/licenses`, `/app/org/audit`):
+- Shared `OrgConsoleShell` Layout: SideNav, Breadcrumb, Org-Switcher (wenn user mehrere Orgs hat)
+- KPI-Cards mit `shadow-elev-2`, Motion-Foundation v3 (stagger-in)
+- Lade-Skeletons statt Spinner
+- Empty-States mit Illustration + CTA
+- Status-Badges via Design-System v2 Tokens (status-bg-subtle)
+- Tabellen mit Sticky-Header, Hover-Highlight, Row-Actions im Hover
+- Toasts für jede Mutation
+- Confirm-Dialog für destruktive Aktionen (Seat revoke, Member remove, Invitation revoke)
 
-State-Machine deterministisch in SQL-Helper `fn_oral_next_state(_session_id, _last_score)`. Quality-Gate (silence/gibberish/<2 Wörter) übernimmt Pattern aus `conversation-os-turn` — Refusal-Turn der Persona statt freundlichem Weiter-Chat, 3 Fails → `state='ABORTED'`.
+### Welle 5 — RLS-Verifikation & Härtung
 
----
+- Audit aller relevanten Tabellen: `orders`, `org_licenses`, `org_license_seats`, `org_memberships`, `org_invitations`, `learner_course_grants`
+- Sicherstellen:
+  - Org-Manager sieht **nur** Orders mit `org_id = seine Org` (RLS-Policy)
+  - Mitarbeiter sieht **nur** eigene `learner_course_grants` + Grants seiner Org (über `seat_id`-Join)
+  - Invitations: nur Manager seiner Org lesen/schreiben
+- Helper `is_org_manager(user_id, org_id)` SECURITY DEFINER falls noch nicht existent
+- Linter-Check nach Migration
 
-## Cut 3 — UI `/kurs/:curriculumId/oral`
+### Welle 6 — End-to-End-Wiring & Smoke
 
-Neue Page `OralExamRunner`:
-- Mode-Switch (Schnelltraining 5 min · Fachgespräch 15 min · Abschlussprüfung 30 min).
-- Header: Persona-Name + Stil-Badge, State-Indikator (INTRO → SUMMARY Stepper), Timer.
-- Chat-Surface: Examiner-Bubble + Candidate-Textarea (Voice-Toggle disabled in Cut 3 mit Tooltip "Cut 4").
-- Live: kein Score während Session (anti-Gamification, fühlt sich wie echte Prüfung).
-- End-Screen: Scorecard (5 Dimensionen Radar), Debrief-Card, Mastery-Delta-Liste, CTA "Schwächen ins Minicheck übernehmen".
-- Hook: `useOralExamSession` (start/turn/finalize via supabase.functions.invoke).
-- Einstieg: Card im `CurriculumPickerGate`-Folge-Screen + Tile in `LearnerDashboard` neben "Mündliche Prüfung".
-
-Telemetrie via `learnerInstrumentation`: `oral_exam_started`, `oral_exam_turn`, `oral_exam_completed`, `oral_exam_aborted`.
-
----
-
-## Cut 4 — Voice-Layer (BRIDGE_DONT_FORK von VerwaltungsOS Voice)
-
-- Persona → Voice-ID Mapping in `oral_exam_examiner_personas.voice_id` (Brian/Daniel/George/Eric — passend zu Stil).
-- Edge `oral-exam-voice-tts` und `oral-exam-voice-stt` — exakt Pattern `verwaltung-voice-tts/-stt`, Bridge-Helper extrahieren (kein Fork).
-- UI Push-to-Talk + Auto-Playback nach Examiner-Turn.
-- Silence-Timer 10s → Persona-Druck "Ich warte auf Ihre Antwort."
-- 3 Quality-Gate-Fails im Voice → identische Abort-Logik.
-
-Cut 4 wird **nicht** in dieser Iteration gebaut — nur Spalten + Persona-Voice-IDs werden in Cut 1 angelegt, damit kein zweites Migrations-Round-Trip nötig wird.
-
----
-
-## Cut 5 — Reality-Smoke + Memory
-
-- `tests/customer-reality/learner/09-oral-exam.spec.ts` erweitern: J09 erwartet jetzt strukturierten Session-Start + Persona-Bubble + Evaluation nach Submit + Debrief nach Finalize.
-- `scripts/oral-exam-smoke.mjs`: Start → 3 Turns → Finalize, prüft Mastery-Delta written.
-- Memory `mem://features/oral-exam/oral-trainer-v2.md` + Index-Update.
+- DevRoleSwitcher: Quicklink "Org-Team" + "Org-Lizenzen" hinzufügen
+- Routes in `App.tsx` registrieren
+- README-Notiz in `.lovable/memory/features/` (B2B Org Console v1)
+- Manueller Smoke-Test-Pfad dokumentieren
 
 ---
 
-## Technische Details
+## Technische Notizen
 
-- Keine neue AI-Provider-Abhängigkeit (Lovable AI Gateway, kein Key nötig).
-- Evaluation per LLM JSON (deterministischer Prompt + keywords_hit als ground-truth Anker → reduziert Halluzination).
-- Performance: Turn-Latenz Ziel <2.5s (Gemini Flash + parallel Evaluation/Persona-Reply).
-- Sicherheit: alle Edge-Funktionen auth-gated, has_role-Check nur für admin-seed RPC, RLS auf sessions/turns strikt user_id-scoped.
-- Kosten-Cap: max 30 Turns pro Session (hard cap im Engine), danach Auto-Finalize.
+- **Keine neuen parallelen Systeme** (Continuity Guard #3): Wiederverwendung von `org_memberships`, `org_licenses`, `org_license_seats`, `assign_org_license_seat`, `release_org_license_seat`
+- **Audit Pflicht** via `fn_emit_audit` mit registrierten action_types: `b2b_license_provisioned`, `org_invitation_created`, `org_invitation_accepted`, `org_invitation_revoked`, `org_member_role_changed`
+- **GRANTs Pflicht** für alle neuen Tabellen (`org_invitations`)
+- **Trigger** zum Auto-Expire von Invitations nach 14 Tagen via Cron oder lazy bei Read
 
----
+## Risiken
 
-## Reihenfolge in dieser Iteration
+- Stripe-Webhook-Branch könnte bestehende B2C-Smoke-Tests brechen → strikt auf `metadata.purchase_type=b2b_license` filtern
+- `assign_org_license_seat` existiert bereits → wiederverwenden, nicht neu bauen
+- Email-Versand: falls Email-Infra fehlt, Fallback auf Copy-Link UI (kein Blocker)
 
-Ich baue **Cut 1 + Cut 2 + Cut 3 + Cut 5** in einem Zug (Voice Cut 4 separat, nachdem Text-Pfad stabil ist und Reality-Smoke grün).
+## Reihenfolge der Ausführung
 
-Bestätigen, dann starte ich mit Migration Cut 1.
+1. Migration: `org_invitations` + RPCs + RLS + `provision_org_license_from_order` + audit-contracts
+2. Edge Functions: `create-product-checkout` Erweiterung, `accept-org-invitation`, `send-org-invitation-email`
+3. UI: `OrgConsoleShell`, `/app/org/team`, Invite-Modal, Seat-Drawer, Accept-Page
+4. Polish bestehender Org-Seiten
+5. RLS-Audit + Linter
+6. DevRoleSwitcher + Routes + Memory
+
+Bestätige bitte den Plan, dann starte ich mit Welle 1 (Migration).
