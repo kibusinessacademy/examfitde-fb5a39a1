@@ -31,6 +31,8 @@ const QUICK_LINKS = [
   { label: "AI-Tutor", path: "/app/ai-tutor" },
   { label: "Admin", path: "/admin" },
   { label: "Org-Konsole", path: "/app/org" },
+  { label: "Org-Team", path: "/app/org" },
+  { label: "Org-Lizenzen", path: "/app/org" },
   { label: "B2B-Checkout", path: "/berufski/corporate" },
 ];
 
