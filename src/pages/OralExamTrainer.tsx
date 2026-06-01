@@ -466,6 +466,8 @@ export default function OralExamTrainer() {
     setIsTimerActive(true);
     setAnswer('');
     setShowSampleAnswer(false);
+    setTurnMetrics([]);
+    sessionStartRef.current = Date.now();
   };
 
   // Oral Activation v2 — Auto-Start aus Kursbezug.
