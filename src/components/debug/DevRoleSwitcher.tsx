@@ -64,6 +64,7 @@ export function DevRoleSwitcher() {
   const [draftEmail, setDraftEmail] = useState("");
   const [draftPass, setDraftPass] = useState("");
   const [busy, setBusy] = useState<Role | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isPreviewHost()) return;
@@ -87,13 +88,21 @@ export function DevRoleSwitcher() {
       return;
     }
     setBusy(role);
+    setLastError(null);
     try {
       if (user) await signOut();
-      const { error } = await signIn(creds.email, creds.password);
+      const email = creds.email.trim().toLowerCase();
+      const password = creds.password.trim();
+      const { error } = await signIn(email, password);
       if (error) {
-        toast.error(`Login fehlgeschlagen: ${error.message}`);
+        const message =
+          error.message === "Invalid login credentials"
+            ? `Login fehlgeschlagen: ${email} existiert in diesem Test-Backend nicht oder das Passwort passt nicht.`
+            : `Login fehlgeschlagen: ${error.message}`;
+        setLastError(message);
+        toast.error(message);
       } else {
-        toast.success(`Eingeloggt als ${role} (${creds.email})`);
+        toast.success(`Eingeloggt als ${role} (${email})`);
         setOpen(false);
       }
     } finally {
@@ -107,7 +116,7 @@ export function DevRoleSwitcher() {
       toast.error("E-Mail und Passwort nötig");
       return;
     }
-    saveCreds(editRole, { email: draftEmail.trim(), password: draftPass });
+    saveCreds(editRole, { email: draftEmail.trim().toLowerCase(), password: draftPass.trim() });
     toast.success(`Credentials für ${editRole} gespeichert`);
     const role = editRole;
     setEditRole(null);
@@ -152,6 +161,7 @@ export function DevRoleSwitcher() {
             borderRadius: 10,
             padding: 12,
             minWidth: 260,
+            maxWidth: "calc(100vw - 24px)",
             boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
           }}
         >
@@ -169,6 +179,9 @@ export function DevRoleSwitcher() {
 
           <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 8 }}>
             {user ? `Aktiv: ${user.email}` : "Nicht eingeloggt"}
+          </div>
+          <div style={{ fontSize: 10, opacity: 0.65, marginBottom: 8 }}>
+            Hinweis: Der Switcher speichert Zugangsdaten nur lokal. Die Nutzer müssen zusätzlich im aktuellen Test-Backend existieren.
           </div>
 
           {editRole ? (
@@ -240,6 +253,22 @@ export function DevRoleSwitcher() {
                   );
                 })}
               </div>
+
+              {lastError && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: "8px 10px",
+                    borderRadius: 6,
+                    border: "1px solid #7f1d1d",
+                    background: "rgba(127,29,29,0.22)",
+                    color: "#fecaca",
+                    fontSize: 11,
+                  }}
+                >
+                  {lastError}
+                </div>
+              )}
 
               <div style={{ borderTop: "1px dashed #334155", marginTop: 10, paddingTop: 8 }}>
                 <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>Schnellsprung:</div>
