@@ -1,5 +1,5 @@
 {
-  "ts": "2026-05-30T10:40:21.129Z",
+  "ts": "2026-06-01T12:22:21.566Z",
   "overall": "REVIEW",
   "runs": {
     "learner": null,
@@ -19,12 +19,14 @@
     "delta": 0,
     "new_count": 0,
     "resolved_count": 0,
-    "new_p0": 0
+    "new_p0": 0,
+    "regressions_7d": 0,
+    "regressions_30d": 0
   },
   "ttr_hours_avg": null,
   "ttr_samples": 0,
   "top_causes": [],
   "findings": [],
   "resolved_since_last": [],
-  "history_entries": 1
+  "history_entries": 2
 }
