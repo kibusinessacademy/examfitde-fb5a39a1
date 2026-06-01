@@ -15,13 +15,14 @@ import { toast } from "sonner";
  * Or append `?devroles=1` once to enable persistently.
  */
 
-type Role = "learner" | "admin" | "teacher";
+type Role = "learner" | "admin" | "teacher" | "org";
 type Creds = { email: string; password: string };
 
 const ROLES: { id: Role; label: string; emoji: string }[] = [
   { id: "learner", label: "Learner", emoji: "🎓" },
   { id: "teacher", label: "Teacher", emoji: "🧑‍🏫" },
   { id: "admin", label: "Admin", emoji: "🛡️" },
+  { id: "org", label: "Unternehmen (B2B)", emoji: "🏢" },
 ];
 
 const QUICK_LINKS = [
@@ -29,6 +30,8 @@ const QUICK_LINKS = [
   { label: "Dashboard", path: "/dashboard" },
   { label: "AI-Tutor", path: "/app/ai-tutor" },
   { label: "Admin", path: "/admin" },
+  { label: "Org-Konsole", path: "/app/org" },
+  { label: "B2B-Checkout", path: "/berufski/corporate" },
 ];
 
 function isPreviewHost(): boolean {
