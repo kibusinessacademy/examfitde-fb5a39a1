@@ -585,8 +585,15 @@ export default function OralExamTrainer() {
     );
   }
 
+  const stressActive = (oralPersona?.stressLevel ?? 1) >= 3 && (phase === 'question' || phase === 'listening' || phase === 'evaluation');
+
   return (
-    <div className="container max-w-4xl py-8">
+    <div
+      className={cn(
+        "container max-w-4xl py-8 relative transition-colors duration-slow ease-out-expo",
+        stressActive && "oral-stress-vignette",
+      )}
+    >
       <div className="mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Mic className="h-8 w-8 text-primary" />
