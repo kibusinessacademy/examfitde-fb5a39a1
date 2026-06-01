@@ -18,6 +18,7 @@ import { useTrailingSlashNormalizer } from "@/hooks/useTrailingSlashNormalizer";
 import AppRoutes from "@/routes/AppRoutes";
 import ScrollToTop from "@/components/ScrollToTop";
 import { AccessDebugPanel } from "@/components/debug/AccessDebugPanel";
+import { DevRoleSwitcher } from "@/components/debug/DevRoleSwitcher";
 import { useHeatmapTracking } from "@/features/analytics/useHeatmapTracking";
 import { useGtmPageView } from "@/hooks/useGtmPageView";
 import { useNotificationAttribution } from "@/hooks/useNotificationAttribution";
