@@ -627,3 +627,91 @@ body.capacitor {
     object-fit: cover;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Premium Motion Foundation v3 — patterns + a11y
+   - Tokens (--motion-*, --ease-*) bereits in :root definiert.
+   - Patterns sind opt-in via Klassen, kein globaler Override.
+   - Respektiert prefers-reduced-motion strikt.
+   ────────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Lift on hover — premium tactile feedback (Cards, CTAs) */
+  .premium-lift {
+    transition:
+      transform var(--motion-base, 220ms) var(--ease-out, ease-out),
+      box-shadow var(--motion-base, 220ms) var(--ease-out, ease-out);
+    will-change: transform;
+  }
+  .premium-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg, 0 10px 15px -3px hsl(222 47% 11% / 0.1));
+  }
+  .premium-lift:active {
+    transform: translateY(0);
+    transition-duration: var(--motion-fast, 150ms);
+  }
+
+  /* Shimmer skeleton — anticipatory loading */
+  .premium-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted) / 0.4) 0%,
+      hsl(var(--muted) / 0.7) 50%,
+      hsl(var(--muted) / 0.4) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  /* Reveal-up — single element entrance */
+  .premium-reveal {
+    animation: reveal-up var(--motion-slow, 380ms) var(--ease-out, ease-out) both;
+  }
+
+  /* Staggered children — list/grid entrances.
+     Up to 12 children get cascaded delays (50ms steps). */
+  .premium-stagger > * {
+    animation: reveal-up var(--motion-slow, 380ms) var(--ease-out, ease-out) both;
+  }
+  .premium-stagger > *:nth-child(1)  { animation-delay: 0ms; }
+  .premium-stagger > *:nth-child(2)  { animation-delay: 50ms; }
+  .premium-stagger > *:nth-child(3)  { animation-delay: 100ms; }
+  .premium-stagger > *:nth-child(4)  { animation-delay: 150ms; }
+  .premium-stagger > *:nth-child(5)  { animation-delay: 200ms; }
+  .premium-stagger > *:nth-child(6)  { animation-delay: 250ms; }
+  .premium-stagger > *:nth-child(7)  { animation-delay: 300ms; }
+  .premium-stagger > *:nth-child(8)  { animation-delay: 350ms; }
+  .premium-stagger > *:nth-child(9)  { animation-delay: 400ms; }
+  .premium-stagger > *:nth-child(10) { animation-delay: 450ms; }
+  .premium-stagger > *:nth-child(11) { animation-delay: 500ms; }
+  .premium-stagger > *:nth-child(12) { animation-delay: 550ms; }
+
+  /* Focus ring with premium glow — for primary CTAs */
+  .premium-focus:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.35);
+    transition: box-shadow var(--motion-fast, 150ms) var(--ease-out, ease-out);
+  }
+}
+
+/* a11y: respect reduced-motion preference globally for premium patterns */
+@media (prefers-reduced-motion: reduce) {
+  .premium-lift,
+  .premium-shimmer,
+  .premium-reveal,
+  .premium-stagger > *,
+  .animate-reveal-up,
+  .animate-shimmer,
+  .animate-glow-pulse,
+  .animate-soft-bounce,
+  .animate-fade-in,
+  .animate-slide-in,
+  .animate-scale-in,
+  .animate-pulse-subtle {
+    animation: none !important;
+    transition: none !important;
+  }
+  .premium-lift:hover {
+    transform: none;
+  }
+}

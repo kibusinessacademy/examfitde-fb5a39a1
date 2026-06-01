@@ -202,6 +202,23 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.8" },
         },
+        // ── Premium Motion v3 patterns ──
+        "reveal-up": {
+          from: { opacity: "0", transform: "translateY(16px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "shimmer": {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        "glow-pulse": {
+          "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--ring) / 0.0)" },
+          "50%": { boxShadow: "0 0 0 8px hsl(var(--ring) / 0.18)" },
+        },
+        "soft-bounce": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-3px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -210,14 +227,21 @@ export default {
         "slide-in": "slide-in 0.3s ease-out",
         "scale-in": "scale-in 0.2s ease-out",
         "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
+        "reveal-up": "reveal-up var(--motion-slow, 380ms) var(--ease-out, cubic-bezier(0.22,1,0.36,1)) both",
+        "shimmer": "shimmer 1.6s linear infinite",
+        "glow-pulse": "glow-pulse 2.4s ease-in-out infinite",
+        "soft-bounce": "soft-bounce 1.4s ease-in-out infinite",
       },
       transitionTimingFunction: {
         "out-expo": "cubic-bezier(0.22, 1, 0.36, 1)",
         "spring": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "in-out-quint": "cubic-bezier(0.65, 0, 0.35, 1)",
       },
       transitionDuration: {
         instant: "80ms",
+        fast: "150ms",
         base: "220ms",
+        slow: "380ms",
       },
       boxShadow: {
         glow: "var(--shadow-glow)",
