@@ -1,106 +1,91 @@
-## Ziel
 
-Vollständige B2B Org-Konsole als Premium-Erlebnis: vom Checkout über Mitarbeiter-Einladung, Rollen-Zuweisung, Seat-Management bis hin zu RLS-Härtung — alles in einem konsistenten, hochwertigen UI.
+# B2B Org Reality QA v1
 
-## Scope
+Ziel: Den gesamten B2B-Flow ohne neue Architektur verifizieren. Bestehende RPCs/RLS prüfen, Guards verankern, Reality Report generieren.
 
-Das ist ein großer Cut. Ich teile in 6 logische Wellen, die ich nacheinander in **einer Antwort** durchziehe (kein Approval pro Welle). Migrations werden am Stück angelegt, UI parallel.
+## Scope (Prüfkette)
 
----
+1. Org-Owner → `/app/org` lädt
+2. Mitglied einladen (Single + Bulk)
+3. Invite-Link öffnen + Mismatch-Check
+4. Einladung annehmen → Membership aktiv
+5. Rolle ändern (Owner/Admin/Manager/Learner)
+6. Lizenz/Sitz zuweisen + Zugriff auf Kurs (`learner_course_grants`) verifizieren
+7. Audit-Events in `auto_heal_log`
+8. RLS Cross-Org-Block
+9. Last-Owner-Schutz
 
-### Welle 1 — Checkout → Auto-Provisioning (Backend)
+## Lieferumfang
 
-**Problem:** Stripe-Webhook erstellt heute `learner_course_grants` nur für den Käufer. Bei B2B-Käufen (Quantity > 1, `metadata.org_id`) muss stattdessen eine **Org-License** mit N Seats angelegt werden.
+### 1. SQL-Migration (RPC-Härtung, keine neuen Tabellen)
 
-**Lösung:**
-- Edge `create-product-checkout` erweitern: optionaler Parameter `org_id` + `quantity` → Stripe Checkout mit `metadata.purchase_type=b2b_license`, `metadata.org_id`, `metadata.seats=N`
-- Edge `stripe-webhook` (resp. `process-order-paid-fulfillment`) Branch:
-  - Wenn `metadata.purchase_type=b2b_license` → RPC `provision_org_license_from_order(order_id, org_id, product_id, seats, valid_months)` aufrufen statt `grant_learner_course_access`
-  - RPC legt Row in `org_licenses` an (seats_total, valid_until, source_ref=order_id)
-- Audit-Event `b2b_license_provisioned` in `auto_heal_log`
+- `fn_assert_not_last_owner(_org_id, _user_id)` — RAISE EXCEPTION wenn letzter Owner.
+- Trigger `trg_org_membership_protect_last_owner` BEFORE UPDATE/DELETE auf `org_memberships`: blockt Demotion oder Löschung des letzten Owners. Audit `org_last_owner_protected`.
+- RPC `qa_reality_seed_b2b_fixtures()` (service_role only, `is_e2e_smoke_user()` Gate): Erstellt Org A (Owner+Manager+Member), Org B (Owner), 1 License + 1 Seat → idempotent via fixed UUIDs mit `@examfit-smoke.local`-Emails. Cleanup-Pendant `qa_reality_cleanup_b2b_fixtures()`.
+- Audit-Contract-Registrierungen: `org_last_owner_protected`, `org_reality_qa_run`, `org_reality_qa_finding`.
 
-### Welle 2 — Mitarbeiter-Einladungen (Backend + Edge)
+### 2. Vitest RPC/RLS Guard Suite
 
-**Tabellen:**
-- `org_invitations` (id, org_id, email, role, invited_by, token UNIQUE, status: pending|accepted|revoked|expired, expires_at, accepted_by_user_id, created_at)
-- Magic-Link-Token (32-byte random hex)
+Datei: `src/test/qa/org-reality-rpc.test.ts` (verwendet bestehendes Test-Setup, anon/service-role Supabase-Clients aus `.env`).
 
-**RPCs:**
-- `create_org_invitation(org_id, email, role)` — manager-gated, returnt token + invite-URL
-- `bulk_create_org_invitations(org_id, emails[], role)` — bulk
-- `revoke_org_invitation(invitation_id)`
-- `accept_org_invitation(token)` — authenticated user: legt `org_memberships`-Row an + markiert invitation accepted
+Geprüft:
+- `list_org_members` als Owner Org A → sieht A-Mitglieder, NICHT Org B (`ORG_CROSS_ORG_LEAK`)
+- `create_org_invitation` als Manager Org A → ok; als Member → denied
+- `update_org_member_role`: Owner → Owner demote letzten Owner → muss failen (`ORG_LAST_OWNER_NOT_PROTECTED`)
+- `assign_org_license_seat` → schreibt `learner_course_grants` (verify via select) (`ORG_SEAT_ASSIGNMENT_FAILED`)
+- `revoke_org_invite` Cross-Org → denied
+- Audit-Check: nach jeder Mutation Eintrag in `auto_heal_log` (`ORG_AUDIT_MISSING`)
 
-**Edge `send-org-invitation-email`:** ruft Lovable-Email-Queue mit branded Template (kommt mit Welle 6 falls Mail-Infra fehlt — sonst fallback: Token im UI kopieren).
+### 3. Playwright Reality Test (lightweight, ohne echten Stripe/E-Mail)
 
-**Public Route:** `/org/einladung/:token` — wenn unauth: Signup-Form → nach Signup `accept_org_invitation`. Wenn auth: One-Click-Accept.
+Datei: `tests/e2e/org-reality.spec.ts` (neuer Ordner, Playwright-Config minimal hinzu falls fehlend; sonst auf bestehende Config aufbauen).
 
-### Welle 3 — Rollen-Zuweisung & Seat-Assignment UI
+Flows:
+- Login als Org-Owner via API (`supabase.auth.signInWithPassword`)
+- Navigate `/app/org` → Dashboard sichtbar (`ORG_DASHBOARD_NOT_REACHABLE`)
+- Invite-Dialog → Submit → Toast + Invite in Liste (`ORG_INVITE_FAILED`)
+- Token aus DB lesen → `/org/einladung/:token` öffnen als 2. User → Accept (`ORG_INVITE_ACCEPT_FAILED`)
+- Rolle ändern via UI → Bestätigung (`ORG_ROLE_CHANGE_FAILED`)
+- Seat zuweisen → Course-Zugriff auf `/app/lernen` als Member (`ORG_SEAT_ASSIGNMENT_FAILED`)
 
-**Premium UI Page `/app/org/team`:**
-- Header mit Org-Name, Seat-Counter (used/total), "Mitarbeiter einladen" CTA
-- 3 Tabs: **Aktive Mitarbeiter** | **Offene Einladungen** | **Seats & Lizenzen**
-- Mitarbeiter-Tabelle: Avatar, Name, Email, Rolle-Dropdown (learner/teacher/manager/admin), zugewiesene Kurse (Badge-Liste), "Entfernen"
-- Bulk-Select: "Rolle ändern für N", "Seat für Kurs X zuweisen für N"
-- Inline-Edit für Rolle via `update_org_member_role` RPC
-- Seat-Assignment-Drawer: Multi-Select Mitarbeiter + Multi-Select Lizenzen → ruft `assign_org_license_seat` in batch
+Falls Playwright im Sandbox-Env nicht ausführbar: Test-Spec wird trotzdem committed + dokumentiert; Vitest deckt die kritischen Backend-Gates ab.
 
-**Einladungs-Modal:**
-- Tabs Single | Bulk (CSV-Paste oder Textarea mit Komma/Newline-Trennung)
-- Rolle-Picker, optional initiale Kurs-Zuweisung
-- Nach Submit: Liste der erzeugten Tokens mit Copy-Link-Button
+### 4. Reality Report Generator
 
-### Welle 4 — Premium UX Polish gesamtes Org-Backend
+Script: `scripts/qa/b2b-org-reality-report.mjs`
+- Führt Vitest-Suite aus, parst Ergebnisse
+- Liest aktuelle DB-Zustände (RLS-Probes via anon + service-role)
+- Schreibt `auto_heal_log` Audit `org_reality_qa_run` mit `findings[]` (codes + status)
+- Konsolen-Output mit Gate-Decision:
+  - `RELEASE` — alle kritischen grün
+  - `REVIEW` — nur UX-Codes
+  - `BLOCK` — RLS/Lizenz/Invite/Owner-Schutz-Fehler
 
-**Konsistente Premium-Sprache** für alle bestehenden Org-Seiten (`/app/org`, `/app/org/team`, `/app/org/licenses`, `/app/org/audit`):
-- Shared `OrgConsoleShell` Layout: SideNav, Breadcrumb, Org-Switcher (wenn user mehrere Orgs hat)
-- KPI-Cards mit `shadow-elev-2`, Motion-Foundation v3 (stagger-in)
-- Lade-Skeletons statt Spinner
-- Empty-States mit Illustration + CTA
-- Status-Badges via Design-System v2 Tokens (status-bg-subtle)
-- Tabellen mit Sticky-Header, Hover-Highlight, Row-Actions im Hover
-- Toasts für jede Mutation
-- Confirm-Dialog für destruktive Aktionen (Seat revoke, Member remove, Invitation revoke)
+### 5. Memory + Dokumentation
 
-### Welle 5 — RLS-Verifikation & Härtung
+- `mem://architektur/qa/b2b-org-reality-qa-v1.md` — Findings-Codes, Gate-Logik
+- Index-Eintrag
 
-- Audit aller relevanten Tabellen: `orders`, `org_licenses`, `org_license_seats`, `org_memberships`, `org_invitations`, `learner_course_grants`
-- Sicherstellen:
-  - Org-Manager sieht **nur** Orders mit `org_id = seine Org` (RLS-Policy)
-  - Mitarbeiter sieht **nur** eigene `learner_course_grants` + Grants seiner Org (über `seat_id`-Join)
-  - Invitations: nur Manager seiner Org lesen/schreiben
-- Helper `is_org_manager(user_id, org_id)` SECURITY DEFINER falls noch nicht existent
-- Linter-Check nach Migration
+## Out of Scope
 
-### Welle 6 — End-to-End-Wiring & Smoke
+- Keine neuen Tabellen
+- Keine echten Stripe-Zahlungen oder E-Mails
+- Keine neue UI
+- Keine parallele Org-Engine
+- Kein Webhook-Live-Test (separater Cut)
 
-- DevRoleSwitcher: Quicklink "Org-Team" + "Org-Lizenzen" hinzufügen
-- Routes in `App.tsx` registrieren
-- README-Notiz in `.lovable/memory/features/` (B2B Org Console v1)
-- Manueller Smoke-Test-Pfad dokumentieren
+## Technische Details
 
----
+- Test-Fixtures via existierendes Test-Fixture-Contract-Pattern (`@examfit-smoke.local`)
+- `fn_emit_audit` für alle neuen Audit-Writes (Contract zuerst registrieren)
+- Trigger nutzt `session_replication_role='replica'`-Bypass NICHT — Last-Owner-Schutz ist hart
+- Vitest läuft mit existierender Config (`src/test/setup.ts`)
 
-## Technische Notizen
+## Reihenfolge
 
-- **Keine neuen parallelen Systeme** (Continuity Guard #3): Wiederverwendung von `org_memberships`, `org_licenses`, `org_license_seats`, `assign_org_license_seat`, `release_org_license_seat`
-- **Audit Pflicht** via `fn_emit_audit` mit registrierten action_types: `b2b_license_provisioned`, `org_invitation_created`, `org_invitation_accepted`, `org_invitation_revoked`, `org_member_role_changed`
-- **GRANTs Pflicht** für alle neuen Tabellen (`org_invitations`)
-- **Trigger** zum Auto-Expire von Invitations nach 14 Tagen via Cron oder lazy bei Read
-
-## Risiken
-
-- Stripe-Webhook-Branch könnte bestehende B2C-Smoke-Tests brechen → strikt auf `metadata.purchase_type=b2b_license` filtern
-- `assign_org_license_seat` existiert bereits → wiederverwenden, nicht neu bauen
-- Email-Versand: falls Email-Infra fehlt, Fallback auf Copy-Link UI (kein Blocker)
-
-## Reihenfolge der Ausführung
-
-1. Migration: `org_invitations` + RPCs + RLS + `provision_org_license_from_order` + audit-contracts
-2. Edge Functions: `create-product-checkout` Erweiterung, `accept-org-invitation`, `send-org-invitation-email`
-3. UI: `OrgConsoleShell`, `/app/org/team`, Invite-Modal, Seat-Drawer, Accept-Page
-4. Polish bestehender Org-Seiten
-5. RLS-Audit + Linter
-6. DevRoleSwitcher + Routes + Memory
-
-Bestätige bitte den Plan, dann starte ich mit Welle 1 (Migration).
+1. Migration (Contracts, Trigger, Seed-RPCs)
+2. Vitest Suite
+3. Playwright Spec
+4. Report-Script
+5. Memory + Doku
+6. Smoke-Run, Reality Report ausgeben
