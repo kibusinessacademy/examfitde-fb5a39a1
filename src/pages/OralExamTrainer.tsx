@@ -863,6 +863,17 @@ export default function OralExamTrainer() {
         </Card>
       )}
 
+      {/* Cinematic "Prüfer denkt nach…" beat — sichtbar zwischen Submit und Bewertung */}
+      {phase === 'evaluation' && !evaluation && (
+        <ExaminerThinkingBeat
+          active={true}
+          examinerMode={oralPersona?.examinerMode}
+          caption={oralPersona?.examinerMode === 'dual'
+            ? 'Beide Prüfer formulieren ihre nächste Frage.'
+            : 'Der Prüfer formuliert eine Nachfrage.'}
+        />
+      )}
+
       {phase === 'evaluation' && evaluation && (
         <Card className="glass-card">
           <CardHeader>
