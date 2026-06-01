@@ -1106,6 +1106,14 @@ export default function OralExamTrainer() {
               )}
             </div>
 
+            {/* Cinematic Replay — Verhaltens-Insights über die Session */}
+            <OralReplayCard
+              turns={turnMetrics}
+              durationMs={sessionStartRef.current ? Date.now() - sessionStartRef.current : null}
+            />
+
+
+
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={handleRestart}>
                 <RotateCcw className="h-4 w-4 mr-2" />
