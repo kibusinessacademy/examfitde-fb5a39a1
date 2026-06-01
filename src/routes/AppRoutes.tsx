@@ -748,6 +748,18 @@ const AppRoutes = () => {
             <Route path="benachrichtigungen" element={<AppNotificationsPage />} />
             <Route path="dsgvo" element={<AppGdprPage />} />
           </Route>
+
+          {/* ====== /app/org — B2B Org Console ====== */}
+          <Route path="/app/org" element={<OrgConsoleLayout />}>
+            <Route index element={<OrgDashboardPage />} />
+          </Route>
+          <Route path="/app/org/:orgId" element={<OrgConsoleLayout />}>
+            <Route index element={<OrgDashboardPage />} />
+            <Route path="team" element={<OrgTeamPage />} />
+            <Route path="lizenzen" element={<OrgLicensesPage />} />
+            <Route path="einladungen" element={<OrgInvitesPage />} />
+            <Route path="aktivitaet" element={<OrgActivityPage />} />
+          </Route>
         </Route>
 
         {/* ====== ADMIN V2 (SSOT-only) ====== */}
