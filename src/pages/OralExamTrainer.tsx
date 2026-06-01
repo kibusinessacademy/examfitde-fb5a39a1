@@ -787,14 +787,20 @@ export default function OralExamTrainer() {
             )}
 
             {isRecording && (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30">
-                <div className="relative">
-                  <div className="h-4 w-4 rounded-full bg-rose-500" />
-                  <div className="absolute inset-0 h-4 w-4 rounded-full bg-rose-500 animate-ping" />
+              <div className="space-y-3 premium-reveal">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                  <div className="relative">
+                    <div className="h-4 w-4 rounded-full bg-rose-500" />
+                    <div className="absolute inset-0 h-4 w-4 rounded-full bg-rose-500 animate-ping" />
+                  </div>
+                  <span className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                    Aufnahme läuft... Sprich jetzt deine Antwort.
+                  </span>
                 </div>
-                <span className="text-sm font-medium text-rose-600 dark:text-rose-400">
-                  Aufnahme läuft... Sprich jetzt deine Antwort.
-                </span>
+                {/* Cinematic live-waveform — visual mic feedback */}
+                <div className="rounded-lg border border-border-subtle bg-surface-sunken/60 p-3">
+                  <OralWaveform active={isRecording} />
+                </div>
               </div>
             )}
 
