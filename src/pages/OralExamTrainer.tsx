@@ -518,7 +518,14 @@ export default function OralExamTrainer() {
       setIsTimerActive(true);
       return;
     }
-    await submitAnswer(answer);
+    const responseMs = turnStartRef.current ? Date.now() - turnStartRef.current : 0;
+    const answerWords = answer.trim().split(/\s+/).filter(Boolean).length;
+    const result = await submitAnswer(answer);
+    const hadFollowUp = Boolean((result as any)?.follow_up_question || (evaluation as any)?.follow_up_question);
+    setTurnMetrics((prev) => [
+      ...prev,
+      { questionIndex: prev.length, answerWords, responseMs, hadFollowUp },
+    ]);
     setPhase('evaluation');
   };
 
