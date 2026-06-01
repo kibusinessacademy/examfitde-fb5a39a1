@@ -142,12 +142,12 @@ export default function LearnerDashboard() {
                 </Button>
               </Link>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 premium-stagger">
               {enrollments.slice(0, 2).map((enrollment) => {
                 const courseProgress = getCourseProgress(enrollment);
                 return (
                   <Link key={enrollment.course_id} to={`/course/${enrollment.course_id}`}>
-                    <Card className="glass-card hover:border-primary/30 transition-all">
+                    <Card className="glass-card hover:border-primary/30 transition-all premium-lift">
                       <CardContent className="p-3 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {enrollment.thumbnail_url ? (
