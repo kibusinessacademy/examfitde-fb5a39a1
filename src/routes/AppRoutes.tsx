@@ -387,6 +387,7 @@ const AppRoutes = () => {
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/installieren" element={<InstallPage />} />
         <Route path="/renew" element={<RenewPage />} />
+        <Route path="/org/einladung/:token" element={<OrgInviteAcceptPage />} />
         <Route path="/tools/event-inspector" element={<EventInspectorPage />} />
         <Route path="/diag" element={<DiagPage />} />
         <Route path="/quiz/:slug" element={<LeadQuizPage />} />
