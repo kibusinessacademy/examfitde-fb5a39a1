@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, GraduationCap, Receipt, Download, KeyRound, User, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, GraduationCap, Receipt, Download, KeyRound, User, ShieldCheck, Building2 } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +13,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Helmet } from 'react-helmet-async';
+import { useHasOrgAccess } from '@/hooks/useOrgConsole';
 
 const items = [
   { title: 'Übersicht', url: '/app', icon: LayoutDashboard, end: true },
@@ -26,6 +27,10 @@ const items = [
 
 function AccountSidebar() {
   const { pathname } = useLocation();
+  const { data: orgAccess } = useHasOrgAccess();
+  const hasOrg = orgAccess?.hasAccess;
+  const firstOrgId = orgAccess?.orgs?.[0]?.id;
+
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
@@ -49,6 +54,27 @@ function AccountSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {hasOrg && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Unternehmen</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname.startsWith('/app/org')}>
+                    <NavLink
+                      to={firstOrgId ? `/app/org/${firstOrgId}` : '/app/org'}
+                      className="flex items-center gap-2"
+                    >
+                      <Building2 className="h-4 w-4" />
+                      <span>Org-Konsole</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );

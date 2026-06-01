@@ -37,6 +37,13 @@ const ResetPassword = lazyRetry(() => import('@/pages/auth/ResetPassword'));
 const NotFound = lazyRetry(() => import('@/pages/NotFound'));
 const InstallPage = lazyRetry(() => import('@/pages/InstallPage'));
 const RenewPage = lazyRetry(() => import('@/pages/org/RenewPage'));
+const OrgInviteAcceptPage = lazyRetry(() => import('@/pages/org/OrgInviteAcceptPage'));
+const OrgConsoleLayout = lazyRetry(() => import('@/pages/app/org/OrgConsoleLayout'));
+const OrgDashboardPage = lazyRetry(() => import('@/pages/app/org/OrgDashboardPage'));
+const OrgTeamPage = lazyRetry(() => import('@/pages/app/org/OrgTeamPage'));
+const OrgLicensesPage = lazyRetry(() => import('@/pages/app/org/OrgLicensesPage'));
+const OrgInvitesPage = lazyRetry(() => import('@/pages/app/org/OrgInvitesPage'));
+const OrgActivityPage = lazyRetry(() => import('@/pages/app/org/OrgActivityPage'));
 const DiagPage = lazyRetry(() => import('@/pages/DiagPage'));
 const HomePageV1Legacy = lazyRetry(() => import('@/pages/HomePage'));
 
@@ -380,6 +387,7 @@ const AppRoutes = () => {
         <Route path="/auth/reset-password" element={<ResetPassword />} />
         <Route path="/installieren" element={<InstallPage />} />
         <Route path="/renew" element={<RenewPage />} />
+        <Route path="/org/einladung/:token" element={<OrgInviteAcceptPage />} />
         <Route path="/tools/event-inspector" element={<EventInspectorPage />} />
         <Route path="/diag" element={<DiagPage />} />
         <Route path="/quiz/:slug" element={<LeadQuizPage />} />
@@ -739,6 +747,18 @@ const AppRoutes = () => {
             <Route path="profil" element={<AppProfilePage />} />
             <Route path="benachrichtigungen" element={<AppNotificationsPage />} />
             <Route path="dsgvo" element={<AppGdprPage />} />
+          </Route>
+
+          {/* ====== /app/org — B2B Org Console ====== */}
+          <Route path="/app/org" element={<OrgConsoleLayout />}>
+            <Route index element={<OrgDashboardPage />} />
+          </Route>
+          <Route path="/app/org/:orgId" element={<OrgConsoleLayout />}>
+            <Route index element={<OrgDashboardPage />} />
+            <Route path="team" element={<OrgTeamPage />} />
+            <Route path="lizenzen" element={<OrgLicensesPage />} />
+            <Route path="einladungen" element={<OrgInvitesPage />} />
+            <Route path="aktivitaet" element={<OrgActivityPage />} />
           </Route>
         </Route>
 
