@@ -102,6 +102,10 @@ export default function OralExamTrainer() {
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false);
+  // Cinematic Replay — client-side turn metrics (no DB writes).
+  const [turnMetrics, setTurnMetrics] = useState<TurnMetric[]>([]);
+  const turnStartRef = useRef<number | null>(null);
+  const sessionStartRef = useRef<number | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
