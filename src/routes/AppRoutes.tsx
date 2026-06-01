@@ -37,6 +37,13 @@ const ResetPassword = lazyRetry(() => import('@/pages/auth/ResetPassword'));
 const NotFound = lazyRetry(() => import('@/pages/NotFound'));
 const InstallPage = lazyRetry(() => import('@/pages/InstallPage'));
 const RenewPage = lazyRetry(() => import('@/pages/org/RenewPage'));
+const OrgInviteAcceptPage = lazyRetry(() => import('@/pages/org/OrgInviteAcceptPage'));
+const OrgConsoleLayout = lazyRetry(() => import('@/pages/app/org/OrgConsoleLayout'));
+const OrgDashboardPage = lazyRetry(() => import('@/pages/app/org/OrgDashboardPage'));
+const OrgTeamPage = lazyRetry(() => import('@/pages/app/org/OrgTeamPage'));
+const OrgLicensesPage = lazyRetry(() => import('@/pages/app/org/OrgLicensesPage'));
+const OrgInvitesPage = lazyRetry(() => import('@/pages/app/org/OrgInvitesPage'));
+const OrgActivityPage = lazyRetry(() => import('@/pages/app/org/OrgActivityPage'));
 const DiagPage = lazyRetry(() => import('@/pages/DiagPage'));
 const HomePageV1Legacy = lazyRetry(() => import('@/pages/HomePage'));
 
