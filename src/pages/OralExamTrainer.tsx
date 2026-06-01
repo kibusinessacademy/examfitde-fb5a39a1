@@ -38,6 +38,9 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import PageExplainer from '@/components/admin/PageExplainer';
 import { useTerminology } from '@/hooks/useProgramType';
+import { OralWaveform } from '@/components/oral/OralWaveform';
+import { ExaminerThinkingBeat } from '@/components/oral/ExaminerThinkingBeat';
+import { OralReplayCard, type TurnMetric } from '@/components/oral/OralReplayCard';
 
 type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
 
@@ -99,6 +102,10 @@ export default function OralExamTrainer() {
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false);
+  // Cinematic Replay — client-side turn metrics (no DB writes).
+  const [turnMetrics, setTurnMetrics] = useState<TurnMetric[]>([]);
+  const turnStartRef = useRef<number | null>(null);
+  const sessionStartRef = useRef<number | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
@@ -459,6 +466,8 @@ export default function OralExamTrainer() {
     setIsTimerActive(true);
     setAnswer('');
     setShowSampleAnswer(false);
+    setTurnMetrics([]);
+    sessionStartRef.current = Date.now();
   };
 
   // Oral Activation v2 — Auto-Start aus Kursbezug.
@@ -483,6 +492,7 @@ export default function OralExamTrainer() {
       speakText(currentQuestion.question_text, () => {
         // Nach dem Vorlesen automatisch auf "listening" wechseln
         setPhase('listening');
+        turnStartRef.current = Date.now();
       });
     }
   }, [currentQuestion?.id, phase]);
@@ -491,6 +501,7 @@ export default function OralExamTrainer() {
     if (currentQuestion?.question_text) {
       speakText(currentQuestion.question_text, () => {
         setPhase('listening');
+        turnStartRef.current = Date.now();
       });
     }
   };
@@ -507,7 +518,14 @@ export default function OralExamTrainer() {
       setIsTimerActive(true);
       return;
     }
-    await submitAnswer(answer);
+    const responseMs = turnStartRef.current ? Date.now() - turnStartRef.current : 0;
+    const answerWords = answer.trim().split(/\s+/).filter(Boolean).length;
+    const result = await submitAnswer(answer);
+    const hadFollowUp = Boolean((result as any)?.follow_up_question || (evaluation as any)?.follow_up_question);
+    setTurnMetrics((prev) => [
+      ...prev,
+      { questionIndex: prev.length, answerWords, responseMs, hadFollowUp },
+    ]);
     setPhase('evaluation');
   };
 
@@ -567,8 +585,15 @@ export default function OralExamTrainer() {
     );
   }
 
+  const stressActive = (oralPersona?.stressLevel ?? 1) >= 3 && (phase === 'question' || phase === 'listening' || phase === 'evaluation');
+
   return (
-    <div className="container max-w-4xl py-8">
+    <div
+      className={cn(
+        "container max-w-4xl py-8 relative transition-colors duration-slow ease-out-expo",
+        stressActive && "oral-stress-vignette",
+      )}
+    >
       <div className="mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Mic className="h-8 w-8 text-primary" />
@@ -762,14 +787,20 @@ export default function OralExamTrainer() {
             )}
 
             {isRecording && (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30">
-                <div className="relative">
-                  <div className="h-4 w-4 rounded-full bg-rose-500" />
-                  <div className="absolute inset-0 h-4 w-4 rounded-full bg-rose-500 animate-ping" />
+              <div className="space-y-3 premium-reveal">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                  <div className="relative">
+                    <div className="h-4 w-4 rounded-full bg-rose-500" />
+                    <div className="absolute inset-0 h-4 w-4 rounded-full bg-rose-500 animate-ping" />
+                  </div>
+                  <span className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                    Aufnahme läuft... Sprich jetzt deine Antwort.
+                  </span>
                 </div>
-                <span className="text-sm font-medium text-rose-600 dark:text-rose-400">
-                  Aufnahme läuft... Sprich jetzt deine Antwort.
-                </span>
+                {/* Cinematic live-waveform — visual mic feedback */}
+                <div className="rounded-lg border border-border-subtle bg-surface-sunken/60 p-3">
+                  <OralWaveform active={isRecording} />
+                </div>
               </div>
             )}
 
@@ -830,6 +861,17 @@ export default function OralExamTrainer() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Cinematic "Prüfer denkt nach…" beat — sichtbar zwischen Submit und Bewertung */}
+      {phase === 'evaluation' && !evaluation && (
+        <ExaminerThinkingBeat
+          active={true}
+          examinerMode={oralPersona?.examinerMode}
+          caption={oralPersona?.examinerMode === 'dual'
+            ? 'Beide Prüfer formulieren ihre nächste Frage.'
+            : 'Der Prüfer formuliert eine Nachfrage.'}
+        />
       )}
 
       {phase === 'evaluation' && evaluation && (
@@ -1063,6 +1105,14 @@ export default function OralExamTrainer() {
                 </div>
               )}
             </div>
+
+            {/* Cinematic Replay — Verhaltens-Insights über die Session */}
+            <OralReplayCard
+              turns={turnMetrics}
+              durationMs={sessionStartRef.current ? Date.now() - sessionStartRef.current : null}
+            />
+
+
 
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={handleRestart}>

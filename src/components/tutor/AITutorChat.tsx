@@ -50,19 +50,28 @@ const MODE_CONFIG = {
 
 function TypingIndicator() {
   return (
-    <div className="flex items-center gap-2 px-4 py-3">
+    <div className="flex items-start gap-2 px-4 py-3 premium-reveal">
       <div className="w-7 h-7 rounded-full bg-petrol-100 flex items-center justify-center flex-shrink-0">
         <Bot className="h-4 w-4 text-petrol-600" />
       </div>
-      <div className="flex gap-1 items-center px-3 py-2 rounded-xl bg-surface-sunken">
-        {[0, 1, 2].map(i => (
-          <motion.div
-            key={i}
-            className="w-2 h-2 rounded-full bg-text-tertiary"
-            animate={{ y: [0, -4, 0] }}
-            transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
-          />
-        ))}
+      <div className="flex-1 max-w-md space-y-2">
+        <div className="flex gap-1 items-center px-3 py-2 rounded-xl bg-surface-sunken w-fit">
+          {[0, 1, 2].map(i => (
+            <motion.div
+              key={i}
+              className="w-2 h-2 rounded-full bg-text-tertiary"
+              animate={{ y: [0, -4, 0] }}
+              transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
+            />
+          ))}
+        </div>
+        {/* Anticipatory skeleton — signals "answer is forming" */}
+        <div className="space-y-1.5" aria-hidden="true">
+          <div className="h-2.5 rounded-md premium-shimmer w-11/12" />
+          <div className="h-2.5 rounded-md premium-shimmer w-4/5" />
+          <div className="h-2.5 rounded-md premium-shimmer w-2/3" />
+        </div>
+        <span className="sr-only">Tutor formuliert eine Antwort…</span>
       </div>
     </div>
   );
