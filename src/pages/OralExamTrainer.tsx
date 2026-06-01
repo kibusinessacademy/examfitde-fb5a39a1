@@ -38,6 +38,9 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import PageExplainer from '@/components/admin/PageExplainer';
 import { useTerminology } from '@/hooks/useProgramType';
+import { OralWaveform } from '@/components/oral/OralWaveform';
+import { ExaminerThinkingBeat } from '@/components/oral/ExaminerThinkingBeat';
+import { OralReplayCard, type TurnMetric } from '@/components/oral/OralReplayCard';
 
 type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
 
