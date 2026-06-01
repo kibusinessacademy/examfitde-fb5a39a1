@@ -1,0 +1,77 @@
+name: Auth & Org Context E2E
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: auth-org-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  auth-org-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PLAYWRIGHT_BASE_URL: ${{ secrets.E2E_BASE_URL || 'https://examfitde.lovable.app' }}
+      E2E_LEARNER_EMAIL: ${{ secrets.E2E_LEARNER_EMAIL || 'learner@learner.de' }}
+      E2E_LEARNER_PASSWORD: ${{ secrets.E2E_LEARNER_PASSWORD || 'ExamFit_Test_2026!' }}
+      E2E_ORG_EMAIL: ${{ secrets.E2E_ORG_EMAIL || 'org@unternehmen.de' }}
+      E2E_ORG_PASSWORD: ${{ secrets.E2E_ORG_PASSWORD || 'ExamFit_Test_2026!' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate required secrets
+        run: |
+          missing=0
+          for v in SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing secret $v"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright (chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Seed Learner + Org test users
+        run: node scripts/qa/seed-auth-test-users.mjs
+
+      - name: Run Auth & Org Context E2E
+        run: npx playwright test tests/e2e/auth-org-context.spec.ts --reporter=line,html
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-org-e2e-report
+          path: playwright-report
+          retention-days: 14
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-org-e2e-artifacts
+          path: test-results
+          retention-days: 14
