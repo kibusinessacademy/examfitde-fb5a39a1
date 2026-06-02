@@ -1,5 +1,11 @@
 import { SEOHead } from '@/components/seo/SEOHead';
-import { SITE_URL, generateFAQSchema } from '@/lib/seo';
+import {
+  SITE_URL,
+  generateFAQSchema,
+  generateBreadcrumbSchema,
+  generateProductSchema,
+  generateOrganizationSchema,
+} from '@/lib/seo';
 import { PRICING } from '@/config/pricing';
 import PricingSectionHighConvert from '@/components/pricing/PricingSectionHighConvert';
 
@@ -31,7 +37,25 @@ const faqs = [
 ];
 
 export default function PreisePage() {
-  const structuredData = generateFAQSchema(faqs);
+  const priceNumber = PRICING.individual.ausbildung.priceCents / 100;
+  const structuredData = [
+    generateOrganizationSchema(),
+    generateBreadcrumbSchema([
+      { name: 'Start', url: `${SITE_URL}/` },
+      { name: 'Preise', url: `${SITE_URL}/preise` },
+    ]),
+    generateProductSchema({
+      name: 'ExamFit Komplettpaket — Prüfungsvorbereitung',
+      description:
+        'Lernkurs, Prüfungstrainer, mündliche Prüfungssimulation und KI-Tutor — 12 Monate Zugang, kein Abo.',
+      price: priceNumber,
+      currency: 'EUR',
+      url: `${SITE_URL}/preise`,
+      sku: 'examfit-bundle-b2c',
+      availability: 'InStock',
+    }),
+    generateFAQSchema(faqs),
+  ];
 
   return (
     <>
@@ -39,6 +63,10 @@ export default function PreisePage() {
         title={`Preise – Komplette Prüfungsvorbereitung für ${PRICING.defaultPrice} | ExamFit`}
         description={`ExamFit Komplettpaket: ${PRICING.defaultPrice} einmalig, ${PRICING.defaultAccess} Zugang, ${PRICING.noSubscription}. Lernkurs, Prüfungstrainer und mündliche Prüfungssimulation in einem Paket. Team-Lizenzen für Betriebe & Hochschulen.`}
         canonical={`${SITE_URL}/preise`}
+        type="product"
+        price={priceNumber}
+        currency="EUR"
+        availability="InStock"
         structuredData={structuredData}
       />
 
