@@ -278,7 +278,7 @@ export default function OrgInvitesPage() {
       )}
 
       <AlertDialog open={!!revokeTarget} onOpenChange={(o) => !o && setRevokeTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent data-testid="invite-revoke-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>Einladung zurückziehen?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -293,12 +293,14 @@ export default function OrgInvitesPage() {
             <AlertDialogAction
               onClick={confirmRevoke}
               className="bg-status-danger hover:bg-status-danger/90"
+              data-testid="invite-revoke-confirm"
             >
               Zurückziehen
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }
