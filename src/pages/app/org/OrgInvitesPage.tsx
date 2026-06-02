@@ -177,8 +177,19 @@ export default function OrgInvitesPage() {
                         variant="outline"
                         onClick={() => copyLink(inv.invite_token)}
                         className="gap-1.5"
+                        data-testid="invite-copy-link"
                       >
                         <Copy className="h-3.5 w-3.5" /> Link
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToken(inv.invite_token)}
+                        className="gap-1.5"
+                        title="Invite-Code kopieren"
+                        data-testid="invite-copy-code"
+                      >
+                        <KeyRound className="h-3.5 w-3.5" /> Code
                       </Button>
                       {canEdit && (
                         <Button
@@ -188,10 +199,12 @@ export default function OrgInvitesPage() {
                           title="Zurückziehen"
                           disabled={revoking}
                           onClick={() => setRevokeTarget(inv)}
+                          data-testid="invite-revoke-trigger"
                         >
                           <X className="h-4 w-4" />
                         </Button>
                       )}
+
                     </div>
                   </div>
                 </Card>
