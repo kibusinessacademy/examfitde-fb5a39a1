@@ -130,7 +130,7 @@ export default function OrgInvitesPage() {
             <Skeleton className="h-20 w-full" />
           </div>
         ) : pending.length === 0 ? (
-          <Card className="p-10 text-center border-border shadow-elev-1">
+          <Card className="p-10 text-center border-border shadow-elev-1" data-testid="invites-empty-state">
             <Mail className="h-10 w-10 mx-auto mb-3 text-text-tertiary" />
             <p className="text-sm text-text-secondary">Keine offenen Einladungen.</p>
             {canEdit && (
@@ -138,11 +138,13 @@ export default function OrgInvitesPage() {
                 size="sm"
                 className="mt-4 gap-2"
                 onClick={() => setInviteOpen(true)}
+                data-testid="invites-empty-cta"
               >
                 <Send className="h-4 w-4" /> Erste Einladung verschicken
               </Button>
             )}
           </Card>
+
         ) : (
           <div className="space-y-2">
             {pending.map((inv) => {
