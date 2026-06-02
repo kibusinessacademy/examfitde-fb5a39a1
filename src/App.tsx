@@ -28,6 +28,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { SystemConsciousnessProvider } from "@/lib/system/SystemConsciousness";
 import SystemConsciousnessOverlay from "@/components/system/SystemConsciousnessOverlay";
 import OSCompanionBar from "@/components/os/OSCompanionBar";
+import { SeoPreviewOverlay } from "@/components/seo/SeoPreviewOverlay";
 
 const queryClient = new QueryClient({
   defaultOptions: {
