@@ -44,7 +44,6 @@ type KammerFilter = 'all' | 'IHK' | 'HWK' | string;
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export default function BerufePage() {
-export default function BerufePage() {
   const { data: catalogData, isLoading } = useFullCatalog();
   // SSOT: live-Katalog, sobald verfügbar — sonst statischer Build-Fallback,
   // damit Visitors NIE eine leere /berufe sehen (Reality-QA: ≥ 20 Links).
