@@ -1,0 +1,9 @@
+{
+  "severity": "P1",
+  "kind": "demo_unreachable",
+  "journey": "E",
+  "route": "https://berufos.com/tutor",
+  "detail": "Tutor-Input-Feld nicht sichtbar (eventuell Curriculum-Picker oder Paywall).",
+  "fix": "Tutor-Gate prüfen (tutor_access_check / Curriculum-Auswahl).",
+  "ts": "2026-06-02T20:49:52.917Z"
+}

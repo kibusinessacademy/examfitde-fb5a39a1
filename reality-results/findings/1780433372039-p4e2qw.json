@@ -1,0 +1,9 @@
+{
+  "severity": "P1",
+  "kind": "dead_button",
+  "journey": "C",
+  "route": "/dashboard",
+  "detail": "Logout-Button nicht sichtbar im Header.",
+  "fix": "Logout-CTA im App-Header sicherstellen.",
+  "ts": "2026-06-02T20:49:32.039Z"
+}

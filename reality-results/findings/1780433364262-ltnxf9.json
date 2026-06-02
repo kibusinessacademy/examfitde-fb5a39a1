@@ -1,0 +1,9 @@
+{
+  "severity": "P0",
+  "kind": "broken_route",
+  "journey": "A",
+  "route": "/berufe",
+  "detail": "Public route /berufe returned status 200 / empty body.",
+  "fix": "Route reparieren oder Navigation entfernen.",
+  "ts": "2026-06-02T20:49:24.262Z"
+}

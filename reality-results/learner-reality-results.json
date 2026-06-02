@@ -1,0 +1,136 @@
+{
+  "ts": "2026-06-02T20:50:06.706Z",
+  "base_url": "https://examfitde.lovable.app",
+  "status": "BLOCK",
+  "score": 40,
+  "max_score": 100,
+  "login_validated": true,
+  "journeys": {
+    "J01_discovery": "fail",
+    "J02_account": "pass",
+    "J03_purchase": "fail",
+    "J04_onboarding": "fail",
+    "J05_learning": "pass",
+    "J06_minicheck": "fail",
+    "J07_ai_tutor": "fail",
+    "J08_written_exam": "pass",
+    "J09_oral_exam": "fail",
+    "J10_return": "pass"
+  },
+  "weights": {
+    "J01_discovery": 10,
+    "J02_account": 10,
+    "J03_purchase": 10,
+    "J04_onboarding": 10,
+    "J05_learning": 15,
+    "J06_minicheck": 10,
+    "J07_ai_tutor": 10,
+    "J08_written_exam": 10,
+    "J09_oral_exam": 10,
+    "J10_return": 5
+  },
+  "findings": {
+    "p0": [
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/preise",
+        "detail": "Public route /preise returned status 200 / empty body.",
+        "fix": "Route reparieren oder Navigation entfernen.",
+        "ts": "2026-06-02T20:49:23.969Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe",
+        "detail": "Public route /berufe returned status 200 / empty body.",
+        "fix": "Route reparieren oder Navigation entfernen.",
+        "ts": "2026-06-02T20:49:24.262Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "dead_cta",
+        "journey": "A",
+        "route": "/",
+        "detail": "Kein primärer CTA im sichtbaren Bereich der Homepage.",
+        "fix": "Hero-CTA prüfen / cookie banner darf CTA nicht verdecken.",
+        "ts": "2026-06-02T20:49:24.480Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "demo_unreachable",
+        "journey": "B",
+        "route": "/berufe",
+        "detail": "Kein Produkt-Einstiegspunkt erreichbar.",
+        "fix": "Produktkatalog reparieren.",
+        "ts": "2026-06-02T20:49:33.332Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "dead_cta",
+        "journey": "D",
+        "route": "/dashboard",
+        "detail": "Kein next-step CTA im Dashboard sichtbar.",
+        "fix": "Primary-Next-Action im Dashboard.",
+        "ts": "2026-06-02T20:49:36.999Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "white_screen",
+        "journey": "E",
+        "route": "https://berufos.com/muendliche-pruefung",
+        "detail": "Oral-Oberfläche leer.",
+        "fix": "Renderer / Datenpfad prüfen.",
+        "ts": "2026-06-02T20:49:57.175Z"
+      }
+    ],
+    "p1": [
+      {
+        "severity": "P1",
+        "kind": "dead_button",
+        "journey": "C",
+        "route": "/dashboard",
+        "detail": "Logout-Button nicht sichtbar im Header.",
+        "fix": "Logout-CTA im App-Header sicherstellen.",
+        "ts": "2026-06-02T20:49:32.039Z"
+      },
+      {
+        "severity": "P1",
+        "kind": "demo_unreachable",
+        "journey": "E",
+        "route": "https://berufos.com/berufs-ki",
+        "detail": "Keine MiniCheck-Frage erreichbar (Kurs evtl. ohne Quiz oder Selektor verschoben).",
+        "fix": "data-testid=\"question-option-0\" auf MiniCheck-Renderer halten.",
+        "ts": "2026-06-02T20:49:50.767Z"
+      },
+      {
+        "severity": "P1",
+        "kind": "demo_unreachable",
+        "journey": "E",
+        "route": "https://berufos.com/tutor",
+        "detail": "Tutor-Input-Feld nicht sichtbar (eventuell Curriculum-Picker oder Paywall).",
+        "fix": "Tutor-Gate prüfen (tutor_access_check / Curriculum-Auswahl).",
+        "ts": "2026-06-02T20:49:52.917Z"
+      }
+    ],
+    "p2": [
+      {
+        "severity": "P2",
+        "kind": "placeholder_end_state",
+        "journey": "F",
+        "route": "/dashboard",
+        "detail": "Keine sichtbare Fortsetzungs-/Empfehlungs-Karte nach Re-Login.",
+        "fix": "Continue-Card / Recommendation-Card im Dashboard.",
+        "ts": "2026-06-02T20:50:01.012Z"
+      }
+    ]
+  },
+  "counts": {
+    "p0": 6,
+    "p1": 3,
+    "p2": 1,
+    "findings": 10
+  }
+}

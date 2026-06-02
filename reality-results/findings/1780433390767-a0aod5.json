@@ -1,0 +1,9 @@
+{
+  "severity": "P1",
+  "kind": "demo_unreachable",
+  "journey": "E",
+  "route": "https://berufos.com/berufs-ki",
+  "detail": "Keine MiniCheck-Frage erreichbar (Kurs evtl. ohne Quiz oder Selektor verschoben).",
+  "fix": "data-testid=\"question-option-0\" auf MiniCheck-Renderer halten.",
+  "ts": "2026-06-02T20:49:50.767Z"
+}

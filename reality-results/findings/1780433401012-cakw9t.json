@@ -1,0 +1,9 @@
+{
+  "severity": "P2",
+  "kind": "placeholder_end_state",
+  "journey": "F",
+  "route": "/dashboard",
+  "detail": "Keine sichtbare Fortsetzungs-/Empfehlungs-Karte nach Re-Login.",
+  "fix": "Continue-Card / Recommendation-Card im Dashboard.",
+  "ts": "2026-06-02T20:50:01.012Z"
+}

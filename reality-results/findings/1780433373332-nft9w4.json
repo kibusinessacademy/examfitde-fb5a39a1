@@ -1,0 +1,9 @@
+{
+  "severity": "P0",
+  "kind": "demo_unreachable",
+  "journey": "B",
+  "route": "/berufe",
+  "detail": "Kein Produkt-Einstiegspunkt erreichbar.",
+  "fix": "Produktkatalog reparieren.",
+  "ts": "2026-06-02T20:49:33.332Z"
+}
