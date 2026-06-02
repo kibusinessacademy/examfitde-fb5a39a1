@@ -189,6 +189,7 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         { loc: `${SITE_URL}/`, lastmod: today, changefreq: "daily", priority: 1.0 },
         { loc: `${SITE_URL}/themen`, lastmod: today, changefreq: "weekly", priority: 0.95 },
         { loc: `${SITE_URL}/berufe`, lastmod: today, changefreq: "weekly", priority: 0.9 },
+        { loc: `${SITE_URL}/preise`, lastmod: today, changefreq: "weekly", priority: 0.95 },
         { loc: `${SITE_URL}/paket`, lastmod: today, changefreq: "weekly", priority: 0.9 },
         { loc: `${SITE_URL}/shop`, lastmod: today, changefreq: "weekly", priority: 0.8 },
         { loc: `${SITE_URL}/wissen`, lastmod: today, changefreq: "daily", priority: 0.8 },
