@@ -4,11 +4,21 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useOrgInvites, useRevokeOrgInvite } from "@/hooks/useOrgConsoleData";
 import { useOrgConsoleContext } from "@/hooks/useOrgConsole";
-import { buildInviteUrl } from "@/lib/orgConsoleApi";
+import { buildInviteUrl, type OrgInviteRow } from "@/lib/orgConsoleApi";
 import { toast } from "sonner";
-import { Send, Copy, Mail, X, Clock, CheckCircle2, Ban, UserPlus } from "lucide-react";
+import { Send, Copy, Mail, X, Clock, CheckCircle2, Ban, UserPlus, AlertTriangle } from "lucide-react";
 import { InviteMemberDialog } from "@/components/org/InviteMemberDialog";
 
 const STATUS_META: Record<string, { label: string; icon: any; tone: string }> = {
