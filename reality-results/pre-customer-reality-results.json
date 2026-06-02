@@ -1,0 +1,50 @@
+{
+  "ts": "2026-06-02T20:31:15.986Z",
+  "base_url": "https://examfitde.lovable.app",
+  "status": "BLOCK",
+  "score": 0,
+  "max_score": 130,
+  "time_to_course_ms": null,
+  "time_to_course_ok": false,
+  "time_to_course_target_ms": 60000,
+  "journeys": {
+    "P01_homepage": "missing",
+    "P02_find_beruf": "missing",
+    "P03_open_course": "missing",
+    "P04_pricing": "missing",
+    "P05_cta_click": "missing",
+    "P06_checkout_surface": "missing",
+    "P07_cross_sell": "missing",
+    "P08_berufos_hub": "missing",
+    "P09_trust_signals": "missing",
+    "P10_mobile_funnel": "missing",
+    "P11_seo_surface": "missing",
+    "P12_legal_trust": "missing"
+  },
+  "weights": {
+    "P01_homepage": 10,
+    "P02_find_beruf": 15,
+    "P03_open_course": 15,
+    "P04_pricing": 15,
+    "P05_cta_click": 10,
+    "P06_checkout_surface": 15,
+    "P07_cross_sell": 10,
+    "P08_berufos_hub": 10,
+    "P09_trust_signals": 8,
+    "P10_mobile_funnel": 10,
+    "P11_seo_surface": 7,
+    "P12_legal_trust": 5
+  },
+  "metrics": {},
+  "findings": {
+    "p0": [],
+    "p1": [],
+    "p2": []
+  },
+  "counts": {
+    "p0": 0,
+    "p1": 0,
+    "p2": 0,
+    "findings": 0
+  }
+}
