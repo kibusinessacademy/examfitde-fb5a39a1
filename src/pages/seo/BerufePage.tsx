@@ -299,7 +299,7 @@ export default function BerufePage() {
         {/* Results */}
         <section className="py-8 sm:py-12">
           <div className="container">
-            {isLoading ? (
+            {showSkeleton ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[...Array(9)].map((_, i) => (
                   <Card key={i} className="glass-card animate-pulse">
