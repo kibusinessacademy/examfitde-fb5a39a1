@@ -123,6 +123,7 @@ function AppChrome() {
       <DevRoleSwitcher />
       <CookieConsentBanner />
       <ClarityTracker />
+      <SeoPreviewOverlay />
       {import.meta.env.PROD && typeof window !== "undefined" && /(^|\.)examfit\.de$|\.vercel\.app$/.test(window.location.hostname) && (
         <SpeedInsights />
       )}
