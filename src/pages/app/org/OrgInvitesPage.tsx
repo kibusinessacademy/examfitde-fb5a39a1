@@ -44,24 +44,49 @@ export default function OrgInvitesPage() {
   const { mutateAsync: revoke, isPending: revoking } = useRevokeOrgInvite(orgId);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<OrgInviteRow | null>(null);
+  const HISTORY_PAGE_SIZE = 25;
+  const [historyPage, setHistoryPage] = useState(1);
 
-  function copyLink(token: string) {
-    navigator.clipboard.writeText(buildInviteUrl(token));
-    toast.success("Einladungs-Link kopiert");
+  async function copyLink(token: string) {
+    try {
+      await navigator.clipboard.writeText(buildInviteUrl(token));
+      toast.success("Einladungs-Link kopiert");
+    } catch {
+      toast.error("Kopieren fehlgeschlagen");
+    }
+  }
+
+  async function copyToken(token: string) {
+    try {
+      await navigator.clipboard.writeText(token);
+      toast.success("Invite-Code kopiert");
+    } catch {
+      toast.error("Kopieren fehlgeschlagen");
+    }
   }
 
   async function confirmRevoke() {
     if (!revokeTarget) return;
     try {
       const r = await revoke(revokeTarget.id);
-      if (r.ok) toast.success("Einladung zurückgezogen");
-      else toast.error(`Fehler: ${r.error}`);
+      if (r?.ok) {
+        toast.success("Einladung zurückgezogen", {
+          description: `${revokeTarget.email} kann den Link nicht mehr nutzen.`,
+        });
+      } else {
+        toast.error("Einladung konnte nicht zurückgezogen werden", {
+          description: r?.error ?? "Bitte erneut versuchen.",
+        });
+      }
     } catch (e: any) {
-      toast.error(`Fehler: ${e?.message}`);
+      toast.error("Einladung konnte nicht zurückgezogen werden", {
+        description: e?.message ?? "Unbekannter Fehler.",
+      });
     } finally {
       setRevokeTarget(null);
     }
   }
+
 
   /** Returns tone class + label based on hours until expiry. */
   function expiryTone(iso: string): { tone: string; urgent: boolean; label: string } {
