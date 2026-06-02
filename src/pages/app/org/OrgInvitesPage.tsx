@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +18,9 @@ import { useOrgInvites, useRevokeOrgInvite } from "@/hooks/useOrgConsoleData";
 import { useOrgConsoleContext } from "@/hooks/useOrgConsole";
 import { buildInviteUrl, type OrgInviteRow } from "@/lib/orgConsoleApi";
 import { toast } from "sonner";
-import { Send, Copy, Mail, X, Clock, CheckCircle2, Ban, UserPlus, AlertTriangle } from "lucide-react";
+import { Send, Copy, Mail, X, Clock, CheckCircle2, Ban, UserPlus, AlertTriangle, KeyRound } from "lucide-react";
 import { InviteMemberDialog } from "@/components/org/InviteMemberDialog";
+
 
 const STATUS_META: Record<string, { label: string; icon: any; tone: string }> = {
   pending: { label: "Offen", icon: Clock, tone: "bg-status-warning-bg-subtle text-status-warning" },
