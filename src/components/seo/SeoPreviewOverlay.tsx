@@ -12,7 +12,7 @@
  *
  * Keine Tracking-/Network-Calls. Keine Auth-Abhängigkeit.
  */
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Eye, EyeOff, X, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -135,17 +135,76 @@ export function SeoPreviewOverlay() {
   const enabled = useMemo(isEnabled, []);
   const [open, setOpen] = useState(false);
   const [snap, setSnap] = useState<HeadSnapshot | null>(null);
+  const [perfMs, setPerfMs] = useState<number>(0);
   const { pathname, search } = useLocation();
+  // rAF-Handle zum Coalescen mehrerer Head-Mutations innerhalb eines Frames.
+  const rafRef = useRef<number | null>(null);
+  const idleRef = useRef<number | null>(null);
 
-  const refresh = useCallback(() => {
-    // Helmet schreibt async — kurzer Tick, damit Werte stabil sind.
-    setTimeout(() => setSnap(snapshotHead()), 50);
+  const schedule = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    // Vorherige Frame-/Idle-Anforderung verwerfen → keine Layout-Storms.
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    if (idleRef.current !== null && 'cancelIdleCallback' in window) {
+      (window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(idleRef.current);
+    }
+    // 1× rAF: warten bis Helmet im aktuellen Frame fertig geschrieben hat.
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const run = () => {
+        const t0 = performance.now();
+        const next = snapshotHead();
+        const dt = performance.now() - t0;
+        setPerfMs(dt);
+        setSnap(next);
+        // Perf-Budget: Snapshot darf keinen Frame (>8ms) blockieren.
+        if (dt > 8 && import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn(`[SeoPreviewOverlay] snapshot ${dt.toFixed(1)}ms > 8ms budget`);
+        }
+      };
+      // requestIdleCallback verlagert Arbeit aus dem Paint-Pfad heraus.
+      const ric = (window as Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      }).requestIdleCallback;
+      if (ric) {
+        idleRef.current = ric(() => {
+          idleRef.current = null;
+          run();
+        }, { timeout: 120 });
+      } else {
+        run();
+      }
+    });
   }, []);
 
+  const refresh = schedule;
+
+  // Sofortiges Update beim Route-Wechsel: noch im selben Frame planen.
   useEffect(() => {
     if (!enabled || !open) return;
-    refresh();
-  }, [enabled, open, pathname, search, refresh]);
+    schedule();
+  }, [enabled, open, pathname, search, schedule]);
+
+  // Live-Reaktion auf Helmet-/Head-Änderungen ohne Polling.
+  useEffect(() => {
+    if (!enabled || !open || typeof window === 'undefined') return;
+    const obs = new MutationObserver(() => schedule());
+    obs.observe(document.head, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['content', 'href'],
+    });
+    return () => {
+      obs.disconnect();
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      if (idleRef.current !== null && 'cancelIdleCallback' in window) {
+        (window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(idleRef.current);
+      }
+    };
+  }, [enabled, open, schedule]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -272,8 +331,16 @@ export function SeoPreviewOverlay() {
           )}
         </div>
       </ScrollArea>
-      <div className="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
-        Strg/Cmd + Shift + S · {import.meta.env.DEV ? 'DEV' : 'PROD ?seoPreview=1'}
+      <div className="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground flex items-center justify-between">
+        <span>Strg/Cmd + Shift + S · {import.meta.env.DEV ? 'DEV' : 'PROD ?seoPreview=1'}</span>
+        {snap && (
+          <span
+            className={perfMs > 8 ? 'text-amber-600 font-mono' : 'font-mono'}
+            title="Snapshot-Dauer (Budget 8ms)"
+          >
+            {perfMs.toFixed(1)}ms
+          </span>
+        )}
       </div>
     </div>
   );
