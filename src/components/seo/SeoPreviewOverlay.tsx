@@ -74,14 +74,14 @@ function isEnabled(): boolean {
   return params.get('seoPreview') === '1';
 }
 
-interface CheckRow {
+export interface CheckRow {
   label: string;
   ok: boolean;
   value: string;
   hint?: string;
 }
 
-function evaluate(snap: HeadSnapshot): { rows: CheckRow[]; score: number } {
+export function evaluate(snap: HeadSnapshot): { rows: CheckRow[]; score: number } {
   const rows: CheckRow[] = [
     {
       label: 'Title',
