@@ -106,6 +106,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       try {
         const { data: { session: initialSession } } = await supabase.auth.getSession();
+
+        // Hardening: validate the session against the auth server. If the local
+        // JWT is stale/corrupt (e.g. "invalid claim: missing sub claim" after a
+        // signing-key rotation), wipe it so the user can log in cleanly instead
+        // of being stuck in a broken authenticated state.
+        if (initialSession?.access_token) {
+          const { error: userError } = await supabase.auth.getUser();
+          if (userError) {
+            const msg = (userError.message || '').toLowerCase();
+            const isBadJwt =
+              msg.includes('missing sub claim') ||
+              msg.includes('invalid claim') ||
+              msg.includes('bad_jwt') ||
+              msg.includes('jwt expired') ||
+              msg.includes('invalid jwt');
+            if (isBadJwt) {
+              console.warn('[auth] Stale/invalid local session detected — clearing.', userError);
+              try { await supabase.auth.signOut({ scope: 'local' } as any); } catch {}
+              try {
+                Object.keys(localStorage)
+                  .filter(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+                  .forEach(k => localStorage.removeItem(k));
+              } catch {}
+              await applySession(null, { isInitial: true });
+              return;
+            }
+          }
+        }
+
         await applySession(initialSession, { isInitial: true });
       } finally {
         if (isMounted && !authReadyRef.current) {
