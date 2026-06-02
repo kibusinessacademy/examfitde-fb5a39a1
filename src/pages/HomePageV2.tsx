@@ -1,5 +1,10 @@
 import { useEffect } from "react";
 import { SEOHead } from "@/components/seo/SEOHead";
+import {
+  generateOrganizationSchema,
+  generateWebSiteSchema,
+  generateBreadcrumbSchema,
+} from "@/lib/seo";
 import { generateFAQSchema, SITE_URL, seoTitle } from "@/lib/seo";
 import { trackConversion } from "@/lib/seo-tracking";
 import { StickyCTA } from "@/components/marketing/StickyCTA";
