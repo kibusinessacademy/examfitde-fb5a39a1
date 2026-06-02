@@ -30,8 +30,15 @@ const WEIGHTS = {
   P06_checkout_surface: 15,
   P07_cross_sell: 10,
   P08_berufos_hub: 10,
+  P09_trust_signals: 8,
+  P10_mobile_funnel: 10,
+  P11_seo_surface: 7,
+  P12_legal_trust: 5,
 };
 const TTC_TARGET_MS = 60_000;
+// Prozent-Schwellen, damit zusätzliche Journeys den Gate nicht silent kaputtmachen.
+const RELEASE_PCT = 0.85;
+const REVIEW_PCT = 0.70;
 
 function readDir(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -65,9 +72,10 @@ const p2 = findings.filter((f) => f.severity === 'P2');
 const ttcMs = typeof metrics.time_to_course_ms === 'number' ? metrics.time_to_course_ms : null;
 const ttcOk = ttcMs !== null && ttcMs <= TTC_TARGET_MS;
 
+const pct = max > 0 ? score / max : 0;
 let status;
-if (p0.length > 0 || score < 70) status = 'BLOCK';
-else if (p1.length > 0 || score < 85 || ttcMs === null) status = 'REVIEW';
+if (p0.length > 0 || pct < REVIEW_PCT) status = 'BLOCK';
+else if (p1.length > 0 || pct < RELEASE_PCT || ttcMs === null) status = 'REVIEW';
 else status = 'RELEASE';
 
 const baseUrl = process.env.REALITY_BASE_URL || process.env.PREVIEW_URL || 'https://examfitde.lovable.app';
