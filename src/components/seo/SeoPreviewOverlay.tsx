@@ -35,11 +35,11 @@ export interface HeadSnapshot {
 }
 
 
-function snapshotHead(): HeadSnapshot {
+export function snapshotHead(doc: Document = document): HeadSnapshot {
   const get = (sel: string, attr = 'content') =>
-    document.head.querySelector(sel)?.getAttribute(attr) ?? '';
+    doc.head.querySelector(sel)?.getAttribute(attr) ?? '';
   const jsonLdNodes = Array.from(
-    document.head.querySelectorAll('script[type="application/ld+json"]'),
+    doc.head.querySelectorAll('script[type="application/ld+json"]'),
   );
   const jsonLdRaw = jsonLdNodes.map((n) => n.textContent ?? '');
   const jsonLd: unknown[] = [];
@@ -51,7 +51,7 @@ function snapshotHead(): HeadSnapshot {
     }
   }
   return {
-    title: document.title ?? '',
+    title: doc.title ?? '',
     description: get('meta[name="description"]'),
     canonical: get('link[rel="canonical"]', 'href'),
     robots: get('meta[name="robots"]'),
@@ -65,6 +65,7 @@ function snapshotHead(): HeadSnapshot {
     jsonLdRaw,
   };
 }
+
 
 function isEnabled(): boolean {
   if (typeof window === 'undefined') return false;
