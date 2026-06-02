@@ -216,11 +216,21 @@ export default function OrgInvitesPage() {
 
       {history.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-3">
-            Historie ({history.length})
-          </h2>
-          <Card className="shadow-elev-1 border-border overflow-hidden divide-y divide-border">
-            {history.slice(0, HISTORY_LIMIT).map((inv) => {
+          <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+            <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
+              Historie ({history.length})
+            </h2>
+            {orgId && (
+              <Link
+                to={`/app/org/${orgId}/aktivitaet?type=org_invite_revoked`}
+                className="text-xs text-text-tertiary hover:text-text-secondary underline-offset-2 hover:underline"
+              >
+                Vollständige Historie im Aktivitätslog →
+              </Link>
+            )}
+          </div>
+          <Card className="shadow-elev-1 border-border overflow-hidden divide-y divide-border" data-testid="invite-history-list">
+            {historyVisible.map((inv) => {
               const meta = STATUS_META[inv.status] ?? STATUS_META.expired;
               const Icon = meta.icon;
               return (
@@ -244,14 +254,22 @@ export default function OrgInvitesPage() {
                 </div>
               );
             })}
-            {history.length > HISTORY_LIMIT && (
-              <div className="p-3 text-center text-xs text-text-tertiary bg-surface-1/50">
-                {history.length - HISTORY_LIMIT} weitere Einträge nicht angezeigt — Aktivitätslog für vollständige Historie nutzen.
+            {historyRemaining > 0 && (
+              <div className="p-3 text-center bg-surface-1/40">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setHistoryPage((p) => p + 1)}
+                  data-testid="invite-history-load-more"
+                >
+                  Mehr laden ({historyRemaining} weitere)
+                </Button>
               </div>
             )}
           </Card>
         </section>
       )}
+
 
       {orgId && (
         <InviteMemberDialog open={inviteOpen} onOpenChange={setInviteOpen} orgId={orgId} />
