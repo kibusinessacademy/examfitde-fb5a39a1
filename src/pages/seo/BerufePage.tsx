@@ -10,6 +10,33 @@ import { useFullCatalog, type CatalogEntry } from '@/hooks/useFullCatalog';
 import { generateOrganizationSchema, generateBreadcrumbSchema, SITE_URL, getBerufUrl } from '@/lib/seo';
 import { useState, useMemo, useCallback } from 'react';
 import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
+import publishedBerufeFallback from '@/data/publishedBerufeFallback.json';
+
+/**
+ * Static fallback catalog — bundled at build time so /berufe always renders
+ * clickable Beruf-Cards beim ersten Paint, auch bevor React Query auflöst.
+ * Pre-Customer Reality QA: ≥ 20 sichtbare Beruf-Links sofort, ohne Netz-Wartezeit.
+ */
+const FALLBACK_CATALOG: CatalogEntry[] = (publishedBerufeFallback as Array<{
+  id: string; title: string; slug: string; kammer: string | null;
+}>).map((b) => ({
+  berufId: b.id,
+  title: b.title,
+  titleLong: null,
+  slug: b.slug,
+  publishedSlug: b.slug,
+  kammer: b.kammer,
+  zustaendigkeit: null,
+  ausbildungsdauerMonate: null,
+  dqrNiveau: null,
+  isPublished: true,
+  packageId: null,
+  category: null,
+  categoryLabel: null,
+  description: null,
+  discoveryTeaser: null,
+  popularityScore: null,
+}));
 
 type CategoryFilter = 'all' | 'published' | 'upcoming';
 type KammerFilter = 'all' | 'IHK' | 'HWK' | string;
