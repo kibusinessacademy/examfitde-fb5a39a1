@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,8 +18,9 @@ import { useOrgInvites, useRevokeOrgInvite } from "@/hooks/useOrgConsoleData";
 import { useOrgConsoleContext } from "@/hooks/useOrgConsole";
 import { buildInviteUrl, type OrgInviteRow } from "@/lib/orgConsoleApi";
 import { toast } from "sonner";
-import { Send, Copy, Mail, X, Clock, CheckCircle2, Ban, UserPlus, AlertTriangle } from "lucide-react";
+import { Send, Copy, Mail, X, Clock, CheckCircle2, Ban, UserPlus, AlertTriangle, KeyRound } from "lucide-react";
 import { InviteMemberDialog } from "@/components/org/InviteMemberDialog";
+
 
 const STATUS_META: Record<string, { label: string; icon: any; tone: string }> = {
   pending: { label: "Offen", icon: Clock, tone: "bg-status-warning-bg-subtle text-status-warning" },
@@ -43,24 +44,49 @@ export default function OrgInvitesPage() {
   const { mutateAsync: revoke, isPending: revoking } = useRevokeOrgInvite(orgId);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<OrgInviteRow | null>(null);
+  const HISTORY_PAGE_SIZE = 25;
+  const [historyPage, setHistoryPage] = useState(1);
 
-  function copyLink(token: string) {
-    navigator.clipboard.writeText(buildInviteUrl(token));
-    toast.success("Einladungs-Link kopiert");
+  async function copyLink(token: string) {
+    try {
+      await navigator.clipboard.writeText(buildInviteUrl(token));
+      toast.success("Einladungs-Link kopiert");
+    } catch {
+      toast.error("Kopieren fehlgeschlagen");
+    }
+  }
+
+  async function copyToken(token: string) {
+    try {
+      await navigator.clipboard.writeText(token);
+      toast.success("Invite-Code kopiert");
+    } catch {
+      toast.error("Kopieren fehlgeschlagen");
+    }
   }
 
   async function confirmRevoke() {
     if (!revokeTarget) return;
     try {
       const r = await revoke(revokeTarget.id);
-      if (r.ok) toast.success("Einladung zurückgezogen");
-      else toast.error(`Fehler: ${r.error}`);
+      if (r?.ok) {
+        toast.success("Einladung zurückgezogen", {
+          description: `${revokeTarget.email} kann den Link nicht mehr nutzen.`,
+        });
+      } else {
+        toast.error("Einladung konnte nicht zurückgezogen werden", {
+          description: r?.error ?? "Bitte erneut versuchen.",
+        });
+      }
     } catch (e: any) {
-      toast.error(`Fehler: ${e?.message}`);
+      toast.error("Einladung konnte nicht zurückgezogen werden", {
+        description: e?.message ?? "Unbekannter Fehler.",
+      });
     } finally {
       setRevokeTarget(null);
     }
   }
+
 
   /** Returns tone class + label based on hours until expiry. */
   function expiryTone(iso: string): { tone: string; urgent: boolean; label: string } {
@@ -74,7 +100,9 @@ export default function OrgInvitesPage() {
 
   const pending = (invites ?? []).filter((i) => i.status === "pending");
   const history = (invites ?? []).filter((i) => i.status !== "pending");
-  const HISTORY_LIMIT = 50;
+  const historyVisible = history.slice(0, historyPage * HISTORY_PAGE_SIZE);
+  const historyRemaining = Math.max(0, history.length - historyVisible.length);
+
 
   return (
     <div className="space-y-6">
@@ -102,7 +130,7 @@ export default function OrgInvitesPage() {
             <Skeleton className="h-20 w-full" />
           </div>
         ) : pending.length === 0 ? (
-          <Card className="p-10 text-center border-border shadow-elev-1">
+          <Card className="p-10 text-center border-border shadow-elev-1" data-testid="invites-empty-state">
             <Mail className="h-10 w-10 mx-auto mb-3 text-text-tertiary" />
             <p className="text-sm text-text-secondary">Keine offenen Einladungen.</p>
             {canEdit && (
@@ -110,11 +138,13 @@ export default function OrgInvitesPage() {
                 size="sm"
                 className="mt-4 gap-2"
                 onClick={() => setInviteOpen(true)}
+                data-testid="invites-empty-cta"
               >
                 <Send className="h-4 w-4" /> Erste Einladung verschicken
               </Button>
             )}
           </Card>
+
         ) : (
           <div className="space-y-2">
             {pending.map((inv) => {
@@ -149,8 +179,19 @@ export default function OrgInvitesPage() {
                         variant="outline"
                         onClick={() => copyLink(inv.invite_token)}
                         className="gap-1.5"
+                        data-testid="invite-copy-link"
                       >
                         <Copy className="h-3.5 w-3.5" /> Link
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToken(inv.invite_token)}
+                        className="gap-1.5"
+                        title="Invite-Code kopieren"
+                        data-testid="invite-copy-code"
+                      >
+                        <KeyRound className="h-3.5 w-3.5" /> Code
                       </Button>
                       {canEdit && (
                         <Button
@@ -160,10 +201,12 @@ export default function OrgInvitesPage() {
                           title="Zurückziehen"
                           disabled={revoking}
                           onClick={() => setRevokeTarget(inv)}
+                          data-testid="invite-revoke-trigger"
                         >
                           <X className="h-4 w-4" />
                         </Button>
                       )}
+
                     </div>
                   </div>
                 </Card>
@@ -175,11 +218,21 @@ export default function OrgInvitesPage() {
 
       {history.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-3">
-            Historie ({history.length})
-          </h2>
-          <Card className="shadow-elev-1 border-border overflow-hidden divide-y divide-border">
-            {history.slice(0, HISTORY_LIMIT).map((inv) => {
+          <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+            <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
+              Historie ({history.length})
+            </h2>
+            {orgId && (
+              <Link
+                to={`/app/org/${orgId}/aktivitaet?type=org_invite_revoked`}
+                className="text-xs text-text-tertiary hover:text-text-secondary underline-offset-2 hover:underline"
+              >
+                Vollständige Historie im Aktivitätslog →
+              </Link>
+            )}
+          </div>
+          <Card className="shadow-elev-1 border-border overflow-hidden divide-y divide-border" data-testid="invite-history-list">
+            {historyVisible.map((inv) => {
               const meta = STATUS_META[inv.status] ?? STATUS_META.expired;
               const Icon = meta.icon;
               return (
@@ -203,21 +256,29 @@ export default function OrgInvitesPage() {
                 </div>
               );
             })}
-            {history.length > HISTORY_LIMIT && (
-              <div className="p-3 text-center text-xs text-text-tertiary bg-surface-1/50">
-                {history.length - HISTORY_LIMIT} weitere Einträge nicht angezeigt — Aktivitätslog für vollständige Historie nutzen.
+            {historyRemaining > 0 && (
+              <div className="p-3 text-center bg-surface-1/40">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setHistoryPage((p) => p + 1)}
+                  data-testid="invite-history-load-more"
+                >
+                  Mehr laden ({historyRemaining} weitere)
+                </Button>
               </div>
             )}
           </Card>
         </section>
       )}
 
+
       {orgId && (
         <InviteMemberDialog open={inviteOpen} onOpenChange={setInviteOpen} orgId={orgId} />
       )}
 
       <AlertDialog open={!!revokeTarget} onOpenChange={(o) => !o && setRevokeTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent data-testid="invite-revoke-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>Einladung zurückziehen?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -232,12 +293,14 @@ export default function OrgInvitesPage() {
             <AlertDialogAction
               onClick={confirmRevoke}
               className="bg-status-danger hover:bg-status-danger/90"
+              data-testid="invite-revoke-confirm"
             >
               Zurückziehen
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }
