@@ -97,17 +97,30 @@ export default function OrgInvitesPage() {
           Offene Einladungen ({pending.length})
         </h2>
         {isLoading ? (
-          <Skeleton className="h-32" />
+          <div className="space-y-2">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
         ) : pending.length === 0 ? (
-          <Card className="p-8 text-center border-border shadow-elev-1">
-            <Mail className="h-8 w-8 mx-auto mb-2 text-text-tertiary" />
+          <Card className="p-10 text-center border-border shadow-elev-1">
+            <Mail className="h-10 w-10 mx-auto mb-3 text-text-tertiary" />
             <p className="text-sm text-text-secondary">Keine offenen Einladungen.</p>
+            {canEdit && (
+              <Button
+                size="sm"
+                className="mt-4 gap-2"
+                onClick={() => setInviteOpen(true)}
+              >
+                <Send className="h-4 w-4" /> Erste Einladung verschicken
+              </Button>
+            )}
           </Card>
         ) : (
           <div className="space-y-2">
             {pending.map((inv) => {
               const meta = STATUS_META[inv.status];
               const Icon = meta.icon;
+              const exp = expiryTone(inv.expires_at);
               return (
                 <Card key={inv.id} className="p-4 shadow-elev-1 border-border hover:shadow-elev-2 transition-shadow">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -117,14 +130,17 @@ export default function OrgInvitesPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-text-primary truncate">{inv.email}</div>
-                        <div className="text-xs text-text-tertiary flex gap-2 flex-wrap items-center">
-                          {inv.product_title && <span>{inv.product_title}</span>}
-                          <span>· Rolle: {inv.role}</span>
-                          <span>· läuft {fmt(inv.expires_at)}</span>
+                        <div className="text-xs flex gap-2 flex-wrap items-center">
+                          {inv.product_title && <span className="text-text-tertiary">{inv.product_title}</span>}
+                          <span className="text-text-tertiary">· Rolle: {inv.role}</span>
+                          <span className={`inline-flex items-center gap-1 ${exp.tone}`} title={fmt(inv.expires_at)}>
+                            {exp.urgent && <AlertTriangle className="h-3 w-3" />}
+                            · {exp.label}
+                          </span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge className={`gap-1 ${meta.tone}`} variant="secondary">
                         <Icon className="h-3 w-3" /> {meta.label}
                       </Badge>
@@ -142,7 +158,8 @@ export default function OrgInvitesPage() {
                           variant="ghost"
                           className="h-8 w-8 text-status-danger hover:bg-status-danger-bg-subtle"
                           title="Zurückziehen"
-                          onClick={() => handleRevoke(inv.id)}
+                          disabled={revoking}
+                          onClick={() => setRevokeTarget(inv)}
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -162,7 +179,7 @@ export default function OrgInvitesPage() {
             Historie ({history.length})
           </h2>
           <Card className="shadow-elev-1 border-border overflow-hidden divide-y divide-border">
-            {history.slice(0, 50).map((inv) => {
+            {history.slice(0, HISTORY_LIMIT).map((inv) => {
               const meta = STATUS_META[inv.status] ?? STATUS_META.expired;
               const Icon = meta.icon;
               return (
@@ -186,6 +203,11 @@ export default function OrgInvitesPage() {
                 </div>
               );
             })}
+            {history.length > HISTORY_LIMIT && (
+              <div className="p-3 text-center text-xs text-text-tertiary bg-surface-1/50">
+                {history.length - HISTORY_LIMIT} weitere Einträge nicht angezeigt — Aktivitätslog für vollständige Historie nutzen.
+              </div>
+            )}
           </Card>
         </section>
       )}
@@ -193,6 +215,29 @@ export default function OrgInvitesPage() {
       {orgId && (
         <InviteMemberDialog open={inviteOpen} onOpenChange={setInviteOpen} orgId={orgId} />
       )}
+
+      <AlertDialog open={!!revokeTarget} onOpenChange={(o) => !o && setRevokeTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Einladung zurückziehen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Der Einladungs-Link für <strong>{revokeTarget?.email}</strong> wird sofort ungültig.
+              {revokeTarget?.product_title && (
+                <> Der reservierte Sitz für <strong>{revokeTarget.product_title}</strong> wird wieder freigegeben.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRevoke}
+              className="bg-status-danger hover:bg-status-danger/90"
+            >
+              Zurückziehen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
