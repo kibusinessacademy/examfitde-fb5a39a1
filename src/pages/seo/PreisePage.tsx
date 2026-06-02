@@ -1,6 +1,12 @@
+import { Link } from 'react-router-dom';
 import { SEOHead } from '@/components/seo/SEOHead';
 import {
   SITE_URL,
+  generateFAQSchema,
+  generateBreadcrumbSchema,
+  generateProductSchema,
+  generateOrganizationSchema,
+} from '@/lib/seo';
   generateFAQSchema,
   generateBreadcrumbSchema,
   generateProductSchema,
