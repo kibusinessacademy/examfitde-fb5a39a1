@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useFullCatalog, type CatalogEntry } from '@/hooks/useFullCatalog';
-import { generateOrganizationSchema, SITE_URL, getBerufUrl } from '@/lib/seo';
+import { generateOrganizationSchema, generateBreadcrumbSchema, SITE_URL, getBerufUrl } from '@/lib/seo';
 import { useState, useMemo, useCallback } from 'react';
 import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
 
@@ -98,15 +98,34 @@ export default function BerufePage() {
     return letters;
   }, [catalog, statusFilter, kammerFilter]);
 
+  const publishedSlice = useMemo(
+    () => (catalog ?? []).filter(c => c.isPublished).slice(0, 25),
+    [catalog],
+  );
   const structuredData = {
     '@context': 'https://schema.org',
     '@graph': [
       generateOrganizationSchema(),
+      generateBreadcrumbSchema([
+        { name: 'Start', url: `${SITE_URL}/` },
+        { name: 'Kurskatalog', url: `${SITE_URL}/berufe` },
+      ]),
       {
         '@type': 'CollectionPage',
         name: 'Prüfungsvorbereitung – Alle Berufe & Kurse',
         description: 'Vollständiger Kurskatalog: Veröffentlichte Prüfungstrainings und kommende Kurse zum Anfragen.',
         url: `${SITE_URL}/berufe`,
+      },
+      {
+        '@type': 'ItemList',
+        name: 'Verfügbare Prüfungstrainings',
+        numberOfItems: publishedSlice.length,
+        itemListElement: publishedSlice.map((c, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          url: `${SITE_URL}${getBerufUrl(c.publishedSlug || c.slug)}`,
+          name: c.title,
+        })),
       },
     ],
   };

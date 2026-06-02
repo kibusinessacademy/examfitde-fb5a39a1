@@ -1,5 +1,10 @@
 import { useEffect } from "react";
 import { SEOHead } from "@/components/seo/SEOHead";
+import {
+  generateOrganizationSchema,
+  generateWebSiteSchema,
+  generateBreadcrumbSchema,
+} from "@/lib/seo";
 import { generateFAQSchema, SITE_URL, seoTitle } from "@/lib/seo";
 import { trackConversion } from "@/lib/seo-tracking";
 import { StickyCTA } from "@/components/marketing/StickyCTA";
@@ -54,7 +59,12 @@ export default function HomePageV2() {
         description="ExamFit ist das erste intelligente Prüfungstrainingssystem für IHK & HWK: Prüfungsreife-Check, adaptive Schwächenanalyse, KI-Tutor mit Quellen, schriftliche und mündliche Simulation. Kein Abo."
         canonical={`${SITE_URL}/`}
         type="website"
-        structuredData={[generateFAQSchema(FAQ_ITEMS)]}
+        structuredData={[
+          generateOrganizationSchema(),
+          generateWebSiteSchema(),
+          generateBreadcrumbSchema([{ name: 'Start', url: `${SITE_URL}/` }]),
+          generateFAQSchema(FAQ_ITEMS),
+        ]}
       />
       <div className="lp-v2 min-h-screen">
         <PremiumHero />
