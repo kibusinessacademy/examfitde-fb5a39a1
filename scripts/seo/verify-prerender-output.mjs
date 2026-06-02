@@ -106,6 +106,28 @@ if (!probedAny) {
   log(false, 'no sample probe routes were prerendered — Prerender output looks empty');
 }
 
+// ── 4. Sitemap-only routes: must NOT have per-route HTML, MUST be in sitemap-index ──
+console.log('\n▶ Sitemap-only routes (DB-driven, no per-route HTML by design)');
+const sitemapPath = join(DIST, 'sitemap.xml');
+const sitemapXml = existsSync(sitemapPath) ? readFileSync(sitemapPath, 'utf8') : '';
+log(sitemapXml.length > 0, `dist/sitemap.xml present (${sitemapXml.length} bytes)`);
+
+for (const { slug, sitemapShard } of SITEMAP_ONLY_ROUTES) {
+  const htmlPath = join(DIST, slug, 'index.html');
+  log(
+    !existsSync(htmlPath),
+    `/${slug} → no dist/${slug}/index.html (sitemap-only, must be absent)`,
+  );
+  // Sitemap shard is referenced as ?type=<shard> in the sitemap-index.
+  const shardRef = `type=${sitemapShard}`;
+  log(
+    sitemapXml.includes(shardRef),
+    `/${slug} → sitemap shard "${shardRef}" referenced in sitemap-index`,
+  );
+}
+
+
+
 console.log(
   `\n${failures === 0 ? '✅ Prerender output verified' : `❌ ${failures} failure(s)`}\n`,
 );
