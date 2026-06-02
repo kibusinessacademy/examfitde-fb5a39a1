@@ -5,5 +5,5 @@
   "route": "/berufe",
   "detail": "Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.",
   "fix": "Berufs-Liste hydratisieren / SSR-Fallback prüfen.",
-  "ts": "2026-06-02T10:08:32.815Z"
+  "ts": "2026-06-02T13:10:40.799Z"
 }

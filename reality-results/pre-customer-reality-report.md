@@ -3,7 +3,7 @@
 **Base URL:** https://examfitde.lovable.app
 **Status:** **BLOCK**
 **Customer Readiness Score:** **12 / 130**
-**✅ TIME_TO_COURSE = 1.2s (Ziel ≤ 60s)**
+**✅ TIME_TO_COURSE = 1.0s (Ziel ≤ 60s)**
 
 ## Journeys passed
 - ✅ P11_seo_surface (7 pts)
