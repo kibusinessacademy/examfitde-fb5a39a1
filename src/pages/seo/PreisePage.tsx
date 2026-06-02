@@ -72,8 +72,42 @@ export default function PreisePage() {
       />
 
       <div className="min-h-screen">
+        {/* Reality-QA Static Anchor — sichtbarer €-Preis + Kauf-CTA garantiert
+            beim ersten Paint, unabhängig von PricingSectionHighConvert-Hydration.
+            Pre-Customer Reality verlangt: € sichtbar + Kauf-CTA sichtbar ohne JS-Wait. */}
+        <section
+          aria-label="Preisübersicht"
+          className="container max-w-4xl pt-10 pb-2"
+          data-testid="preise-static-anchor"
+        >
+          <div className="rounded-2xl border border-border bg-card/50 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-6 justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                ExamFit Komplettpaket
+              </p>
+              <p className="text-4xl sm:text-5xl font-bold text-foreground">
+                {PRICING.defaultPrice}
+                <span className="text-base font-normal text-muted-foreground ml-2">
+                  einmalig · {PRICING.defaultAccess} Zugang · {PRICING.noSubscription}
+                </span>
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Lernkurs, Prüfungstrainer, mündliche Simulation & KI-Tutor — in einem Paket.
+              </p>
+            </div>
+            <Link
+              to="/berufe"
+              className="inline-flex items-center justify-center h-12 px-6 rounded-lg bg-primary text-primary-foreground font-semibold text-base hover:opacity-90 transition shrink-0"
+              data-cta-location="preise_static_anchor"
+            >
+              Jetzt Prüfungstraining starten →
+            </Link>
+          </div>
+        </section>
+
         {/* High-converting pricing section (hero + plans + comparison + CTA) */}
         <PricingSectionHighConvert />
+
 
         {/* FAQ */}
         <section className="py-16 bg-muted/30">
