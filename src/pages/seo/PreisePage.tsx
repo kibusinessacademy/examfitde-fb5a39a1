@@ -7,11 +7,6 @@ import {
   generateProductSchema,
   generateOrganizationSchema,
 } from '@/lib/seo';
-  generateFAQSchema,
-  generateBreadcrumbSchema,
-  generateProductSchema,
-  generateOrganizationSchema,
-} from '@/lib/seo';
 import { PRICING } from '@/config/pricing';
 import PricingSectionHighConvert from '@/components/pricing/PricingSectionHighConvert';
 
