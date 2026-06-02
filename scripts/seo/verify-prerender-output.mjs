@@ -7,6 +7,9 @@
  *   2. At least N per-route HTML files exist under dist/<route>/index.html
  *   3. Sample per-route HTMLs differ from dist/index.html
  *      (canonical, title, or <h1> must be route-specific)
+ *   4. Sitemap-only routes (DB-driven, per memory
+ *      `sitemap-only-mode-for-db-routes-v1`) have NO per-route HTML
+ *      and their sitemap shard is referenced in dist/sitemap.xml.
  *
  * Exits non-zero on any failure → blocks CI merge to main and
  * prevents a broken Vercel deploy.
@@ -18,10 +21,24 @@ import { resolve, join } from 'node:path';
 
 const DIST = resolve(process.cwd(), 'dist');
 const MIN_PRERENDERED_ROUTES = parseInt(process.env.MIN_PRERENDERED || '20', 10);
+
+// Routes that MUST be prerendered as dist/<slug>/index.html with
+// route-specific title/canonical. Keep aligned with src/content/seoRoutes.ts.
 const SAMPLE_PROBE_ROUTES = [
-  'aevo-pruefung',
-  'fiae-pruefung',
-  'bilanzbuchhalter-pruefung',
+  'aevo-pruefungsvorbereitung',
+  'fiae-pruefungsvorbereitung',
+  'bilanzbuchhalter-pruefungsvorbereitung',
+  'pruefungstraining-azubis',
+  'preise',
+];
+
+// Sitemap-only routes: DB-driven category/listing pages that are intentionally
+// NOT prerendered (memory `sitemap-only-mode-for-db-routes-v1`). The build
+// must NOT produce dist/<slug>/index.html for these — Vercel rewrites to the
+// SPA shell at request time. Each entry's sitemap shard must be referenced
+// in dist/sitemap.xml (the sitemap-index).
+const SITEMAP_ONLY_ROUTES = [
+  { slug: 'berufe', sitemapShard: 'berufe' },
 ];
 
 let failures = 0;
