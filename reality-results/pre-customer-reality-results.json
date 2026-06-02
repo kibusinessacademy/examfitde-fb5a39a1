@@ -1,0 +1,158 @@
+{
+  "ts": "2026-06-02T10:09:07.596Z",
+  "base_url": "https://examfitde.lovable.app",
+  "status": "BLOCK",
+  "score": 12,
+  "max_score": 130,
+  "time_to_course_ms": 1185,
+  "time_to_course_ok": true,
+  "time_to_course_target_ms": 60000,
+  "journeys": {
+    "P01_homepage": "fail",
+    "P02_find_beruf": "fail",
+    "P03_open_course": "fail",
+    "P04_pricing": "fail",
+    "P05_cta_click": "fail",
+    "P06_checkout_surface": "fail",
+    "P07_cross_sell": "fail",
+    "P08_berufos_hub": "fail",
+    "P09_trust_signals": "fail",
+    "P10_mobile_funnel": "fail",
+    "P11_seo_surface": "pass",
+    "P12_legal_trust": "pass"
+  },
+  "weights": {
+    "P01_homepage": 10,
+    "P02_find_beruf": 15,
+    "P03_open_course": 15,
+    "P04_pricing": 15,
+    "P05_cta_click": 10,
+    "P06_checkout_surface": 15,
+    "P07_cross_sell": 10,
+    "P08_berufos_hub": 10,
+    "P09_trust_signals": 8,
+    "P10_mobile_funnel": 10,
+    "P11_seo_surface": 7,
+    "P12_legal_trust": 5
+  },
+  "metrics": {
+    "time_to_course_ms": 1185,
+    "_ts": "2026-06-02T10:08:36.016Z",
+    "time_to_course_url": "NONE"
+  },
+  "findings": {
+    "p0": [
+      {
+        "severity": "P0",
+        "kind": "dead_cta",
+        "journey": "A",
+        "route": "/",
+        "detail": "Kein primärer CTA above the fold.",
+        "fix": "Hero-CTA sichtbar machen, Cookie-Banner darf CTA nicht verdecken.",
+        "ts": "2026-06-02T10:08:30.329Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe",
+        "detail": "Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.",
+        "fix": "Berufs-Liste hydratisieren / SSR-Fallback prüfen.",
+        "ts": "2026-06-02T10:08:32.815Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "detail": "Visitor erreicht keine Kurs-/Produktseite ab Homepage.",
+        "fix": "Berufe-Hub muss klickbare Karten mit echten Detail-Routen liefern.",
+        "ts": "2026-06-02T10:08:36.016Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "workflow_no_feedback",
+        "journey": "A",
+        "route": "/preise",
+        "detail": "Pricing-Seite zeigt keinen €/EUR-Preis.",
+        "fix": "Pricing-SSOT auf /preise rendern (statt nur auf Produktseiten).",
+        "ts": "2026-06-02T10:08:40.131Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "dead_cta",
+        "journey": "A",
+        "route": "/preise",
+        "detail": "Pricing-Seite hat keinen sichtbaren Kauf-CTA.",
+        "fix": "Primary-CTA pro Pricing-Tier hinzufügen.",
+        "ts": "2026-06-02T10:08:40.142Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "dead_cta",
+        "journey": "A",
+        "detail": "Konnte keine Kursseite öffnen für CTA-Test.",
+        "fix": "Erst P03 (Discovery) fixen.",
+        "ts": "2026-06-02T10:08:42.967Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "checkout_unreachable",
+        "journey": "A",
+        "detail": "Konnte keine Kursseite öffnen — Checkout-Surface untestbar.",
+        "fix": "P03 fixen.",
+        "ts": "2026-06-02T10:08:46.770Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "detail": "Mobile-Discovery erreicht keine Kursseite ab Homepage.",
+        "fix": "Berufe-Hub-Karten müssen auf 390px tappable sein (min 44px Höhe).",
+        "ts": "2026-06-02T10:08:58.402Z"
+      }
+    ],
+    "p1": [
+      {
+        "severity": "P1",
+        "kind": "workflow_no_feedback",
+        "journey": "A",
+        "detail": "Keine Kursseite erreichbar — Cross-Sell untestbar.",
+        "ts": "2026-06-02T10:08:49.636Z"
+      },
+      {
+        "severity": "P1",
+        "kind": "broken_route",
+        "journey": "A",
+        "detail": "Kein BerufOS-/Komplettpaket-Hub erreichbar (/berufos, /komplettpaket, /produkte).",
+        "fix": "Mindestens eine Hub-Route mit Produkt-Erklärung publishen.",
+        "ts": "2026-06-02T10:08:52.986Z"
+      },
+      {
+        "severity": "P1",
+        "kind": "workflow_no_feedback",
+        "journey": "A",
+        "route": "/",
+        "detail": "Homepage zeigt keinerlei Trust-Signale (Reviews, DSGVO, Garantie, Nutzerzahlen).",
+        "fix": "Trust-Strip / Testimonial-Block / Sicherheits-Badges in Hero oder direkt darunter platzieren.",
+        "ts": "2026-06-02T10:08:55.464Z"
+      }
+    ],
+    "p2": [
+      {
+        "severity": "P2",
+        "kind": "workflow_no_feedback",
+        "journey": "A",
+        "route": "/berufe",
+        "detail": "Keine Suche und wenige Berufe — Discovery-Friction.",
+        "fix": "Such-/Filterleiste hinzufügen.",
+        "ts": "2026-06-02T10:08:32.826Z"
+      }
+    ]
+  },
+  "counts": {
+    "p0": 8,
+    "p1": 3,
+    "p2": 1,
+    "findings": 12
+  }
+}
