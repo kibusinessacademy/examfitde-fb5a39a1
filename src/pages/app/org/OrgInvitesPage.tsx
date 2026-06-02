@@ -100,7 +100,9 @@ export default function OrgInvitesPage() {
 
   const pending = (invites ?? []).filter((i) => i.status === "pending");
   const history = (invites ?? []).filter((i) => i.status !== "pending");
-  const HISTORY_LIMIT = 50;
+  const historyVisible = history.slice(0, historyPage * HISTORY_PAGE_SIZE);
+  const historyRemaining = Math.max(0, history.length - historyVisible.length);
+
 
   return (
     <div className="space-y-6">
