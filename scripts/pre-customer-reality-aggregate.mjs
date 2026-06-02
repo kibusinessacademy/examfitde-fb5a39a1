@@ -72,9 +72,10 @@ const p2 = findings.filter((f) => f.severity === 'P2');
 const ttcMs = typeof metrics.time_to_course_ms === 'number' ? metrics.time_to_course_ms : null;
 const ttcOk = ttcMs !== null && ttcMs <= TTC_TARGET_MS;
 
+const pct = max > 0 ? score / max : 0;
 let status;
-if (p0.length > 0 || score < 70) status = 'BLOCK';
-else if (p1.length > 0 || score < 85 || ttcMs === null) status = 'REVIEW';
+if (p0.length > 0 || pct < REVIEW_PCT) status = 'BLOCK';
+else if (p1.length > 0 || pct < RELEASE_PCT || ttcMs === null) status = 'REVIEW';
 else status = 'RELEASE';
 
 const baseUrl = process.env.REALITY_BASE_URL || process.env.PREVIEW_URL || 'https://examfitde.lovable.app';
