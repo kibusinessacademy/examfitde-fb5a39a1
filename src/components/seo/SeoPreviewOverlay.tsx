@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface HeadSnapshot {
+export interface HeadSnapshot {
   title: string;
   description: string;
   canonical: string;
@@ -33,6 +33,7 @@ interface HeadSnapshot {
   jsonLd: unknown[];
   jsonLdRaw: string[];
 }
+
 
 function snapshotHead(): HeadSnapshot {
   const get = (sel: string, attr = 'content') =>
