@@ -44,7 +44,13 @@ type KammerFilter = 'all' | 'IHK' | 'HWK' | string;
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export default function BerufePage() {
-  const { data: catalog, isLoading } = useFullCatalog();
+export default function BerufePage() {
+  const { data: catalogData, isLoading } = useFullCatalog();
+  // SSOT: live-Katalog, sobald verfügbar — sonst statischer Build-Fallback,
+  // damit Visitors NIE eine leere /berufe sehen (Reality-QA: ≥ 20 Links).
+  const catalog: CatalogEntry[] | undefined =
+    catalogData && catalogData.length > 0 ? catalogData : FALLBACK_CATALOG;
+  const showSkeleton = isLoading && !catalog;
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<CategoryFilter>('all');
   const [kammerFilter, setKammerFilter] = useState<KammerFilter>('all');
