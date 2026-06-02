@@ -1,8 +1,0 @@
-{
-  "severity": "P0",
-  "kind": "dead_cta",
-  "journey": "A",
-  "detail": "Konnte keine Kursseite öffnen für CTA-Test.",
-  "fix": "Erst P03 (Discovery) fixen.",
-  "ts": "2026-06-02T10:08:42.967Z"
-}
