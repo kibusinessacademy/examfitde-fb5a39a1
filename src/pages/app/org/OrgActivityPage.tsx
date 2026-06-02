@@ -153,8 +153,8 @@ export default function OrgActivityPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-56">
+            <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setVisibleCount(PAGE_SIZE); }}>
+              <SelectTrigger className="w-56" data-testid="activity-type-filter">
                 <SelectValue placeholder="Ereignistyp" />
               </SelectTrigger>
               <SelectContent>
@@ -166,6 +166,7 @@ export default function OrgActivityPage() {
                 ))}
               </SelectContent>
             </Select>
+
             <span className="text-sm text-text-tertiary ml-auto tabular-nums">
               {filtered.length} / {list.length}
             </span>
