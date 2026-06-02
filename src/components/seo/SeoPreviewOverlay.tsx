@@ -331,8 +331,16 @@ export function SeoPreviewOverlay() {
           )}
         </div>
       </ScrollArea>
-      <div className="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
-        Strg/Cmd + Shift + S · {import.meta.env.DEV ? 'DEV' : 'PROD ?seoPreview=1'}
+      <div className="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground flex items-center justify-between">
+        <span>Strg/Cmd + Shift + S · {import.meta.env.DEV ? 'DEV' : 'PROD ?seoPreview=1'}</span>
+        {snap && (
+          <span
+            className={perfMs > 8 ? 'text-amber-600 font-mono' : 'font-mono'}
+            title="Snapshot-Dauer (Budget 8ms)"
+          >
+            {perfMs.toFixed(1)}ms
+          </span>
+        )}
       </div>
     </div>
   );
