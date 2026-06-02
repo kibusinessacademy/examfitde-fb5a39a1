@@ -279,7 +279,7 @@ export function SeoPreviewOverlay() {
   );
 }
 
-function extractTypes(obj: unknown): string[] {
+export function extractTypes(obj: unknown): string[] {
   if (!obj || typeof obj !== 'object') return [];
   const o = obj as Record<string, unknown>;
   const t = o['@type'];
