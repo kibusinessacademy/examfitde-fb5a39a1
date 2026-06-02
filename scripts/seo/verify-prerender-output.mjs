@@ -25,7 +25,6 @@ const MIN_PRERENDERED_ROUTES = parseInt(process.env.MIN_PRERENDERED || '20', 10)
 // Routes that MUST be prerendered as dist/<slug>/index.html with
 // route-specific title/canonical. Keep aligned with src/content/seoRoutes.ts.
 const SAMPLE_PROBE_ROUTES = [
-  'aevo-pruefungsvorbereitung',
   'fiae-pruefungsvorbereitung',
   'bilanzbuchhalter-pruefungsvorbereitung',
   'pruefungstraining-azubis',
