@@ -10,6 +10,33 @@ import { useFullCatalog, type CatalogEntry } from '@/hooks/useFullCatalog';
 import { generateOrganizationSchema, generateBreadcrumbSchema, SITE_URL, getBerufUrl } from '@/lib/seo';
 import { useState, useMemo, useCallback } from 'react';
 import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
+import publishedBerufeFallback from '@/data/publishedBerufeFallback.json';
+
+/**
+ * Static fallback catalog — bundled at build time so /berufe always renders
+ * clickable Beruf-Cards beim ersten Paint, auch bevor React Query auflöst.
+ * Pre-Customer Reality QA: ≥ 20 sichtbare Beruf-Links sofort, ohne Netz-Wartezeit.
+ */
+const FALLBACK_CATALOG: CatalogEntry[] = (publishedBerufeFallback as Array<{
+  id: string; title: string; slug: string; kammer: string | null;
+}>).map((b) => ({
+  berufId: b.id,
+  title: b.title,
+  titleLong: null,
+  slug: b.slug,
+  publishedSlug: b.slug,
+  kammer: b.kammer,
+  zustaendigkeit: null,
+  ausbildungsdauerMonate: null,
+  dqrNiveau: null,
+  isPublished: true,
+  packageId: null,
+  category: null,
+  categoryLabel: null,
+  description: null,
+  discoveryTeaser: null,
+  popularityScore: null,
+}));
 
 type CategoryFilter = 'all' | 'published' | 'upcoming';
 type KammerFilter = 'all' | 'IHK' | 'HWK' | string;
@@ -17,7 +44,12 @@ type KammerFilter = 'all' | 'IHK' | 'HWK' | string;
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export default function BerufePage() {
-  const { data: catalog, isLoading } = useFullCatalog();
+  const { data: catalogData, isLoading } = useFullCatalog();
+  // SSOT: live-Katalog, sobald verfügbar — sonst statischer Build-Fallback,
+  // damit Visitors NIE eine leere /berufe sehen (Reality-QA: ≥ 20 Links).
+  const catalog: CatalogEntry[] | undefined =
+    catalogData && catalogData.length > 0 ? catalogData : FALLBACK_CATALOG;
+  const showSkeleton = isLoading && !catalog;
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<CategoryFilter>('all');
   const [kammerFilter, setKammerFilter] = useState<KammerFilter>('all');
@@ -267,7 +299,7 @@ export default function BerufePage() {
         {/* Results */}
         <section className="py-8 sm:py-12">
           <div className="container">
-            {isLoading ? (
+            {showSkeleton ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[...Array(9)].map((_, i) => (
                   <Card key={i} className="glass-card animate-pulse">

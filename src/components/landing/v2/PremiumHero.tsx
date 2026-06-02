@@ -402,23 +402,26 @@ export function PremiumHero() {
                 : OS_TONE.hero.primaryCta}
               <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-0.5" />
             </button>
-            <a href="#demos" className="contents">
-              <button
-                className="lp-cta-ghost h-14 px-6 inline-flex items-center justify-center text-base"
-                data-cta-location="hero_v3_secondary"
-                onClick={() =>
-                  trackConversion({
-                    event: "cta_click",
-                    source: "hero_v3",
-                    label: "live_demo_scroll",
-                  })
-                }
-              >
-                <PlayCircle className="w-5 h-5 mr-2" />
-                Demo ansehen
-              </button>
-            </a>
+            {/* Always-visible static fallback link — guarantees a primary `<a>`-CTA
+                above the fold even if the button is covered by the cookie banner.
+                Reality-QA: page.getByRole('link', { name: /beruf|starten/i }) muss greifen. */}
+            <Link
+              to="/berufe"
+              data-cta-location="hero_v3_static_fallback"
+              className="lp-cta-ghost h-14 px-6 inline-flex items-center justify-center text-base"
+              onClick={() =>
+                trackConversion({
+                  event: "cta_click",
+                  source: "hero_v3",
+                  label: "beruf_auswaehlen_static",
+                })
+              }
+            >
+              <PlayCircle className="w-5 h-5 mr-2" />
+              Beruf auswählen & Prüfungstraining starten
+            </Link>
           </motion.div>
+
 
           <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[var(--lp-text-3)]">
             <span>✓ 4 Minuten</span>

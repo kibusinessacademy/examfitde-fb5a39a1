@@ -1,0 +1,998 @@
+[
+  {
+    "id": "b814ad77-acff-410b-b3f0-2f6748bc82f0",
+    "title": "Anlagenmechaniker/-in für Sanitär-, Heizungs- und Klimatechnik",
+    "slug": "anlagenmechaniker-in-fuer-sanitaer-heizungs-und-klimatechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "c7a6c6c8-69b7-422b-b0c9-c1c81100ad77",
+    "title": "Asphaltbauer/-in",
+    "slug": "asphaltbauer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "de6b0394-4c5a-4a5a-9fa9-135d38fba715",
+    "title": "Aufbereitungsmechaniker/-in",
+    "slug": "aufbereitungsmechaniker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "52f78e37-4763-46cf-a31d-7aa173194b7a",
+    "title": "Bankkaufmann/-frau",
+    "slug": "bankkaufmann-frau",
+    "kammer": "IHK"
+  },
+  {
+    "id": "697738f5-2a3d-476c-a770-ef3227f38fd6",
+    "title": "Baugeräteführer/-in",
+    "slug": "baugeraetefuehrer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "1d6c3cae-6392-4ef7-b5bf-05575e89e80b",
+    "title": "Bauwerksmechaniker/-in für Abbruch und Betontrenntechnik",
+    "slug": "bauwerksmechaniker-in-fuer-abbruch-und-betontrenntechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "c6ae9ac6-0811-4689-9d48-6a87cfcecce4",
+    "title": "Bauzeichner/-in",
+    "slug": "bauzeichner-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "1e9a960c-25e5-4ca6-9181-96b4c9f24b9b",
+    "title": "Berufskraftfahrer/-in",
+    "slug": "berufskraftfahrer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "f390d322-ca53-45e3-8309-a5af330c7a82",
+    "title": "Beton- und Stahlbetonbauer/-in",
+    "slug": "beton-und-stahlbetonbauer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "a71953a8-48ce-41cc-aeea-68ab8cb51d2c",
+    "title": "Betonfertigteilbauer/-in",
+    "slug": "betonfertigteilbauer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "e5920ed3-5511-4124-9669-08ac378f740a",
+    "title": "Binnenschiffer/-in",
+    "slug": "binnenschiffer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "aa1e483d-ae02-4fc0-ba6b-b79e58e5d3da",
+    "title": "Biologielaborant/-in",
+    "slug": "biologielaborant-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "1ccee076-7860-49d4-803e-f1b4d70f6d74",
+    "title": "Bogenmacher/-in",
+    "slug": "bogenmacher-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "737a6a36-e09d-4ada-8035-3820b8672be3",
+    "title": "Bootsbauer/-in",
+    "slug": "bootsbauer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "90710165-0367-4a47-a0ce-a5c084df547d",
+    "title": "Brauer und Mälzer/-in",
+    "slug": "brauer-und-maelzer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "dd43c013-0047-4aa5-b9d7-3fbeafef6af3",
+    "title": "Brunnenbauer/-in",
+    "slug": "brunnenbauer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "83ee4375-551f-444e-b21c-5d42524276e7",
+    "title": "Buchbinder/-in",
+    "slug": "buchbinder-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "802ba64d-fcc1-4ad1-848a-cfa03a6bc08e",
+    "title": "Buchhändler/-in",
+    "slug": "buchhaendler-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "5782ff4a-3f13-4db3-b821-dd97ed88527d",
+    "title": "Chemielaborant/-in",
+    "slug": "chemielaborant-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "c03a693c-2071-4545-bdd7-d8991f653957",
+    "title": "Chemikant/-in",
+    "slug": "chemikant-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "1e6665fa-7e61-4ea2-8442-36f71d708aed",
+    "title": "Chirurgiemechaniker/-in",
+    "slug": "chirurgiemechaniker-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "04d12ba7-ce25-45ef-9d6f-caeb3e746789",
+    "title": "Drogist/-in",
+    "slug": "drogist-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "62ebdbc3-f6f1-4731-840a-de9d7b774460",
+    "title": "Eisenbahner/-in im Betriebsdienst Lokführer und Transport",
+    "slug": "eisenbahner-in-im-betriebsdienst-lokfuehrer-und-transport",
+    "kammer": "IHK"
+  },
+  {
+    "id": "f935af14-e84b-44e3-bae2-1538e7fb6fd0",
+    "title": "Eisenbahner/-in in der Zugverkehrssteuerung",
+    "slug": "eisenbahner-in-in-der-zugverkehrssteuerung",
+    "kammer": "IHK"
+  },
+  {
+    "id": "c4153e1e-b6a4-404f-a70d-58ff63e38b94",
+    "title": "Elektroanlagenmonteur/-in",
+    "slug": "elektroanlagenmonteur-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "d3cb0d41-9cac-4159-b4a5-0443e321223a",
+    "title": "Elektroniker/-in für Betriebstechnik",
+    "slug": "elektroniker-in-fuer-betriebstechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "8dc7c016-9de2-4299-8073-94d2bb4cd936",
+    "title": "Elektroniker/-in für Gebäude- und Infrastruktursysteme",
+    "slug": "elektroniker-in-fuer-gebaeude-und-infrastruktursysteme",
+    "kammer": "IHK"
+  },
+  {
+    "id": "046182c2-93bd-433b-9a91-b46cfcfc7a85",
+    "title": "Elektroniker/-in für Geräte und Systeme",
+    "slug": "elektroniker-in-fuer-geraete-und-systeme",
+    "kammer": "IHK"
+  },
+  {
+    "id": "a2021ead-d37e-4644-a518-8d73d71b608c",
+    "title": "Elektroniker/-in für Maschinen und Antriebstechnik nach der Handwerksordnung",
+    "slug": "elektroniker-in-fuer-maschinen-und-antriebstechnik-nach-der-handwerksordnung",
+    "kammer": "HWK"
+  },
+  {
+    "id": "262c35da-a4b1-41f1-8028-8a0bb45eb292",
+    "title": "Estrichleger/-in",
+    "slug": "estrichleger-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "8031a6c9-6c1c-4b76-906d-e8835b3b9c50",
+    "title": "Fachangestellte/-r für Arbeitsmarktdienstleistungen",
+    "slug": "fachangestellte-r-fuer-arbeitsmarktdienstleistungen",
+    "kammer": "IHK"
+  },
+  {
+    "id": "42e13419-ece4-44e6-ba04-b0beae5b2c2e",
+    "title": "Fachangestellte/-r für Medien- und Informationsdienste",
+    "slug": "fachangestellte-r-fuer-medien-und-informationsdienste",
+    "kammer": "IHK"
+  },
+  {
+    "id": "ef8ba799-6b28-474e-8fb1-8f6a4e500f29",
+    "title": "Fachinformatiker/-in Systemintegration",
+    "slug": "fachinformatiker-in-systemintegration",
+    "kammer": "IHK"
+  },
+  {
+    "id": "6da813f4-a09b-4547-9113-e2d245424212",
+    "title": "Fachkraft für Fruchtsafttechnik",
+    "slug": "fachkraft-fuer-fruchtsafttechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "b90d7bcd-fc87-40af-b16a-92b04bf4bcf2",
+    "title": "Fachkraft für Gastronomie",
+    "slug": "fachkraft-fuer-gastronomie",
+    "kammer": "IHK"
+  },
+  {
+    "id": "8ad068d1-c5ed-4c39-99dd-c37acc700333",
+    "title": "Fachkraft für Hafenlogistik",
+    "slug": "fachkraft-fuer-hafenlogistik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "d8b8be84-4a2b-4fb9-90ed-ad8639f5a3d1",
+    "title": "Fachkraft für Holz- und Bautenschutzarbeiten",
+    "slug": "fachkraft-fuer-holz-und-bautenschutzarbeiten",
+    "kammer": "IHK"
+  },
+  {
+    "id": "3eca2592-4fdd-4881-8195-82c9cc6e4192",
+    "title": "Fachkraft für Lagerlogistik",
+    "slug": "fachkraft-fuer-lagerlogistik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "9cd53182-cd14-464e-8207-74fc8005fbe6",
+    "title": "Fachkraft für Lebensmitteltechnik",
+    "slug": "fachkraft-fuer-lebensmitteltechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "5f3049f9-4e93-45a5-a662-9f3b898b59e6",
+    "title": "Fachkraft für Möbel-, Küchen- und Umzugsservice",
+    "slug": "fachkraft-fuer-moebel-kuechen-und-umzugsservice",
+    "kammer": "IHK"
+  },
+  {
+    "id": "117ad731-231e-4d8c-a2ef-31ebcba9d888",
+    "title": "Fachkraft für Schutz und Sicherheit",
+    "slug": "fachkraft-fuer-schutz-und-sicherheit",
+    "kammer": "IHK"
+  },
+  {
+    "id": "71ead467-1c2c-4cd6-8f67-054018afe679",
+    "title": "Fachkraft für Straßen- und Verkehrstechnik",
+    "slug": "fachkraft-fuer-strassen-und-verkehrstechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "10b6808f-0104-4e5f-8ec3-6488ee24e61a",
+    "title": "Fachkraft für Veranstaltungstechnik",
+    "slug": "fachkraft-fuer-veranstaltungstechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "51428819-ccb2-44f4-b903-f7c81867f4d1",
+    "title": "Fachkraft Küche",
+    "slug": "fachkraft-kueche",
+    "kammer": "IHK"
+  },
+  {
+    "id": "1fb47913-9901-4925-a588-17db8ae1ecd9",
+    "title": "Fachverkäufer/-in im Lebensmittelhandwerk",
+    "slug": "fachverkaeufer-in-im-lebensmittelhandwerk",
+    "kammer": "IHK"
+  },
+  {
+    "id": "eb5a20d5-5328-434c-910e-89ee818f5355",
+    "title": "Fahrradmonteur/-in",
+    "slug": "fahrradmonteur-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "ff4413c0-f7a2-44b6-a39c-eb5eba77cae8",
+    "title": "Fassadenmonteur/-in",
+    "slug": "fassadenmonteur-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "6987f5f8-156a-4c9b-b1f0-5c50f1d489d5",
+    "title": "Feinoptiker/-in",
+    "slug": "feinoptiker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "8cc018df-fd4f-4733-b241-fa90cb1ab2c6",
+    "title": "Feinwerkmechaniker/-in",
+    "slug": "feinwerkmechaniker-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "c9d60813-8957-459f-be84-f0a42e1ccbfc",
+    "title": "Feuerungs- und Schornsteinbauer/-in",
+    "slug": "feuerungs-und-schornsteinbauer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "34961fcd-c381-45b4-9e73-69a797426527",
+    "title": "Fischwirt/-in",
+    "slug": "fischwirt-in",
+    "kammer": "Lw"
+  },
+  {
+    "id": "5f7f8437-4d3b-4333-8b78-b7a11147a104",
+    "title": "Fleischer/-in",
+    "slug": "fleischer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "c06f9f91-dcb4-43c0-b50f-cd766c706f40",
+    "title": "Fliesen-, Platten- und Mosaikleger/-in",
+    "slug": "fliesen-platten-und-mosaikleger-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "04638c26-2192-4dda-92c8-919967d52dcf",
+    "title": "Fluggerätelektroniker/-in",
+    "slug": "fluggeraetelektroniker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "e223b88a-d831-416c-bc21-32d295351736",
+    "title": "Fotograf/-in",
+    "slug": "fotograf-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "d4b0c6eb-81b1-4749-85bb-09b65a78c433",
+    "title": "Fotomedienfachmann/-frau",
+    "slug": "fotomedienfachmann-frau",
+    "kammer": "IHK"
+  },
+  {
+    "id": "4c406383-635f-486f-8d20-dd4d0252297b",
+    "title": "Friseur/-in",
+    "slug": "friseur-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "654d2249-5384-4b70-ba2a-5019455c5e8c",
+    "title": "Gärtner/-in",
+    "slug": "gaertner-in",
+    "kammer": "Lw"
+  },
+  {
+    "id": "2c669061-bb3d-4373-9b82-cc9828213ea2",
+    "title": "Gebäudereiniger/-in",
+    "slug": "gebaeudereiniger-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "5ca968ec-ec5b-44f5-862e-e2cc78f1fe76",
+    "title": "Geomatiker/-in",
+    "slug": "geomatiker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "f0131df5-c731-4b21-893b-c3221af4332c",
+    "title": "Gestalter/-in für immersive Medien",
+    "slug": "gestalter-in-fuer-immersive-medien",
+    "kammer": "IHK"
+  },
+  {
+    "id": "3ee72e82-42d1-4343-8d8b-d9c5c4fd6119",
+    "title": "Gießereimechaniker/-in",
+    "slug": "giessereimechaniker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "5a8ffa76-dc04-44c9-8ab2-827765bd8be9",
+    "title": "Glasbläser/-in",
+    "slug": "glasblaeser-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "aaee3a21-e47d-4f14-b3e9-c5bf74261a2c",
+    "title": "Gleisbauer/-in",
+    "slug": "gleisbauer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "b40851ae-7bb9-4163-bef8-34580710eadb",
+    "title": "Graveur/-in",
+    "slug": "graveur-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "c5b7498e-7036-4b66-acd1-0b49d2b61f2f",
+    "title": "Hafenschiffer/-in",
+    "slug": "hafenschiffer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "cbd2419d-0a79-4105-a9fa-1c13dcc432a6",
+    "title": "Hauswirtschafter/-in",
+    "slug": "hauswirtschafter-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "41e4e3ed-b1c6-41b1-bf79-a86430d44abe",
+    "title": "Hochbaufacharbeiter/-in",
+    "slug": "hochbaufacharbeiter-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "d165bd98-edba-431c-b6d7-3fe38549789f",
+    "title": "Holzblasinstrumentenmacher/-in",
+    "slug": "holzblasinstrumentenmacher-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "eaf82b49-e038-481e-8008-3220664b7fbb",
+    "title": "Hotelfachmann/-frau",
+    "slug": "hotelfachmann-frau",
+    "kammer": "IHK"
+  },
+  {
+    "id": "761a4442-d541-4f9c-b4b8-00908c71d658",
+    "title": "Immobilienkaufmann/-frau",
+    "slug": "immobilienkaufmann-frau",
+    "kammer": "IHK"
+  },
+  {
+    "id": "309054c1-3b24-469d-b6c5-d09e74bba9f9",
+    "title": "Industrie-Isolierer/-in",
+    "slug": "industrie-isolierer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "5558ed16-a46d-4fef-973f-7370fae895a8",
+    "title": "Industrieelektriker/-in",
+    "slug": "industrieelektriker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "d2bac422-be13-4128-9a1a-3362443944d6",
+    "title": "Industriekaufmann/-frau",
+    "slug": "industriekaufmann-frau",
+    "kammer": "IHK"
+  },
+  {
+    "id": "d86207d3-5940-499c-b481-d63f9f229742",
+    "title": "Industriekeramiker/-in Anlagentechnik",
+    "slug": "industriekeramiker-in-anlagentechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "8ea5b273-0591-49a1-b414-7357f7412d7c",
+    "title": "Industriekeramiker/-in Dekorationstechnik",
+    "slug": "industriekeramiker-in-dekorationstechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "b7fcf8be-58d9-4129-864d-9cfaa8650375",
+    "title": "Industriekeramiker/-in Modelltechnik",
+    "slug": "industriekeramiker-in-modelltechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "e5864b79-15df-407f-b217-be1a1bc89085",
+    "title": "Industriemechaniker/-in",
+    "slug": "industriemechaniker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "3a09d784-f573-4150-9e87-c2fcbc08ea3f",
+    "title": "Investmentfondskaufmann/-frau",
+    "slug": "investmentfondskaufmann-frau",
+    "kammer": "IHK"
+  },
+  {
+    "id": "d7da8504-497f-43a4-9bb1-dbde4aa1db51",
+    "title": "Isolierfacharbeiter/-in",
+    "slug": "isolierfacharbeiter-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "21f89225-f889-43ab-95e0-d84e5b6404e3",
+    "title": "IT-System-Elektroniker/-in",
+    "slug": "it-system-elektroniker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "bc835be7-0c7e-4561-9304-902e02c3ee92",
+    "title": "Justizfachangestellter/-in",
+    "slug": "justizfachangestellter-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "dd63e4cf-5eaa-414c-9388-b756137c8f17",
+    "title": "Kanalbauer/-in",
+    "slug": "kanalbauer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "ab88147d-a34e-4366-9f94-a826ce80077b",
+    "title": "Karosserie- und Fahrzeugbaumechaniker/-in",
+    "slug": "karosserie-und-fahrzeugbaumechaniker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "24e585c8-576e-423d-b636-bb62d12bba06",
+    "title": "Kaufmann/-frau für Dialogmarketing",
+    "slug": "kaufmann-frau-fuer-dialogmarketing",
+    "kammer": "IHK"
+  },
+  {
+    "id": "0914c3ac-35b8-449d-8448-df811b89beb7",
+    "title": "Kaufmann/-frau für Digitalisierungsmanagement",
+    "slug": "kaufmann-frau-fuer-digitalisierungsmanagement",
+    "kammer": "IHK"
+  },
+  {
+    "id": "6b8554a1-4edf-490a-a8f9-33c53aad4e75",
+    "title": "Kaufmann/-frau für Groß- und Außenhandelsmanagement",
+    "slug": "kaufmann-frau-fuer-gross-und-aussenhandelsmanagement",
+    "kammer": "IHK"
+  },
+  {
+    "id": "d939aa94-6f68-4085-9ca7-ac346a8436a8",
+    "title": "Kaufmann/-frau für Tourismus und Freizeit",
+    "slug": "kaufmann-frau-fuer-tourismus-und-freizeit",
+    "kammer": "IHK"
+  },
+  {
+    "id": "1ca9f342-4401-4fda-849d-646947bda588",
+    "title": "Kaufmann/-frau im Einzelhandel",
+    "slug": "kaufmann-frau-im-einzelhandel",
+    "kammer": "IHK"
+  },
+  {
+    "id": "038f5b6e-4c78-47d6-a116-248c2ccd1bcc",
+    "title": "Kaufmann/-frau im Eisenbahn- und Straßenverkehr",
+    "slug": "kaufmann-frau-im-eisenbahn-und-strassenverkehr",
+    "kammer": "IHK"
+  },
+  {
+    "id": "9df26786-dc7d-4ba4-8abc-11f4c1d85757",
+    "title": "Kerzenhersteller und Wachsbildner/-in",
+    "slug": "kerzenhersteller-und-wachsbildner-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "652bc833-d45e-40fc-aee2-5008ff2e87dd",
+    "title": "Klavier- und Cembalobauer/-in",
+    "slug": "klavier-und-cembalobauer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "b41fe7e3-a20d-4d6f-a91f-0ce0aab92a3a",
+    "title": "Klempner/-in",
+    "slug": "klempner-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "9c773d20-febd-445b-a87a-efd86c7df07f",
+    "title": "Koch/Köchin",
+    "slug": "kochkoechin",
+    "kammer": "IHK"
+  },
+  {
+    "id": "fb307261-a3c0-4a08-af00-b76f98601e3e",
+    "title": "Konstruktionsmechaniker/-in",
+    "slug": "konstruktionsmechaniker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "6c22e349-cf68-4665-a425-4245472ceb03",
+    "title": "Kunststoff- und Kautschuktechnologe/-in",
+    "slug": "kunststoff-und-kautschuktechnologe-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "83c6859b-edb0-4869-a081-b89b427c5163",
+    "title": "Maler und Lackierer/-in",
+    "slug": "maler-und-lackierer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "a3b38916-26d6-401c-bd8c-f212a471d711",
+    "title": "Manufakturporzellanmaler/-in",
+    "slug": "manufakturporzellanmaler-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "a15613be-df47-4867-a96c-14a547325c0a",
+    "title": "Maskenbildner/-in",
+    "slug": "maskenbildner-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "408989df-164d-4e0d-aee4-92cd7e721e85",
+    "title": "Maßschneider/-in",
+    "slug": "massschneider-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "2bfdc2ad-ce20-4bcf-a2f9-7c5aca26b979",
+    "title": "Maßschuhmacher/-in",
+    "slug": "massschuhmacher-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "72193a92-1daf-4853-af79-2bad7eeb1140",
+    "title": "Mathematisch-technischer Softwareentwickler/-in",
+    "slug": "mathematisch-technischer-softwareentwickler-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "1f7e5307-7dc7-4ee4-8eb4-166a25ed38d9",
+    "title": "Maurer/-in",
+    "slug": "maurer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "31a30b66-87b2-4656-a683-37e054c2cc04",
+    "title": "Mechaniker/-in für Reifen- und Vulkanisationstechnik",
+    "slug": "mechaniker-in-fuer-reifen-und-vulkanisationstechnik",
+    "kammer": "HWK"
+  },
+  {
+    "id": "b2a8527d-59ce-487e-8f88-7d05addf1168",
+    "title": "Mechatroniker/-in für Kältetechnik",
+    "slug": "mechatroniker-in-fuer-kaeltetechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "f202ba43-f3c7-4499-b216-141a36878ed2",
+    "title": "Mediengestalter/-in Digital und Print",
+    "slug": "mediengestalter-in-digital-und-print",
+    "kammer": "IHK"
+  },
+  {
+    "id": "3bf802d4-b977-479d-be32-c6ed44d92817",
+    "title": "Medienkaufmann/-frau Digital und Print",
+    "slug": "medienkaufmann-frau-digital-und-print",
+    "kammer": "IHK"
+  },
+  {
+    "id": "0f9b882b-061d-4ac7-b52e-c5e14c529675",
+    "title": "Medientechnologe/-in Druck",
+    "slug": "medientechnologe-in-druck",
+    "kammer": "IHK"
+  },
+  {
+    "id": "e452d38e-560a-466a-8266-6b73cfcd039e",
+    "title": "Medientechnologe/-in Druckverarbeitung",
+    "slug": "medientechnologe-in-druckverarbeitung",
+    "kammer": "IHK"
+  },
+  {
+    "id": "f69efb25-d3e9-40cd-a003-286a2842b9fb",
+    "title": "Medizinische/-r Fachangestellte/-r",
+    "slug": "medizinische-r-fachangestellte-r",
+    "kammer": "FB"
+  },
+  {
+    "id": "bd124a8a-c91b-496d-a13e-9747684359e8",
+    "title": "Metallbildner/-in",
+    "slug": "metallbildner-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "badcd825-9d78-40c5-bdc4-fb634605df31",
+    "title": "Milchwirtschaftlicher Laborant/-in",
+    "slug": "milchwirtschaftlicher-laborant-in",
+    "kammer": "Lw"
+  },
+  {
+    "id": "ff880edb-0dcc-4761-a46e-d1bea506e62d",
+    "title": "Musikfachhändler/-in",
+    "slug": "musikfachhaendler-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "f4f917bc-c7e5-4da3-98d7-80a288ba6b8a",
+    "title": "Naturwerksteinmechaniker/-in",
+    "slug": "naturwerksteinmechaniker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "02e710fb-ceb2-4338-9828-f17f36d24ba2",
+    "title": "Notarfachangestellter/-in",
+    "slug": "notarfachangestellter-in",
+    "kammer": "FB"
+  },
+  {
+    "id": "735a3f76-0495-40e3-a014-f38511096e08",
+    "title": "Orgelbauer/-in",
+    "slug": "orgelbauer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "4593f025-f2f3-4b0c-bfa1-eeed03ff2a2a",
+    "title": "Orthopädietechnik-Mechaniker/-in",
+    "slug": "orthopaedietechnik-mechaniker-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "b5d057f5-78c6-4e55-8b39-691ae2fdfa23",
+    "title": "Packmitteltechnologe/-in",
+    "slug": "packmitteltechnologe-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "201f2628-45ab-4625-ba4f-567cf447000f",
+    "title": "Patentanwaltsfachangestellter/-in",
+    "slug": "patentanwaltsfachangestellter-in",
+    "kammer": "FB"
+  },
+  {
+    "id": "5715b02f-7e9e-4367-90de-0da2f746f06e",
+    "title": "Pelzveredler/-in",
+    "slug": "pelzveredler-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "4c7d48f9-77d9-48fb-95fa-59b60b27eded",
+    "title": "Pflanzentechnologe/-in",
+    "slug": "pflanzentechnologe-in",
+    "kammer": "Lw"
+  },
+  {
+    "id": "1cbde11c-6fa7-4cca-9890-3f942b195663",
+    "title": "Pharmakant/-in",
+    "slug": "pharmakant-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "739392c0-2d1a-49e3-84d2-af34f1572622",
+    "title": "Pharmazeutisch-kaufmännischer Angestellter/-in",
+    "slug": "pharmazeutisch-kaufmaennischer-angestellter-in",
+    "kammer": "FB"
+  },
+  {
+    "id": "78a3653f-1688-4f62-af9b-f94a9642d50d",
+    "title": "Physiklaborant/-in",
+    "slug": "physiklaborant-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "76622981-81fa-4a89-9142-cb0fb168380f",
+    "title": "Präzisionswerkzeugmechaniker/-in",
+    "slug": "praezisionswerkzeugmechaniker-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "8045e52d-503a-4b2a-8d94-6367ff5d8c49",
+    "title": "Produktgestalter/-in-Textil",
+    "slug": "produktgestalter-in-textil",
+    "kammer": "IHK"
+  },
+  {
+    "id": "6139b3b0-d398-4416-a502-57c5cf958277",
+    "title": "Prüftechnologe/-in Keramik",
+    "slug": "prueftechnologe-in-keramik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "5a6b7c34-7380-4c8d-8564-17bb25e7a7c1",
+    "title": "Raumausstatter/-in",
+    "slug": "raumausstatter-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "0853ec23-4a29-4a1b-9558-2976dbbf0504",
+    "title": "Rechtsanwalts- und Notarfachangestellter/-in",
+    "slug": "rechtsanwalts-und-notarfachangestellter-in",
+    "kammer": "FB"
+  },
+  {
+    "id": "48aaa477-5944-485a-8b47-bbf260835f7d",
+    "title": "Rechtsanwaltsfachangestellter/-in",
+    "slug": "rechtsanwaltsfachangestellter-in",
+    "kammer": "FB"
+  },
+  {
+    "id": "37fa3d56-a5ab-477b-b9b3-4cd55ea4caac",
+    "title": "Rohrleitungsbauer/-in",
+    "slug": "rohrleitungsbauer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "4f0257df-3b02-487e-a106-913cb4ead846",
+    "title": "Rollladen- und Sonnenschutzmechatroniker/-in",
+    "slug": "rollladen-und-sonnenschutzmechatroniker-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "13b32d1a-b61f-47a3-8580-711ab87153a2",
+    "title": "Schifffahrtskaufmann/-frau",
+    "slug": "schifffahrtskaufmann-frau",
+    "kammer": "IHK"
+  },
+  {
+    "id": "bb5570a1-5681-41c0-bac8-4b37a309bb5e",
+    "title": "Schilder- und Lichtreklamehersteller/-in",
+    "slug": "schilder-und-lichtreklamehersteller-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "367cb91a-86d2-4e85-a8ac-0d3a98a44061",
+    "title": "Segelmacher/-in",
+    "slug": "segelmacher-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "5281f920-5e73-4dd6-b30b-1bf323949903",
+    "title": "Servicefachkraft für Dialogmarketing",
+    "slug": "servicefachkraft-fuer-dialogmarketing",
+    "kammer": "IHK"
+  },
+  {
+    "id": "76d86b75-83fa-4825-95f5-7759924f98df",
+    "title": "Servicefahrer/-in",
+    "slug": "servicefahrer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "a68ff61b-6c2a-4536-88e5-f426c820aef4",
+    "title": "Servicekaufmann/-frau im Luftverkehr",
+    "slug": "servicekaufmann-frau-im-luftverkehr",
+    "kammer": "IHK"
+  },
+  {
+    "id": "623567ee-93c2-4f6b-82b6-a167cab7a727",
+    "title": "Servicekraft für Schutz und Sicherheit",
+    "slug": "servicekraft-fuer-schutz-und-sicherheit",
+    "kammer": "IHK"
+  },
+  {
+    "id": "cc7ffd26-218a-4b3b-82e9-8879b4e1ee40",
+    "title": "Sozialversicherungsfachangestellter/-in",
+    "slug": "sozialversicherungsfachangestellter-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "5ab245bb-fd92-467f-99e6-87065bbb1d21",
+    "title": "Spielzeughersteller/-in",
+    "slug": "spielzeughersteller-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "a492d68c-7095-45eb-bc81-c712e3c44dd6",
+    "title": "Sportfachmann/-frau",
+    "slug": "sportfachmann-frau",
+    "kammer": "IHK"
+  },
+  {
+    "id": "4e5554ed-25e5-48a4-81d9-f81bc8dc489f",
+    "title": "Steinmetz und Steinbildhauer/-in",
+    "slug": "steinmetz-und-steinbildhauer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "d7e5e9ab-53ed-469f-934f-47d53ddce8fc",
+    "title": "Straßenbauer/-in",
+    "slug": "strassenbauer-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "db7516b4-a7ef-4889-9c1a-fb02480aae11",
+    "title": "Stuckateur/-in",
+    "slug": "stuckateur-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "60a0a45c-9b31-4893-80fd-0665ab7b01fa",
+    "title": "Süßwarentechnologe/-in",
+    "slug": "suesswarentechnologe-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "4990ef5f-4cf0-4954-abb4-b235a4a60a18",
+    "title": "Technischer Modellbauer/-in",
+    "slug": "technischer-modellbauer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "0184a518-d4d4-44a7-bdc5-47858f311a49",
+    "title": "Technischer Produktdesigner/-in",
+    "slug": "technischer-produktdesigner-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "5d09b5e2-20fc-464d-9ecc-c5eab95a83ff",
+    "title": "Textil- und Modenäher/-in",
+    "slug": "textil-und-modenaeher-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "35f78e90-b5ae-4f9c-aa93-59b564a5f486",
+    "title": "Textilgestalter/-in im Handwerk",
+    "slug": "textilgestalter-in-im-handwerk",
+    "kammer": "HWK"
+  },
+  {
+    "id": "7a2191c0-aa93-4ded-b7bd-af59e10386af",
+    "title": "Tiermedizinischer Fachangestellte/-r",
+    "slug": "tiermedizinischer-fachangestellte-r",
+    "kammer": "FB"
+  },
+  {
+    "id": "fb5470b5-68c2-4200-bf2e-bb5c05ab3a8d",
+    "title": "Tierpfleger/-in",
+    "slug": "tierpfleger-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "8ece85c1-ab90-4cc5-babc-648b7efe0a3c",
+    "title": "Tierwirt/-in",
+    "slug": "tierwirt-in",
+    "kammer": "Lw"
+  },
+  {
+    "id": "cab522ae-983e-4dee-a479-9888f93eb3df",
+    "title": "Tourismuskaufmann/-frau (Kaufmann für Privat- und Geschäftsreisen)",
+    "slug": "tourismuskaufmann-frau-kaufmann-fuer-privat-und-geschaeftsreisen",
+    "kammer": "IHK"
+  },
+  {
+    "id": "78a2327b-9125-49de-b19c-a18990939ee5",
+    "title": "Trockenbaumonteur/-in",
+    "slug": "trockenbaumonteur-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "21b20922-77d7-48f8-88fd-9e00a0d06324",
+    "title": "Uhrmacher/-in",
+    "slug": "uhrmacher-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "e93bb413-6d30-440d-82c8-21e0a3e5cf3a",
+    "title": "Umwelttechnologe/-in für Wasserversorgung",
+    "slug": "umwelttechnologe-in-fuer-wasserversorgung",
+    "kammer": "IHK"
+  },
+  {
+    "id": "a672fe9b-c889-4417-9878-926dc3b6ddee",
+    "title": "Verfahrensmechaniker/-in für Brillenoptik",
+    "slug": "verfahrensmechaniker-in-fuer-brillenoptik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "b47c6179-83c9-4189-a243-e3cd22c6b90b",
+    "title": "Verfahrensmechaniker/-in Glastechnik",
+    "slug": "verfahrensmechaniker-in-glastechnik",
+    "kammer": "IHK"
+  },
+  {
+    "id": "dbc67f2b-e3d1-4f39-8abc-094a4e247108",
+    "title": "Vergolder/-in",
+    "slug": "vergolder-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "49e3a45a-082f-4086-a3fa-afd5ce81766b",
+    "title": "Verwaltungsfachangestellte/-r",
+    "slug": "verwaltungsfachangestellte-r",
+    "kammer": "IHK"
+  },
+  {
+    "id": "a27d840b-acbf-44f8-a7dd-9d9846e6a4ae",
+    "title": "Wasserbauer/-in",
+    "slug": "wasserbauer-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "37f6a1fa-01e1-406b-932b-b3d6f8daddf6",
+    "title": "Weintechnologe/-in",
+    "slug": "weintechnologe-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "884ec5a7-5ee4-4350-a38e-eb02996755e7",
+    "title": "Werkzeugmechaniker/-in",
+    "slug": "werkzeugmechaniker-in",
+    "kammer": "IHK"
+  },
+  {
+    "id": "18a37576-ee66-4caf-a0d3-e64a1528e9b9",
+    "title": "Zahntechniker/-in",
+    "slug": "zahntechniker-in",
+    "kammer": "HWK"
+  },
+  {
+    "id": "02ce1ba9-69ee-42d8-8536-baa863131a8d",
+    "title": "Zimmerer/-in",
+    "slug": "zimmerer-in",
+    "kammer": "HWK"
+  }
+]
