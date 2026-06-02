@@ -12,7 +12,7 @@
  *
  * Keine Tracking-/Network-Calls. Keine Auth-Abhängigkeit.
  */
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Eye, EyeOff, X, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
