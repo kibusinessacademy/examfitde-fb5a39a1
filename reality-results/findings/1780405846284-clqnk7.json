@@ -1,0 +1,9 @@
+{
+  "severity": "P0",
+  "kind": "dead_cta",
+  "journey": "A",
+  "route": "/preise",
+  "detail": "Pricing-Seite hat keinen sichtbaren Kauf-CTA.",
+  "fix": "Primary-CTA pro Pricing-Tier hinzufügen.",
+  "ts": "2026-06-02T13:10:46.284Z"
+}

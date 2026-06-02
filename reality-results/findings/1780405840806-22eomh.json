@@ -1,0 +1,9 @@
+{
+  "severity": "P2",
+  "kind": "workflow_no_feedback",
+  "journey": "A",
+  "route": "/berufe",
+  "detail": "Keine Suche und wenige Berufe — Discovery-Friction.",
+  "fix": "Such-/Filterleiste hinzufügen.",
+  "ts": "2026-06-02T13:10:40.806Z"
+}
