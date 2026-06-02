@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useFullCatalog, type CatalogEntry } from '@/hooks/useFullCatalog';
-import { generateOrganizationSchema, SITE_URL, getBerufUrl } from '@/lib/seo';
+import { generateOrganizationSchema, generateBreadcrumbSchema, SITE_URL, getBerufUrl } from '@/lib/seo';
 import { useState, useMemo, useCallback } from 'react';
 import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
 
