@@ -40,26 +40,41 @@ export default function OrgInvitesPage() {
   const canEdit = ["owner", "admin", "manager"].includes(myRole);
 
   const { data: invites, isLoading } = useOrgInvites(orgId);
-  const { mutateAsync: revoke } = useRevokeOrgInvite(orgId);
+  const { mutateAsync: revoke, isPending: revoking } = useRevokeOrgInvite(orgId);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<OrgInviteRow | null>(null);
 
   function copyLink(token: string) {
     navigator.clipboard.writeText(buildInviteUrl(token));
     toast.success("Einladungs-Link kopiert");
   }
 
-  async function handleRevoke(id: string) {
+  async function confirmRevoke() {
+    if (!revokeTarget) return;
     try {
-      const r = await revoke(id);
+      const r = await revoke(revokeTarget.id);
       if (r.ok) toast.success("Einladung zurückgezogen");
       else toast.error(`Fehler: ${r.error}`);
     } catch (e: any) {
       toast.error(`Fehler: ${e?.message}`);
+    } finally {
+      setRevokeTarget(null);
     }
+  }
+
+  /** Returns tone class + label based on hours until expiry. */
+  function expiryTone(iso: string): { tone: string; urgent: boolean; label: string } {
+    const ms = new Date(iso).getTime() - Date.now();
+    const h = ms / 3_600_000;
+    if (h <= 0) return { tone: "text-status-danger", urgent: true, label: `abgelaufen am ${fmt(iso)}` };
+    if (h < 48) return { tone: "text-status-warning", urgent: true, label: `läuft in ${Math.max(1, Math.round(h))} h ab` };
+    const d = Math.round(h / 24);
+    return { tone: "text-text-tertiary", urgent: false, label: `läuft in ${d} Tg ab` };
   }
 
   const pending = (invites ?? []).filter((i) => i.status === "pending");
   const history = (invites ?? []).filter((i) => i.status !== "pending");
+  const HISTORY_LIMIT = 50;
 
   return (
     <div className="space-y-6">
