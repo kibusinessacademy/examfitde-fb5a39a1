@@ -77,12 +77,34 @@ type AuditEvent = {
   created_at?: string;
 };
 
+const PAGE_SIZE = 25;
+
 export default function OrgActivityPage() {
   const { orgId } = useParams<{ orgId: string }>();
   const { data: events, isLoading, isError, refetch } = useOrgAuditEvents(orgId);
-  const [filter, setFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filter, setFilter] = useState(searchParams.get("q") ?? "");
+  const [typeFilter, setTypeFilter] = useState<string>(searchParams.get("type") ?? "all");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [visibleCount, setVisibleCount] = useState<number>(() => {
+    const n = parseInt(searchParams.get("limit") ?? "", 10);
+    return Number.isFinite(n) && n > 0 ? n : PAGE_SIZE;
+  });
+
+  // Sync state to URL (one direction; user-controlled).
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (typeFilter && typeFilter !== "all") next.set("type", typeFilter);
+    else next.delete("type");
+    if (filter) next.set("q", filter);
+    else next.delete("q");
+    if (visibleCount !== PAGE_SIZE) next.set("limit", String(visibleCount));
+    else next.delete("limit");
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeFilter, filter, visibleCount]);
 
   const list = (events ?? []) as AuditEvent[];
 
@@ -104,6 +126,10 @@ export default function OrgActivityPage() {
       );
     });
   }, [list, filter, typeFilter]);
+
+  const visible = filtered.slice(0, visibleCount);
+  const remaining = Math.max(0, filtered.length - visible.length);
+
 
   return (
     <div className="space-y-6">
