@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface HeadSnapshot {
+export interface HeadSnapshot {
   title: string;
   description: string;
   canonical: string;
@@ -34,11 +34,12 @@ interface HeadSnapshot {
   jsonLdRaw: string[];
 }
 
-function snapshotHead(): HeadSnapshot {
+
+export function snapshotHead(doc: Document = document): HeadSnapshot {
   const get = (sel: string, attr = 'content') =>
-    document.head.querySelector(sel)?.getAttribute(attr) ?? '';
+    doc.head.querySelector(sel)?.getAttribute(attr) ?? '';
   const jsonLdNodes = Array.from(
-    document.head.querySelectorAll('script[type="application/ld+json"]'),
+    doc.head.querySelectorAll('script[type="application/ld+json"]'),
   );
   const jsonLdRaw = jsonLdNodes.map((n) => n.textContent ?? '');
   const jsonLd: unknown[] = [];
@@ -50,7 +51,7 @@ function snapshotHead(): HeadSnapshot {
     }
   }
   return {
-    title: document.title ?? '',
+    title: doc.title ?? '',
     description: get('meta[name="description"]'),
     canonical: get('link[rel="canonical"]', 'href'),
     robots: get('meta[name="robots"]'),
@@ -65,6 +66,7 @@ function snapshotHead(): HeadSnapshot {
   };
 }
 
+
 function isEnabled(): boolean {
   if (typeof window === 'undefined') return false;
   if (import.meta.env.DEV) return true;
@@ -72,14 +74,14 @@ function isEnabled(): boolean {
   return params.get('seoPreview') === '1';
 }
 
-interface CheckRow {
+export interface CheckRow {
   label: string;
   ok: boolean;
   value: string;
   hint?: string;
 }
 
-function evaluate(snap: HeadSnapshot): { rows: CheckRow[]; score: number } {
+export function evaluate(snap: HeadSnapshot): { rows: CheckRow[]; score: number } {
   const rows: CheckRow[] = [
     {
       label: 'Title',
@@ -277,7 +279,7 @@ export function SeoPreviewOverlay() {
   );
 }
 
-function extractTypes(obj: unknown): string[] {
+export function extractTypes(obj: unknown): string[] {
   if (!obj || typeof obj !== 'object') return [];
   const o = obj as Record<string, unknown>;
   const t = o['@type'];

@@ -178,27 +178,63 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         .order("priority", { ascending: false });
       if (rpErr) console.error("[generate-sitemap] route_crawl_policy query error:", rpErr);
 
+      // Per-route lastmod resolver — nutzt tatsächliches Content-Update-Datum
+      // statt pauschal `today`. Quellen:
+      //   /berufe → MAX(lastmod) aus v_paket_sitemap_entries
+      //   /       → MAX über berufe + blog
+      //   /blog   → MAX aus v_blog_sitemap_entries
+      //   /wissen → MAX aus v_wissen_sitemap_entries
+      //   /preise → PRICING_LAST_UPDATED constant (manuell gepflegt bei Preisänderung)
+      //   others  → today
+      const PRICING_LAST_UPDATED = "2026-05-26"; // bump bei Preis-/Plan-Änderungen
+      const [paketRes, blogRes, wissenRes] = await Promise.all([
+        sb.from("v_paket_sitemap_entries").select("lastmod").order("lastmod", { ascending: false }).limit(1),
+        sb.from("v_blog_sitemap_entries").select("lastmod").order("lastmod", { ascending: false }).limit(1),
+        sb.from("v_wissen_sitemap_entries").select("lastmod").order("lastmod", { ascending: false }).limit(1),
+      ]);
+      const toDay = (v: unknown) => (v ? String(v).split("T")[0] : today);
+      const berufeMax = toDay(paketRes.data?.[0]?.lastmod);
+      const blogMax = toDay(blogRes.data?.[0]?.lastmod);
+      const wissenMax = toDay(wissenRes.data?.[0]?.lastmod);
+      const homeMax = [berufeMax, blogMax].sort().reverse()[0] || today;
+
+      function resolveStaticLastmod(path: string): string {
+        switch (path) {
+          case "/": return homeMax;
+          case "/berufe":
+          case "/themen":
+          case "/paket":
+          case "/shop": return berufeMax;
+          case "/blog": return blogMax;
+          case "/wissen": return wissenMax;
+          case "/preise": return PRICING_LAST_UPDATED;
+          default: return today;
+        }
+      }
+
       const ssot: SitemapURL[] = (rows ?? []).map((r) => ({
         loc: `${SITE_URL}${r.pattern}`,
-        lastmod: today,
+        lastmod: resolveStaticLastmod(r.pattern),
         changefreq: r.changefreq ?? undefined,
         priority: r.priority != null ? Number(r.priority) : undefined,
       }));
 
       const fallback: SitemapURL[] = [
-        { loc: `${SITE_URL}/`, lastmod: today, changefreq: "daily", priority: 1.0 },
-        { loc: `${SITE_URL}/themen`, lastmod: today, changefreq: "weekly", priority: 0.95 },
-        { loc: `${SITE_URL}/berufe`, lastmod: today, changefreq: "weekly", priority: 0.9 },
-        { loc: `${SITE_URL}/preise`, lastmod: today, changefreq: "weekly", priority: 0.95 },
-        { loc: `${SITE_URL}/paket`, lastmod: today, changefreq: "weekly", priority: 0.9 },
-        { loc: `${SITE_URL}/shop`, lastmod: today, changefreq: "weekly", priority: 0.8 },
-        { loc: `${SITE_URL}/wissen`, lastmod: today, changefreq: "daily", priority: 0.8 },
-        { loc: `${SITE_URL}/blog`, lastmod: today, changefreq: "daily", priority: 0.8 },
+        { loc: `${SITE_URL}/`, lastmod: resolveStaticLastmod("/"), changefreq: "daily", priority: 1.0 },
+        { loc: `${SITE_URL}/themen`, lastmod: resolveStaticLastmod("/themen"), changefreq: "weekly", priority: 0.95 },
+        { loc: `${SITE_URL}/berufe`, lastmod: resolveStaticLastmod("/berufe"), changefreq: "weekly", priority: 0.9 },
+        { loc: `${SITE_URL}/preise`, lastmod: resolveStaticLastmod("/preise"), changefreq: "weekly", priority: 0.95 },
+        { loc: `${SITE_URL}/paket`, lastmod: resolveStaticLastmod("/paket"), changefreq: "weekly", priority: 0.9 },
+        { loc: `${SITE_URL}/shop`, lastmod: resolveStaticLastmod("/shop"), changefreq: "weekly", priority: 0.8 },
+        { loc: `${SITE_URL}/wissen`, lastmod: resolveStaticLastmod("/wissen"), changefreq: "daily", priority: 0.8 },
+        { loc: `${SITE_URL}/blog`, lastmod: resolveStaticLastmod("/blog"), changefreq: "daily", priority: 0.8 },
       ];
 
       const pages = ssot.length > 0 ? ssot : fallback;
+      console.info(`[generate-sitemap] class=static count=${pages.length} home_lastmod=${homeMax} berufe_lastmod=${berufeMax} preise_lastmod=${PRICING_LAST_UPDATED}`);
       return xmlResponse(toSitemapXML(pages), headers);
     }
+
 
 
     // ── Blog articles (P6 Cut 3c — SSOT v_blog_sitemap_entries) ──
