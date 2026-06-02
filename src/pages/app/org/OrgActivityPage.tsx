@@ -191,7 +191,7 @@ export default function OrgActivityPage() {
           </Button>
         </Card>
       ) : list.length === 0 ? (
-        <Card className="p-12 text-center border-border shadow-elev-1">
+        <Card className="p-12 text-center border-border shadow-elev-1" data-testid="activity-empty-state">
           <ScrollText className="h-10 w-10 mx-auto mb-3 text-text-tertiary" />
           <p className="text-text-secondary text-sm">Noch keine Aktivität.</p>
           <p className="text-xs text-text-tertiary mt-1.5 max-w-sm mx-auto">
@@ -200,76 +200,91 @@ export default function OrgActivityPage() {
           </p>
         </Card>
       ) : filtered.length === 0 ? (
-        <Card className="p-8 text-center border-border shadow-elev-1">
+        <Card className="p-8 text-center border-border shadow-elev-1" data-testid="activity-no-results">
           <Search className="h-8 w-8 mx-auto mb-2 text-text-tertiary" />
           <p className="text-sm text-text-secondary">Keine Treffer für diesen Filter.</p>
         </Card>
       ) : (
-        <Card className="shadow-elev-1 border-border divide-y divide-border overflow-hidden">
-          {filtered.map((e, i) => {
-            const key = e.id ?? String(i);
-            const meta = humanize(e.event_type ?? "");
-            const Icon = meta.icon;
-            const created = e.created_at ?? new Date().toISOString();
-            const hasMetadata =
-              e.metadata && typeof e.metadata === "object" && Object.keys(e.metadata).length > 0;
-            const open = !!expanded[key];
-            return (
-              <div key={key} className="p-4 hover:bg-surface-1/50 transition-colors">
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${meta.tone}`}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm text-text-primary">
-                        {meta.label}
-                      </span>
-                      {e.entity_type && (
-                        <Badge variant="outline" className="text-[10px] py-0 h-4">
-                          {e.entity_type}
-                        </Badge>
+        <>
+          <Card className="shadow-elev-1 border-border divide-y divide-border overflow-hidden" data-testid="activity-event-list">
+            {visible.map((e, i) => {
+              const key = e.id ?? String(i);
+              const meta = humanize(e.event_type ?? "");
+              const Icon = meta.icon;
+              const created = e.created_at ?? new Date().toISOString();
+              const hasMetadata =
+                e.metadata && typeof e.metadata === "object" && Object.keys(e.metadata).length > 0;
+              const open = !!expanded[key];
+              return (
+                <div key={key} className="p-4 hover:bg-surface-1/50 transition-colors" data-testid="activity-event-row">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${meta.tone}`}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm text-text-primary">
+                          {meta.label}
+                        </span>
+                        {e.entity_type && (
+                          <Badge variant="outline" className="text-[10px] py-0 h-4">
+                            {e.entity_type}
+                          </Badge>
+                        )}
+                      </div>
+                      {e.description && (
+                        <div className="text-xs text-text-secondary mt-0.5 break-words">
+                          {e.description}
+                        </div>
+                      )}
+                      {hasMetadata && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))
+                          }
+                          className="text-[11px] text-text-tertiary hover:text-text-secondary mt-1.5 inline-flex items-center gap-1 transition-colors"
+                        >
+                          <ChevronDown
+                            className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`}
+                          />
+                          Details {open ? "ausblenden" : "anzeigen"}
+                        </button>
+                      )}
+                      {open && hasMetadata && (
+                        <pre className="text-[11px] text-text-tertiary mt-2 max-w-full overflow-x-auto bg-surface-1 border border-border p-2 rounded">
+                          {JSON.stringify(e.metadata, null, 2)}
+                        </pre>
                       )}
                     </div>
-                    {e.description && (
-                      <div className="text-xs text-text-secondary mt-0.5 break-words">
-                        {e.description}
-                      </div>
-                    )}
-                    {hasMetadata && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))
-                        }
-                        className="text-[11px] text-text-tertiary hover:text-text-secondary mt-1.5 inline-flex items-center gap-1 transition-colors"
-                      >
-                        <ChevronDown
-                          className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`}
-                        />
-                        Details {open ? "ausblenden" : "anzeigen"}
-                      </button>
-                    )}
-                    {open && hasMetadata && (
-                      <pre className="text-[11px] text-text-tertiary mt-2 max-w-full overflow-x-auto bg-surface-1 border border-border p-2 rounded">
-                        {JSON.stringify(e.metadata, null, 2)}
-                      </pre>
-                    )}
+                    <span
+                      className="text-xs text-text-tertiary tabular-nums shrink-0"
+                      title={fmt(created)}
+                    >
+                      {relativeTime(created)}
+                    </span>
                   </div>
-                  <span
-                    className="text-xs text-text-tertiary tabular-nums shrink-0"
-                    title={fmt(created)}
-                  >
-                    {relativeTime(created)}
-                  </span>
                 </div>
-              </div>
-            );
-          })}
-        </Card>
+              );
+            })}
+          </Card>
+          {remaining > 0 && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                data-testid="activity-load-more"
+              >
+                Mehr laden ({remaining} weitere)
+              </Button>
+            </div>
+          )}
+        </>
       )}
+
     </div>
   );
 }
