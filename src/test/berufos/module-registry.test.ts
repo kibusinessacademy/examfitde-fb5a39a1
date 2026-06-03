@@ -69,7 +69,7 @@ describe("BerufOS Module Registry", () => {
   });
 
   it("Persona null gibt alle Module zurück", () => {
-    expect(modulesForPersona(null)).toHaveLength(10);
+    expect(modulesForPersona(null)).toHaveLength(11);
   });
 
   it("Brand-SSOT exportiert Masterbrand-Konstanten", () => {
