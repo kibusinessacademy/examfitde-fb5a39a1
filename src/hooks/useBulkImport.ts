@@ -18,6 +18,35 @@ export function useBulkImportJobs() {
   });
 }
 
+/**
+ * Live job progress including rejected_count / rejected_rows.
+ * Polls while the job is still running so the UI reflects row-level
+ * tolerant counters (created/updated/rejected/failed) consistently.
+ */
+export function useBulkImportJob(jobId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['bulk-import-job', jobId],
+    enabled: !!jobId,
+    refetchInterval: (query) => {
+      const job = query.state.data as BulkImportJob | undefined;
+      if (!job) return 1500;
+      const terminal = ['completed', 'failed'].includes(job.status);
+      return terminal ? false : 1500;
+    },
+    queryFn: async (): Promise<BulkImportJob | null> => {
+      if (!jobId) return null;
+      const { data, error } = await supabase
+        .from('bulk_import_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as unknown as BulkImportJob | null;
+    },
+  });
+}
+
+
 export function useCreateBulkImportJob() {
   const qc = useQueryClient();
 
