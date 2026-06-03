@@ -720,8 +720,7 @@ const stubs: SeoRoute[] = [
   ]),
   // Wirtschaftsfachwirt
   ...stubGroup("content", ["/wirtschaftsfachwirt"]),
-  // Berufe
-  ...stubGroup("static", ["/berufe"]),
+  // Berufe-Hub ist live (siehe oben), keine Stubs hier.
   // Bundles / Wissen
   ...stubGroup("products", ["/bundles", "/wissen"]),
 ];
