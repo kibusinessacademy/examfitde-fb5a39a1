@@ -219,6 +219,7 @@ function renderAboveTheFold(route) {
   <section aria-label="Einführung">
     <p>${escapeHtml(route.intro)}</p>
   </section>
+  ${route.contentHtml ? `<section aria-label="Inhalt">${route.contentHtml}</section>` : ""}
   ${facts ? `<section aria-label="Eckdaten"><h2>Eckdaten</h2><ul>${facts}</ul></section>` : ""}
   ${faq ? `<section aria-label="Häufige Fragen"><h2>Häufige Fragen</h2>${faq}</section>` : ""}
 </div>`.trim();
