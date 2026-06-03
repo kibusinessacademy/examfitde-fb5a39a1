@@ -1,25 +1,25 @@
 {
-  "ts": "2026-06-02T20:33:39.410Z",
+  "ts": "2026-06-03T13:43:31.964Z",
   "base_url": "https://examfitde.lovable.app",
   "status": "BLOCK",
-  "score": 12,
+  "score": 0,
   "max_score": 130,
   "time_to_course_ms": 911,
   "time_to_course_ok": true,
   "time_to_course_target_ms": 60000,
   "journeys": {
-    "P01_homepage": "fail",
-    "P02_find_beruf": "fail",
-    "P03_open_course": "fail",
-    "P04_pricing": "fail",
-    "P05_cta_click": "fail",
-    "P06_checkout_surface": "fail",
-    "P07_cross_sell": "fail",
-    "P08_berufos_hub": "fail",
-    "P09_trust_signals": "fail",
-    "P10_mobile_funnel": "fail",
-    "P11_seo_surface": "pass",
-    "P12_legal_trust": "pass"
+    "P01_homepage": "missing",
+    "P02_find_beruf": "missing",
+    "P03_open_course": "missing",
+    "P04_pricing": "missing",
+    "P05_cta_click": "missing",
+    "P06_checkout_surface": "missing",
+    "P07_cross_sell": "missing",
+    "P08_berufos_hub": "missing",
+    "P09_trust_signals": "missing",
+    "P10_mobile_funnel": "missing",
+    "P11_seo_surface": "missing",
+    "P12_legal_trust": "missing"
   },
   "weights": {
     "P01_homepage": 10,
@@ -44,115 +44,104 @@
     "p0": [
       {
         "severity": "P0",
-        "kind": "dead_cta",
+        "kind": "broken_route",
         "journey": "A",
-        "route": "/",
-        "detail": "Kein primärer CTA above the fold.",
-        "fix": "Hero-CTA sichtbar machen, Cookie-Banner darf CTA nicht verdecken.",
-        "ts": "2026-06-02T20:33:07.062Z"
+        "route": "/preise",
+        "detail": "Public route /preise returned status 200 / empty body.",
+        "fix": "Route reparieren oder Navigation entfernen.",
+        "ts": "2026-06-02T20:49:23.969Z"
       },
       {
         "severity": "P0",
         "kind": "broken_route",
         "journey": "A",
         "route": "/berufe",
-        "detail": "Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.",
-        "fix": "Berufs-Liste hydratisieren / SSR-Fallback prüfen.",
-        "ts": "2026-06-02T20:33:09.940Z"
-      },
-      {
-        "severity": "P0",
-        "kind": "broken_route",
-        "journey": "A",
-        "detail": "Visitor erreicht keine Kurs-/Produktseite ab Homepage.",
-        "fix": "Berufe-Hub muss klickbare Karten mit echten Detail-Routen liefern.",
-        "ts": "2026-06-02T20:33:12.840Z"
-      },
-      {
-        "severity": "P0",
-        "kind": "workflow_no_feedback",
-        "journey": "A",
-        "route": "/preise",
-        "detail": "Pricing-Seite zeigt keinen €/EUR-Preis.",
-        "fix": "Pricing-SSOT auf /preise rendern (statt nur auf Produktseiten).",
-        "ts": "2026-06-02T20:33:15.783Z"
+        "detail": "Public route /berufe returned status 200 / empty body.",
+        "fix": "Route reparieren oder Navigation entfernen.",
+        "ts": "2026-06-02T20:49:24.262Z"
       },
       {
         "severity": "P0",
         "kind": "dead_cta",
         "journey": "A",
-        "route": "/preise",
-        "detail": "Pricing-Seite hat keinen sichtbaren Kauf-CTA.",
-        "fix": "Primary-CTA pro Pricing-Tier hinzufügen.",
-        "ts": "2026-06-02T20:33:15.789Z"
+        "route": "/",
+        "detail": "Kein primärer CTA im sichtbaren Bereich der Homepage.",
+        "fix": "Hero-CTA prüfen / cookie banner darf CTA nicht verdecken.",
+        "ts": "2026-06-02T20:49:24.480Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "demo_unreachable",
+        "journey": "B",
+        "route": "/berufe",
+        "detail": "Kein Produkt-Einstiegspunkt erreichbar.",
+        "fix": "Produktkatalog reparieren.",
+        "ts": "2026-06-02T20:49:33.332Z"
       },
       {
         "severity": "P0",
         "kind": "dead_cta",
-        "journey": "A",
-        "detail": "Konnte keine Kursseite öffnen für CTA-Test.",
-        "fix": "Erst P03 (Discovery) fixen.",
-        "ts": "2026-06-02T20:33:18.873Z"
+        "journey": "D",
+        "route": "/dashboard",
+        "detail": "Kein next-step CTA im Dashboard sichtbar.",
+        "fix": "Primary-Next-Action im Dashboard.",
+        "ts": "2026-06-02T20:49:36.999Z"
       },
       {
         "severity": "P0",
-        "kind": "checkout_unreachable",
-        "journey": "A",
-        "detail": "Konnte keine Kursseite öffnen — Checkout-Surface untestbar.",
-        "fix": "P03 fixen.",
-        "ts": "2026-06-02T20:33:21.992Z"
-      },
-      {
-        "severity": "P0",
-        "kind": "broken_route",
-        "journey": "A",
-        "detail": "Mobile-Discovery erreicht keine Kursseite ab Homepage.",
-        "fix": "Berufe-Hub-Karten müssen auf 390px tappable sein (min 44px Höhe).",
-        "ts": "2026-06-02T20:33:34.256Z"
+        "kind": "white_screen",
+        "journey": "E",
+        "route": "https://berufos.com/muendliche-pruefung",
+        "detail": "Oral-Oberfläche leer.",
+        "fix": "Renderer / Datenpfad prüfen.",
+        "ts": "2026-06-02T20:49:57.175Z"
       }
     ],
     "p1": [
       {
         "severity": "P1",
-        "kind": "workflow_no_feedback",
-        "journey": "A",
-        "detail": "Keine Kursseite erreichbar — Cross-Sell untestbar.",
-        "ts": "2026-06-02T20:33:25.105Z"
+        "kind": "dead_button",
+        "journey": "C",
+        "route": "/dashboard",
+        "detail": "Logout-Button nicht sichtbar im Header.",
+        "fix": "Logout-CTA im App-Header sicherstellen.",
+        "ts": "2026-06-02T20:49:32.039Z"
       },
       {
         "severity": "P1",
-        "kind": "broken_route",
-        "journey": "A",
-        "detail": "Kein BerufOS-/Komplettpaket-Hub erreichbar (/berufos, /komplettpaket, /produkte).",
-        "fix": "Mindestens eine Hub-Route mit Produkt-Erklärung publishen.",
-        "ts": "2026-06-02T20:33:28.432Z"
+        "kind": "demo_unreachable",
+        "journey": "E",
+        "route": "https://berufos.com/berufs-ki",
+        "detail": "Keine MiniCheck-Frage erreichbar (Kurs evtl. ohne Quiz oder Selektor verschoben).",
+        "fix": "data-testid=\"question-option-0\" auf MiniCheck-Renderer halten.",
+        "ts": "2026-06-02T20:49:50.767Z"
       },
       {
         "severity": "P1",
-        "kind": "workflow_no_feedback",
-        "journey": "A",
-        "route": "/",
-        "detail": "Homepage zeigt keinerlei Trust-Signale (Reviews, DSGVO, Garantie, Nutzerzahlen).",
-        "fix": "Trust-Strip / Testimonial-Block / Sicherheits-Badges in Hero oder direkt darunter platzieren.",
-        "ts": "2026-06-02T20:33:30.895Z"
+        "kind": "demo_unreachable",
+        "journey": "E",
+        "route": "https://berufos.com/tutor",
+        "detail": "Tutor-Input-Feld nicht sichtbar (eventuell Curriculum-Picker oder Paywall).",
+        "fix": "Tutor-Gate prüfen (tutor_access_check / Curriculum-Auswahl).",
+        "ts": "2026-06-02T20:49:52.917Z"
       }
     ],
     "p2": [
       {
         "severity": "P2",
-        "kind": "workflow_no_feedback",
-        "journey": "A",
-        "route": "/berufe",
-        "detail": "Keine Suche und wenige Berufe — Discovery-Friction.",
-        "fix": "Such-/Filterleiste hinzufügen.",
-        "ts": "2026-06-02T20:33:09.950Z"
+        "kind": "placeholder_end_state",
+        "journey": "F",
+        "route": "/dashboard",
+        "detail": "Keine sichtbare Fortsetzungs-/Empfehlungs-Karte nach Re-Login.",
+        "fix": "Continue-Card / Recommendation-Card im Dashboard.",
+        "ts": "2026-06-02T20:50:01.012Z"
       }
     ]
   },
   "counts": {
-    "p0": 8,
+    "p0": 6,
     "p1": 3,
     "p2": 1,
-    "findings": 12
+    "findings": 10
   }
 }
