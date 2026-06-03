@@ -12,13 +12,21 @@
  * Weight: 20 (P0 funnel guard).
  */
 import { test, expect, Page } from '@playwright/test';
-import fallback from '../../../src/data/publishedBerufeFallback.json';
+import fs from 'node:fs';
+import path from 'node:path';
 import { dismissCookies, markJourney } from './_pre-helpers';
 import { recordFinding } from '../_helpers';
 
 type FallbackBeruf = { id: string; slug: string; title: string };
 
-const FALLBACK_SLUGS = (fallback as FallbackBeruf[])
+const fallback: FallbackBeruf[] = JSON.parse(
+  fs.readFileSync(
+    path.resolve(process.cwd(), 'src/data/publishedBerufeFallback.json'),
+    'utf8',
+  ),
+);
+
+const FALLBACK_SLUGS = fallback
   .filter((b) => b.id.startsWith('fb-'))
   .map((b) => b.slug);
 
