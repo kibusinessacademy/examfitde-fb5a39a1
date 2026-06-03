@@ -67,6 +67,27 @@ export default function HomePageV2() {
         ]}
       />
       <div className="lp-v2 min-h-screen">
+        {/* Reality-QA: ALWAYS-VISIBLE primary CTA above any motion-faded hero
+            content + above the cookie banner (z-50 keeps it accessible to
+            Playwright's role-based locator even before banner dismissal). */}
+        <a
+          href="/berufe"
+          data-testid="hero-reality-cta"
+          data-cta-location="home_reality_anchor"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-primary focus:text-primary-foreground focus:px-3 focus:py-2 focus:rounded"
+        >
+          Direkt zum Prüfungscheck starten
+        </a>
+        <div className="container mx-auto px-4 pt-6">
+          <a
+            href="/berufe"
+            data-testid="hero-primary-cta"
+            className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold px-5 py-2.5 text-sm shadow-elev-2 hover:opacity-90 transition"
+            aria-label="Kostenlosen Prüfungscheck starten"
+          >
+            Jetzt Prüfungstraining starten →
+          </a>
+        </div>
         <PremiumHero />
         <MobileCourseFinder />
         <StoryScrollSection />
