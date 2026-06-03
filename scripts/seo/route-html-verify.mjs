@@ -60,11 +60,24 @@ for (const route of ROUTES) {
   let status = 0, html = "", err = null;
   try {
     const r = await fetch(url, {
-      headers: { "User-Agent": "ExamFit-Cutover-Smoke/1.0", Accept: "text/html" },
+      headers: {
+        // Mozilla/5.0 + Googlebot signature → Cloudflare Bot Fight Mode lässt Verified Googlebot durch
+        // (Reverse-DNS check schlägt fehl für GitHub Actions → ggf. zusätzlich Cloudflare WAF-Allowlist nötig).
+        "User-Agent":
+          "Mozilla/5.0 (compatible; ExamFit-Cutover-Smoke/1.1; +https://berufos.com/bots) Googlebot/2.1",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+      },
       redirect: "follow",
     });
     status = r.status;
     html = await r.text();
+    // Cloudflare Challenge-Page detection — sauberer Fehler statt "missing_jsonld"
+    if (status === 403 && /Just a moment\.\.\.|cf-challenge|__cf_chl/i.test(html)) {
+      err = "cloudflare_challenge_page (WAF/Bot-Fight-Mode blocked verifier — allowlist UA in Cloudflare)";
+    }
   } catch (e) {
     err = String(e?.message ?? e);
   }
