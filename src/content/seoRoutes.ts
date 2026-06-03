@@ -586,7 +586,108 @@ const live: SeoRoute[] = [
     priority: 0.7,
     changefreq: "monthly",
   },
+  // ────────────────────────────────────────────────────────────
+  // Public-Funnel-Hub Routen (SEO Production Architecture v2)
+  // /berufe Hub + 5 Pilot-Berufsdetailseiten + /produkte
+  // ────────────────────────────────────────────────────────────
+  {
+    path: "/berufe",
+    title: "IHK-Berufe Übersicht – Prüfungstraining wählen | ExamFit",
+    description:
+      "Wähle deinen IHK- oder HWK-Beruf und starte sofort mit prüfungsnahem Training: über 200 Berufe, Lernkurse, KI-Tutor und Simulationen.",
+    h1: "Berufe – wähle deinen Prüfungspfad",
+    intro:
+      "Über 200 anerkannte IHK- und HWK-Ausbildungsberufe sind in ExamFit hinterlegt. Wähle deinen Beruf, starte den kostenlosen Selbsttest und erhalte einen 4-Wochen-Lernplan, der genau auf die Prüfungsformate deines Berufs zugeschnitten ist – schriftliche Aufgaben, praktische Prüfungsteile und das mündliche Fachgespräch werden abgedeckt. Beruf auswählen & Prüfungstraining starten – in unter einer Minute.",
+    contentHtml: `<h2>Beliebte Berufe</h2><ul>
+<li><a href="/berufe/einzelhandelskaufmann-frau">Einzelhandelskaufmann/-frau</a></li>
+<li><a href="/berufe/kaufmann-frau-bueromanagement">Kaufmann/-frau für Büromanagement</a></li>
+<li><a href="/berufe/industriekaufmann-frau">Industriekaufmann/-frau</a></li>
+<li><a href="/berufe/fachinformatiker-systemintegration">Fachinformatiker/-in Systemintegration</a></li>
+<li><a href="/berufe/kfz-mechatroniker-in">Kfz-Mechatroniker/-in</a></li>
+</ul><p><a href="/preise">Preise ab 24,90 €</a> &middot; <a href="/produkte">Komplettpaket ansehen</a></p>`,
+    keyFacts: [
+      { label: "Berufe", value: "Über 200 IHK- und HWK-Berufe" },
+      { label: "Format", value: "Lernkurse + Mini-Checks + KI-Tutor + Simulation" },
+      { label: "Free", value: "Selbsttest + Lernplan kostenlos" },
+      { label: "Preis", value: "Komplettpaket 24,90 € einmalig" },
+      { label: "Update", value: "Synchron mit DIHK-Rahmenstoffplänen" },
+    ],
+    faq: [
+      { q: "Wie finde ich meinen Beruf?", a: "Wähle aus der Übersichtsliste oder nutze die Suche. Insgesamt sind über 200 IHK- und HWK-Berufe hinterlegt." },
+      { q: "Was kostet das Training?", a: "Selbsttest und Basis-Lernplan sind kostenlos. Vollzugriff auf eine Prüfung als Komplettpaket 24,90 € einmalig, 12 Monate gültig." },
+      { q: "Sind die Inhalte IHK-spezifisch?", a: "Die Inhalte basieren auf den DIHK-Rahmenstoffplänen und gelten bundesweit für alle Industrie- und Handelskammern." },
+      { q: "Gibt es Simulationen?", a: "Ja, jeder Kurs enthält prüfungsnahe Simulationen mit Readiness-Score." },
+      { q: "Wann starte ich am besten?", a: "Sofort – der Lernplan rechnet rückwärts ab Prüfungstermin und priorisiert Schwächen automatisch." },
+      { q: "Was ist im Komplettpaket?", a: "12 Monate Vollzugriff auf eine Prüfung inkl. KI-Tutor, Simulationen, Mini-Checks und Lernplan." },
+    ],
+    sitemapGroup: "static",
+    priority: 0.95,
+    changefreq: "weekly",
+  },
+  ...berufDetail("einzelhandelskaufmann-frau", "Einzelhandelskaufmann/-frau", "IHK"),
+  ...berufDetail("kaufmann-frau-bueromanagement", "Kaufmann/-frau für Büromanagement", "IHK"),
+  ...berufDetail("industriekaufmann-frau", "Industriekaufmann/-frau", "IHK"),
+  ...berufDetail("fachinformatiker-systemintegration", "Fachinformatiker/-in Systemintegration", "IHK"),
+  ...berufDetail("kfz-mechatroniker-in", "Kfz-Mechatroniker/-in", "HWK"),
+  {
+    path: "/produkte",
+    title: "Komplettpaket Prüfungstraining – 24,90 € | ExamFit",
+    description:
+      "Das ExamFit Komplettpaket: 12 Monate Vollzugriff auf eine Prüfung – Lernkurse, KI-Tutor, Mini-Checks und Simulationen für 24,90 € einmalig.",
+    h1: "Komplettpaket Prüfungstraining",
+    intro:
+      "Mit dem ExamFit Komplettpaket bekommst du für 24,90 € einmalig 12 Monate Vollzugriff auf eine gewählte Prüfung. Enthalten sind alle strukturierten Lernkurse, der adaptive 4-Wochen-Lernplan, der KI-Tutor mit Strict-RAG und Quellenangaben, alle Mini-Checks pro Lektion und mehrere prüfungsnahe Simulationen mit Readiness-Score. Kein Abo, keine versteckten Kosten, jederzeit verfügbar.",
+    contentHtml: `<p><strong>Preis: 24,90 € einmalig pro Prüfung.</strong> <a href="/berufe">Jetzt Beruf wählen & starten</a></p>`,
+    keyFacts: [
+      { label: "Preis", value: "24,90 € einmalig" },
+      { label: "Laufzeit", value: "12 Monate Vollzugriff" },
+      { label: "Inhalt", value: "Lernkurse + KI-Tutor + Mini-Checks + Simulationen" },
+      { label: "Format", value: "Web + Mobile, kein App-Zwang" },
+      { label: "Garantie", value: "14 Tage Widerrufsrecht (B2C)" },
+    ],
+    faq: [
+      { q: "Ist das ein Abo?", a: "Nein, das Komplettpaket ist ein einmaliger Kauf für 24,90 €, gültig 12 Monate." },
+      { q: "Was ist alles enthalten?", a: "Alle Lernkurse, KI-Tutor mit Quellen, Mini-Checks, prüfungsnahe Simulationen mit Readiness-Score und 4-Wochen-Lernplan." },
+      { q: "Kann ich auf mehrere Prüfungen zugreifen?", a: "Ein Komplettpaket gilt für eine Prüfung. Für weitere Prüfungen kaufst du jeweils ein separates Paket." },
+      { q: "Wie schnell habe ich Zugang?", a: "Sofort nach Bezahlung – Zugriff wird automatisch freigeschaltet." },
+      { q: "Welche Zahlungsmethoden?", a: "SEPA, Kreditkarte und Sofortüberweisung über Stripe." },
+      { q: "Gibt es Rabatte für Betriebe?", a: "Ja, Betriebs-Bundles ab 5 Sitzen mit Reporting – siehe /preise." },
+    ],
+    sitemapGroup: "products",
+    priority: 0.9,
+    changefreq: "weekly",
+  },
 ];
+
+function berufDetail(slug: string, title: string, kammer: "IHK" | "HWK"): SeoRoute[] {
+  const path = `/berufe/${slug}`;
+  return [{
+    path,
+    title: `${title} – Prüfungstraining (${kammer}) | ExamFit`,
+    description: `Prüfungsvorbereitung für ${title} (${kammer}): adaptiver Lernplan, KI-Tutor mit Quellen, Mini-Checks und prüfungsnahe Simulationen. Komplettpaket 24,90 €.`,
+    h1: `${title} – Prüfungstraining`,
+    intro: `Strukturierte Online-Vorbereitung für die ${kammer}-Abschlussprüfung als ${title}. ExamFit liefert einen adaptiven 4-Wochen-Lernplan, der deinen Schwachstellen folgt, sowie kompakte Lernkurse pro Handlungsfeld, einen KI-Tutor mit Strict-RAG und Quellenangaben, Mini-Checks zur sofortigen Wissenskontrolle und mehrere prüfungsnahe Simulationen mit Readiness-Score. Inhalte basieren auf dem aktuellen DIHK-Rahmenstoffplan für den Beruf ${title} und decken sowohl die schriftliche als auch das mündliche Fachgespräch ab. Starte mit dem kostenlosen Selbsttest und sieh nach 5 Fragen, wo deine größten Lücken sind.`,
+    contentHtml: `<p><a href="/preise"><strong>Komplettpaket 24,90 €</strong> – 12 Monate Vollzugriff</a> &middot; <a href="/berufe">Anderen Beruf wählen</a></p><h2>Was ist enthalten?</h2><ul><li>Adaptiver 4-Wochen-Lernplan, rückwärts ab Prüfungstermin</li><li>Lernkurse pro Handlungsfeld nach DIHK-Rahmenstoffplan</li><li>KI-Tutor mit Quellenangaben (Strict-RAG, keine Halluzinationen)</li><li>Mini-Checks pro Lektion mit sofortigem Feedback</li><li>Prüfungsnahe Simulationen mit Readiness-Score</li><li>Mündliches Fachgespräch als KI-Simulation</li></ul>`,
+    keyFacts: [
+      { label: "Beruf", value: title },
+      { label: "Kammer", value: kammer },
+      { label: "Lernplan", value: "4 Wochen, adaptiv" },
+      { label: "Preis", value: "Komplettpaket 24,90 € einmalig" },
+      { label: "Free", value: "Selbsttest + Basis-Lernplan kostenlos" },
+    ],
+    faq: [
+      { q: `Wie bereite ich mich auf die ${title}-Prüfung vor?`, a: `Starte mit dem kostenlosen Selbsttest. ExamFit erstellt daraus einen 4-Wochen-Lernplan, der genau die Handlungsfelder priorisiert, in denen du noch Lücken hast.` },
+      { q: "Was kostet das Komplettpaket?", a: "Einmalig 24,90 € für 12 Monate Vollzugriff auf alle Inhalte zu diesem Beruf." },
+      { q: "Ist die Vorbereitung IHK-konform?", a: "Inhalte basieren auf dem aktuellen DIHK-Rahmenstoffplan und werden bei Änderungen nachgezogen." },
+      { q: "Gibt es Übungen für das mündliche Fachgespräch?", a: "Ja, der KI-Tutor simuliert typische Fachgespräche und gibt Feedback zu Struktur und Vollständigkeit deiner Antworten." },
+      { q: "Wie funktionieren die Simulationen?", a: "Prüfungsnahe Aufgaben mit Zeitlimit, automatischer Bewertung und Readiness-Score, der deine Prüfungsreife einschätzt." },
+      { q: "Kann ich das Training mobil nutzen?", a: "Ja, ExamFit funktioniert auf Smartphone, Tablet und Desktop ohne App-Zwang." },
+    ],
+    sitemapGroup: "static",
+    priority: 0.85,
+    changefreq: "weekly",
+  }];
+}
 
 // Inject default JSON-LD on every entry: Organization, Breadcrumb, FAQ
 for (const r of live) {
