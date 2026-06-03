@@ -82,7 +82,7 @@ async function loadSectionExamContext(
       .select("question_text, difficulty")
       .eq("curriculum_id", curriculumId)
       .eq("learning_field_id", learningFieldId)
-      .in("status", ["approved", "tier1_passed"])
+      .in("status", QC_COVERAGE_ELIGIBLE as unknown as string[])
       .order("elite_score", { ascending: false })
       .limit(MAX_CONTEXT_QUESTIONS);
     return (data || []).map((q: any) =>
