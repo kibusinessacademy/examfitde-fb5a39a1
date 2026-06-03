@@ -1,0 +1,9 @@
+{
+  "severity": "P1",
+  "kind": "workflow_no_feedback",
+  "journey": "A",
+  "route": "/",
+  "detail": "Homepage zeigt keinerlei Trust-Signale (Reviews, DSGVO, Garantie, Nutzerzahlen).",
+  "fix": "Trust-Strip / Testimonial-Block / Sicherheits-Badges in Hero oder direkt darunter platzieren.",
+  "ts": "2026-06-03T13:55:37.361Z"
+}

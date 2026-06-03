@@ -1,0 +1,8 @@
+{
+  "severity": "P1",
+  "kind": "broken_route",
+  "journey": "A",
+  "detail": "Kein BerufOS-/Komplettpaket-Hub erreichbar (/berufos, /komplettpaket, /produkte).",
+  "fix": "Mindestens eine Hub-Route mit Produkt-Erklärung publishen.",
+  "ts": "2026-06-03T13:55:34.073Z"
+}
