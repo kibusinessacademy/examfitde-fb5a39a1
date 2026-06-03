@@ -36,9 +36,10 @@ const SAMPLE_PROBE_ROUTES = [
 // must NOT produce dist/<slug>/index.html for these — Vercel rewrites to the
 // SPA shell at request time. Each entry's sitemap shard must be referenced
 // in dist/sitemap.xml (the sitemap-index).
-const SITEMAP_ONLY_ROUTES = [
-  { slug: 'berufe', sitemapShard: 'berufe' },
-];
+// NOTE: /berufe is a fully prerendered SSOT hub route (see src/content/seoRoutes.ts:594),
+// NOT sitemap-only. It MUST exist as dist/berufe/index.html. Keep this array for future
+// truly DB-only listing routes (none currently).
+const SITEMAP_ONLY_ROUTES = [];
 
 let failures = 0;
 const log = (ok, msg) => {
