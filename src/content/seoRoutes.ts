@@ -636,7 +636,7 @@ const live: SeoRoute[] = [
       "Das ExamFit Komplettpaket: 12 Monate Vollzugriff auf eine Prüfung – Lernkurse, KI-Tutor, Mini-Checks und Simulationen für 24,90 € einmalig.",
     h1: "Komplettpaket Prüfungstraining",
     intro:
-      "Mit dem ExamFit Komplettpaket bekommst du für 24,90 € einmalig 12 Monate Vollzugriff auf eine gewählte Prüfung. Enthalten sind alle strukturierten Lernkurse, der adaptive 4-Wochen-Lernplan, der KI-Tutor mit Strict-RAG und Quellenangaben, alle Mini-Checks pro Lektion und mehrere prüfungsnahe Simulationen mit Readiness-Score. Kein Abo, keine versteckten Kosten, jederzeit verfügbar.",
+      "Mit dem ExamFit Komplettpaket bekommst du für 24,90 € einmalig 12 Monate Vollzugriff auf eine gewählte Prüfung. Enthalten sind alle strukturierten Lernkurse pro Handlungsfeld, der adaptive 4-Wochen-Lernplan, der KI-Tutor mit Strict-RAG und Quellenangaben (keine Halluzinationen, jede Antwort ist mit Quellenpassagen aus dem Curriculum belegt), alle Mini-Checks pro Lektion mit sofortigem Feedback und mehrere prüfungsnahe Simulationen mit Readiness-Score. Kein Abo, keine versteckten Kosten, jederzeit verfügbar – die Zahlung läuft sicher über Stripe, der Zugang wird automatisch innerhalb weniger Sekunden freigeschaltet. Das Komplettpaket eignet sich für Auszubildende vor der IHK-Abschlussprüfung Teil 1 und Teil 2 ebenso wie für Fortbildungsteilnehmer in AEVO, Bilanzbuchhalter, Fachwirt- und Meister-Lehrgängen.",
     contentHtml: `<p><strong>Preis: 24,90 € einmalig pro Prüfung.</strong> <a href="/berufe">Jetzt Beruf wählen & starten</a></p>`,
     keyFacts: [
       { label: "Preis", value: "24,90 € einmalig" },
