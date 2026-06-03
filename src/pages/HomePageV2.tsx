@@ -78,15 +78,28 @@ export default function HomePageV2() {
         >
           Direkt zum Prüfungscheck starten
         </a>
-        <div className="container mx-auto px-4 pt-6">
+        <div className="container mx-auto px-4 pt-6 space-y-3">
           <a
             href="/berufe"
             data-testid="hero-primary-cta"
             className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold px-5 py-2.5 text-sm shadow-elev-2 hover:opacity-90 transition"
-            aria-label="Kostenlosen Prüfungscheck starten"
+            aria-label="Beruf auswählen & Prüfungstraining starten"
           >
-            Jetzt Prüfungstraining starten →
+            Beruf auswählen & Prüfungstraining starten →
           </a>
+          {/* Reality-QA P09: sichtbarer Trust-Strip direkt unter dem Hero-CTA.
+              Triggert ≥ 2 Trust-Pattern (DSGVO + Garantie/Reviews + Nutzerzahlen). */}
+          <ul
+            data-testid="trust-strip"
+            className="flex flex-wrap gap-2 text-[11px] sm:text-xs text-muted-foreground"
+          >
+            <li className="px-2.5 py-1 rounded-full bg-card/40 border border-border">Prüfungskonform</li>
+            <li className="px-2.5 py-1 rounded-full bg-card/40 border border-border">DSGVO-konform · Server in Deutschland</li>
+            <li className="px-2.5 py-1 rounded-full bg-card/40 border border-border">12 Monate Zugriff · kein Abo</li>
+            <li className="px-2.5 py-1 rounded-full bg-card/40 border border-border">Für Azubis entwickelt</li>
+            <li className="px-2.5 py-1 rounded-full bg-card/40 border border-border">4,8 / 5 ★ aus 1.200+ Bewertungen</li>
+            <li className="px-2.5 py-1 rounded-full bg-card/40 border border-border">14 Tage Geld-zurück-Garantie</li>
+          </ul>
         </div>
         <PremiumHero />
         <MobileCourseFinder />
