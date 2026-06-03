@@ -76,14 +76,32 @@ function seoPrerenderPlugin(): Plugin {
     apply: "build",
     enforce: "post",
     closeBundle() {
+      // No --experimental-strip-types: Vercel ships Node 20/22, not 24.
+      // run-prerender.mjs uses esbuild to load the TS SSOT.
+      console.log("[examfit-seo-prerender] starting subprocess…");
       const result = spawnSync(
         process.execPath,
-        ["--experimental-strip-types", "scripts/seo/run-prerender.mjs"],
+        ["scripts/seo/run-prerender.mjs"],
         { stdio: "inherit", cwd: process.cwd() },
       );
       if (result.status !== 0) {
         throw new Error(
-          `[examfit-seo-prerender] subprocess exited with code ${result.status}`,
+          `[examfit-seo-prerender] subprocess exited with code ${result.status}. ` +
+            `Per-route HTML was NOT generated — refusing to ship a SPA-only build.`,
+        );
+      }
+      // Hard post-check: dist/ MUST contain at least one per-route index.html
+      // besides the shell, otherwise the deploy would silently serve only the
+      // SPA fallback (the exact failure mode that left berufos.com broken).
+      const verify = spawnSync(
+        process.execPath,
+        ["scripts/seo/verify-prerender-output.mjs"],
+        { stdio: "inherit", cwd: process.cwd() },
+      );
+      if (verify.status !== 0) {
+        throw new Error(
+          `[examfit-seo-prerender] verify-prerender-output FAILED (exit ${verify.status}). ` +
+            `Build aborted to prevent shipping an empty CSR shell to Vercel.`,
         );
       }
     },
