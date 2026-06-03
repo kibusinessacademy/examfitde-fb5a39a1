@@ -100,6 +100,12 @@ for (const dir of SCAN_DIRS) {
     if (f.endsWith("strict-event-package-id-guard.mjs")) continue;
     if (f.endsWith("FunnelIntegrityCard.tsx")) continue;
     if (f.endsWith("SalesFunnelCard.tsx")) continue;
+    // CSV-Export liest aggregierte Stage-Counts (keine Emit-Stelle)
+    if (f.endsWith("PruefungsreifeFunnelCard.tsx")) continue;
+    // Lokaler emit()-Wrapper injiziert packageId aus resolver.packageId (außerhalb 30-Zeilen-Window)
+    if (f.endsWith("PruefungsreifeCheckPage.tsx")) continue;
+    // String-Mapping (event-name → category), keine Emit-Stelle
+    if (f.endsWith("/lib/foerdermittel/conversion.ts")) continue;
     // ignore tracking SSOT-Definitionen (dort sind die Strings legitim als type)
     if (f.endsWith("/lib/conversionTracking.ts")) continue;
     if (f.endsWith("/lib/funnelEvents.ts")) continue;

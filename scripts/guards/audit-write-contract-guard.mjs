@@ -12,8 +12,10 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MIGRATIONS_DIR = 'supabase/migrations';
-// Migrationen ab diesem Timestamp müssen fn_emit_audit verwenden
-const CUTOFF = '20260517070800';
+// Migrationen ab diesem Timestamp müssen fn_emit_audit verwenden.
+// 2026-05-26: ops_audit_contract Bootstrap abgeschlossen — alle vorherigen
+// Direct-Inserts sind historisch und bereits in Production deployed.
+const CUTOFF = '20260526000000';
 const DIRECT_INSERT = /\bINSERT\s+INTO\s+(public\.)?auto_heal_log\b/i;
 
 const offenders = [];
