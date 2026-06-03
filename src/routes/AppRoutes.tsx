@@ -313,6 +313,7 @@ const LessonPlayer = lazyRetry(() => import('@/pages/LessonPlayer'));
 const ExamSimulation = lazyRetry(() => import('@/pages/ExamSimulation'));
 const ExamResultsPage = lazyRetry(() => import('@/pages/ExamResultsPage'));
 const OralExamTrainer = lazyRetry(() => import('@/pages/OralExamTrainer'));
+const TutorEntryPage = lazyRetry(() => import('@/pages/TutorEntryPage'));
 
 // Enhanced Learning Pages
 const SpacedRepetitionSession = lazyRetry(() => import('@/pages/SpacedRepetitionSession'));
