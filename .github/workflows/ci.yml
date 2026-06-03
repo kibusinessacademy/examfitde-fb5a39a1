@@ -77,11 +77,21 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - name: Run tests
         run: npx vitest run --reporter=verbose
+      - name: OralExamTrainer ElevenLabs guard (explicit)
+        run: |
+          npx vitest run \
+            src/test/oral-exam-trainer-no-elevenlabs.unit.test.ts \
+            src/test/oral-voice-no-elevenlabs.test.ts \
+            --reporter=verbose
       - name: Generate test summary
         if: always()
         run: |
           echo "## 🧪 Unit Test Results" >> $GITHUB_STEP_SUMMARY
           echo "Includes: Nightly Audit, Learner Golden Path, Admin Preview, Edge Contracts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎙️ OralExamTrainer ElevenLabs Guard" >> $GITHUB_STEP_SUMMARY
+          echo "- \`src/test/oral-exam-trainer-no-elevenlabs.unit.test.ts\` — 4 assertions (substring, env var, line-by-line \`/elevenlabs/i\`, host/endpoint)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`src/test/oral-voice-no-elevenlabs.test.ts\` — 5 assertions (browser-native Web Speech API, no oral-voice-* bridge)" >> $GITHUB_STEP_SUMMARY
 
   bundle-size:
     timeout-minutes: 15
