@@ -41,6 +41,8 @@ export interface SeoRoute {
   intro: string;
   keyFacts: KeyFact[];
   faq: FaqEntry[];
+  /** Optional raw HTML content (already sanitized) injected after intro. Use for hub link lists, etc. */
+  contentHtml?: string;
   jsonLd?: Record<string, unknown>[];
   sitemapGroup: SitemapGroup;
   /** 'live' = goes to prerender + sitemap; 'stub' = skipped (content TBD). Defaults to 'live'. */
