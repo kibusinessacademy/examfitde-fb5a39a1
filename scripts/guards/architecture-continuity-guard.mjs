@@ -66,6 +66,21 @@ try {
 let hardFail = false;
 const summary = [];
 
+/**
+ * Erwarteter Verdict aus Dateinamen-Suffix (Fixture-Convention):
+ *   *-approved.json → 'approved' (REVIEW akzeptiert, BLOCKED = Regression)
+ *   *-blocked.json  → 'blocked'  (alles andere = Regression, Fixture greift nicht mehr)
+ *   *-review.json   → 'review_required'
+ *   sonst           → null (kein Mismatch-Check, jedes Verdict OK außer 'blocked')
+ */
+function expectedVerdictFromFilename(file) {
+  const base = path.basename(file, '.json').toLowerCase();
+  if (base.endsWith('-approved')) return 'approved';
+  if (base.endsWith('-blocked')) return 'blocked';
+  if (base.endsWith('-review') || base.endsWith('-review-required')) return 'review_required';
+  return null;
+}
+
 for (const file of files) {
   const raw = fs.readFileSync(file, 'utf8');
   let proposal;
@@ -77,11 +92,15 @@ for (const file of files) {
     continue;
   }
   const review = reviewArchitecture(proposal);
+  const expected = expectedVerdictFromFilename(file);
 
-  // Hard finding ohne Reuse-Strategie?
-  const hardOrphans = review.findings.filter(
-    (f) => f.severity === 'block' && !f.recommended_reuse_path && !f.required_bridge_target,
-  );
+  // Hard finding ohne Reuse-Strategie? Nur prüfen wenn Fixture NICHT als blocked erwartet ist
+  // (blocked-Fixtures dürfen orphan hard findings haben — das ist ihr Zweck).
+  const hardOrphans = expected === 'blocked'
+    ? []
+    : review.findings.filter(
+        (f) => f.severity === 'block' && !f.recommended_reuse_path && !f.required_bridge_target,
+      );
 
   const blockReasons = review.findings
     .filter((f) => f.severity === 'block')
@@ -93,7 +112,8 @@ for (const file of files) {
       ? '⚠️  REVIEW'
       : '✅ APPROVED';
 
-  console.log(`\n${status}  ${file}`);
+  const expectationTag = expected ? ` (expected=${expected})` : '';
+  console.log(`\n${status}  ${file}${expectationTag}`);
   console.log(`  proposal: ${proposal.kind} "${proposal.name}"`);
   if (review.findings.length === 0) {
     console.log('  no findings');
@@ -107,20 +127,35 @@ for (const file of files) {
     }
   }
 
-  if (review.verdict === 'blocked') {
-    hardFail = true;
+  // Mismatch zwischen erwartetem und tatsächlichem Verdict → hardFail
+  let mismatch = false;
+  if (expected === 'blocked' && review.verdict !== 'blocked') {
+    console.error(`  ⛔ MISMATCH: Fixture erwartet 'blocked', Review = '${review.verdict}'.`);
+    mismatch = true;
+  } else if (expected === 'approved' && review.verdict === 'blocked') {
+    console.error(`  ⛔ MISMATCH: Fixture erwartet 'approved', Review = 'blocked'.`);
+    mismatch = true;
+  } else if (expected === 'review_required' && review.verdict !== 'review_required') {
+    console.error(`  ⛔ MISMATCH: Fixture erwartet 'review_required', Review = '${review.verdict}'.`);
+    mismatch = true;
+  } else if (expected === null && review.verdict === 'blocked') {
+    // Kein expected → strenge Default-Regel: blocked verdict failt
+    mismatch = true;
   }
+
+  if (mismatch) hardFail = true;
   if (hardOrphans.length > 0) {
     console.error(`  ⛔ ${hardOrphans.length} hard finding(s) ohne reuse_strategy — Architektur-Bruch.`);
     hardFail = true;
   }
 
-  summary.push({ file, verdict: review.verdict, blockReasons });
+  summary.push({ file, verdict: review.verdict, expected, blockReasons });
 }
 
 console.log('\n──────── Summary ────────');
 for (const s of summary) {
-  console.log(`  ${s.verdict.padEnd(16)} ${s.file}`);
+  const expStr = s.expected ? ` (expected=${s.expected})` : '';
+  console.log(`  ${s.verdict.padEnd(16)} ${s.file}${expStr}`);
 }
 
 if (hardFail) {
