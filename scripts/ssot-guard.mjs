@@ -102,6 +102,14 @@ for (const file of files) {
       "artifact-resolver",
       "exam-pool-validator",
       "package-generate-exam-pool",
+      // Admin inspection/diagnostic panels: read raw exam_questions for
+      // status/QA breakdowns that v_exam_relevant_questions cannot expose.
+      "ProductModuleStatus",
+      "ExamQualityTab",
+      "IntegrityExplainTabContent",
+      "IntegrityReportCard",
+      "SEOQuizWidget",
+      "ActiveCourseContext",
     ];
     const isExamAllowed = EXAM_Q_ALLOWED_FILES.some((f) => file.includes(f));
 
