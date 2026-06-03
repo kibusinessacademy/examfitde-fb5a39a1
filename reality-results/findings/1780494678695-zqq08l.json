@@ -1,0 +1,9 @@
+{
+  "severity": "P2",
+  "kind": "workflow_no_feedback",
+  "journey": "A",
+  "route": "/preise",
+  "detail": "OG-Tags unvollständig (og:title=1, og:image=0).",
+  "fix": "OG-Tags für Social-Preview rendern.",
+  "ts": "2026-06-03T13:51:18.695Z"
+}

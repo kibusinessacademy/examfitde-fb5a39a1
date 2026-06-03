@@ -1,0 +1,9 @@
+{
+  "severity": "P1",
+  "kind": "dead_cta",
+  "journey": "A",
+  "route": "/",
+  "detail": "Primary CTA mobile nicht above-the-fold (>844px).",
+  "fix": "Hero verkürzen oder Sticky-CTA für Mobile.",
+  "ts": "2026-06-03T13:51:15.071Z"
+}

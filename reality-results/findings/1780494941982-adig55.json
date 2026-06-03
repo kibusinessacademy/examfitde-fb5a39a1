@@ -1,0 +1,8 @@
+{
+  "severity": "P0",
+  "kind": "broken_route",
+  "journey": "A",
+  "detail": "Mobile-Discovery erreicht keine Kursseite ab Homepage.",
+  "fix": "Berufe-Hub-Karten müssen auf 390px tappable sein (min 44px Höhe).",
+  "ts": "2026-06-03T13:55:41.982Z"
+}

@@ -1,0 +1,9 @@
+{
+  "severity": "P0",
+  "kind": "broken_route",
+  "journey": "A",
+  "route": "/berufe",
+  "detail": "Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.",
+  "fix": "Berufs-Liste hydratisieren / SSR-Fallback prüfen.",
+  "ts": "2026-06-03T13:48:41.350Z"
+}

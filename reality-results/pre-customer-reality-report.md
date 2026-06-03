@@ -2,28 +2,27 @@
 
 **Base URL:** https://examfitde.lovable.app
 **Status:** **BLOCK**
-**Customer Readiness Score:** **0 / 130**
-**✅ TIME_TO_COURSE = 0.9s (Ziel ≤ 60s)**
+**Customer Readiness Score:** **12 / 130**
+**✅ TIME_TO_COURSE = 1.2s (Ziel ≤ 60s)**
 
 ## Journeys passed
-- _(none)_
+- ✅ P11_seo_surface (7 pts)
+- ✅ P12_legal_trust (5 pts)
 
 ## Journeys failed / missing
-- ❌ P01_homepage (10 pts) — missing
-- ❌ P02_find_beruf (15 pts) — missing
-- ❌ P03_open_course (15 pts) — missing
-- ❌ P04_pricing (15 pts) — missing
-- ❌ P05_cta_click (10 pts) — missing
-- ❌ P06_checkout_surface (15 pts) — missing
-- ❌ P07_cross_sell (10 pts) — missing
-- ❌ P08_berufos_hub (10 pts) — missing
-- ❌ P09_trust_signals (8 pts) — missing
-- ❌ P10_mobile_funnel (10 pts) — missing
-- ❌ P11_seo_surface (7 pts) — missing
-- ❌ P12_legal_trust (5 pts) — missing
+- ❌ P01_homepage (10 pts) — fail
+- ❌ P02_find_beruf (15 pts) — fail
+- ❌ P03_open_course (15 pts) — fail
+- ❌ P04_pricing (15 pts) — fail
+- ❌ P05_cta_click (10 pts) — fail
+- ❌ P06_checkout_surface (15 pts) — fail
+- ❌ P07_cross_sell (10 pts) — fail
+- ❌ P08_berufos_hub (10 pts) — fail
+- ❌ P09_trust_signals (8 pts) — fail
+- ❌ P10_mobile_funnel (10 pts) — fail
 
 ## Findings
-**Counts:** P0=6 · P1=3 · P2=1 · total=10
+**Counts:** P0=36 · P1=13 · P2=6 · total=55
 
 ### P0 (blockers)
 - **P0 / broken_route** — `A` `/preise`
@@ -44,6 +43,96 @@
 - **P0 / white_screen** — `E` `https://berufos.com/muendliche-pruefung`
   - Oral-Oberfläche leer.
   - _Fix:_ Renderer / Datenpfad prüfen.
+- **P0 / dead_cta** — `A` `/`
+  - Kein primärer CTA above the fold.
+  - _Fix:_ Hero-CTA sichtbar machen, Cookie-Banner darf CTA nicht verdecken.
+- **P0 / broken_route** — `A` `/berufe`
+  - Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.
+  - _Fix:_ Berufs-Liste hydratisieren / SSR-Fallback prüfen.
+- **P0 / broken_route** — `A` 
+  - Visitor erreicht keine Kurs-/Produktseite ab Homepage.
+  - _Fix:_ Berufe-Hub muss klickbare Karten mit echten Detail-Routen liefern.
+- **P0 / workflow_no_feedback** — `A` `/preise`
+  - Pricing-Seite zeigt keinen €/EUR-Preis.
+  - _Fix:_ Pricing-SSOT auf /preise rendern (statt nur auf Produktseiten).
+- **P0 / dead_cta** — `A` `/preise`
+  - Pricing-Seite hat keinen sichtbaren Kauf-CTA.
+  - _Fix:_ Primary-CTA pro Pricing-Tier hinzufügen.
+- **P0 / dead_cta** — `A` 
+  - Konnte keine Kursseite öffnen für CTA-Test.
+  - _Fix:_ Erst P03 (Discovery) fixen.
+- **P0 / checkout_unreachable** — `A` 
+  - Konnte keine Kursseite öffnen — Checkout-Surface untestbar.
+  - _Fix:_ P03 fixen.
+- **P0 / broken_route** — `A` `/berufe`
+  - Cold-load body too short (76 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/einzelhandelskaufmann-frau`
+  - Cold-load body too short (76 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/kaufmann-frau-bueromanagement`
+  - Cold-load body too short (76 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/fachinformatiker-systemintegration`
+  - Cold-load body too short (76 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/kfz-mechatroniker-in`
+  - Cold-load body too short (76 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/bankkaufmann-frau`
+  - Cold-load body too short (76 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/fachkraft-fuer-lagerlogistik`
+  - Cold-load body too short (76 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/chemielaborant-in`
+  - Cold-load body too short (76 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / dead_cta** — `A` `/`
+  - Kein primärer CTA above the fold.
+  - _Fix:_ Hero-CTA sichtbar machen, Cookie-Banner darf CTA nicht verdecken.
+- **P0 / broken_route** — `A` `/berufe`
+  - Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.
+  - _Fix:_ Berufs-Liste hydratisieren / SSR-Fallback prüfen.
+- **P0 / broken_route** — `A` 
+  - Visitor erreicht keine Kurs-/Produktseite ab Homepage.
+  - _Fix:_ Berufe-Hub muss klickbare Karten mit echten Detail-Routen liefern.
+- **P0 / workflow_no_feedback** — `A` `/preise`
+  - Pricing-Seite zeigt keinen €/EUR-Preis.
+  - _Fix:_ Pricing-SSOT auf /preise rendern (statt nur auf Produktseiten).
+- **P0 / dead_cta** — `A` 
+  - Konnte keine Kursseite öffnen für CTA-Test.
+  - _Fix:_ Erst P03 (Discovery) fixen.
+- **P0 / checkout_unreachable** — `A` 
+  - Konnte keine Kursseite öffnen — Checkout-Surface untestbar.
+  - _Fix:_ P03 fixen.
+- **P0 / broken_route** — `A` 
+  - Mobile-Discovery erreicht keine Kursseite ab Homepage.
+  - _Fix:_ Berufe-Hub-Karten müssen auf 390px tappable sein (min 44px Höhe).
+- **P0 / broken_route** — `A` `/berufe`
+  - Cold-load body too short (0 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/einzelhandelskaufmann-frau`
+  - Cold-load body too short (0 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/kaufmann-frau-bueromanagement`
+  - Cold-load body too short (0 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/fachinformatiker-systemintegration`
+  - Cold-load body too short (0 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/kfz-mechatroniker-in`
+  - Cold-load body too short (0 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/bankkaufmann-frau`
+  - Cold-load body too short (0 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/fachkraft-fuer-lagerlogistik`
+  - Cold-load body too short (0 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
+- **P0 / broken_route** — `A` `/berufe/chemielaborant-in`
+  - Cold-load body too short (0 chars).
+  - _Fix:_ SSR / static fallback für Route sicherstellen.
 
 ### P1 (trust / conversion)
 - **P1 / dead_button** — `C` `/dashboard`
@@ -55,11 +144,56 @@
 - **P1 / demo_unreachable** — `E` `https://berufos.com/tutor`
   - Tutor-Input-Feld nicht sichtbar (eventuell Curriculum-Picker oder Paywall).
   - _Fix:_ Tutor-Gate prüfen (tutor_access_check / Curriculum-Auswahl).
+- **P1 / workflow_no_feedback** — `A` 
+  - Keine Kursseite erreichbar — Cross-Sell untestbar.
+  
+- **P1 / broken_route** — `A` 
+  - Kein BerufOS-/Komplettpaket-Hub erreichbar (/berufos, /komplettpaket, /produkte).
+  - _Fix:_ Mindestens eine Hub-Route mit Produkt-Erklärung publishen.
+- **P1 / workflow_no_feedback** — `A` `/`
+  - Homepage zeigt keinerlei Trust-Signale (Reviews, DSGVO, Garantie, Nutzerzahlen).
+  - _Fix:_ Trust-Strip / Testimonial-Block / Sicherheits-Badges in Hero oder direkt darunter platzieren.
+- **P1 / dead_cta** — `A` `/`
+  - Primary CTA mobile nicht above-the-fold (>844px).
+  - _Fix:_ Hero verkürzen oder Sticky-CTA für Mobile.
+- **P1 / broken_route** — `A` `/`
+  - Impressum-Link fehlt auf Homepage / im Footer.
+  - _Fix:_ Footer-Block mit Impressum-Link ergänzen (DE-Recht / Stripe-Requirement).
+- **P1 / broken_route** — `A` `/`
+  - Datenschutz-Link fehlt auf Homepage / im Footer.
+  - _Fix:_ Footer-Block mit Datenschutz-Link ergänzen (DE-Recht / Stripe-Requirement).
+- **P1 / broken_route** — `A` `/`
+  - AGB-Link fehlt auf Homepage / im Footer.
+  - _Fix:_ Footer-Block mit AGB-Link ergänzen (DE-Recht / Stripe-Requirement).
+- **P1 / workflow_no_feedback** — `A` 
+  - Keine Kursseite erreichbar — Cross-Sell untestbar.
+  
+- **P1 / broken_route** — `A` 
+  - Kein BerufOS-/Komplettpaket-Hub erreichbar (/berufos, /komplettpaket, /produkte).
+  - _Fix:_ Mindestens eine Hub-Route mit Produkt-Erklärung publishen.
+- **P1 / workflow_no_feedback** — `A` `/`
+  - Homepage zeigt keinerlei Trust-Signale (Reviews, DSGVO, Garantie, Nutzerzahlen).
+  - _Fix:_ Trust-Strip / Testimonial-Block / Sicherheits-Badges in Hero oder direkt darunter platzieren.
 
 ### P2 (UX friction)
 - **P2 / placeholder_end_state** — `F` `/dashboard`
   - Keine sichtbare Fortsetzungs-/Empfehlungs-Karte nach Re-Login.
   - _Fix:_ Continue-Card / Recommendation-Card im Dashboard.
+- **P2 / workflow_no_feedback** — `A` `/berufe`
+  - Keine Suche und wenige Berufe — Discovery-Friction.
+  - _Fix:_ Such-/Filterleiste hinzufügen.
+- **P2 / workflow_no_feedback** — `A` `/`
+  - OG-Tags unvollständig (og:title=1, og:image=0).
+  - _Fix:_ OG-Tags für Social-Preview rendern.
+- **P2 / workflow_no_feedback** — `A` `/berufe`
+  - OG-Tags unvollständig (og:title=1, og:image=0).
+  - _Fix:_ OG-Tags für Social-Preview rendern.
+- **P2 / workflow_no_feedback** — `A` `/preise`
+  - OG-Tags unvollständig (og:title=1, og:image=0).
+  - _Fix:_ OG-Tags für Social-Preview rendern.
+- **P2 / workflow_no_feedback** — `A` `/berufe`
+  - Keine Suche und wenige Berufe — Discovery-Friction.
+  - _Fix:_ Such-/Filterleiste hinzufügen.
 
 ## Recommended fix order
 1. **P0** broken_route → Public route /preise returned status 200 / empty body.
@@ -68,10 +202,10 @@
 4. **P0** demo_unreachable → Kein Produkt-Einstiegspunkt erreichbar.
 5. **P0** dead_cta → Kein next-step CTA im Dashboard sichtbar.
 6. **P0** white_screen → Oral-Oberfläche leer.
-7. **P1** dead_button → Logout-Button nicht sichtbar im Header.
-8. **P1** demo_unreachable → Keine MiniCheck-Frage erreichbar (Kurs evtl. ohne Quiz oder Selektor verschoben).
-9. **P1** demo_unreachable → Tutor-Input-Feld nicht sichtbar (eventuell Curriculum-Picker oder Paywall).
-10. **P2** placeholder_end_state → Keine sichtbare Fortsetzungs-/Empfehlungs-Karte nach Re-Login.
+7. **P0** dead_cta → Kein primärer CTA above the fold.
+8. **P0** broken_route → Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.
+9. **P0** broken_route → Visitor erreicht keine Kurs-/Produktseite ab Homepage.
+10. **P0** workflow_no_feedback → Pricing-Seite zeigt keinen €/EUR-Preis.
 
 ---
 _Generated by scripts/pre-customer-reality-aggregate.mjs — Pre-Login Funnel Reality, not architecture._
