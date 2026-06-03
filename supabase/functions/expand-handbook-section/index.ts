@@ -5,6 +5,7 @@ import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 import { getModelChain } from "../_shared/model-routing.ts";
 import { resolvePersonaProfile, PERSONA_CONFIGS } from "../_shared/persona-profiles.ts";
 import { HANDBOOK_REQUIREMENTS, verifyContentQuality } from "../_shared/didactic-requirements.ts";
+import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
 
 /**
  * expand-handbook-section — Depth expansion for a single handbook section.
@@ -81,7 +82,7 @@ async function loadSectionExamContext(
       .select("question_text, difficulty")
       .eq("curriculum_id", curriculumId)
       .eq("learning_field_id", learningFieldId)
-      .in("status", ["approved", "tier1_passed"])
+      .in("status", QC_COVERAGE_ELIGIBLE as unknown as string[])
       .order("elite_score", { ascending: false })
       .limit(MAX_CONTEXT_QUESTIONS);
     return (data || []).map((q: any) =>
