@@ -48,9 +48,19 @@ jobs:
           echo "host=$HOST" >> "$GITHUB_OUTPUT"
           echo "routes=$ROUTES" >> "$GITHUB_OUTPUT"
 
+      - name: Ensure Cloudflare WAF allowlist for smoke verifier
+        if: ${{ secrets.CF_API_TOKEN != '' && secrets.CF_ZONE_ID != '' && secrets.EXAMFIT_SMOKE_TOKEN != '' }}
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          EXAMFIT_SMOKE_TOKEN: ${{ secrets.EXAMFIT_SMOKE_TOKEN }}
+        run: node scripts/seo/ensure-cf-waf-allowlist.mjs
+
       - name: Run route-html-verify
         id: smoke
         continue-on-error: true
+        env:
+          EXAMFIT_SMOKE_TOKEN: ${{ secrets.EXAMFIT_SMOKE_TOKEN }}
         run: |
           set +e
           ARGS="--host=${{ steps.cfg.outputs.host }}"

@@ -59,16 +59,19 @@ for (const route of ROUTES) {
   const url = HOST + (route.startsWith("/") ? route : "/" + route);
   let status = 0, html = "", err = null;
   try {
+    const smokeToken = process.env.EXAMFIT_SMOKE_TOKEN || "";
     const r = await fetch(url, {
       headers: {
         // Mozilla/5.0 + Googlebot signature → Cloudflare Bot Fight Mode lässt Verified Googlebot durch
-        // (Reverse-DNS check schlägt fehl für GitHub Actions → ggf. zusätzlich Cloudflare WAF-Allowlist nötig).
+        // (Reverse-DNS check schlägt fehl für GitHub Actions → ergänzend WAF-Allowlist via X-ExamFit-Smoke,
+        // gepflegt durch scripts/seo/ensure-cf-waf-allowlist.mjs).
         "User-Agent":
           "Mozilla/5.0 (compatible; ExamFit-Cutover-Smoke/1.1; +https://berufos.com/bots) Googlebot/2.1",
         Accept:
           "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
         "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
         "Accept-Encoding": "gzip, deflate, br",
+        ...(smokeToken ? { "X-ExamFit-Smoke": smokeToken } : {}),
       },
       redirect: "follow",
     });
