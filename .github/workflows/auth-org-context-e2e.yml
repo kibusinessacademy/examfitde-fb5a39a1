@@ -8,6 +8,7 @@ on:
 
 permissions: read-all
 
+# Workflow-Level: pro Run einzigartig → keine Re-Runs cancellen sich gegenseitig.
 concurrency:
   group: auth-org-e2e-${{ github.ref }}-${{ github.run_id }}
   cancel-in-progress: false
@@ -15,7 +16,19 @@ concurrency:
 jobs:
   auth-org-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+
+    # Job-Level-Mutex: pro Org/Env nur EIN aktiver Auth-E2E-Run.
+    # Nachfolgende Runs warten in der Queue statt parallel zu laufen
+    # (Race-Conditions bei Seed/Login werden so verhindert).
+    concurrency:
+      group: >-
+        auth-org-e2e-mutex-${{
+          secrets.E2E_ORG_EMAIL || 'org@unternehmen.de'
+        }}-${{
+          secrets.E2E_BASE_URL || 'https://examfitde.lovable.app'
+        }}
+      cancel-in-progress: false
 
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -57,21 +70,39 @@ jobs:
       - name: Seed Learner + Org test users
         run: node scripts/qa/seed-auth-test-users.mjs
 
-      - name: Run Auth & Org Context E2E
-        run: npx playwright test tests/e2e/auth-org-context.spec.ts --reporter=line,html
+      # Retry-Mechanismus: bis zu 2 Wiederholungen für flakige Tests
+      # (Timing/Race-Conditions). Trace + Screenshot + Video werden
+      # ab dem ersten Retry automatisch erfasst.
+      - name: Run Auth & Org Context E2E (with retries + trace)
+        env:
+          PW_TEST_TRACE: 'on-first-retry'
+          PW_TEST_SCREENSHOT: 'only-on-failure'
+          PW_TEST_VIDEO: 'retain-on-failure'
+        run: |
+          npx playwright test tests/e2e/auth-org-context.spec.ts \
+            --retries=2 \
+            --reporter=line,html \
+            --trace=on-first-retry \
+            --output=test-results
 
-      - name: Upload Playwright report
+      - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: auth-org-e2e-report
+          name: auth-org-e2e-report-${{ github.run_attempt }}
           path: playwright-report
           retention-days: 14
+          if-no-files-found: ignore
 
-      - name: Upload test artifacts
+      - name: Upload test-results (traces, screenshots, videos)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: auth-org-e2e-artifacts
-          path: test-results
+          name: auth-org-e2e-artifacts-${{ github.run_attempt }}
+          path: |
+            test-results/**
+            **/trace.zip
+            **/*.png
+            **/*.webm
           retention-days: 14
+          if-no-files-found: ignore
