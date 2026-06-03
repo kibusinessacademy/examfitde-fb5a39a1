@@ -1,6 +1,11 @@
 # ExamFit E2E Test Suite
 # Requires: Playwright + @playwright/test
 
+> Zentrales Testing-README: [`docs/testing/README.md`](../../docs/testing/README.md)
+> Feature-Guard-Matrix: [`docs/testing/oral-exam-trainer-elevenlabs-guard.md`](../../docs/testing/oral-exam-trainer-elevenlabs-guard.md)
+> Lokales Setup (Node aus `.nvmrc`, `E2E_TARGET`, Reports) ist im zentralen README dokumentiert.
+
+
 ## Setup
 1. Install: `npm i -D @playwright/test`
 2. Run: `npx playwright test`
