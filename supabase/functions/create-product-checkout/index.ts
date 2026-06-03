@@ -324,6 +324,7 @@ Deno.serve(async (req) => {
         if (gate.has_stripe_price === false) reasons.push("no_stripe_price");
         for (const r of (gate.delivery_blocking_reasons ?? [])) reasons.push(`delivery:${r}`);
 
+        // @allow-status-demote: audit-log payload (target_type/result_status), no course_packages.status mutation
         await adminClient.from("auto_heal_log").insert({
           action_type: "checkout_blocked_not_sellable_and_deliverable",
           target_type: "course_packages",
