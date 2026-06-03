@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Brain, GraduationCap, Loader2, Mic, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
@@ -21,6 +21,14 @@ import { BerufPersonaBranches } from '@/components/landing/beruf/BerufPersonaBra
 import { BerufComparisonBlock } from '@/components/landing/beruf/BerufComparisonBlock';
 import { BerufStickyCta } from '@/components/landing/beruf/BerufStickyCta';
 import { ProductFAQSection } from '@/components/product/ProductFAQSection';
+import publishedBerufeFallback from '@/data/publishedBerufeFallback.json';
+
+const FALLBACK_BERUFE = publishedBerufeFallback as Array<{
+  id: string;
+  title: string;
+  slug: string;
+  kammer: string | null;
+}>;
 
 export default function BerufDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -29,6 +37,9 @@ export default function BerufDetailPage() {
   const [stickyVisible, setStickyVisible] = useState(false);
 
   const course = catalog?.find((c) => c.slug === slug);
+  const fallbackEntry = !course && slug
+    ? FALLBACK_BERUFE.find((b) => b.slug === slug)
+    : undefined;
 
   useEffect(() => {
     if (!slug || !course) return;
@@ -45,6 +56,129 @@ export default function BerufDetailPage() {
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
+
+  // Static SSOT-Fallback render — slug is in the published-berufe SSOT fallback
+  // but DB catalog hasn't hydrated yet (or row missing). Reality-QA: jede
+  // /berufe/:slug-Route, die /berufe verlinkt, MUSS sichtbaren Body (>200 chars)
+  // mit Titel, Preis 24,90 €, CTA, Trust und Cross-Sell rendern.
+  if (!course && fallbackEntry && slug) {
+    const title = fallbackEntry.title;
+    const kammerLabel = fallbackEntry.kammer || 'IHK';
+    return (
+      <>
+        <SEOHead
+          title={`${title} – ${kammerLabel}-Prüfungsvorbereitung | ExamFit`}
+          description={`Bereite dich auf die ${kammerLabel}-Prüfung ${title} vor: Lernkurs, Prüfungstrainer, KI-Tutor und mündliche Simulation – 24,90 € für 12 Monate Zugriff.`}
+          canonical={`${SITE_URL}/berufe/${slug}`}
+        />
+        <main className="min-h-screen bg-background">
+          <div className="container max-w-3xl pt-4">
+            <Breadcrumbs items={[{ label: 'Berufe', href: '/berufe' }, { label: title }]} />
+          </div>
+          <section className="container max-w-3xl py-10 space-y-8" data-testid="beruf-detail-fallback">
+            <header className="space-y-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-primary">
+                {kammerLabel}-Prüfungsvorbereitung
+              </p>
+              <h1 className="text-3xl sm:text-4xl font-display font-bold text-text-primary">
+                {title} – Prüfungstraining
+              </h1>
+              <p className="text-base text-text-secondary max-w-2xl">
+                Lernkurs, Prüfungstrainer, KI-Tutor und mündliche Simulation in einem Paket.
+                Adaptive Schwächenanalyse, prüfungsnahe Aufgaben und sofort startklar — alles
+                speziell für angehende {title}.
+              </p>
+            </header>
+
+            <div className="rounded-2xl border border-border bg-card/60 p-6 sm:p-8 flex flex-col sm:flex-row gap-5 items-start sm:items-center justify-between">
+              <div>
+                <p className="text-4xl sm:text-5xl font-bold text-foreground">24,90 €</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  einmalig · 12 Monate Zugriff · kein Abo
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button asChild size="lg" data-cta-location="beruf_fallback_primary">
+                  <Link to="/auth?intent=checkout&product=bundle">
+                    Prüfungstraining starten <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <Link to={`/pruefungscheck?source=beruf&slug=${encodeURIComponent(slug)}`}>
+                    Kostenlosen Check
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs sm:text-sm">
+              <li className="flex items-center gap-2 rounded-lg border border-border bg-card/40 p-3">
+                <ShieldCheck className="h-4 w-4 text-primary" /> DSGVO-konform
+              </li>
+              <li className="flex items-center gap-2 rounded-lg border border-border bg-card/40 p-3">
+                <BadgeCheck className="h-4 w-4 text-primary" /> Prüfungskonform
+              </li>
+              <li className="flex items-center gap-2 rounded-lg border border-border bg-card/40 p-3">
+                <GraduationCap className="h-4 w-4 text-primary" /> Für Azubis entwickelt
+              </li>
+              <li className="flex items-center gap-2 rounded-lg border border-border bg-card/40 p-3">
+                <ShieldCheck className="h-4 w-4 text-primary" /> 12 Monate Zugriff
+              </li>
+            </ul>
+
+            <section aria-label="Im Paket enthalten" className="space-y-3">
+              <h2 className="text-xl font-display font-semibold">Im Komplettpaket enthalten</h2>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <li className="rounded-lg border border-border bg-card/40 p-4">
+                  <p className="font-semibold flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 text-primary" /> Lernkurs
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Strukturierte Inhalte nach {kammerLabel}-Rahmenplan.
+                  </p>
+                </li>
+                <li className="rounded-lg border border-border bg-card/40 p-4">
+                  <Link to="/exam-trainer" className="font-semibold flex items-center gap-2 hover:text-primary">
+                    <BadgeCheck className="h-4 w-4 text-primary" /> Prüfungssimulation
+                  </Link>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Original-Aufgabenformate mit Bewertung.
+                  </p>
+                </li>
+                <li className="rounded-lg border border-border bg-card/40 p-4">
+                  <Link to="/tutor" className="font-semibold flex items-center gap-2 hover:text-primary">
+                    <Brain className="h-4 w-4 text-primary" /> KI-Tutor
+                  </Link>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Erklärungen mit Quellen – Strict-RAG, keine Halluzinationen.
+                  </p>
+                </li>
+                <li className="rounded-lg border border-border bg-card/40 p-4">
+                  <Link to="/muendliche-pruefung" className="font-semibold flex items-center gap-2 hover:text-primary">
+                    <Mic className="h-4 w-4 text-primary" /> Mündliche Prüfung
+                  </Link>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Realistisches Fachgespräch mit Feedback.
+                  </p>
+                </li>
+              </ul>
+            </section>
+
+            <div className="text-center pt-4">
+              <Button asChild size="lg" className="w-full sm:w-auto">
+                <Link to="/auth?intent=checkout&product=bundle">
+                  Komplettpaket sichern – 24,90 €
+                </Link>
+              </Button>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Brauchst du einen anderen Beruf? <Link to="/berufe" className="underline">Alle Berufe ansehen</Link>
+              </p>
+            </div>
+          </section>
+        </main>
+      </>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -74,6 +208,7 @@ export default function BerufDetailPage() {
       </div>
     );
   }
+
 
   const title = course.berufDisplayName || course.title;
   const kammerLabel = course.kammer || 'IHK';

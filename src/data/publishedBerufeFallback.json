@@ -1,5 +1,29 @@
 [
   {
+    "id": "fb-einzelhandelskaufmann-frau",
+    "title": "Einzelhandelskaufmann/-frau",
+    "slug": "einzelhandelskaufmann-frau",
+    "kammer": "IHK"
+  },
+  {
+    "id": "fb-kaufmann-frau-bueromanagement",
+    "title": "Kaufmann/-frau für Büromanagement",
+    "slug": "kaufmann-frau-bueromanagement",
+    "kammer": "IHK"
+  },
+  {
+    "id": "fb-fachinformatiker-systemintegration",
+    "title": "Fachinformatiker/-in Systemintegration",
+    "slug": "fachinformatiker-systemintegration",
+    "kammer": "IHK"
+  },
+  {
+    "id": "fb-kfz-mechatroniker-in",
+    "title": "Kfz-Mechatroniker/-in",
+    "slug": "kfz-mechatroniker-in",
+    "kammer": "HWK"
+  },
+  {
     "id": "b814ad77-acff-410b-b3f0-2f6748bc82f0",
     "title": "Anlagenmechaniker/-in für Sanitär-, Heizungs- und Klimatechnik",
     "slug": "anlagenmechaniker-in-fuer-sanitaer-heizungs-und-klimatechnik",
