@@ -359,7 +359,7 @@ export default function BulkImportPanel({
                     <CheckCircle2 className="h-5 w-5 text-success" />
                     <span className="text-sm font-medium">Import abgeschlossen</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-4 gap-3">
                     <div className="rounded-lg bg-success-bg-subtle border border-success/20 p-3 text-center">
                       <div className="text-lg font-bold">{result.created}</div>
                       <div className="text-[10px] text-muted-foreground">Erstellt</div>
@@ -368,11 +368,27 @@ export default function BulkImportPanel({
                       <div className="text-lg font-bold">{result.updated}</div>
                       <div className="text-[10px] text-muted-foreground">Aktualisiert</div>
                     </div>
+                    <div className="rounded-lg bg-warning-bg-subtle border border-warning/20 p-3 text-center">
+                      <div className="text-lg font-bold">{result.rejected ?? liveJob.data?.rejected_count ?? 0}</div>
+                      <div className="text-[10px] text-muted-foreground">Verworfen</div>
+                    </div>
                     <div className="rounded-lg bg-destructive-bg-subtle border border-destructive/20 p-3 text-center">
                       <div className="text-lg font-bold">{result.failed}</div>
                       <div className="text-[10px] text-muted-foreground">Fehlgeschlagen</div>
                     </div>
                   </div>
+
+                  {(result.rejected_rows ?? liveJob.data?.rejected_rows ?? []).length > 0 && (
+                    <div className="rounded-lg border p-3 space-y-1 max-h-40 overflow-y-auto">
+                      <div className="text-xs font-medium text-warning">Verworfene Zeilen</div>
+                      {(result.rejected_rows ?? liveJob.data?.rejected_rows ?? []).slice(0, 50).map((r, i) => (
+                        <div key={i} className="text-[11px] text-muted-foreground">
+                          Zeile {r.row}
+                          {r.email ? ` (${r.email})` : ''}: {r.reasons.map(x => `${x.field}=${x.reason}`).join(', ')}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {result.errors.length > 0 && (
                     <div className="rounded-lg border p-3 space-y-1 max-h-40 overflow-y-auto">
@@ -384,6 +400,7 @@ export default function BulkImportPanel({
                       ))}
                     </div>
                   )}
+
                 </CardContent>
               </Card>
 
