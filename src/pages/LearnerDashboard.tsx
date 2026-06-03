@@ -79,6 +79,22 @@ export default function LearnerDashboard() {
     );
   }
 
+  // Reality-QA: Bestimme ALWAYS-VISIBLE primary Next-Step CTA.
+  // J04 verlangt sichtbaren Button/Link mit /starten|weiter|lerneinheit|fortsetzen|challenge/i.
+  const firstEnrollment = enrollments[0];
+  const primaryNextStep = (() => {
+    if (firstEnrollment?.course_id) {
+      return {
+        label: 'Training fortsetzen',
+        to: `/course/${firstEnrollment.course_id}`,
+      };
+    }
+    if (activeCurriculumId) {
+      return { label: 'Nächste Lerneinheit starten', to: '/courses' };
+    }
+    return { label: 'Beruf wählen & starten', to: '/berufe' };
+  })();
+
   return (
     <div className="py-4 sm:py-8 px-3 sm:px-4">
       <div className="container mx-auto max-w-3xl">
@@ -99,6 +115,35 @@ export default function LearnerDashboard() {
             </Link>
           )}
         </div>
+
+        {/* ━━━ Reality-QA: ALWAYS-VISIBLE primary Next-Step CTA ━━━
+            Eliminiert P0 'no next-step CTA on /dashboard' und ist immer sichtbar,
+            unabhängig vom Datenstand. Dient gleichzeitig als Continue-Card nach Re-Login. */}
+        <div className="mb-4" data-testid="dashboard-next-step">
+          <Card className="glass-card border-primary/30">
+            <CardContent className="p-4 flex items-center gap-3 justify-between">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Dein nächster Schritt
+                </p>
+                <p className="text-sm sm:text-base font-semibold truncate">
+                  {firstEnrollment?.title
+                    ? `Weiter mit: ${firstEnrollment.title}`
+                    : activeCurriculumId
+                    ? 'Empfohlene Lerneinheit für heute'
+                    : 'Lege deinen Prüfungsberuf fest, um zu starten.'}
+                </p>
+              </div>
+              <Button asChild size="sm" className="shrink-0">
+                <Link to={primaryNextStep.to} data-cta-location="dashboard_next_step">
+                  {primaryNextStep.label}
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
 
         {/* ━━━ HERO: Re-Entry + Intelligence (Above the Fold) ━━━ */}
         {activeCurriculumId && (

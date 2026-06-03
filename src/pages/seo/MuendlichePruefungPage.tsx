@@ -46,9 +46,38 @@ export default function MuendlichePruefungPage() {
       />
 
       <div className="min-h-screen">
+        {/* Reality-QA Static Anchor — sichtbarer Body + CTA garantiert beim
+            ersten Paint, unabhängig von Lazy-Chunks. Eliminiert "white_screen"-
+            Finding auf /muendliche-pruefung (J09). */}
+        <section
+          aria-label="Mündliche Prüfung – Einstieg"
+          className="container max-w-4xl pt-8 pb-2"
+          data-testid="oral-static-anchor"
+        >
+          <div className="rounded-2xl border border-border bg-card/50 p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                Mündliche Prüfung &amp; Fachgespräch
+              </p>
+              <p className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
+                Trainiere dein Fachgespräch mit der KI-Simulation.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Frage, Antwort, Feedback – wie in der echten Prüfung. Sofort startklar.
+              </p>
+            </div>
+            <Button size="lg" className="shrink-0" asChild>
+              <Link to="/oral-exam" data-cta-location="oral_static_anchor">
+                Jetzt Simulation starten <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </section>
+
         {/* Hero */}
         <section className="relative py-16 md:py-24 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-accent/5" />
+
           <div className="container relative z-10">
             <Breadcrumbs items={[
               { label: 'Prüfungstraining', href: '/pruefungstraining' },
