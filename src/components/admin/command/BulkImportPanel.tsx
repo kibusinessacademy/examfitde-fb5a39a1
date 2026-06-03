@@ -14,8 +14,10 @@ import {
   useValidateBulkImport,
   useDryRunBulkImport,
   useExecuteBulkImport,
+  useBulkImportJob,
 } from '@/hooks/useBulkImport';
 import type { ValidationResult, DryRunResult, ExecutionResult } from '@/types/enterprise';
+
 import { toast } from 'sonner';
 
 type Step = 'upload' | 'validating' | 'validated' | 'dry_run' | 'executing' | 'done';
@@ -40,6 +42,9 @@ export default function BulkImportPanel({
   const validate = useValidateBulkImport();
   const dryRunMut = useDryRunBulkImport();
   const execute = useExecuteBulkImport();
+  // Live progress for rejected_count / rejected_rows (and created/updated/failed).
+  const liveJob = useBulkImportJob(jobId);
+
 
   const parseCSV = useCallback((text: string): Record<string, string>[] => {
     const lines = text.split('\n').filter(l => l.trim());
@@ -97,12 +102,18 @@ export default function BulkImportPanel({
       const res = await execute.mutateAsync(jobId);
       setResult(res);
       setStep('done');
-      toast.success(`Import abgeschlossen: ${res.created} erstellt, ${res.updated} aktualisiert`);
+      const rejected = res.rejected ?? 0;
+      toast.success(
+        `Import abgeschlossen: ${res.created} erstellt, ${res.updated} aktualisiert` +
+          (rejected > 0 ? `, ${rejected} verworfen` : '') +
+          (res.failed > 0 ? `, ${res.failed} fehlgeschlagen` : '')
+      );
     } catch (err: any) {
       toast.error(err.message || 'Import fehlgeschlagen');
       setStep('dry_run');
     }
   }, [jobId, execute]);
+
 
   const reset = useCallback(() => {
     setStep('upload');
@@ -311,12 +322,33 @@ export default function BulkImportPanel({
           {/* Step: Executing */}
           {step === 'executing' && (
             <Card className="rounded-xl">
-              <CardContent className="p-6 text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
+              <CardContent className="p-6 text-center space-y-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
                 <p className="text-sm font-medium">Import wird durchgeführt...</p>
+                {liveJob.data && (
+                  <div className="grid grid-cols-4 gap-2 text-[11px]">
+                    <div className="rounded-lg bg-success-bg-subtle border border-success/20 p-2">
+                      <div className="text-base font-bold">{liveJob.data.created_count}</div>
+                      <div className="text-muted-foreground">Erstellt</div>
+                    </div>
+                    <div className="rounded-lg bg-primary/5 border border-primary/20 p-2">
+                      <div className="text-base font-bold">{liveJob.data.updated_count}</div>
+                      <div className="text-muted-foreground">Update</div>
+                    </div>
+                    <div className="rounded-lg bg-warning-bg-subtle border border-warning/20 p-2">
+                      <div className="text-base font-bold">{liveJob.data.rejected_count ?? 0}</div>
+                      <div className="text-muted-foreground">Verworfen</div>
+                    </div>
+                    <div className="rounded-lg bg-destructive-bg-subtle border border-destructive/20 p-2">
+                      <div className="text-base font-bold">{liveJob.data.failed_count}</div>
+                      <div className="text-muted-foreground">Fehler</div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
+
 
           {/* Step: Done */}
           {step === 'done' && result && (
@@ -327,7 +359,7 @@ export default function BulkImportPanel({
                     <CheckCircle2 className="h-5 w-5 text-success" />
                     <span className="text-sm font-medium">Import abgeschlossen</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-4 gap-3">
                     <div className="rounded-lg bg-success-bg-subtle border border-success/20 p-3 text-center">
                       <div className="text-lg font-bold">{result.created}</div>
                       <div className="text-[10px] text-muted-foreground">Erstellt</div>
@@ -336,11 +368,27 @@ export default function BulkImportPanel({
                       <div className="text-lg font-bold">{result.updated}</div>
                       <div className="text-[10px] text-muted-foreground">Aktualisiert</div>
                     </div>
+                    <div className="rounded-lg bg-warning-bg-subtle border border-warning/20 p-3 text-center">
+                      <div className="text-lg font-bold">{result.rejected ?? liveJob.data?.rejected_count ?? 0}</div>
+                      <div className="text-[10px] text-muted-foreground">Verworfen</div>
+                    </div>
                     <div className="rounded-lg bg-destructive-bg-subtle border border-destructive/20 p-3 text-center">
                       <div className="text-lg font-bold">{result.failed}</div>
                       <div className="text-[10px] text-muted-foreground">Fehlgeschlagen</div>
                     </div>
                   </div>
+
+                  {(result.rejected_rows ?? liveJob.data?.rejected_rows ?? []).length > 0 && (
+                    <div className="rounded-lg border p-3 space-y-1 max-h-40 overflow-y-auto">
+                      <div className="text-xs font-medium text-warning">Verworfene Zeilen</div>
+                      {(result.rejected_rows ?? liveJob.data?.rejected_rows ?? []).slice(0, 50).map((r, i) => (
+                        <div key={i} className="text-[11px] text-muted-foreground">
+                          Zeile {r.row}
+                          {r.email ? ` (${r.email})` : ''}: {r.reasons.map(x => `${x.field}=${x.reason}`).join(', ')}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {result.errors.length > 0 && (
                     <div className="rounded-lg border p-3 space-y-1 max-h-40 overflow-y-auto">
@@ -352,6 +400,7 @@ export default function BulkImportPanel({
                       ))}
                     </div>
                   )}
+
                 </CardContent>
               </Card>
 
