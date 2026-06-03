@@ -8,8 +8,8 @@ import {
 import { BERUFOS } from "@/lib/berufos/brand";
 
 describe("BerufOS Module Registry", () => {
-  it("hat genau 10 Module", () => {
-    expect(BERUFOS_MODULES).toHaveLength(10);
+  it("hat genau 11 Module (inkl. VoiceOS, M1-Erweiterung 2026-05-25)", () => {
+    expect(BERUFOS_MODULES).toHaveLength(11);
   });
 
   it("alle Slugs sind unique und URL-safe", () => {
