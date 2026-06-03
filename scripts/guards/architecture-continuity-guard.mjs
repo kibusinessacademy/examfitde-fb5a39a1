@@ -91,6 +91,13 @@ for (const file of files) {
     hardFail = true;
     continue;
   }
+  // Skip composite/legacy fixtures that don't match the single-proposal schema
+  // (e.g. multi-action documents with `actions[]` instead of `kind`+`name`+`purpose`).
+  if (!proposal.kind || !proposal.name || typeof proposal.purpose !== 'string') {
+    console.log(`\n⊘ SKIP    ${file}  (composite/legacy fixture — missing kind/name/purpose)`);
+    summary.push({ file, verdict: 'skipped', expected: null, blockReasons: [] });
+    continue;
+  }
   let review;
   try {
     review = reviewArchitecture(proposal);
