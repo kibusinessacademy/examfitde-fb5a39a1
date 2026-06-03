@@ -91,7 +91,16 @@ for (const file of files) {
     hardFail = true;
     continue;
   }
-  const review = reviewArchitecture(proposal);
+  let review;
+  try {
+    review = reviewArchitecture(proposal);
+  } catch (e) {
+    console.error(`\n❌ CRASH  ${file}`);
+    console.error(`  reviewArchitecture threw: ${e?.message ?? e}`);
+    hardFail = true;
+    summary.push({ file, verdict: 'crash', expected: null, blockReasons: [String(e?.message ?? e)] });
+    continue;
+  }
   const expected = expectedVerdictFromFilename(file);
 
   // Hard finding ohne Reuse-Strategie? Nur prüfen wenn Fixture NICHT als blocked erwartet ist
