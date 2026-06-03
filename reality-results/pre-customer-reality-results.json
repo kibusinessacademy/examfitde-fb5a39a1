@@ -1,10 +1,10 @@
 {
-  "ts": "2026-06-03T13:54:04.638Z",
+  "ts": "2026-06-03T13:56:27.512Z",
   "base_url": "https://examfitde.lovable.app",
   "status": "BLOCK",
-  "score": 7,
+  "score": 12,
   "max_score": 130,
-  "time_to_course_ms": 1570,
+  "time_to_course_ms": 1153,
   "time_to_course_ok": true,
   "time_to_course_target_ms": 60000,
   "journeys": {
@@ -17,9 +17,9 @@
     "P07_cross_sell": "fail",
     "P08_berufos_hub": "fail",
     "P09_trust_signals": "fail",
-    "P10_mobile_funnel": "missing",
+    "P10_mobile_funnel": "fail",
     "P11_seo_surface": "pass",
-    "P12_legal_trust": "fail"
+    "P12_legal_trust": "pass"
   },
   "weights": {
     "P01_homepage": 10,
@@ -36,8 +36,8 @@
     "P12_legal_trust": 5
   },
   "metrics": {
-    "time_to_course_ms": 1570,
-    "_ts": "2026-06-03T13:48:45.385Z",
+    "time_to_course_ms": 1153,
+    "_ts": "2026-06-03T13:55:12.741Z",
     "time_to_course_url": "NONE"
   },
   "findings": {
@@ -227,6 +227,137 @@
         "detail": "Cold-load body too short (76 chars).",
         "fix": "SSR / static fallback für Route sicherstellen.",
         "ts": "2026-06-03T13:53:41.840Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "dead_cta",
+        "journey": "A",
+        "route": "/",
+        "detail": "Kein primärer CTA above the fold.",
+        "fix": "Hero-CTA sichtbar machen, Cookie-Banner darf CTA nicht verdecken.",
+        "ts": "2026-06-03T13:55:05.502Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe",
+        "detail": "Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.",
+        "fix": "Berufs-Liste hydratisieren / SSR-Fallback prüfen.",
+        "ts": "2026-06-03T13:55:08.633Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "detail": "Visitor erreicht keine Kurs-/Produktseite ab Homepage.",
+        "fix": "Berufe-Hub muss klickbare Karten mit echten Detail-Routen liefern.",
+        "ts": "2026-06-03T13:55:12.742Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "workflow_no_feedback",
+        "journey": "A",
+        "route": "/preise",
+        "detail": "Pricing-Seite zeigt keinen €/EUR-Preis.",
+        "fix": "Pricing-SSOT auf /preise rendern (statt nur auf Produktseiten).",
+        "ts": "2026-06-03T13:55:16.647Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "dead_cta",
+        "journey": "A",
+        "detail": "Konnte keine Kursseite öffnen für CTA-Test.",
+        "fix": "Erst P03 (Discovery) fixen.",
+        "ts": "2026-06-03T13:55:20.479Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "checkout_unreachable",
+        "journey": "A",
+        "detail": "Konnte keine Kursseite öffnen — Checkout-Surface untestbar.",
+        "fix": "P03 fixen.",
+        "ts": "2026-06-03T13:55:24.992Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "detail": "Mobile-Discovery erreicht keine Kursseite ab Homepage.",
+        "fix": "Berufe-Hub-Karten müssen auf 390px tappable sein (min 44px Höhe).",
+        "ts": "2026-06-03T13:55:41.982Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe",
+        "detail": "Cold-load body too short (0 chars).",
+        "fix": "SSR / static fallback für Route sicherstellen.",
+        "ts": "2026-06-03T13:55:48.678Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe/einzelhandelskaufmann-frau",
+        "detail": "Cold-load body too short (0 chars).",
+        "fix": "SSR / static fallback für Route sicherstellen.",
+        "ts": "2026-06-03T13:55:51.499Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe/kaufmann-frau-bueromanagement",
+        "detail": "Cold-load body too short (0 chars).",
+        "fix": "SSR / static fallback für Route sicherstellen.",
+        "ts": "2026-06-03T13:55:53.989Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe/fachinformatiker-systemintegration",
+        "detail": "Cold-load body too short (0 chars).",
+        "fix": "SSR / static fallback für Route sicherstellen.",
+        "ts": "2026-06-03T13:55:56.515Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe/kfz-mechatroniker-in",
+        "detail": "Cold-load body too short (0 chars).",
+        "fix": "SSR / static fallback für Route sicherstellen.",
+        "ts": "2026-06-03T13:55:59.025Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe/bankkaufmann-frau",
+        "detail": "Cold-load body too short (0 chars).",
+        "fix": "SSR / static fallback für Route sicherstellen.",
+        "ts": "2026-06-03T13:56:01.675Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe/fachkraft-fuer-lagerlogistik",
+        "detail": "Cold-load body too short (0 chars).",
+        "fix": "SSR / static fallback für Route sicherstellen.",
+        "ts": "2026-06-03T13:56:03.976Z"
+      },
+      {
+        "severity": "P0",
+        "kind": "broken_route",
+        "journey": "A",
+        "route": "/berufe/chemielaborant-in",
+        "detail": "Cold-load body too short (0 chars).",
+        "fix": "SSR / static fallback für Route sicherstellen.",
+        "ts": "2026-06-03T13:56:06.331Z"
       }
     ],
     "p1": [
@@ -316,6 +447,30 @@
         "detail": "AGB-Link fehlt auf Homepage / im Footer.",
         "fix": "Footer-Block mit AGB-Link ergänzen (DE-Recht / Stripe-Requirement).",
         "ts": "2026-06-03T13:53:20.030Z"
+      },
+      {
+        "severity": "P1",
+        "kind": "workflow_no_feedback",
+        "journey": "A",
+        "detail": "Keine Kursseite erreichbar — Cross-Sell untestbar.",
+        "ts": "2026-06-03T13:55:29.470Z"
+      },
+      {
+        "severity": "P1",
+        "kind": "broken_route",
+        "journey": "A",
+        "detail": "Kein BerufOS-/Komplettpaket-Hub erreichbar (/berufos, /komplettpaket, /produkte).",
+        "fix": "Mindestens eine Hub-Route mit Produkt-Erklärung publishen.",
+        "ts": "2026-06-03T13:55:34.073Z"
+      },
+      {
+        "severity": "P1",
+        "kind": "workflow_no_feedback",
+        "journey": "A",
+        "route": "/",
+        "detail": "Homepage zeigt keinerlei Trust-Signale (Reviews, DSGVO, Garantie, Nutzerzahlen).",
+        "fix": "Trust-Strip / Testimonial-Block / Sicherheits-Badges in Hero oder direkt darunter platzieren.",
+        "ts": "2026-06-03T13:55:37.361Z"
       }
     ],
     "p2": [
@@ -363,13 +518,22 @@
         "detail": "OG-Tags unvollständig (og:title=1, og:image=0).",
         "fix": "OG-Tags für Social-Preview rendern.",
         "ts": "2026-06-03T13:51:18.695Z"
+      },
+      {
+        "severity": "P2",
+        "kind": "workflow_no_feedback",
+        "journey": "A",
+        "route": "/berufe",
+        "detail": "Keine Suche und wenige Berufe — Discovery-Friction.",
+        "fix": "Such-/Filterleiste hinzufügen.",
+        "ts": "2026-06-03T13:55:08.658Z"
       }
     ]
   },
   "counts": {
-    "p0": 21,
-    "p1": 10,
-    "p2": 5,
-    "findings": 36
+    "p0": 36,
+    "p1": 13,
+    "p2": 6,
+    "findings": 55
   }
 }
