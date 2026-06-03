@@ -105,6 +105,10 @@ export function useExecuteBulkImport() {
       if (error) throw error;
       return data as unknown as ExecutionResult;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['bulk-import-jobs'] }),
+    onSuccess: (_data, jobId) => {
+      qc.invalidateQueries({ queryKey: ['bulk-import-jobs'] });
+      qc.invalidateQueries({ queryKey: ['bulk-import-job', jobId] });
+    },
   });
 }
+
