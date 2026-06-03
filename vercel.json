@@ -76,7 +76,8 @@
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/assets/:path*", "destination": "/assets/:path*" },
-    { "source": "/sitemaps/:path*", "destination": "/sitemaps/:path*" },
+    { "source": "/sitemap.xml", "destination": "https://ubdvvvsiryenhrfmqsvw.supabase.co/functions/v1/generate-sitemap" },
+    { "source": "/sitemaps/:shard.xml", "destination": "https://ubdvvvsiryenhrfmqsvw.supabase.co/functions/v1/generate-sitemap?type=:shard" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
