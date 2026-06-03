@@ -17,7 +17,17 @@
     "HEALABILITY_IS_REQUIRED",
     "GOVERNANCE_BEFORE_AUTOMATION"
   ],
+  "rlsStatus": "on",
+  "hasAuditContract": true,
   "bridge_strategy": "Ledger ist KEINE zweite Audit-Struktur — Audit-SSOT bleibt fn_emit_audit + auto_heal_log. Ledger speichert ausschließlich Drift-State (status, allowed_actions, idempotency_key). Schreibwege ausschließlich SECURITY DEFINER RPCs.",
+  "reuse_strategy": "Erweitert bestehende Audit-/Heal-Infrastruktur (auto_heal_log + ops_audit_contract) um persistenten Idempotency-Ledger. Keine Parallelschreibpfade — alle Mutationen via fn_emit_audit + SECURITY DEFINER RPC.",
+  "healability": {
+    "replayable": true,
+    "recoverable": true,
+    "auditable": true,
+    "observable": true,
+    "drift_detectable": true
+  },
   "healing_context": {
     "replayable": true,
     "recoverable": true,

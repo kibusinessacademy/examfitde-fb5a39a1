@@ -108,6 +108,10 @@ jobs:
       - run: |
           set -e
           echo "## 🛡️ SSOT Guards" >> $GITHUB_STEP_SUMMARY
+          # Some guards require arguments. Map guard → args here.
+          declare -A GUARD_ARGS=(
+            ["scripts/guards/architecture-continuity-guard.mjs"]="--dir docs/examples/architecture-proposals"
+          )
           for guard in \
             scripts/guards/architecture-continuity-guard.mjs \
             scripts/guards/audit-write-contract-guard.mjs \
@@ -115,8 +119,9 @@ jobs:
             scripts/guards/strict-event-package-id-guard.mjs \
             scripts/guards/status-revert-guard.mjs ; do
             if [ -f "$guard" ]; then
-              echo "→ $guard"
-              node "$guard" || { echo "::error::Guard failed: $guard"; exit 1; }
+              args="${GUARD_ARGS[$guard]:-}"
+              echo "→ $guard $args"
+              node "$guard" $args || { echo "::error::Guard failed: $guard"; exit 1; }
               echo "- ✅ $(basename $guard)" >> $GITHUB_STEP_SUMMARY
             fi
           done
