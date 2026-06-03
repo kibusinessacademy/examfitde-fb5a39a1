@@ -102,12 +102,18 @@ export default function BulkImportPanel({
       const res = await execute.mutateAsync(jobId);
       setResult(res);
       setStep('done');
-      toast.success(`Import abgeschlossen: ${res.created} erstellt, ${res.updated} aktualisiert`);
+      const rejected = res.rejected ?? 0;
+      toast.success(
+        `Import abgeschlossen: ${res.created} erstellt, ${res.updated} aktualisiert` +
+          (rejected > 0 ? `, ${rejected} verworfen` : '') +
+          (res.failed > 0 ? `, ${res.failed} fehlgeschlagen` : '')
+      );
     } catch (err: any) {
       toast.error(err.message || 'Import fehlgeschlagen');
       setStep('dry_run');
     }
   }, [jobId, execute]);
+
 
   const reset = useCallback(() => {
     setStep('upload');
