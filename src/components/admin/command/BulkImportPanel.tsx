@@ -322,12 +322,33 @@ export default function BulkImportPanel({
           {/* Step: Executing */}
           {step === 'executing' && (
             <Card className="rounded-xl">
-              <CardContent className="p-6 text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
+              <CardContent className="p-6 text-center space-y-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
                 <p className="text-sm font-medium">Import wird durchgeführt...</p>
+                {liveJob.data && (
+                  <div className="grid grid-cols-4 gap-2 text-[11px]">
+                    <div className="rounded-lg bg-success-bg-subtle border border-success/20 p-2">
+                      <div className="text-base font-bold">{liveJob.data.created_count}</div>
+                      <div className="text-muted-foreground">Erstellt</div>
+                    </div>
+                    <div className="rounded-lg bg-primary/5 border border-primary/20 p-2">
+                      <div className="text-base font-bold">{liveJob.data.updated_count}</div>
+                      <div className="text-muted-foreground">Update</div>
+                    </div>
+                    <div className="rounded-lg bg-warning-bg-subtle border border-warning/20 p-2">
+                      <div className="text-base font-bold">{liveJob.data.rejected_count ?? 0}</div>
+                      <div className="text-muted-foreground">Verworfen</div>
+                    </div>
+                    <div className="rounded-lg bg-destructive-bg-subtle border border-destructive/20 p-2">
+                      <div className="text-base font-bold">{liveJob.data.failed_count}</div>
+                      <div className="text-muted-foreground">Fehler</div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
+
 
           {/* Step: Done */}
           {step === 'done' && result && (
