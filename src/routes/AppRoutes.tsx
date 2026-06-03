@@ -719,6 +719,11 @@ const AppRoutes = () => {
             
             
             <Route path="/oral-exam" element={<OralExamTrainer />} />
+            <Route path="/oral" element={<Navigate to="/oral-exam" replace />} />
+            <Route path="/muendlich" element={<Navigate to="/muendliche-pruefung" replace />} />
+            {/* Reality-QA: stable /tutor + /ai-tutor entry surfaces */}
+            <Route path="/tutor" element={<TutorEntryPage />} />
+            <Route path="/ai-tutor" element={<Navigate to="/tutor" replace />} />
             <Route path="/exam-simulation" element={<ExamSimulation />} />
             <Route path="/exam-simulation/:sessionId" element={<ExamSimulation />} />
             <Route path="/exam-results/:sessionId" element={<ExamResultsPage />} />
