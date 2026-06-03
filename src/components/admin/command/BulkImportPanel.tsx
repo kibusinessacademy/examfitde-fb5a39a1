@@ -42,6 +42,9 @@ export default function BulkImportPanel({
   const validate = useValidateBulkImport();
   const dryRunMut = useDryRunBulkImport();
   const execute = useExecuteBulkImport();
+  // Live progress for rejected_count / rejected_rows (and created/updated/failed).
+  const liveJob = useBulkImportJob(jobId);
+
 
   const parseCSV = useCallback((text: string): Record<string, string>[] => {
     const lines = text.split('\n').filter(l => l.trim());
