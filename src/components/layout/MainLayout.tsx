@@ -82,9 +82,9 @@ export default function MainLayout() {
                     </span>
                   </Button>
                 </Link>
-                <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" size="sm" onClick={handleSignOut} data-testid="header-logout" aria-label="Abmelden" className="text-muted-foreground hover:text-foreground">
                   <LogOut className="h-4 w-4" />
-                  <span className="hidden lg:inline ml-2">Abmelden</span>
+                  <span className="ml-2">Abmelden</span>
                 </Button>
               </>
             ) : (
@@ -96,9 +96,21 @@ export default function MainLayout() {
             )}
           </div>
 
-          {/* Mobile: Theme Toggle + Menu */}
+          {/* Mobile: Theme Toggle + (Logout if user) + Menu */}
           <div className="flex md:hidden items-center gap-2">
             <ThemeToggle />
+            {!loading && user && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                aria-label="Abmelden"
+                data-testid="header-logout"
+                className="text-muted-foreground hover:text-foreground px-2"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            )}
             <button
               className="p-2"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -107,6 +119,7 @@ export default function MainLayout() {
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
+
         </div>
 
         {/* Mobile Menu */}
