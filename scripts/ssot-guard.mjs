@@ -48,12 +48,17 @@ function collectKnownRpcs() {
   return rpcs;
 }
 
-// Known internal/system RPCs that don't need migration matches
+// Known internal/system RPCs that don't need migration matches.
+// These exist in the DB but are defined in ways the simple CREATE FUNCTION
+// regex above misses (DO blocks, schema-qualified DDL, etc.).
 const SYSTEM_RPCS = new Set([
   "check_schema_drift",
   "sync_schema_contracts",
   "get_current_rpc_version",
   "resolve_current_rpc",
+  // verified present in pg_proc 2026-06-03:
+  "admin_get_deferred_jobs_clusters",
+  "admin_get_track_m8_status",
 ]);
 
 const knownRpcs = collectKnownRpcs();
