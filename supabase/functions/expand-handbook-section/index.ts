@@ -5,6 +5,7 @@ import { shouldSoftStop, getTimeBudget } from "../_shared/time-budget.ts";
 import { getModelChain } from "../_shared/model-routing.ts";
 import { resolvePersonaProfile, PERSONA_CONFIGS } from "../_shared/persona-profiles.ts";
 import { HANDBOOK_REQUIREMENTS, verifyContentQuality } from "../_shared/didactic-requirements.ts";
+import { QC_COVERAGE_ELIGIBLE } from "../_shared/qc-status.ts";
 
 /**
  * expand-handbook-section — Depth expansion for a single handbook section.
