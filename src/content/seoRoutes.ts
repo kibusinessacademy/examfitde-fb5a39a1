@@ -340,14 +340,15 @@ const live: SeoRoute[] = [
     path: "/preise",
     title: "Preise – ExamFit Tarife im Überblick",
     description:
-      "Transparente Preise: kostenloser Selbsttest, Einzeltarife ab 19 €/Monat, Betriebs-Bundles pro Sitz, Bildungsträger-Konditionen auf Anfrage.",
+      "Transparente Preise: kostenloser Selbsttest, B2C Komplettpaket 24,90 € einmalig pro Prüfung, Betriebs-Bundles pro Sitz, Bildungsträger-Konditionen auf Anfrage.",
     h1: "ExamFit-Preise",
     intro:
-      "ExamFit bietet drei Tarif-Segmente: (1) Privat für einzelne Auszubildende und Fortbildungsteilnehmer ab 19 € pro Monat oder als Einmalkauf je Prüfung mit zwölf Monaten Laufzeit, (2) Betriebs-Bundles pro Sitz für Ausbildungsbetriebe inklusive Lernfortschritts-Reporting auf Handlungsfeld-Ebene, (3) Institutions-Konditionen mit individueller Abstimmung für Berufsschulen, Bildungsträger und Kammern. Alle Preise verstehen sich zzgl. Umsatzsteuer (sofern umsatzsteuerlich anwendbar), Rechnungen werden automatisch erzeugt und per E-Mail zugestellt. Der Selbsttest und der Basis-Lernplan sind dauerhaft kostenlos und ohne Zahlungsdaten nutzbar; ein Upgrade auf den Vollzugriff ist jederzeit möglich und monatliche Tarife sind zum Monatsende kündbar.",
+      "ExamFit bietet drei Tarif-Segmente: (1) Privat – das B2C-Komplettpaket für eine Prüfung kostet einmalig 24,90 € (12 Monate Vollzugriff, kein Abo, monatliche Lerntarife ab 19 €/Monat alternativ verfügbar), (2) Betriebs-Bundles pro Sitz für Ausbildungsbetriebe inklusive Lernfortschritts-Reporting auf Handlungsfeld-Ebene, (3) Institutions-Konditionen mit individueller Abstimmung für Berufsschulen, Bildungsträger und Kammern. Alle Preise verstehen sich zzgl. Umsatzsteuer (sofern umsatzsteuerlich anwendbar), Rechnungen werden automatisch erzeugt und per E-Mail zugestellt. Der Selbsttest und der Basis-Lernplan sind dauerhaft kostenlos und ohne Zahlungsdaten nutzbar; ein Upgrade auf den Vollzugriff ist jederzeit möglich.",
+    contentHtml: `<p><strong>B2C Komplettpaket: 24,90 € einmalig</strong> – 12 Monate Vollzugriff auf eine Prüfung. <a href="/berufe">Jetzt Beruf wählen & kaufen</a>.</p>`,
     keyFacts: [
       { label: "Free", value: "Selbsttest + Basis-Lernplan – dauerhaft kostenlos" },
-      { label: "Privat", value: "Ab 19 € / Monat, monatlich kündbar" },
-      { label: "Einmalkauf", value: "Pro Prüfung, gültig 12 Monate" },
+      { label: "Komplettpaket B2C", value: "24,90 € einmalig pro Prüfung, 12 Monate" },
+      { label: "Privat (Abo)", value: "Ab 19 € / Monat, monatlich kündbar" },
       { label: "Betriebe", value: "Pro Sitz, ab 5 Sitzen, mit Reporting" },
       { label: "Institutionen", value: "Konditionen auf Anfrage" },
       { label: "Zahlung", value: "SEPA, Kreditkarte, Rechnung" },
