@@ -59,7 +59,9 @@ export interface ExecutionResult {
   created: number;
   updated: number;
   failed: number;
-  errors: { email: string; error: string }[];
+  rejected?: number;
+  errors: { row?: number; email: string; error: string; sqlstate?: string }[];
+  rejected_rows?: RejectedRow[];
 }
 
 export interface LtiRegistration {
