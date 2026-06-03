@@ -11,11 +11,20 @@ export interface BulkImportJob {
   created_count: number;
   updated_count: number;
   failed_count: number;
+  rejected_count: number;
+  rejected_rows: RejectedRow[];
   validation_result: ValidationResult | null;
   dry_run_result: DryRunResult | null;
   execution_result: ExecutionResult | null;
   created_at: string;
   completed_at: string | null;
+}
+
+export interface RejectedRow {
+  row: number;
+  email?: string | null;
+  external_id?: string | null;
+  reasons: { field: string; reason: string }[];
 }
 
 export interface ValidationResult {
