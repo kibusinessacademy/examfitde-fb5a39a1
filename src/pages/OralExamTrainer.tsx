@@ -117,7 +117,7 @@ export default function OralExamTrainer() {
 
   // Oral Voice Activation v1 (browser-native) — Web Speech API only.
   // Persona-Wirkung läuft über Frage-/Followup-Logik (oral-exam Engine),
-  // NICHT über externe Voice-Provider. Kein ElevenLabs, kein neuer Provider.
+  // NICHT über externe Voice-Provider. Kein externer TTS/STT-Provider.
 
   // Keep ref in sync with state to avoid stale closures in callbacks
   useEffect(() => {

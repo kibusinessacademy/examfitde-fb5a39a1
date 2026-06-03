@@ -8,8 +8,8 @@ import {
 import { BERUFOS } from "@/lib/berufos/brand";
 
 describe("BerufOS Module Registry", () => {
-  it("hat genau 10 Module", () => {
-    expect(BERUFOS_MODULES).toHaveLength(10);
+  it("hat genau 11 Module (inkl. VoiceOS, M1-Erweiterung 2026-05-25)", () => {
+    expect(BERUFOS_MODULES).toHaveLength(11);
   });
 
   it("alle Slugs sind unique und URL-safe", () => {
@@ -69,7 +69,7 @@ describe("BerufOS Module Registry", () => {
   });
 
   it("Persona null gibt alle Module zurück", () => {
-    expect(modulesForPersona(null)).toHaveLength(10);
+    expect(modulesForPersona(null)).toHaveLength(11);
   });
 
   it("Brand-SSOT exportiert Masterbrand-Konstanten", () => {
