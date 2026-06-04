@@ -165,20 +165,32 @@ async function viaDeployHook() {
 }
 
 // Preferred order: Deploy Hook (zero-auth) → GitHub dispatch → Vercel API
-const okC = await viaDeployHook();
-if (okC) process.exit(0);
-const okA = await viaGitHubDispatch();
-if (okA) {
+validateCredentials();
+
+let triggered = false;
+if (await viaDeployHook()) triggered = true;
+else if (await viaGitHubDispatch()) {
   console.log("✓ GitHub repository_dispatch gesendet — Vercel deployt automatisch.");
+  triggered = true;
+} else if (await viaVercelApi()) triggered = true;
+
+if (!triggered) {
+  console.error("✗ Alle konfigurierten Pfade fehlgeschlagen — siehe Logs oben.");
+  process.exit(3);
+}
+
+if (SKIP_VERIFY) {
+  console.log("⏭  --skip-verify gesetzt — Post-Deploy-Check übersprungen.");
   process.exit(0);
 }
-const okB = await viaVercelApi();
-if (okB) process.exit(0);
 
-console.error(`
-✗ Keine Credentials gefunden.
-  Pfad C (empfohlen): VERCEL_DEPLOY_HOOK_URL als Secret setzen.
-  Pfad A (Fallback):  gh CLI authentifizieren ODER GITHUB_TOKEN + GITHUB_REPOSITORY setzen.
-  Pfad B (Fallback):  VERCEL_TOKEN + VERCEL_PROJECT_ID setzen.
-`);
-process.exit(2);
+console.log(`\n⏳ Warte ${VERIFY_WAIT_S}s bis Vercel-Build live ist…`);
+await new Promise((r) => setTimeout(r, VERIFY_WAIT_S * 1000));
+
+console.log(`\n▶ Post-Deploy-Verify: berufos.com per-Route-HTML\n`);
+const verify = spawnSync(
+  "node",
+  ["scripts/seo/verify-authority-live.mjs", "--retries=5", "--delay=15"],
+  { stdio: "inherit" },
+);
+process.exit(verify.status ?? 1);
