@@ -7,18 +7,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Building2, CheckCircle2, XCircle, LogIn, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { acceptOrgInvite } from "@/lib/orgConsoleApi";
+import { acceptOrgInvite, getOrgInvitePreview } from "@/lib/orgConsoleApi";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface InvitePreview {
-  email: string;
+  email: string; // masked: jo**@example.com
   role: string;
   org_id: string;
   org_name: string | null;
   product_title: string | null;
   status: string;
   expires_at: string;
+  is_expired?: boolean;
+  is_accepted?: boolean;
+  is_revoked?: boolean;
 }
 
 export default function OrgInviteAcceptPage() {
@@ -32,28 +35,30 @@ export default function OrgInviteAcceptPage() {
 
   useEffect(() => {
     if (!token) return;
-    // Public preview of the invite (read-only, no acceptance)
+    // Public, token-scoped preview via SECURITY DEFINER RPC — works for anon &
+    // non-admin authenticated users (RLS on org_license_invites stays strict).
     (async () => {
       try {
-        const { data, error } = await (supabase as any)
-          .from("org_license_invites")
-          .select(
-            "email, role, org_id, status, expires_at, license_id, organizations!inner(name), org_licenses!inner(product_id, products(title))"
-          )
-          .eq("invite_token", token)
-          .maybeSingle();
-        if (error || !data) {
-          setPreviewError("Einladung nicht gefunden oder bereits ungültig.");
+        const r = await getOrgInvitePreview(token);
+        if (!r.ok) {
+          setPreviewError(
+            r.error === "NOT_FOUND"
+              ? "Einladung nicht gefunden oder bereits ungültig."
+              : "Einladung konnte nicht geladen werden.",
+          );
           return;
         }
         setPreview({
-          email: data.email,
-          role: data.role,
-          org_id: data.org_id,
-          org_name: data.organizations?.name ?? null,
-          product_title: data.org_licenses?.products?.title ?? null,
-          status: data.status,
-          expires_at: data.expires_at,
+          email: r.email_masked ?? "",
+          role: r.role ?? "member",
+          org_id: r.org_id ?? "",
+          org_name: r.org_name ?? null,
+          product_title: r.product_title ?? null,
+          status: r.status ?? "pending",
+          expires_at: r.expires_at ?? "",
+          is_expired: r.is_expired,
+          is_accepted: r.is_accepted,
+          is_revoked: r.is_revoked,
         });
       } catch (e: any) {
         setPreviewError(e?.message ?? "Fehler beim Laden der Einladung.");

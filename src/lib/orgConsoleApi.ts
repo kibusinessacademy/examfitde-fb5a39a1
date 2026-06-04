@@ -94,6 +94,31 @@ export async function acceptOrgInvite(token: string): Promise<{ ok: boolean; err
   return data as any;
 }
 
+export interface OrgInvitePreview {
+  ok: boolean;
+  error?: string;
+  email_masked?: string;
+  role?: string;
+  org_id?: string;
+  org_name?: string | null;
+  product_title?: string | null;
+  status?: string;
+  expires_at?: string;
+  is_expired?: boolean;
+  is_accepted?: boolean;
+  is_revoked?: boolean;
+}
+
+/** Pre-login, token-scoped invite preview. Uses SECURITY DEFINER RPC so anon/non-admin
+ *  invitees can render the landing page before signing in. */
+export async function getOrgInvitePreview(token: string): Promise<OrgInvitePreview> {
+  const { data, error } = await supabase.rpc("get_org_invite_preview" as any, {
+    p_token: token,
+  });
+  if (error) return { ok: false, error: error.message };
+  return (data ?? { ok: false, error: "NOT_FOUND" }) as OrgInvitePreview;
+}
+
 export function buildInviteUrl(token: string): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   return `${origin}/org/einladung/${token}`;
