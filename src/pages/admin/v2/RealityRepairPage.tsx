@@ -104,19 +104,63 @@ function fmtAgo(iso?: string | null): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
-function useLatest() {
+/**
+ * Adaptive Auto-Refresh:
+ * - Polls every 15s while the run is plausibly "active" (ts younger than 10min
+ *   OR content_hash changed within the last 3 fetches).
+ * - Drops to 120s once the content_hash has been stable across ≥3 polls AND
+ *   the run timestamp is older than 10min → the run is considered terminated.
+ * This guarantees we automatically see the FINAL state of a triage run
+ * (content_hash, top_open_task, remaining_blockers) without manual refresh.
+ */
+function fnv1a(str: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+const FAST_MS = 15_000;
+const SLOW_MS = 120_000;
+
+function useAdaptiveInterval(contentHash: string | undefined, ts: string | null | undefined) {
+  const [interval, setIntervalMs] = useState<number>(FAST_MS);
+  const stableCount = useRef(0);
+  const lastHash = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!contentHash) return;
+    if (contentHash === lastHash.current) {
+      stableCount.current += 1;
+    } else {
+      stableCount.current = 0;
+      lastHash.current = contentHash;
+    }
+    const ageMs = ts ? Date.now() - new Date(ts).getTime() : Infinity;
+    const terminated = stableCount.current >= 3 && ageMs > 10 * 60_000;
+    setIntervalMs(terminated ? SLOW_MS : FAST_MS);
+  }, [contentHash, ts]);
+  return interval;
+}
+
+function useLatest(refetchMs: number) {
   return useQuery({
     queryKey: ['reality-latest'],
     queryFn: async () => {
       const r = await fetch(`/reality/latest.json?ts=${Date.now()}`);
       if (!r.ok) throw new Error('latest.json missing');
-      return r.json() as Promise<Latest>;
+      const text = await r.text();
+      const data = JSON.parse(text) as Latest;
+      (data as Latest & { _content_hash: string })._content_hash = fnv1a(text);
+      return data as Latest & { _content_hash: string };
     },
-    refetchInterval: 120_000,
-    staleTime: 60_000,
+    refetchInterval: refetchMs,
+    refetchIntervalInBackground: true,
+    staleTime: 5_000,
   });
 }
-function useHistory() {
+function useHistory(refetchMs: number) {
   return useQuery({
     queryKey: ['reality-history'],
     queryFn: async () => {
@@ -124,8 +168,9 @@ function useHistory() {
       if (!r.ok) throw new Error('history.json missing');
       return r.json() as Promise<HistoryEntry[]>;
     },
-    refetchInterval: 120_000,
-    staleTime: 60_000,
+    refetchInterval: refetchMs,
+    refetchIntervalInBackground: true,
+    staleTime: 5_000,
   });
 }
 
