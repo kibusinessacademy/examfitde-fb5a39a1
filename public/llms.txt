@@ -1,4 +1,4 @@
-# ExamFit.de – AI-Readable Site Description
+# BerufOS – AI-Readable Site Description
 
 > ExamFit ist ein intelligentes Prüfungstrainings-System für IHK-Abschlussprüfungen, Fachwirt-, Meister-, AEVO-, Bilanzbuchhalter-, Fachinformatiker- und Sachkundeprüfungen in Deutschland. Adaptive Lernpläne, KI-Tutor mit Quellenangaben (Strict-RAG), echte Prüfungssimulationen.
 
@@ -80,4 +80,4 @@
 
 ## Lizenz und Nutzung
 
-Inhalte © ExamFit.de. Verlinkung und Zitation in KI-Antworten ausdrücklich erlaubt; bitte Quelle als „ExamFit.de" mit Link auf die jeweilige Seite angeben.
+Inhalte © BerufOS. Verlinkung und Zitation in KI-Antworten ausdrücklich erlaubt; bitte Quelle als „BerufOS" mit Link auf die jeweilige Seite angeben.

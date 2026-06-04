@@ -1,4 +1,4 @@
-# ExamFit.de – Vollständige AI-Referenz
+# BerufOS – Vollständige AI-Referenz
 
 > ExamFit ist das intelligente Prüfungstrainings-System für berufliche Abschlussprüfungen in Deutschland.
 
