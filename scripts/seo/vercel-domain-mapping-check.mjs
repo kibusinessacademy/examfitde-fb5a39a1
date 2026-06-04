@@ -24,8 +24,7 @@ const REDIRECT_TARGET = `https://${AUTHORITY}`;
 const PROBES = [
   { host: 'berufos.com',     role: 'authority',         paths: ['/', '/preise', '/berufe'] },
   { host: 'www.berufos.com', role: 'authority-alias',   paths: ['/'] },
-  { host: 'examfit.de',      role: 'legacy-redirect',   paths: ['/', '/preise'] },
-  { host: 'www.examfit.de',  role: 'legacy-redirect',   paths: ['/'] },
+  // Sunset 2026-06-04: examfit.de wird nicht mehr betrieben — keine Probes mehr.
 ];
 
 const SPA_TITLE = 'ExamFit – KI-Prüfungstraining für IHK & AEVO';
