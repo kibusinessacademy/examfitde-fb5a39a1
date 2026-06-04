@@ -142,12 +142,60 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/smoke-published-approved.mjs
 
-  # 6) Final gate — all must pass
+  # 6) Customer Reality Gate — 12-Journey Funnel-Doktrin
+  customer-reality-gate:
+    timeout-minutes: 10
+    name: Customer Reality Gate (12 Journeys)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Fetch latest customer-reality-gate artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          RUN_ID=$(gh run list \
+            --workflow=customer-reality-gate.yml \
+            --branch=main --limit=1 --json databaseId \
+            --jq '.[0].databaseId' || echo "")
+          if [ -z "$RUN_ID" ]; then
+            echo "::warning::No customer-reality-gate run found yet — treating as REVIEW."
+            mkdir -p reality-results
+            echo '{"verdict":"REVIEW","pass":0,"total":12,"rule":"no-run-yet"}' > reality-results/customer-reality-gate.json
+          else
+            gh run download "$RUN_ID" -n "customer-reality-gate-$RUN_ID" -D reality-results || \
+              gh run download "$RUN_ID" -D reality-results || true
+          fi
+      - name: Enforce gate
+        run: |
+          F=$(find reality-results -name customer-reality-gate.json | head -1)
+          if [ -z "$F" ]; then
+            echo "::error::No gate result file found in downloaded artifact"
+            exit 2
+          fi
+          VERDICT=$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).verdict)" "$F")
+          SCORE=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));console.log(r.pass+'/'+r.total)" "$F")
+          echo "Customer Reality Gate: $VERDICT  Score=$SCORE"
+          echo "## Customer Reality Gate: $VERDICT ($SCORE)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$VERDICT" = "BLOCK" ]; then
+            echo "::error::BLOCK — <8/12 Customer Journeys PASS. Funnel-Freeze aktiv (mem://constraints/funnel-freeze-until-cors-green-v1)."
+            exit 2
+          fi
+          if [ "$VERDICT" = "REVIEW" ]; then
+            echo "::warning::REVIEW — 8 oder 9 / 12 PASS. Release nur mit dokumentierter Funnel-Reparatur."
+            exit 1
+          fi
+
+  # 7) Final gate — all must pass
   release-gate:
     timeout-minutes: 15
     name: Release Gate ✓
-    needs: [ build, ssot-guard, council-integrity, rls-security, smoke ]
+    needs: [ build, ssot-guard, council-integrity, rls-security, smoke, customer-reality-gate ]
     runs-on: ubuntu-latest
     steps:
       - name: All gates passed
-        run: echo "✅ Release Train — all gates GREEN. Safe to deploy."
+        run: echo "✅ Release Train — all gates GREEN incl. Customer Reality Gate. Safe to deploy."
+
