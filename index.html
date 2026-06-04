@@ -277,7 +277,13 @@
         try {
           var path = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
           var root = document.getElementById('root');
-          if (!root || root.childNodes.length > 0) return;
+          if (!root) return;
+          // Bail nur, wenn wir auf genau diese Route bereits prehydriert haben.
+          // SPA-Fallback (dist/index.html mit prerenderter Homepage) muss überschrieben werden,
+          // sonst zeigen /demo, /minicheck, /tutor etc. die Homepage statt der Cold-Load-Hülle.
+          var firstChild = root.firstElementChild;
+          if (firstChild && firstChild.getAttribute && firstChild.getAttribute('data-prehydration')) return;
+
 
           if (path === '/preise') {
             root.innerHTML = [
