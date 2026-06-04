@@ -1,7 +1,8 @@
-# Vercel Domain Mapping SSOT — berufos.com vs. examfit.de
+# Vercel Domain Mapping SSOT — berufos.com (single authority)
 
-**Status:** Hardcut 2026-05-25 — `berufos.com` ist alleinige SEO-Authority.
-**SSOT:** `src/lib/seo/authorityHost.ts`, `mem://constraints/hosting-and-seo-authority-topology-v1`.
+**Status:** Sunset examfit.de 2026-06-04 — `berufos.com` ist die einzige Domain.
+**SSOT:** `src/lib/seo/authorityHost.ts`, `src/lib/berufos/brand.ts`,
+`mem://constraints/hosting-and-seo-authority-topology-v1`.
 
 ## Soll-Zustand (Vercel Project Settings → Domains)
 
@@ -9,10 +10,23 @@
 |---|---|---|---|
 | `berufos.com` | **Primary / Authority** | Serve build output (inkl. Prerender-HTMLs) | ✅ Production |
 | `www.berufos.com` | Authority-Alias | 308 → `https://berufos.com$1` | ✅ Production |
-| `examfit.de` | **Legacy Redirect** | 308 → `https://berufos.com$1` | ❌ Nur Redirect |
-| `www.examfit.de` | Legacy Redirect | 308 → `https://berufos.com$1` | ❌ Nur Redirect |
 | `examfitde.lovable.app` | Lovable-Publish | noindex, kein SEO-Traffic | ❌ |
 | `*.vercel.app` | Preview | noindex | ❌ |
+
+> **examfit.de wird nicht mehr betrieben.** Domain läuft aus, keine Redirects,
+> keine DNS-Pflege, keine Vercel-Zuordnung. Alle Inhalte leben ausschließlich
+> auf `berufos.com`. Wenn alte Inbound-Links auftauchen, ignorieren — die
+> Domain antwortet schlicht nicht mehr.
+
+## DNS (Apex + www → Vercel)
+
+```
+berufos.com         A     216.198.79.1
+www.berufos.com     CNAME cname.vercel-dns.com.
+```
+
+Kein Cloudflare-Proxy davor (`DNS only` falls noch in Cloudflare verwaltet).
+Sonst greifen `/sitemaps/*` Rewrites nicht.
 
 ## Failure-Modi (genau diese suchen, wenn Drift)
 
@@ -24,12 +38,7 @@
    → neuer Build erzeugt neuen Deployment, aber Domain bleibt am alten.
    → Fix: In Vercel → Project → Domains → `berufos.com` → "Edit" → assign to Production.
 
-3. **`examfit.de` zeigt eigene Inhalte** statt zu redirecten
-   → Brand-Split, SEO-Leak.
-   → Fix: Entweder als Redirect-Domain konfigurieren (Vercel → Domains → Redirect to `berufos.com`),
-     oder in `vercel.json` einen Host-basierten Redirect ergänzen.
-
-4. **Cloudflare-Proxy sitzt vor Vercel**
+3. **Cloudflare-Proxy sitzt vor Vercel**
    → `/sitemaps/*` Rewrites greifen nie, weil CF vorher 404 liefert.
    → Fix: CF DNS-only ODER CF Page Rule `/sitemaps/*` → Supabase Edge Function.
 
@@ -37,7 +46,8 @@
 
 ```bash
 node scripts/seo/vercel-domain-mapping-check.mjs
+node scripts/seo/verify-authority-live.mjs
 ```
 
-Gibt für jede Domain HTTP-Status, Body-Size, `x-vercel-id`, `cf-ray`,
-Title und ein verdict ("authority ok" / "redirect ok" / "drift").
+Gibt für jede Authority-Domain HTTP-Status, Body-Size, `x-vercel-id`,
+Title und ein verdict ("authority ok" / "drift").

@@ -25,7 +25,7 @@ const args = Object.fromEntries(
 const TARGET = String(args.target || "216.198.79.1");
 const INTERVAL_S = Number(args.interval || 30);
 const MAX_MIN = Number(args["max-minutes"] || 60);
-const HOSTS = ["berufos.com", "examfit.de"];
+const HOSTS = ["berufos.com"];
 const RESOLVERS = [
   { name: "cloudflare", url: "https://cloudflare-dns.com/dns-query" },
   { name: "google",     url: "https://dns.google/resolve" },

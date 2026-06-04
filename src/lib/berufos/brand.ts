@@ -21,16 +21,15 @@ export const BERUFOS = {
   domain: "https://berufos.com",
   hubPath: "/berufos",
 
-  /** Domain-Topologie. Authority = apex only; www = canonical-redirect. */
+  /** Domain-Topologie. Authority = apex only; www = canonical-redirect.
+   *  Sunset 2026-06-04: examfit.de wird NICHT mehr betrieben — keine Legacy-Redirects mehr.
+   */
   domains: {
     primary: "berufos.com",
     /** SEO-autoritative Hosts. www.berufos.com ist 301 → apex, aber bleibt indexierbar als alias. */
     authority: ["berufos.com", "www.berufos.com"],
-    /** Reine Redirect-Shells (noindex, 301 → berufos.com/<modul>). */
-    legacy: [
-      { host: "examfit.de", module: "examfit", role: "LearningOS" },
-      { host: "www.examfit.de", module: "examfit", role: "LearningOS" },
-    ],
+    /** Keine Legacy-Redirect-Domains mehr. examfit.de wurde stillgelegt. */
+    legacy: [] as ReadonlyArray<{ host: string; module: string; role: string }>,
   },
 
   /** Stripe-Branding — neue Produkte werden mit platform=berufos getaggt. */
@@ -40,14 +39,14 @@ export const BERUFOS = {
     subBrands: ["ExamFit", "ExamFit@work"],
   },
 
-  /** Email-SSOT für transactional + support. Legacy-Adressen nur als Aliases. */
+  /** Email-SSOT für transactional + support. */
   email: {
     from: "BerufOS <hello@berufos.com>",
     support: "support@berufos.com",
     noreply: "noreply@berufos.com",
     billing: "billing@berufos.com",
-    /** Legacy-Adressen bleiben als Forwarding-Aliases (kein outbound). */
-    legacy: ["support@examfit.de"],
+    /** examfit.de wird stillgelegt — keine Forwarding-Aliases mehr aktiv. */
+    legacy: [] as ReadonlyArray<string>,
   },
 
   /** Tonalitäts-Marker für Copy-Guardrails. */
