@@ -1,0 +1,96 @@
+name: Customer Reality Gate (12 Journeys)
+
+# Single Release-Gate über die 12 kanonischen Customer Journeys.
+# Bridge über die existierenden learner-reality + pre-customer-reality Aggregatoren.
+# Regel: <10/12 PASS → BLOCK. Solange BLOCK keine Funnel-fremden Features deployen.
+
+on:
+  schedule:
+    - cron: '47 6 * * *' # 06:47 UTC — direkt nach pre-customer-reality (06:37) + learner-reality (06:17)
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Override base URL (default = REALITY_BASE_URL secret)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: customer-reality-gate
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Customer Reality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      REALITY_BASE_URL: ${{ github.event.inputs.base_url != '' && github.event.inputs.base_url || secrets.REALITY_BASE_URL || 'https://examfitde.lovable.app' }}
+      REALITY_LEARNER_EMAIL: ${{ secrets.REALITY_LEARNER_EMAIL }}
+      REALITY_LEARNER_PASSWORD: ${{ secrets.REALITY_LEARNER_PASSWORD }}
+      CHECKOUT_TEST_MODE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run pre-customer-reality
+        continue-on-error: true
+        run: bunx playwright test --project=pre-customer-reality
+
+      - name: Aggregate pre-customer
+        continue-on-error: true
+        run: node scripts/pre-customer-reality-aggregate.mjs
+
+      - name: Run learner-reality
+        continue-on-error: true
+        run: bunx playwright test --project=learner-reality
+
+      - name: Aggregate learner
+        continue-on-error: true
+        run: node scripts/learner-reality-aggregate.mjs
+
+      - name: Customer Reality Gate (12 Journeys)
+        id: gate
+        continue-on-error: true
+        run: node scripts/customer-reality-gate.mjs
+
+      - name: Render summary
+        if: always()
+        run: |
+          if [ -f reality-results/customer-reality-gate.md ]; then
+            cat reality-results/customer-reality-gate.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Gate produced no report" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload reality-results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: customer-reality-gate-${{ github.run_id }}
+          path: reality-results/
+          retention-days: 30
+
+      - name: Hard-fail on BLOCK / REVIEW
+        if: always()
+        run: |
+          if [ ! -f reality-results/customer-reality-gate.json ]; then
+            echo "::error::Gate did not produce results.json"
+            exit 2
+          fi
+          VERDICT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('reality-results/customer-reality-gate.json','utf8')).verdict)")
+          PASS=$(node -e "const r=JSON.parse(require('fs').readFileSync('reality-results/customer-reality-gate.json','utf8'));console.log(r.pass+'/'+r.total)")
+          echo "Verdict=$VERDICT  Score=$PASS"
+          if [ "$VERDICT" = "BLOCK" ]; then exit 2; fi
+          if [ "$VERDICT" = "REVIEW" ]; then exit 1; fi
+          exit 0

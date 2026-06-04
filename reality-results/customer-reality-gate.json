@@ -1,0 +1,105 @@
+{
+  "generated_at": "2026-06-04T19:36:45.289Z",
+  "verdict": "BLOCK",
+  "pass": 1,
+  "total": 12,
+  "rule": "PASS>=10/12 → RELEASE · 8..9 → REVIEW · <8 → BLOCK",
+  "journeys": [
+    {
+      "key": "homepage",
+      "label": "Homepage",
+      "source": "pre",
+      "id": "P01_homepage",
+      "status": "fail",
+      "detail": "problems=1"
+    },
+    {
+      "key": "find_beruf",
+      "label": "Beruf finden",
+      "source": "pre",
+      "id": "P02_find_beruf",
+      "status": "fail",
+      "detail": "links=0"
+    },
+    {
+      "key": "open_course",
+      "label": "Beruf öffnen",
+      "source": "pre",
+      "id": "P03_open_course",
+      "status": "fail",
+      "detail": "ttc=1153ms url=NONE"
+    },
+    {
+      "key": "pricing",
+      "label": "Preise",
+      "source": "pre",
+      "id": "P04_pricing",
+      "status": "fail",
+      "detail": "hasPrice=false"
+    },
+    {
+      "key": "cta_click",
+      "label": "CTA",
+      "source": "pre",
+      "id": "P05_cta_click",
+      "status": "fail",
+      "detail": "no-course"
+    },
+    {
+      "key": "registration",
+      "label": "Registrierung",
+      "source": "learner",
+      "id": "J02_account",
+      "status": "missing",
+      "detail": "no result file"
+    },
+    {
+      "key": "login",
+      "label": "Login",
+      "source": "flag",
+      "id": "/dev-server/reality-results/learner-login-success.flag",
+      "status": "pass",
+      "detail": "login flag present"
+    },
+    {
+      "key": "onboarding",
+      "label": "Onboarding",
+      "source": "learner",
+      "id": "J04_onboarding",
+      "status": "missing",
+      "detail": "no result file"
+    },
+    {
+      "key": "minicheck",
+      "label": "MiniCheck",
+      "source": "learner",
+      "id": "J06_minicheck",
+      "status": "missing",
+      "detail": "no result file"
+    },
+    {
+      "key": "ai_tutor",
+      "label": "AI Tutor",
+      "source": "learner",
+      "id": "J07_ai_tutor",
+      "status": "missing",
+      "detail": "no result file"
+    },
+    {
+      "key": "written_exam",
+      "label": "Prüfungssimulation",
+      "source": "learner",
+      "id": "J08_written_exam",
+      "status": "missing",
+      "detail": "no result file"
+    },
+    {
+      "key": "return",
+      "label": "Rückkehr",
+      "source": "learner",
+      "id": "J10_return",
+      "status": "missing",
+      "detail": "no result file"
+    }
+  ]
+}
