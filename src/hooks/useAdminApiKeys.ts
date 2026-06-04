@@ -64,12 +64,17 @@ export function useApiKeyEvents(keyId: string | null) {
 }
 
 function generateApiKey(): { raw: string; prefix: string; hash: string } {
+  // CRITICAL: Use cryptographically secure RNG (crypto.getRandomValues), never Math.random.
+  // 32 chars from a 36-char alphabet => ~165 bits of entropy, which makes SHA-256 of the raw
+  // token resistant to brute force (no need for bcrypt/argon2 on a high-entropy random token).
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const buf = new Uint32Array(32);
+  crypto.getRandomValues(buf);
   let token = '';
-  for (let i = 0; i < 32; i++) token += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 32; i++) token += chars[buf[i] % chars.length];
   const raw = `ef_live_${token}`;
   const prefix = raw.slice(0, 12);
-  return { raw, prefix, hash: '' }; // hash computed server-side ideally, placeholder for now
+  return { raw, prefix, hash: '' }; // hash computed via sha256() below
 }
 
 async function sha256(message: string): Promise<string> {
