@@ -55,6 +55,42 @@ const CHECKS = [
       if (!cta) return { ok: false, detail: 'no kauf CTA' };
       return { ok: true, detail: `price + CTA` };
   }},
+  // P0.6 — Demo / Exam / MiniCheck / Tutor / Oral cold-load fallbacks
+  { id: 'P06_demo_journey', path: '/demo/journey', validate: (doc) => {
+      const t = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 200) return { ok: false, detail: `body=${t.length}` };
+      const cta = doc.querySelector('a[data-cta-location^="demo_journey_"]');
+      if (!cta) return { ok: false, detail: 'no journey CTA' };
+      return { ok: true, detail: `body=${t.length} + CTA` };
+  }},
+  { id: 'P06_exam_simulation', path: '/exam-simulation', validate: (doc) => {
+      const t = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 200) return { ok: false, detail: `body=${t.length}` };
+      const cta = doc.querySelector('a[data-cta-location^="exam_sim_"]');
+      if (!cta) return { ok: false, detail: 'no exam-sim CTA' };
+      return { ok: true, detail: `body=${t.length} + CTA` };
+  }},
+  { id: 'P06_minicheck', path: '/minicheck', validate: (doc) => {
+      const t = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 200) return { ok: false, detail: `body=${t.length}` };
+      const cta = doc.querySelector('a[data-cta-location^="minicheck_"]');
+      if (!cta) return { ok: false, detail: 'no minicheck CTA' };
+      return { ok: true, detail: `body=${t.length} + CTA` };
+  }},
+  { id: 'P06_tutor', path: '/tutor', validate: (doc) => {
+      const t = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 200) return { ok: false, detail: `body=${t.length}` };
+      const cta = doc.querySelector('a[data-cta-location^="tutor_"]');
+      if (!cta) return { ok: false, detail: 'no tutor CTA' };
+      return { ok: true, detail: `body=${t.length} + CTA` };
+  }},
+  { id: 'P06_oral', path: '/oral-exam', validate: (doc) => {
+      const t = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 200) return { ok: false, detail: `body=${t.length}` };
+      const cta = doc.querySelector('a[data-cta-location^="oral_"]');
+      if (!cta) return { ok: false, detail: 'no oral CTA' };
+      return { ok: true, detail: `body=${t.length} + CTA` };
+  }},
 ];
 
 let pass = 0, fail = 0;

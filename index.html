@@ -384,6 +384,94 @@
                 '</main>'
               ].join('');
             }
+          } else if (path === '/demo/journey') {
+            // P0.6 Demo Journey Cold-Load: Risk → Cause → Intervention → Effect → Outcome.
+            root.innerHTML = [
+              '<main data-prehydration="demo-journey" style="max-width:960px;margin:0 auto;padding:48px 24px;font-family:Inter,system-ui,sans-serif;color:#0f172a;">',
+              '  <p style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 8px;"><a href="/demo" style="color:#64748b;text-decoration:none;">← Alle Demos</a> · Activation Journey · 5 Schritte</p>',
+              '  <h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">Die BerufsKI-Story in 5 Schritten.</h1>',
+              '  <p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:680px;">Risiko sehen → Ursache verstehen → Intervention setzen → Wirkung messen → Outcome. Klick dich durch die fünf Schritte oder spring direkt in die Beruf-Auswahl — keine Sackgasse, jederzeit zurück zur Demo-Übersicht.</p>',
+              '  <p style="margin:0 0 24px;display:flex;gap:12px;flex-wrap:wrap;">',
+              '    <a href="/demo/journey?stage=risk" data-cta-location="demo_journey_prehydration_start" style="display:inline-block;background:#0F3D3E;color:#fff;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;">Journey starten →</a>',
+              '    <a href="/berufe" data-cta-location="demo_journey_prehydration_berufe" style="display:inline-block;background:transparent;color:#0F3D3E;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;border:1px solid #0F3D3E;">Beruf auswählen</a>',
+              '  </p>',
+              '  <ol style="padding-left:20px;margin:0;color:#475569;font-size:15px;display:grid;gap:8px;max-width:640px;">',
+              '    <li><strong>Risiko sehen</strong> — Risikoscore + kritischer Prüfungstermin</li>',
+              '    <li><strong>Ursache verstehen</strong> — konkrete Kompetenzlücken statt vager Lernpläne</li>',
+              '    <li><strong>Intervention</strong> — Maßnahmenpakete mit einem Klick startbar</li>',
+              '    <li><strong>Wirkung messen</strong> — Recovery-Lift + Mastery-Delta in Echtzeit</li>',
+              '    <li><strong>Outcome</strong> — Prüfungswahrscheinlichkeit + Konfidenz</li>',
+              '  </ol>',
+              '</main>'
+            ].join('');
+          } else if (path === '/exam-simulation' || path.indexOf('/exam-simulation/') === 0) {
+            // P0.6 Prüfungssimulation Cold-Load: sichtbarer Einstieg statt Whitescreen.
+            root.innerHTML = [
+              '<main data-prehydration="exam-simulation" style="max-width:880px;margin:0 auto;padding:48px 24px;font-family:Inter,system-ui,sans-serif;color:#0f172a;">',
+              '  <p style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 8px;">Prüfungssimulation · Wie in der echten IHK-Prüfung</p>',
+              '  <h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">Schriftliche Prüfung simulieren.</h1>',
+              '  <p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:640px;">Prüfungsnahe Simulation mit Zeitlimit, gemischten Aufgabenformaten und Auswertung inkl. Readiness-Score. Wähl deinen Beruf und starte die nächste Runde — oder steig in eine laufende Session wieder ein.</p>',
+              '  <p style="margin:0 0 24px;display:flex;gap:12px;flex-wrap:wrap;">',
+              '    <a href="/app/dashboard" data-cta-location="exam_sim_prehydration_start" style="display:inline-block;background:#0F3D3E;color:#fff;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;">Simulation starten →</a>',
+              '    <a href="/berufe" data-cta-location="exam_sim_prehydration_berufe" style="display:inline-block;background:transparent;color:#0F3D3E;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;border:1px solid #0F3D3E;">Beruf auswählen</a>',
+              '  </p>',
+              '  <ul style="list-style:none;padding:0;margin:0;display:grid;gap:8px;color:#475569;font-size:15px;max-width:640px;">',
+              '    <li>✓ Zeitlimit, Lockdown-Modus, prüfungsnahe Aufgaben</li>',
+              '    <li>✓ Auswertung mit Readiness-Score und Schwachstellenkarte</li>',
+              '    <li>✓ Wiederaufnehmen jeder Session jederzeit möglich</li>',
+              '  </ul>',
+              '</main>'
+            ].join('');
+          } else if (path === '/minicheck' || path === '/app/minicheck' || path.indexOf('/app/minicheck/') === 0) {
+            // P0.6 MiniCheck Cold-Load: sichtbarer Einstieg + prüfbarer Zustand.
+            root.innerHTML = [
+              '<main data-prehydration="minicheck" style="max-width:880px;margin:0 auto;padding:48px 24px;font-family:Inter,system-ui,sans-serif;color:#0f172a;">',
+              '  <p style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 8px;">MiniCheck · Kompetenz-Quick-Test</p>',
+              '  <h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">In 3 Minuten Wissensstand prüfen.</h1>',
+              '  <p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:640px;">Fünf gezielte Fragen pro Kompetenz, sofortige Auswertung und ein klarer nächster Schritt: Lernen, vertiefen oder direkt in die Simulation. Kein Setup nötig — du kannst sofort loslegen.</p>',
+              '  <p style="margin:0 0 24px;display:flex;gap:12px;flex-wrap:wrap;">',
+              '    <a href="/app/dashboard" data-cta-location="minicheck_prehydration_start" style="display:inline-block;background:#0F3D3E;color:#fff;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;">MiniCheck starten →</a>',
+              '    <a href="/berufe" data-cta-location="minicheck_prehydration_berufe" style="display:inline-block;background:transparent;color:#0F3D3E;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;border:1px solid #0F3D3E;">Beruf auswählen</a>',
+              '  </p>',
+              '  <ul style="list-style:none;padding:0;margin:0;display:grid;gap:8px;color:#475569;font-size:15px;max-width:640px;">',
+              '    <li>✓ 3-5 Minuten pro Kompetenz</li>',
+              '    <li>✓ Sofortige Auswertung mit Empfehlung</li>',
+              '    <li>✓ Direkt verlinkt zum passenden Lernkurs</li>',
+              '  </ul>',
+              '</main>'
+            ].join('');
+          } else if (path === '/tutor' || path === '/ai-tutor' || path === '/app/tutor') {
+            // P0.6 AI-Tutor Cold-Load: sichtbarer Tutor-CTA + Fallback statt leer/Fehler.
+            root.innerHTML = [
+              '<main data-prehydration="tutor" style="max-width:760px;margin:0 auto;padding:48px 24px;font-family:Inter,system-ui,sans-serif;color:#0f172a;">',
+              '  <p style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 8px;">KI-Tutor · Strict-RAG mit Quellen</p>',
+              '  <h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">Frag deinen Prüfungs-Tutor.</h1>',
+              '  <p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:640px;">Stelle eine Frage zu deinem Prüfungsstoff. Der KI-Tutor antwortet auf Basis deines Curriculums mit nachvollziehbaren Quellen — keine Halluzinationen, keine Floskeln. Wähl zuerst deinen Beruf, dann übernimmt der Tutor den Kontext automatisch.</p>',
+              '  <p style="margin:0 0 24px;display:flex;gap:12px;flex-wrap:wrap;">',
+              '    <a href="/app/tutor" data-cta-location="tutor_prehydration_open" style="display:inline-block;background:#0F3D3E;color:#fff;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;">Tutor öffnen →</a>',
+              '    <a href="/berufe" data-cta-location="tutor_prehydration_berufe" style="display:inline-block;background:transparent;color:#0F3D3E;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;border:1px solid #0F3D3E;">Beruf auswählen</a>',
+              '  </p>',
+              '  <p style="color:#475569;font-size:14px;margin:0;">Kein Curriculum aktiv? Der Tutor zeigt dir nach Beruf-Auswahl automatisch die nächsten sinnvollen Fragen — statt leerer Seite.</p>',
+              '</main>'
+            ].join('');
+          } else if (path === '/oral-exam' || path === '/oral' || path === '/app/oral' || path === '/muendlich' || path === '/muendliche-pruefung') {
+            // P0.6 Oral-Trainer Cold-Load: kein Whitescreen, sauberer Startzustand + Recovery-CTA.
+            root.innerHTML = [
+              '<main data-prehydration="oral" style="max-width:880px;margin:0 auto;padding:48px 24px;font-family:Inter,system-ui,sans-serif;color:#0f172a;">',
+              '  <p style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 8px;">Mündliche Prüfung · Fachgespräch-Trainer</p>',
+              '  <h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">Übe das mündliche Fachgespräch.</h1>',
+              '  <p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:640px;">Realistische Prüfer-Persona, adaptive Folgefragen und nachvollziehbares Feedback nach jeder Antwort. Wähl deinen Beruf, dann startet der Trainer mit einer prüfungsnahen Einstiegsfrage. Du kannst sprechen oder tippen — beides ist gleichwertig bewertet. Bei fehlendem Setup siehst du ein Beispiel-Szenario statt Whitescreen.</p>',
+              '  <p style="margin:0 0 24px;display:flex;gap:12px;flex-wrap:wrap;">',
+              '    <a href="/app/dashboard" data-cta-location="oral_prehydration_start" style="display:inline-block;background:#0F3D3E;color:#fff;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;">Trainer starten →</a>',
+              '    <a href="/berufe" data-cta-location="oral_prehydration_berufe" style="display:inline-block;background:transparent;color:#0F3D3E;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;border:1px solid #0F3D3E;">Beruf auswählen</a>',
+              '  </p>',
+              '  <ul style="list-style:none;padding:0;margin:0;display:grid;gap:8px;color:#475569;font-size:15px;max-width:640px;">',
+              '    <li>✓ Browser-native Sprach-Ein- &amp; Ausgabe — kein Setup, kein Plugin</li>',
+              '    <li>✓ Strukturiertes Feedback: Begriff, Beispiel, Bezug zur AO</li>',
+              '    <li>✓ Bei fehlendem Curriculum: Beispiel-Szenario statt Whitescreen</li>',
+              '  </ul>',
+              '</main>'
+            ].join('');
           }
         } catch (e) { /* fail-open: SPA übernimmt */ }
       })();
