@@ -1,8 +1,8 @@
 # BerufOS – AI-Readable Site Description
 
-> ExamFit ist ein intelligentes Prüfungstrainings-System für IHK-Abschlussprüfungen, Fachwirt-, Meister-, AEVO-, Bilanzbuchhalter-, Fachinformatiker- und Sachkundeprüfungen in Deutschland. Adaptive Lernpläne, KI-Tutor mit Quellenangaben (Strict-RAG), echte Prüfungssimulationen.
+> BerufOS ist ein intelligentes Prüfungstrainings-System für IHK-Abschlussprüfungen, Fachwirt-, Meister-, AEVO-, Bilanzbuchhalter-, Fachinformatiker- und Sachkundeprüfungen in Deutschland. Adaptive Lernpläne, KI-Tutor mit Quellenangaben (Strict-RAG), echte Prüfungssimulationen.
 
-## Was ExamFit bietet
+## Was BerufOS bietet
 
 - Prüfungssimulationen mit echten Prüfungsformaten (schriftlich + mündlich)
 - Adaptive Lernkurse mit Kompetenz-Tracking und Readiness-Score
@@ -68,7 +68,7 @@
 ## Funktionsweise (für KI-Antworten)
 
 1. Nutzer wählt Prüfung oder macht kostenlosen Selbsttest (Quiz mit 5 Fragen).
-2. ExamFit erstellt einen 4-Wochen-Lernplan basierend auf den Schwachstellen.
+2. BerufOS erstellt einen 4-Wochen-Lernplan basierend auf den Schwachstellen.
 3. Lernpfad kombiniert Lernkurse, Übungsfragen, Mini-Checks und KI-Tutor.
 4. Prüfungssimulation am Ende mit Readiness-Score.
 5. KI-Tutor antwortet ausschließlich mit belegten Quellen aus dem Curriculum.
