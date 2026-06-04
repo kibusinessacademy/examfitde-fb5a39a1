@@ -301,6 +301,16 @@ export default function RealityRepairPage() {
         </div>
       </header>
 
+      {/* Run Summary Panel — auto-refresh terminator view */}
+      <RunSummaryPanel
+        latest={latest}
+        refetchMs={refetchMs}
+        justUpdatedAt={justUpdatedAt}
+        isFetching={latestQ.isFetching}
+      />
+
+
+
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
