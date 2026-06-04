@@ -2,19 +2,14 @@
 # Per-route prerendered HTML (dist/<path>/index.html) is served verbatim if it exists.
 # All other paths fall through to the SPA shell.
 #
-# Hardcut to BerufOS: 2026-05-25. Legacy domain examfit.de (only) is 301-redirected
-# to berufos.com on Cloudflare/Vercel. examfitwork.de / berufski.de existieren NICHT
-# (niemals registriert) — keine Redirects nötig.
+# Sunset 2026-06-04: examfit.de wird NICHT mehr betrieben — keine Legacy-Redirects mehr.
+# examfitwork.de / berufski.de existieren NICHT (niemals registriert) — keine Redirects nötig.
 # NOTE: Lovable hosting ignores _redirects — these activate only on the
 # Vercel/Cloudflare migration (see docs/runbooks/vercel-migration.md).
 
 # P8 — Primary-Domain-Cutover (2026-05-25).
 # www.berufos.com → berufos.com (Apex ist die einzige Authority).
 https://www.berufos.com/*  https://berufos.com/:splat               301!
-
-# Legacy-Domain → BerufOS-Module (301, noindex via meta + X-Robots-Tag).
-https://examfit.de/*       https://berufos.com/examfit/:splat       301!
-https://www.examfit.de/*   https://berufos.com/examfit/:splat       301!
 
 # Commerce-Naming-Migration: /bundle/* → /paket/* (on Cloudflare/Vercel,
 # ignored on Lovable hosting — BundleToPaketRedirect handles it client-side).
