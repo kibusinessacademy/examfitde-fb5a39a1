@@ -227,8 +227,23 @@ function fmtEtaDue(iso?: string): string {
 
 
 export default function RealityRepairPage() {
-  const latestQ = useLatest();
-  const historyQ = useHistory();
+  // Two-step: read current hash + ts first, then derive adaptive interval.
+  const initialQ = useLatest(FAST_MS);
+  const refetchMs = useAdaptiveInterval(initialQ.data?._content_hash, initialQ.data?.ts ?? null);
+  const latestQ = useLatest(refetchMs);
+  const historyQ = useHistory(refetchMs);
+
+  const lastSeenHash = useRef<string | undefined>(undefined);
+  const [justUpdatedAt, setJustUpdatedAt] = useState<number | null>(null);
+  useEffect(() => {
+    const h = latestQ.data?._content_hash;
+    if (!h) return;
+    if (lastSeenHash.current && lastSeenHash.current !== h) {
+      setJustUpdatedAt(Date.now());
+    }
+    lastSeenHash.current = h;
+  }, [latestQ.data?._content_hash]);
+  void initialQ; // keep query alive — same key, dedupes
 
   if (latestQ.isLoading || historyQ.isLoading) {
     return (
