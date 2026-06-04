@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Building2, CheckCircle2, XCircle, LogIn, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { acceptOrgInvite } from "@/lib/orgConsoleApi";
+import { acceptOrgInvite, getOrgInvitePreview } from "@/lib/orgConsoleApi";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
