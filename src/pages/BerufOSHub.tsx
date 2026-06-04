@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 import { SEOHead } from "@/components/seo/SEOHead";
