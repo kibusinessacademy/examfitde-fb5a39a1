@@ -215,7 +215,7 @@ export default function SEOLayout() {
                 <li><Link to="/datenschutz" className="hover:text-foreground">Datenschutz</Link></li>
                 <li><Link to="/agb" className="hover:text-foreground">AGB</Link></li>
                 <li><Link to="/faq" className="hover:text-foreground">FAQ</Link></li>
-                <li><a href="mailto:kontakt@examfit.de" className="hover:text-foreground">Kontakt</a></li>
+                <li><a href="mailto:kontakt@berufos.com" className="hover:text-foreground">Kontakt</a></li>
               </ul>
             </div>
           </div>

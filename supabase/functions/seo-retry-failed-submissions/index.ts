@@ -10,7 +10,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  *   list_failed – List failed submissions for admin
  */
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 const INDEXNOW_KEY = "examfit-indexnow-key-2026";
 const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
 const MAX_RETRIES = 5;

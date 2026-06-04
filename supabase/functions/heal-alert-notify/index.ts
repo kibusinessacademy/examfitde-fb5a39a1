@@ -30,9 +30,9 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const SLACK_HEAL_WEBHOOK_URL = Deno.env.get("SLACK_HEAL_WEBHOOK_URL") ?? "";
 const HEAL_ALERT_FROM_EMAIL =
-  Deno.env.get("HEAL_ALERT_FROM_EMAIL") ?? "alerts@examfit.de";
+  Deno.env.get("HEAL_ALERT_FROM_EMAIL") ?? "alerts@berufos.com";
 const PUBLIC_BASE_URL =
-  Deno.env.get("PUBLIC_BASE_URL") ?? "https://examfit.de";
+  Deno.env.get("PUBLIC_BASE_URL") ?? "https://berufos.com";
 
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 

@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://examfit.de";
+    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://berufos.com";
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);

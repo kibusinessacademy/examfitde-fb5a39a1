@@ -183,7 +183,7 @@ function buildPdf(slug: string, plan: typeof PLANS[string]): string {
     y + 34
   );
   doc.setTextColor(13, 148, 136);
-  doc.text(`https://examfit.de/bundle/${plan.bundleSlug}`, margin + 12, y + 50);
+  doc.text(`https://berufos.com/bundle/${plan.bundleSlug}`, margin + 12, y + 50);
 
   // Footer
   const pageH = doc.internal.pageSize.getHeight();

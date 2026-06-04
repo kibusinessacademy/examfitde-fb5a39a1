@@ -145,7 +145,7 @@ export default function CoursesPage() {
       <SEOHead
         title="Lernkurse & Prüfungstraining"
         description="Alle Lernkurse für IHK-Abschlussprüfung, Fachwirt, Meister, AEVO und Zertifikate – mit echten Prüfungsfragen, KI-Tutor und adaptivem Lernplan."
-        canonical="https://examfit.de/courses"
+        canonical="https://berufos.com/courses"
       />
       <div className="container mx-auto max-w-6xl">
         {/* Header */}

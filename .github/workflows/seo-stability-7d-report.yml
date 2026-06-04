@@ -38,7 +38,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           WINDOW_HOURS: ${{ github.event.inputs.window_hours || '168' }}
-          HOST: "https://examfit.de"
+          HOST: "https://berufos.com"
         continue-on-error: true
         run: node scripts/seo/stability-7d-report.mjs | tee report.md
 

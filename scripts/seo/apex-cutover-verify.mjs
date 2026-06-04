@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Apex Cutover Verify — examfit.de
+ * Apex Cutover Verify — berufos.com
  *
  * Prüft nach DNS-Change am Apex (Cloudflare A/CNAME → Vercel), ob:
  *   1. Apex auflöst (DoH via 1.1.1.1)
  *   2. Apex NICHT mehr auf 185.158.133.1 (Lovable-Host alt) zeigt
  *   3. HTTPS Apex 200 OK liefert (kein 403)
- *   4. www.examfit.de 308/301 → https://examfit.de/
+ *   4. berufos.com 308/301 → https://berufos.com/
  *   5. Response-Header x-vercel-id präsent (Origin=Vercel)
  *   6. Cloudflare-Proxy aktiv (cf-ray header)
  *
@@ -14,8 +14,8 @@
  *
  * SSOT: mem://constraints/hosting-and-seo-authority-topology-v1
  */
-const APEX = 'examfit.de';
-const WWW = 'www.examfit.de';
+const APEX = 'berufos.com';
+const WWW = 'berufos.com';
 const LOVABLE_OLD_IP = '185.158.133.1';
 
 async function doh(name, type = 'A') {
@@ -70,7 +70,7 @@ results.push(check('Apex: x-vercel-id header (Origin=Vercel)', !!apex.headers['x
 // 4. www redirect
 const www = await head(`https://${WWW}/`);
 const isRedirect = www.status === 301 || www.status === 308;
-const locOk = (www.headers['location'] || '').includes('://examfit.de');
+const locOk = (www.headers['location'] || '').includes('://berufos.com');
 results.push(check(`www → Apex redirect`, isRedirect && locOk, `HTTP ${www.status} → ${www.headers['location'] ?? '(no location)'}`));
 
 // 5. Deep route smoke

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { BERUFOS } from "@/lib/berufos/brand";
 
 /**
- * Cross-Brand-Footer-Bridge: zeigt auf examfit.de + jeder Legacy-Domain
+ * Cross-Brand-Footer-Bridge: zeigt auf berufos.com + jeder Legacy-Domain
  * "Teil von BerufOS — der AI-Plattform für Berufe" und verlinkt auf den Hub.
  * Phase M2 der Masterbrand-Migration.
  *

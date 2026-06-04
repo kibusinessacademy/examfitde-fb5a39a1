@@ -99,7 +99,7 @@ export default function HandbookLandingPage() {
       <SEOHead
         title="Prüfungstraining-Handbuch – Bestehen mit System | ExamFit.de"
         description="Dein strategischer Begleiter zur Abschlussprüfung: Verstehe die Prüfungslogik, vermeide typische Fehler und gehe mit einem klaren 30-Tage-Plan in die Prüfung."
-        canonical="https://examfit.de/pruefungshandbuch"
+        canonical="https://berufos.com/pruefungshandbuch"
         structuredData={jsonLd}
       />
 

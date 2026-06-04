@@ -40,7 +40,7 @@ function getHintForPath(pathname: string): RouteHint {
         "Diese Seite ist nur für Mitglieder einer Organisation sichtbar. Lass dich von deiner Org einladen oder kontaktiere unser Team für ein Enterprise-Setup.",
       primary: {
         label: "Enterprise kontaktieren",
-        href: "mailto:sales@examfit.de?subject=Organisations-Zugang",
+        href: "mailto:sales@berufos.com?subject=Organisations-Zugang",
         icon: Building2,
         variant: "petrol",
       },

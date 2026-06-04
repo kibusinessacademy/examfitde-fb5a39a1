@@ -3,7 +3,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const PUBLIC_SITE_URL = (Deno.env.get("PUBLIC_SITE_URL") ?? "https://examfit.de").replace(/\/+$/, "");
+const PUBLIC_SITE_URL = (Deno.env.get("PUBLIC_SITE_URL") ?? "https://berufos.com").replace(/\/+$/, "");
 
 Deno.serve(async (req) => {
   const cors = handleCorsPreflightRequest(req);

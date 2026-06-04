@@ -13,7 +13,7 @@
  *   4. <h1> in raw HTML matches sections_json.h1
  *   5. JSON-LD Article (+ FAQ + BreadcrumbList recommended)
  *   6. OG-Tags (og:title / og:description / og:url / og:type)
- *   7. canonical = https://examfit.de<path>
+ *   7. canonical = https://berufos.com<path>
  *   8. 404 route → real 404 status (one-shot)
  *   9. /sitemap.xml reachable, valid XML (one-shot)
  *  10. JS-disabled equivalent: same raw-HTML check (no JS executed by fetch);
@@ -24,7 +24,7 @@
  *
  * Usage:
  *   HOST=https://examfit.pages.dev node scripts/seo/initial-html-smoke.mjs
- *   HOST=https://examfit.de        node scripts/seo/initial-html-smoke.mjs
+ *   HOST=https://berufos.com        node scripts/seo/initial-html-smoke.mjs
  *   HOST=https://examfit.pages.dev SAMPLE=5 node scripts/seo/initial-html-smoke.mjs
  *
  * Exit non-zero on any failure → CI-grade verdict.
@@ -32,7 +32,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const HOST = (process.env.HOST || "https://examfit.de").replace(/\/$/, "");
+const HOST = (process.env.HOST || "https://berufos.com").replace(/\/$/, "");
 const SAMPLE = Number(process.env.SAMPLE || 3);
 
 function readEnvFallback() {
@@ -147,7 +147,7 @@ async function checkUrl(host, page) {
   }
 
   // 7. Canonical
-  const expectedCanonical = `https://examfit.de/kurse/${page.slug}`;
+  const expectedCanonical = `https://berufos.com/kurse/${page.slug}`;
   if (base.canon !== expectedCanonical)
     errs.push(`canonical drift: got "${base.canon}" expected "${expectedCanonical}"`);
 

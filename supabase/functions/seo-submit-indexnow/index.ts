@@ -14,7 +14,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  * Legacy: { drain: true } maps to drain_pending.
  */
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 const INDEXNOW_KEY = "examfit-indexnow-key-2026";
 const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
 
@@ -30,7 +30,7 @@ function normalizeToApex(url: string): string {
   try {
     const u = new URL(url);
     u.protocol = "https:";
-    u.host = "examfit.de";
+    u.host = "berufos.com";
     return u.toString();
   } catch {
     return url;
@@ -38,7 +38,7 @@ function normalizeToApex(url: string): string {
 }
 
 async function submitToIndexNow(rawUrls: string[]): Promise<{ ok: boolean; status: number; body?: string; submitted_urls: string[] }> {
-  const submitted_urls = Array.from(new Set(rawUrls.map(normalizeToApex).filter((u) => u.startsWith("https://examfit.de/"))));
+  const submitted_urls = Array.from(new Set(rawUrls.map(normalizeToApex).filter((u) => u.startsWith("https://berufos.com/"))));
   if (submitted_urls.length === 0) return { ok: true, status: 200, submitted_urls };
 
   const payload = {
@@ -223,7 +223,7 @@ async function backfillSitemap(
     for (const u of urls) allUrls.add(normalizeToApex(u));
   }
 
-  const allUrlList = Array.from(allUrls).filter((u) => u.startsWith("https://examfit.de/"));
+  const allUrlList = Array.from(allUrls).filter((u) => u.startsWith("https://berufos.com/"));
 
   // 2. Filter URLs already submitted successfully in last 30d OR pending
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();

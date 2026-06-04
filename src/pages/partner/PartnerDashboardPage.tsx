@@ -38,7 +38,7 @@ export default function PartnerDashboardPage() {
           <p className="text-muted-foreground mb-6">
             Du hast noch kein Partner-Konto. Kontaktiere uns, um als Affiliate- oder Agenturpartner zu starten.
           </p>
-          <a href="mailto:partner@examfit.de" className="text-primary underline">partner@examfit.de</a>
+          <a href="mailto:partner@berufos.com" className="text-primary underline">partner@berufos.com</a>
         </div>
       </div>
     );

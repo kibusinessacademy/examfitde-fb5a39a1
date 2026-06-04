@@ -363,7 +363,7 @@ export default function SEODiscoveryManager() {
                   {states.map(s => (
                     <TableRow key={s.id} className={s.drift_status === 'drift' ? 'bg-amber-500/5' : ''}>
                       <TableCell className="text-[10px] truncate max-w-[180px] py-1" title={s.canonical_url}>
-                        {s.canonical_url?.replace('https://examfit.de', '') || '?'}
+                        {s.canonical_url?.replace('https://berufos.com', '') || '?'}
                       </TableCell>
                       <TableCell className="py-1"><Badge variant="secondary" className="text-[9px]">{s.source_type?.replace('_', ' ')}</Badge></TableCell>
                       <TableCell className="text-[10px] py-1">{s.content_status || '–'}</TableCell>
@@ -421,7 +421,7 @@ export default function SEODiscoveryManager() {
                       const reasons = s.drift_reasons?.length ? s.drift_reasons : s.drift_issues || [];
                       return (
                         <TableRow key={s.id} className="bg-amber-500/5">
-                          <TableCell className="text-[10px] truncate max-w-[180px] py-1">{s.canonical_url?.replace('https://examfit.de', '')}</TableCell>
+                          <TableCell className="text-[10px] truncate max-w-[180px] py-1">{s.canonical_url?.replace('https://berufos.com', '')}</TableCell>
                           <TableCell className="py-1"><Badge variant="secondary" className="text-[9px]">{s.source_type}</Badge></TableCell>
                           <TableCell className="py-1">
                             <div className="flex flex-wrap gap-0.5">
@@ -486,7 +486,7 @@ export default function SEODiscoveryManager() {
                   {logs.map(l => (
                     <TableRow key={l.id} className={l.status === 'failed' ? 'bg-red-500/5' : ''}>
                       <TableCell className="text-[10px] py-1">{l.provider}</TableCell>
-                      <TableCell className="text-[10px] truncate max-w-[160px] py-1" title={l.url}>{l.url?.replace('https://examfit.de', '') || '–'}</TableCell>
+                      <TableCell className="text-[10px] truncate max-w-[160px] py-1" title={l.url}>{l.url?.replace('https://berufos.com', '') || '–'}</TableCell>
                       <TableCell className="text-[10px] py-1">{l.action}</TableCell>
                       <TableCell className="py-1">
                         <Badge variant={l.status === 'success' ? 'default' : l.status === 'failed' ? 'destructive' : 'secondary'} className="text-[9px]">
@@ -544,7 +544,7 @@ export default function SEODiscoveryManager() {
                       <TableBody>
                         {failed.map(l => (
                           <TableRow key={l.id}>
-                            <TableCell className="text-[10px] truncate max-w-[180px] py-1">{l.url?.replace('https://examfit.de', '')}</TableCell>
+                            <TableCell className="text-[10px] truncate max-w-[180px] py-1">{l.url?.replace('https://berufos.com', '')}</TableCell>
                             <TableCell className="text-[10px] py-1">{l.provider}</TableCell>
                             <TableCell className="text-[10px] py-1">{l.retry_count}</TableCell>
                             <TableCell className="text-[10px] py-1">{l.priority}</TableCell>

@@ -120,7 +120,7 @@ function BlogForm({ post, onSave, onClose }: {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Canonical URL</Label>
-          <Input value={form.canonical_url} onChange={e => setForm(f => ({ ...f, canonical_url: e.target.value }))} placeholder="https://examfit.de/blog/..." />
+          <Input value={form.canonical_url} onChange={e => setForm(f => ({ ...f, canonical_url: e.target.value }))} placeholder="https://berufos.com/blog/..." />
         </div>
       </div>
       <div className="flex items-center gap-4">

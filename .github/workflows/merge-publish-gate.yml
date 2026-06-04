@@ -271,7 +271,7 @@ jobs:
           if [ "$B" = "success" ] && [ "$T" = "success" ] && [ "$S" = "success" ] && [ "$G" = "success" ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "✅ **Published-Update freigegeben.**" >> $GITHUB_STEP_SUMMARY
-            echo "Bitte in Lovable auf **Update** klicken, um https://examfit.de zu aktualisieren." >> $GITHUB_STEP_SUMMARY
+            echo "Bitte in Lovable auf **Update** klicken, um https://berufos.com zu aktualisieren." >> $GITHUB_STEP_SUMMARY
             echo "(Lovable bietet keine API zum automatischen Re-Publish — bewusster Human-in-the-Loop nach NO_AUTONOMOUS_PRODUCTION_WRITES.)" >> $GITHUB_STEP_SUMMARY
           else
             echo "" >> $GITHUB_STEP_SUMMARY

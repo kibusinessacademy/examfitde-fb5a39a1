@@ -13,7 +13,7 @@ interface Props {
   referralCode: string;
 }
 
-const SITE_URL = 'https://examfit.de';
+const SITE_URL = 'https://berufos.com';
 
 export function PartnerTrackingLinksTab({ partnerId, referralCode }: Props) {
   const { data: links, isLoading } = usePartnerTrackingLinks(partnerId);

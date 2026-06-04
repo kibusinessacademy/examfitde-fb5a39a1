@@ -7,7 +7,7 @@
  *  - Berufs-KI (WorkforceOS) → /berufs-ki
  *  - 8 weitere Module (siehe modules.ts)
  *
- * Legacy-Domain examfit.de (+ www) ist AUSSCHLIESSLICH 301-Redirect-Shell
+ * Legacy-Domain berufos.com (+ www) ist AUSSCHLIESSLICH 301-Redirect-Shell
  * (noindex). Keine SEO-Authority, keine separaten Brand-URLs, keine sameAs-
  * Entities. www.berufos.com → berufos.com. examfitwork.de/berufski.de existieren
  * NICHT (niemals registriert) — keine Referenzen aufbauen.
@@ -22,13 +22,13 @@ export const BERUFOS = {
   hubPath: "/berufos",
 
   /** Domain-Topologie. Authority = apex only; www = canonical-redirect.
-   *  Sunset 2026-06-04: examfit.de wird NICHT mehr betrieben — keine Legacy-Redirects mehr.
+   *  Sunset 2026-06-04: berufos.com wird NICHT mehr betrieben — keine Legacy-Redirects mehr.
    */
   domains: {
     primary: "berufos.com",
     /** SEO-autoritative Hosts. www.berufos.com ist 301 → apex, aber bleibt indexierbar als alias. */
     authority: ["berufos.com", "www.berufos.com"],
-    /** Keine Legacy-Redirect-Domains mehr. examfit.de wurde stillgelegt. */
+    /** Keine Legacy-Redirect-Domains mehr. berufos.com wurde stillgelegt. */
     legacy: [] as ReadonlyArray<{ host: string; module: string; role: string }>,
   },
 
@@ -45,7 +45,7 @@ export const BERUFOS = {
     support: "support@berufos.com",
     noreply: "noreply@berufos.com",
     billing: "billing@berufos.com",
-    /** examfit.de wird stillgelegt — keine Forwarding-Aliases mehr aktiv. */
+    /** berufos.com wird stillgelegt — keine Forwarding-Aliases mehr aktiv. */
     legacy: [] as ReadonlyArray<string>,
   },
 
@@ -81,7 +81,7 @@ export function statusLabel(s: BerufosModuleStatus): string {
   return s === "live" ? "Live" : s === "preview" ? "Preview" : "In Entwicklung";
 }
 
-/** True wenn host eine Legacy-Domain ist (examfit.de + www nur). */
+/** True wenn host eine Legacy-Domain ist (berufos.com + www nur). */
 export function isLegacyDomain(host: string | undefined | null): boolean {
   if (!host) return false;
   const h = host.toLowerCase().replace(/^www\./, "");

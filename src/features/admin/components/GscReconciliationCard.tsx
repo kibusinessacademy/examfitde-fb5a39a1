@@ -102,7 +102,7 @@ const DECISION_TONE: Record<Decision, string> = {
   needs_fix: 'bg-status-error-bg-subtle text-status-error-text border-status-error-border',
 };
 
-const PLACEHOLDER = `https://examfit.de/paket/fachinformatiker-anwendungsentwicklung\tindexed
+const PLACEHOLDER = `https://berufos.com/paket/fachinformatiker-anwendungsentwicklung\tindexed
 /blog/lerntipps\tindexed
 /product/test-alt\t404
 /legal/impressum\tnoindex
@@ -125,9 +125,9 @@ function parsePaste(text: string): { path: string; gsc_status: string | null }[]
 function gscInspectUrl(path: string): string {
   // Google Search Console URL-Inspection (manuell). Property-String muss in
   // der GSC bereits verifiziert sein. Kein Auto-Submit.
-  const target = path.startsWith('http') ? path : `https://examfit.de${path}`;
+  const target = path.startsWith('http') ? path : `https://berufos.com${path}`;
   return `https://search.google.com/search-console/inspect?resource_id=${encodeURIComponent(
-    'sc-domain:examfit.de',
+    'sc-domain:berufos.com',
   )}&id=${encodeURIComponent(target)}`;
 }
 

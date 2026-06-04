@@ -1,7 +1,7 @@
 # Cutover & Rollback Runbook — Vercel Migration
 
 **Status:** ACTIVE · **Last Updated:** 2026-05-24
-**Scope:** examfit.de Frontend-Hosting Lovable → Vercel
+**Scope:** berufos.com Frontend-Hosting Lovable → Vercel
 **Backend:** Lovable Cloud / Supabase (unverändert)
 
 > Dieses Runbook ist die SSOT-Handlungsanweisung für den DNS-Cutover und den
@@ -53,21 +53,21 @@ diff <(curl -s https://examfit.vercel.app/) <(curl -s https://examfit.vercel.app
 **TTL** auf 5 min vor dem Switch absenken.
 
 ### 1.5 SSL warten
-Vercel provisioniert Let's Encrypt automatisch (1–10 min). Nicht weiter, bevor `https://examfit.de` 200 liefert.
+Vercel provisioniert Let's Encrypt automatisch (1–10 min). Nicht weiter, bevor `https://berufos.com` 200 liefert.
 
 ### 1.6 Lovable Custom Domain entkoppeln
 **ERST NACH** Schritt 1.5. Lovable → Project Settings → Domains → entfernen.
 
 ### 1.7 Post-Cutover-Smoke
 Im Admin-Cockpit (`/admin/command` → Tab **Cutover**):
-- Button **"Post-Cutover Smoke ausführen"** → läuft gegen `https://examfit.de`
+- Button **"Post-Cutover Smoke ausführen"** → läuft gegen `https://berufos.com`
 - Verdict muss **GO** sein.
 - Audit-Log: `auto_heal_log.action_type='cutover_route_html_smoke'`
 
 CLI-Pendant:
 ```bash
 node scripts/seo/post-cutover-smoke.mjs
-node scripts/seo/route-html-verify.mjs --host=https://examfit.de
+node scripts/seo/route-html-verify.mjs --host=https://berufos.com
 ```
 
 ### 1.8 GSC-Sitemap einreichen
@@ -82,7 +82,7 @@ Im Admin-Cockpit (`/admin/command` → Tab **Cutover**):
 **Trigger:**
 - Post-Cutover-Smoke `verdict=BLOCKED` mit ≥2 fehlerhaften Routen
 - SSL bleibt > 30 min ungültig
-- 5xx-Rate auf examfit.de > 5 % über > 10 min
+- 5xx-Rate auf berufos.com > 5 % über > 10 min
 
 ### 2.1 DNS zurück auf Lovable
 | Record | Name | Wert |
@@ -91,14 +91,14 @@ Im Admin-Cockpit (`/admin/command` → Tab **Cutover**):
 | A      | `www`| `185.158.133.1` |
 
 ### 2.2 Lovable Custom Domain re-connect
-Lovable → Project Settings → Domains → `examfit.de` und `www.examfit.de` hinzufügen, DNS-Verifikation abwarten.
+Lovable → Project Settings → Domains → `berufos.com` und `berufos.com` hinzufügen, DNS-Verifikation abwarten.
 
 ### 2.3 Vercel-Domain entfernen
-Vercel → Project → Settings → Domains → `examfit.de` removen, sonst 308-Loop möglich.
+Vercel → Project → Settings → Domains → `berufos.com` removen, sonst 308-Loop möglich.
 
 ### 2.4 Validierung Rollback
 ```bash
-curl -sI https://examfit.de | grep -i server
+curl -sI https://berufos.com | grep -i server
 node scripts/seo/post-cutover-smoke.mjs
 ```
 - `verdict=GO` gegen Lovable-Hosting reicht für „Rollback erfolgreich".
@@ -111,7 +111,7 @@ node scripts/seo/post-cutover-smoke.mjs
 | Check | Tool | Erfolgskriterium |
 |-------|------|------------------|
 | Per-Route HTML | `route-html-verify.mjs` | Title + Canonical + JSON-LD pro Route |
-| www → apex | `post-cutover-smoke.mjs` | 301/308 nach `examfit.de` |
+| www → apex | `post-cutover-smoke.mjs` | 301/308 nach `berufos.com` |
 | Sitemap erreichbar | `curl -sI /sitemap.xml` | 200 |
 | robots.txt | `curl -s /robots.txt` | enthält `Sitemap:` und `Host:` |
 | GSC-Sitemap-Status | Admin → Cutover Tab | `lastSubmitted` aktuell, 0 errors |

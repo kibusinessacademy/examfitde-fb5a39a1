@@ -65,7 +65,7 @@ export default function EnterpriseDemoPage() {
         <meta name="description" content="Sehen Sie vor der Prüfung, welche Azubis durchfallen. Dashboard für Prüfungsreife, Risiko-Erkennung und automatische Handlungsempfehlungen. SSO, SCIM, DSGVO-konform." />
         <meta property="og:title" content="ExamFit Enterprise — Prüfungsreife Ihrer Azubis in Echtzeit" />
         <meta property="og:description" content="Das Ausbildungssteuerungssystem für IT-Leiter und HR. SSO, SCIM, DSGVO-konform. Demo in 5 Minuten." />
-        <link rel="canonical" href="https://examfit.de/enterprise-demo" />
+        <link rel="canonical" href="https://berufos.com/enterprise-demo" />
         <script type="application/ld+json">{JSON.stringify({
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",

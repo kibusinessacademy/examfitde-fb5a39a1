@@ -35,14 +35,14 @@ Wähle den passenden @type basierend auf dem Seitentyp:
 - legal → WebPage
 - about → AboutPage
 Füge immer breadcrumb und organization ein wo sinnvoll.
-Brand: ExamFit (https://examfit.de) - IHK Prüfungsvorbereitung Plattform.`;
+Brand: ExamFit (https://berufos.com) - IHK Prüfungsvorbereitung Plattform.`;
 
       userPrompt = `Erstelle JSON-LD für folgende Seite:
 Seitentyp: ${page_type || "homepage"}
 Title: ${meta_title || "ExamFit"}
 Description: ${meta_description || ""}
 Keywords: ${keywords || ""}
-URL: ${canonical_url || "https://examfit.de"}`;
+URL: ${canonical_url || "https://berufos.com"}`;
     } else if (action === "generate_meta") {
       systemPrompt = `Du bist ein SEO-Experte. Erstelle optimierte Meta-Tags für eine deutsche IHK-Prüfungsvorbereitungs-Plattform namens ExamFit.
 Antworte im JSON-Format: {"meta_title": "...", "meta_description": "..."}
@@ -52,7 +52,7 @@ Meta-Description: max 155 Zeichen, Call-to-Action, Keyword enthalten.`;
       userPrompt = `Erstelle Meta-Tags für:
 Seitentyp: ${page_type || "homepage"}
 Keywords: ${keywords || "IHK, Prüfung"}
-Aktuelle URL: ${canonical_url || "https://examfit.de"}`;
+Aktuelle URL: ${canonical_url || "https://berufos.com"}`;
     } else if (action === "improve_meta") {
       systemPrompt = `Du bist ein SEO-Experte. Verbessere die gegebenen Meta-Tags für bessere CTR und Rankings.
 Antworte im JSON-Format: {"meta_title": "...", "meta_description": "..."}

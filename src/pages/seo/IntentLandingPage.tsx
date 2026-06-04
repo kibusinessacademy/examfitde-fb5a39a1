@@ -56,7 +56,7 @@ interface IntentPage {
   persona_type: string;
 }
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 
 export default function IntentLandingPage() {
   const { curriculumSlug, intentSlug, competencySlug } = useParams<{
@@ -107,7 +107,7 @@ export default function IntentLandingPage() {
     return (
       <div className="container mx-auto px-4 py-16 max-w-2xl text-center">
         <Helmet>
-          <title>Seite nicht gefunden — examfit.de</title>
+          <title>Seite nicht gefunden — berufos.com</title>
           <meta name="robots" content="noindex" />
         </Helmet>
         <h1 className="text-3xl font-semibold text-foreground mb-4">
@@ -138,8 +138,8 @@ export default function IntentLandingPage() {
       "@type": "Article",
       headline: page.title,
       description: page.meta_description ?? undefined,
-      author: { "@type": "Organization", name: "examfit.de" },
-      publisher: { "@type": "Organization", name: "examfit.de" },
+      author: { "@type": "Organization", name: "berufos.com" },
+      publisher: { "@type": "Organization", name: "berufos.com" },
       datePublished: page.last_generated_at ?? undefined,
       dateModified: page.last_generated_at ?? undefined,
       mainEntityOfPage: canonical,

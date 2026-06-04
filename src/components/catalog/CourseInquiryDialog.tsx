@@ -47,7 +47,7 @@ export function CourseInquiryDialog({ open, onOpenChange, selectedCourses, onRem
 
       if (error) throw error;
 
-      // Send notification email to info@examfit.de via mailto fallback
+      // Send notification email to info@berufos.com via mailto fallback
       const courseList = selectedCourses.map(c => c.title).join(', ');
       const mailBody = encodeURIComponent(
         `Neue Kursanfrage von ${firstName} ${lastName} (${email}):\n\nAngefragte Kurse: ${courseList}\n\nNachricht: ${message || '–'}\nTelefon: ${phone || '–'}`
@@ -56,7 +56,7 @@ export function CourseInquiryDialog({ open, onOpenChange, selectedCourses, onRem
       
       // Open mailto link silently
       const mailLink = document.createElement('a');
-      mailLink.href = `mailto:info@examfit.de?subject=${mailSubject}&body=${mailBody}`;
+      mailLink.href = `mailto:info@berufos.com?subject=${mailSubject}&body=${mailBody}`;
       mailLink.click();
 
       setSubmitted(true);

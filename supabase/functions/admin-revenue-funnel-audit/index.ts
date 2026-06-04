@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       // Insert a fake order + crm_contact + conversion_event tuple to validate
       // the persistence path end-to-end. Tagged so it can be cleaned up later.
       const tag = `simulated-${Date.now()}`;
-      const email = `audit+${tag}@examfit.de`;
+      const email = `audit+${tag}@berufos.com`;
 
       const { data: contact } = await sb
         .from("crm_contacts")

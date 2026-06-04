@@ -9,7 +9,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  * Orchestrates: discovery state → IndexNow → sitemap/feed logs
  */
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 const INDEXNOW_KEY = "examfit-indexnow-key-2026";
 const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
 

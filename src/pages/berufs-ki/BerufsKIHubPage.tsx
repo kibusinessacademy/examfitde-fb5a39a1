@@ -25,7 +25,7 @@ export default function BerufsKIHubPage() {
       <Helmet>
         <title>Berufs-KI · Die KI kennt deinen Beruf · ExamFit</title>
         <meta name="description" content={BERUFS_KI.brand.promise} />
-        <link rel="canonical" href="https://examfit.de/berufs-ki" />
+        <link rel="canonical" href="https://berufos.com/berufs-ki" />
       </Helmet>
 
       <section className="mx-auto max-w-5xl px-6 pt-20 pb-12">

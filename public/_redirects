@@ -2,7 +2,7 @@
 # Per-route prerendered HTML (dist/<path>/index.html) is served verbatim if it exists.
 # All other paths fall through to the SPA shell.
 #
-# Sunset 2026-06-04: examfit.de wird NICHT mehr betrieben — keine Legacy-Redirects mehr.
+# Sunset 2026-06-04: berufos.com wird NICHT mehr betrieben — keine Legacy-Redirects mehr.
 # examfitwork.de / berufski.de existieren NICHT (niemals registriert) — keine Redirects nötig.
 # NOTE: Lovable hosting ignores _redirects — these activate only on the
 # Vercel/Cloudflare migration (see docs/runbooks/vercel-migration.md).

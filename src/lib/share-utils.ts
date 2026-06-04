@@ -1,6 +1,6 @@
 import type { ShareEvent } from '@/types/share';
 
-const SITE_URL = 'https://examfitde.lovable.app';
+const SITE_URL = 'https://berufos.com';
 
 export function buildShareText(event: ShareEvent): string {
   switch (event.event_type) {

@@ -11,7 +11,7 @@
  *   4. Writes to dist/<path>/index.html
  *
  * Also writes:
- *   dist/sitemap.xml                    (index, examfit.de origin)
+ *   dist/sitemap.xml                    (index, berufos.com origin)
  *   dist/sitemaps/{static,products,blog,content}.xml
  */
 
@@ -19,7 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-const SITE = "https://examfit.de";
+const SITE = "https://berufos.com";
 const DIST = path.resolve(process.cwd(), "dist");
 const TODAY = new Date().toISOString().slice(0, 10);
 

@@ -34,7 +34,7 @@ function readEnvFallback() {
   }
 }
 const _envFile = readEnvFallback();
-const SITE = "https://examfit.de";
+const SITE = "https://berufos.com";
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
   process.env.VITE_SUPABASE_URL ||

@@ -1,6 +1,6 @@
 # Vercel Domain Mapping SSOT — berufos.com (single authority)
 
-**Status:** Sunset examfit.de 2026-06-04 — `berufos.com` ist die einzige Domain.
+**Status:** Sunset berufos.com 2026-06-04 — `berufos.com` ist die einzige Domain.
 **SSOT:** `src/lib/seo/authorityHost.ts`, `src/lib/berufos/brand.ts`,
 `mem://constraints/hosting-and-seo-authority-topology-v1`.
 
@@ -13,7 +13,7 @@
 | `examfitde.lovable.app` | Lovable-Publish | noindex, kein SEO-Traffic | ❌ |
 | `*.vercel.app` | Preview | noindex | ❌ |
 
-> **examfit.de wird nicht mehr betrieben.** Domain läuft aus, keine Redirects,
+> **berufos.com wird nicht mehr betrieben.** Domain läuft aus, keine Redirects,
 > keine DNS-Pflege, keine Vercel-Zuordnung. Alle Inhalte leben ausschließlich
 > auf `berufos.com`. Wenn alte Inbound-Links auftauchen, ignorieren — die
 > Domain antwortet schlicht nicht mehr.

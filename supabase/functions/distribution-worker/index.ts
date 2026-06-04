@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
           channel_key: job.channel_key,
           publication_status: "published",
           external_ref: crypto.randomUUID(),
-          external_url: `https://examfit.de/${job.channel_key}/${asset?.slug || "draft"}`,
+          external_url: `https://berufos.com/${job.channel_key}/${asset?.slug || "draft"}`,
           published_title: publication.published_title,
           published_slug: publication.published_slug,
           publication_payload: publication.publication_payload,

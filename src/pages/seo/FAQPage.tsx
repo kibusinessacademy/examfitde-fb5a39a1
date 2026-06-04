@@ -166,7 +166,7 @@ const faqs: FAQItem[] = [
   {
     category: 'Widerruf & Support',
     question: 'Wie erreiche ich den Support?',
-    answer: 'Du erreichst uns per E-Mail an support@examfit.de. Wir antworten in der Regel innerhalb von 24 Stunden an Werktagen.',
+    answer: 'Du erreichst uns per E-Mail an support@berufos.com. Wir antworten in der Regel innerhalb von 24 Stunden an Werktagen.',
   },
   {
     category: 'Allgemein',
@@ -294,10 +294,10 @@ export default function FAQPage() {
               Kontaktiere uns direkt – wir helfen dir gerne weiter.
             </p>
             <a 
-              href="mailto:support@examfit.de" 
+              href="mailto:support@berufos.com" 
               className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
             >
-              support@examfit.de
+              support@berufos.com
             </a>
           </div>
         </div>

@@ -36,7 +36,7 @@ export function PartnerSettingsTab({ partner }: Props) {
         <CardContent className="space-y-3 text-sm">
           <div className="flex justify-between"><span className="text-muted-foreground">Methode</span><span>{partner.payout_method || 'Nicht konfiguriert'}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Steuer-ID</span><span>{partner.tax_id || '—'}</span></div>
-          <p className="text-xs text-muted-foreground mt-2">Zur Änderung kontaktiere bitte partner@examfit.de</p>
+          <p className="text-xs text-muted-foreground mt-2">Zur Änderung kontaktiere bitte partner@berufos.com</p>
         </CardContent>
       </Card>
 

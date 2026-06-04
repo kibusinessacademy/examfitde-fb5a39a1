@@ -9,7 +9,7 @@ import { useEffect } from "react";
  * - DSGVO: respektiert CookieConsentBanner. Initialisiert NUR wenn
  *   `examfit_consent_analytics` im localStorage = 'granted'.
  * - Lädt nur einmal pro Session.
- * - Lädt nicht auf Preview-/Lovable-Hosts (nur examfit.de + www).
+ * - Lädt nicht auf Preview-/Lovable-Hosts (nur berufos.com + www).
  */
 // Clarity Project IDs sind öffentlich (im HTML jedes Trackers sichtbar) —
 // daher als Default hardcoded. Override via Build-Secret weiterhin möglich.
@@ -27,7 +27,7 @@ export function ClarityTracker() {
 
     // Authority-Host Gate (kein Tracking auf Previews)
     const host = window.location.hostname;
-    const isAuthority = host === "examfit.de" || host === "www.examfit.de";
+    const isAuthority = host === "berufos.com" || host === "berufos.com";
     if (!isAuthority) return;
 
     // Consent-Gate

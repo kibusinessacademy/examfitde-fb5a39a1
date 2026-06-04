@@ -53,7 +53,7 @@ VALUES ('seo_hosting_shadow_slot', 'system', 'pass'|'fail', '{...}'::jsonb);
 ## Nächste Schritte nach GO
 
 1. DNS Cutover gemäß `docs/runbooks/cloudflare-pages-migration.md`
-2. Canonical Final-Check (alle Routes auf `https://www.examfit.de`)
+2. Canonical Final-Check (alle Routes auf `https://berufos.com`)
 3. GSC Property re-validate + Sitemap resubmit
 4. Indexing-Watch 7 Tage
 5. Wave 3 freigeben

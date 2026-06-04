@@ -248,7 +248,7 @@ ${toneHint}
 ${targetHint}
 Plattform: ${platform}
 Produkt: ExamFit Prüfungstraining (einmalig 24,90€, 12 Monate Zugang)
-CTA-Link: https://examfit.de/shop
+CTA-Link: https://berufos.com/shop
 
 AUFGABE:
 ${structureMap[contentType] || "Erstelle conversion-optimierten Marketing-Content als JSON."}

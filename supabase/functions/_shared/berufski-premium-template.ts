@@ -233,7 +233,7 @@ export function buildPremiumHtml(params: {
     : `<div class="cover-art"></div>`;
 
   const stamp = licenseStamp ? `<span class="stamp">${esc(licenseStamp)}</span>` : "";
-  const backlink = examfitUrl || "https://examfit.de";
+  const backlink = examfitUrl || "https://berufos.com";
 
   const toc = content.toc
     .map(t => `<li><a href="#${t.id}">${esc(t.label)}</a></li>`)

@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       theme,
       coverDataUrl,
       licenseStamp: licenseStamp || null,
-      examfitUrl: Deno.env.get("APP_BASE_URL") || "https://examfit.de",
+      examfitUrl: Deno.env.get("APP_BASE_URL") || "https://berufos.com",
     });
 
     // ── 5) Render PDF via Browserless ──

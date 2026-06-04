@@ -5,8 +5,8 @@
 
 // Allowed production domains
 const ALLOWED_ORIGINS = [
-  'https://examfit.de',
-  'https://www.examfit.de',
+  'https://berufos.com',
+  'https://berufos.com',
   'https://examfitde.lovable.app',
   'https://id-preview--ad51e8f9-6cff-41cf-9723-b4e49dbcd9db.lovable.app',
   'https://ad51e8f9-6cff-41cf-9723-b4e49dbcd9db.lovableproject.com',
@@ -32,7 +32,7 @@ export function getCorsHeaders(requestOrigin: string | null): Record<string, str
       allowedOrigin = requestOrigin;
     } else {
       // Default to main production domain if origin not in list
-      allowedOrigin = 'https://examfit.de';
+      allowedOrigin = 'https://berufos.com';
     }
   }
 

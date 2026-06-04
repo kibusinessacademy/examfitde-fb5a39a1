@@ -49,7 +49,7 @@ npx playwright install --with-deps chromium
 
 | `E2E_TARGET` | URL |
 |---|---|
-| `production` | `https://www.examfit.de` |
+| `production` | `https://berufos.com` |
 | `preview` *(default)* | `https://examfitde.lovable.app` |
 | `local` | `http://localhost:8080` (vorher `npm run dev`) |
 

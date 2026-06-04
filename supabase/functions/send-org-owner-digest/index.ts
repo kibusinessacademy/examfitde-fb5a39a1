@@ -12,7 +12,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY");
-const FROM = "ExamFit Reports <noreply@examfit.de>";
+const FROM = "ExamFit Reports <noreply@berufos.com>";
 const BATCH = 25;
 const TRACK_BASE = `${SUPABASE_URL}/functions/v1/owner-digest-track`;
 
@@ -73,9 +73,9 @@ function renderDigestHtml(payload: any, period: string): { subject: string; html
       <p style="margin:8px 0 0;font-size:13px;color:#7f1d1d">Sichere den Lernzugang deiner Mitarbeitenden rechtzeitig durch eine Verlängerung.</p>
     </div>` : ''}
 
-    <a href="https://examfit.de/org/dashboard" style="display:inline-block;background:#0f766e;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Dashboard öffnen</a>
+    <a href="https://berufos.com/org/dashboard" style="display:inline-block;background:#0f766e;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Dashboard öffnen</a>
 
-    <p style="margin:32px 0 0;font-size:12px;color:#94a3b8">Du erhältst diesen Report als Owner/Admin von ${orgName}. <a href="https://examfit.de/app/benachrichtigungen" style="color:#0f766e">Benachrichtigungseinstellungen</a></p>
+    <p style="margin:32px 0 0;font-size:12px;color:#94a3b8">Du erhältst diesen Report als Owner/Admin von ${orgName}. <a href="https://berufos.com/app/benachrichtigungen" style="color:#0f766e">Benachrichtigungseinstellungen</a></p>
   </div>
 </body></html>`;
 

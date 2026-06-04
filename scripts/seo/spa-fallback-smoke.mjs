@@ -9,7 +9,7 @@
  *   4. www → apex redirects with 301/308
  *
  * Usage: HOST=https://examfit.pages.dev node scripts/seo/spa-fallback-smoke.mjs
- *        HOST=https://examfit.de         node scripts/seo/spa-fallback-smoke.mjs
+ *        HOST=https://berufos.com         node scripts/seo/spa-fallback-smoke.mjs
  */
 
 const HOST = process.env.HOST || 'https://examfit.pages.dev';
@@ -63,7 +63,7 @@ async function probe(path, expect) {
 
 async function checkWwwRedirect() {
   if (!/examfit\.de/.test(HOST)) return;
-  const r = await fetch('https://www.examfit.de/', { redirect: 'manual' });
+  const r = await fetch('https://berufos.com/', { redirect: 'manual' });
   const loc = r.headers.get('location') || '';
   const ok = (r.status === 301 || r.status === 308) && /^https:\/\/examfit\.de/.test(loc);
   console.log(`  ${ok ? '✅' : '❌'} www → apex status=${r.status} location=${loc}`);

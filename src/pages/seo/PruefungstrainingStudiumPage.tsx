@@ -36,7 +36,7 @@ const FAQS = [
   { question: 'Ist ExamFit DSGVO-konform?', answer: 'Ja. Alle Daten werden ausschließlich auf EU-Servern verarbeitet. Studierende können jederzeit Auskunft über ihre Daten verlangen oder deren Löschung beantragen. Hochschulen erhalten eine ordentliche Rechnung mit ausgewiesener MwSt.' },
   { question: 'Wie geht ExamFit mit KI um (EU AI Act)?', answer: 'ExamFit dokumentiert alle eingesetzten KI-Modelle transparent. Alle KI-generierten Inhalte durchlaufen ein mehrstufiges Qualitätssystem mit menschlicher Aufsicht. Die Datengrundlagen sind nachvollziehbar und revisionssicher.' },
   { question: 'Werden Studierendendaten an die Hochschule weitergegeben?', answer: 'Nur wenn die Hochschule eine Teamlizenz nutzt: Dann sehen Dozenten den Kompetenzstand ihrer Studierenden. Individuelle Lernerdaten werden nie an Dritte weitergegeben.' },
-  { question: 'Gibt es Konditionen für Universitäten und Hochschulen?', answer: 'Ja. Ab 10 Plätzen sinkt der Preis pro Studierendem. Für Hochschulen mit 25+ Plätzen bieten wir die günstigsten Konditionen. Kontaktieren Sie uns unter info@examfit.de.' },
+  { question: 'Gibt es Konditionen für Universitäten und Hochschulen?', answer: 'Ja. Ab 10 Plätzen sinkt der Preis pro Studierendem. Für Hochschulen mit 25+ Plätzen bieten wir die günstigsten Konditionen. Kontaktieren Sie uns unter info@berufos.com.' },
 ];
 
 const CONTACT = {
@@ -45,7 +45,7 @@ const CONTACT = {
   type: 'Einzelunternehmen',
   street: 'Elsa-Brandström-Str. 4',
   city: '76676 Graben-Neudorf',
-  email: 'info@examfit.de',
+  email: 'info@berufos.com',
 };
 
 const studium = PRICING_CATEGORIES.studium;

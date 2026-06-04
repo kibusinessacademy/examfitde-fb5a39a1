@@ -27,7 +27,7 @@ export function GrowthBrandFooter({
         <p className="text-xs text-muted-foreground">
           © {BRAND.name} – Intelligentes Prüfungstraining ·{" "}
           <Link to="/" className="underline hover:text-foreground transition-colors">
-            examfit.de
+            berufos.com
           </Link>
         </p>
         {contentId && (
@@ -75,7 +75,7 @@ export function GrowthBrandFooter({
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">{BRAND.name}</p>
-          <p className="text-xs text-muted-foreground">Intelligentes Prüfungstraining · examfit.de</p>
+          <p className="text-xs text-muted-foreground">Intelligentes Prüfungstraining · berufos.com</p>
         </div>
       </div>
 

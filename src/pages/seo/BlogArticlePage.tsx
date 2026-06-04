@@ -10,7 +10,7 @@ import { de } from 'date-fns/locale';
 import { GrowthBrandFooter } from '@/components/seo/GrowthBrandFooter';
 import { QuizCTA } from '@/components/quiz/QuizCTA';
 
-const SITE_URL = 'https://examfit.de';
+const SITE_URL = 'https://berufos.com';
 
 export default function BlogArticlePage() {
   const { slug } = useParams<{ slug: string }>();

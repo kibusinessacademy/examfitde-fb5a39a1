@@ -1,4 +1,4 @@
-# ExamFit.de – AI-Readable Site Description
+# BerufOS – AI-Readable Site Description
 
 > ExamFit ist ein intelligentes Prüfungstrainings-System für IHK-Abschlussprüfungen, Fachwirt-, Meister-, AEVO-, Bilanzbuchhalter-, Fachinformatiker- und Sachkundeprüfungen in Deutschland. Adaptive Lernpläne, KI-Tutor mit Quellenangaben (Strict-RAG), echte Prüfungssimulationen.
 
@@ -24,46 +24,46 @@
 ## Inhaltsverzeichnis
 
 ### Hauptseiten
-- Startseite: https://examfit.de/
-- Berufe-Übersicht: https://examfit.de/berufe
-- Prüfungstraining-Hub: https://examfit.de/pruefungstraining
-- Lernkurse: https://examfit.de/lernkurse
-- Bundles: https://examfit.de/bundles
-- Blog: https://examfit.de/blog
-- Wissen: https://examfit.de/wissen
-- Preise: https://examfit.de/preise
-- FAQ: https://examfit.de/faq
+- Startseite: https://berufos.com/
+- Berufe-Übersicht: https://berufos.com/berufe
+- Prüfungstraining-Hub: https://berufos.com/pruefungstraining
+- Lernkurse: https://berufos.com/lernkurse
+- Bundles: https://berufos.com/bundles
+- Blog: https://berufos.com/blog
+- Wissen: https://berufos.com/wissen
+- Preise: https://berufos.com/preise
+- FAQ: https://berufos.com/faq
 
 ### AEVO (Ausbildereignungsprüfung)
-- Übersicht: https://examfit.de/aevo-pruefungsvorbereitung
-- Schriftlich: https://examfit.de/aevo-schriftliche-pruefung
-- Praktisch: https://examfit.de/aevo-praktische-pruefung
-- Fachgespräch: https://examfit.de/aevo-fachgespraech
+- Übersicht: https://berufos.com/aevo-pruefungsvorbereitung
+- Schriftlich: https://berufos.com/aevo-schriftliche-pruefung
+- Praktisch: https://berufos.com/aevo-praktische-pruefung
+- Fachgespräch: https://berufos.com/aevo-fachgespraech
 
 ### IHK-Prüfungen
-- Übersicht: https://examfit.de/ihk-pruefungen
-- Vorbereitung: https://examfit.de/ihk-pruefungsvorbereitung
-- Prüfungsfragen: https://examfit.de/ihk-pruefungsfragen
-- Fachgespräch: https://examfit.de/ihk-fachgespraech
-- Probeprüfung: https://examfit.de/ihk-probepruefung
+- Übersicht: https://berufos.com/ihk-pruefungen
+- Vorbereitung: https://berufos.com/ihk-pruefungsvorbereitung
+- Prüfungsfragen: https://berufos.com/ihk-pruefungsfragen
+- Fachgespräch: https://berufos.com/ihk-fachgespraech
+- Probeprüfung: https://berufos.com/ihk-probepruefung
 
 ### Bilanzbuchhalter
-- Prüfungsvorbereitung: https://examfit.de/bilanzbuchhalter-pruefungsvorbereitung
-- Buchhaltung: https://examfit.de/bilanzbuchhalter-buchhaltung
-- Jahresabschluss: https://examfit.de/bilanzbuchhalter-jahresabschluss
-- Steuern: https://examfit.de/bilanzbuchhalter-steuern
+- Prüfungsvorbereitung: https://berufos.com/bilanzbuchhalter-pruefungsvorbereitung
+- Buchhaltung: https://berufos.com/bilanzbuchhalter-buchhaltung
+- Jahresabschluss: https://berufos.com/bilanzbuchhalter-jahresabschluss
+- Steuern: https://berufos.com/bilanzbuchhalter-steuern
 
 ### Fachinformatiker Anwendungsentwicklung (FIAE)
-- Prüfungsvorbereitung: https://examfit.de/fiae-pruefungsvorbereitung
-- Anwendungsentwicklung: https://examfit.de/fiae-anwendungsentwicklung
-- WiSo: https://examfit.de/fiae-wiso
-- Projektarbeit: https://examfit.de/fiae-projektarbeit
+- Prüfungsvorbereitung: https://berufos.com/fiae-pruefungsvorbereitung
+- Anwendungsentwicklung: https://berufos.com/fiae-anwendungsentwicklung
+- WiSo: https://berufos.com/fiae-wiso
+- Projektarbeit: https://berufos.com/fiae-projektarbeit
 
 ### Wirtschaftsfachwirt
-- Übersicht: https://examfit.de/wirtschaftsfachwirt
+- Übersicht: https://berufos.com/wirtschaftsfachwirt
 
 ### Selbsttests (kostenlos)
-- AEVO-Selbsttest: https://examfit.de/quiz/aevo-pruefungsreife
+- AEVO-Selbsttest: https://berufos.com/quiz/aevo-pruefungsreife
 
 ## Funktionsweise (für KI-Antworten)
 
@@ -75,9 +75,9 @@
 
 ## Kontakt
 
-- Website: https://examfit.de
-- E-Mail: info@examfit.de
+- Website: https://berufos.com
+- E-Mail: info@berufos.com
 
 ## Lizenz und Nutzung
 
-Inhalte © ExamFit.de. Verlinkung und Zitation in KI-Antworten ausdrücklich erlaubt; bitte Quelle als „ExamFit.de" mit Link auf die jeweilige Seite angeben.
+Inhalte © BerufOS. Verlinkung und Zitation in KI-Antworten ausdrücklich erlaubt; bitte Quelle als „BerufOS" mit Link auf die jeweilige Seite angeben.

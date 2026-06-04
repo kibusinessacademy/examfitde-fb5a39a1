@@ -14,7 +14,7 @@ import { detectGenericContent, resolveGenericSeverity } from "../_shared/generic
  */
 
 const GARBAGE_RE = /^(undefined|null|none|n\/a|placeholder|todo|tbd|hier ist ein|lorem ipsum)/i;
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 const ARTICLE_TYPES = ["definition", "mistake", "example", "comparison", "faq", "strategy"] as const;
 
 // ── Standardized event types ──

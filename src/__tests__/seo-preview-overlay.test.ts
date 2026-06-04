@@ -14,7 +14,7 @@ function setHead(html: string, title = '') {
   else document.title = '';
 }
 
-const SITE = 'https://examfit.de';
+const SITE = 'https://berufos.com';
 
 afterEach(() => {
   document.head.innerHTML = '';

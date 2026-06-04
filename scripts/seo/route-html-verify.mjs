@@ -8,7 +8,7 @@
  *   - mindestens ein <script type="application/ld+json">
  *
  * Usage:
- *   node scripts/seo/route-html-verify.mjs --host=https://examfit.de \
+ *   node scripts/seo/route-html-verify.mjs --host=https://berufos.com \
  *        --routes=/,/berufe,/blog
  *
  * Default routes when none provided: a curated set of high-priority routes.
@@ -23,7 +23,7 @@ const args = Object.fromEntries(
   }),
 );
 
-const HOST = String(args.host || process.env.HOST || "https://examfit.de").replace(/\/$/, "");
+const HOST = String(args.host || process.env.HOST || "https://berufos.com").replace(/\/$/, "");
 const DEFAULT_ROUTES = [
   "/",
   "/berufe",

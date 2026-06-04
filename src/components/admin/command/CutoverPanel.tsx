@@ -56,10 +56,10 @@ async function callCutover(action: string, payload: Record<string, unknown> = {}
 
 export default function CutoverPanel() {
   const qc = useQueryClient();
-  const [host, setHost] = useState('https://examfit.de');
+  const [host, setHost] = useState('https://berufos.com');
   const [routesText, setRoutesText] = useState(DEFAULT_ROUTES);
-  const [siteUrl, setSiteUrl] = useState('https://examfit.de/');
-  const [feedpath, setFeedpath] = useState('https://examfit.de/sitemap.xml');
+  const [siteUrl, setSiteUrl] = useState('https://berufos.com/');
+  const [feedpath, setFeedpath] = useState('https://berufos.com/sitemap.xml');
   const [smoke, setSmoke] = useState<SmokeResult | null>(null);
 
   // Audit-Historie der letzten Cutover-Aktionen

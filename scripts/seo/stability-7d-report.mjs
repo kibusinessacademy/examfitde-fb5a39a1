@@ -10,7 +10,7 @@
  *   GITHUB_TOKEN, GITHUB_REPOSITORY (e.g. "owner/repo")
  *
  * Optional env:
- *   WINDOW_HOURS (default 168), HOST (filter, default https://examfit.de)
+ *   WINDOW_HOURS (default 168), HOST (filter, default https://berufos.com)
  *
  * Output:
  *   - stdout markdown summary
@@ -19,7 +19,7 @@
 const TOKEN = process.env.GITHUB_TOKEN;
 const REPO = process.env.GITHUB_REPOSITORY;
 const WINDOW_HOURS = Number(process.env.WINDOW_HOURS || 168);
-const HOST_FILTER = process.env.HOST || "https://examfit.de";
+const HOST_FILTER = process.env.HOST || "https://berufos.com";
 
 if (!TOKEN || !REPO) {
   console.error("Missing GITHUB_TOKEN or GITHUB_REPOSITORY");

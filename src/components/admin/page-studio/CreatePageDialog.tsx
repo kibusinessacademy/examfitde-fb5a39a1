@@ -229,7 +229,7 @@ export function CreatePageDialog({ open, onOpenChange }: Props) {
             <div className="space-y-2">
               <Label>Slug (URL)</Label>
               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-                <span>examfit.de/</span>
+                <span>berufos.com/</span>
                 <span className="font-mono">{slug || '…'}</span>
               </div>
               <Input
