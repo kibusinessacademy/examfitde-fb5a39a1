@@ -6,11 +6,12 @@
  * Customer-Reality-Triage Workflow committed). Keine DB, kein Edge.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, ArrowDown, ArrowUp, Minus, RefreshCw } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, CheckCircle2, Loader2, Minus, RefreshCw } from 'lucide-react';
 
 interface Finding {
   fingerprint: string;
