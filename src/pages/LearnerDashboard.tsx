@@ -116,30 +116,75 @@ export default function LearnerDashboard() {
           )}
         </div>
 
-        {/* ━━━ Reality-QA: ALWAYS-VISIBLE primary Next-Step CTA ━━━
-            Eliminiert P0 'no next-step CTA on /dashboard' und ist immer sichtbar,
-            unabhängig vom Datenstand. Dient gleichzeitig als Continue-Card nach Re-Login. */}
+        {/* ━━━ Reality-QA: ALWAYS-VISIBLE primary Next-Step + Quick-Actions ━━━
+            P0.5: Sichtbarer Next-Step + 4 Quick-Actions aus vorhandenem
+            Enrollment/Curriculum-State. Robust für leere/teil-leere Daten. */}
         <div className="mb-4" data-testid="dashboard-next-step">
           <Card className="glass-card border-primary/30">
-            <CardContent className="p-4 flex items-center gap-3 justify-between">
-              <div className="min-w-0">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Dein nächster Schritt
-                </p>
-                <p className="text-sm sm:text-base font-semibold truncate">
-                  {firstEnrollment?.title
-                    ? `Weiter mit: ${firstEnrollment.title}`
-                    : activeCurriculumId
-                    ? 'Empfohlene Lerneinheit für heute'
-                    : 'Lege deinen Prüfungsberuf fest, um zu starten.'}
-                </p>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Dein nächster Schritt
+                  </p>
+                  <p className="text-sm sm:text-base font-semibold truncate">
+                    {firstEnrollment?.title
+                      ? `Weiter mit: ${firstEnrollment.title}`
+                      : activeCurriculumId
+                      ? 'Empfohlene Lerneinheit für heute'
+                      : 'Lege deinen Prüfungsberuf fest, um zu starten.'}
+                  </p>
+                </div>
+                <Button asChild size="sm" className="shrink-0">
+                  <Link to={primaryNextStep.to} data-cta-location="dashboard_next_step">
+                    {primaryNextStep.label}
+                    <ArrowRight className="ml-1 h-4 w-4" />
+                  </Link>
+                </Button>
               </div>
-              <Button asChild size="sm" className="shrink-0">
-                <Link to={primaryNextStep.to} data-cta-location="dashboard_next_step">
-                  {primaryNextStep.label}
-                  <ArrowRight className="ml-1 h-4 w-4" />
-                </Link>
-              </Button>
+
+              {/* Quick-Actions: immer 4 sichtbar, robuster Fallback */}
+              <div
+                className="mt-4 grid grid-cols-2 gap-2"
+                data-testid="dashboard-quick-actions"
+              >
+                <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
+                  <Link
+                    to={firstEnrollment?.course_id ? `/course/${firstEnrollment.course_id}` : '/berufe'}
+                    data-cta-location="dashboard_quick_pruefung_starten"
+                  >
+                    <GraduationCap className="h-4 w-4 mr-2 shrink-0" />
+                    <span className="truncate text-left">Prüfung starten</span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
+                  <Link
+                    to={firstEnrollment?.course_id ? `/course/${firstEnrollment.course_id}` : '/courses'}
+                    data-cta-location="dashboard_quick_weiterlernen"
+                  >
+                    <BookOpen className="h-4 w-4 mr-2 shrink-0" />
+                    <span className="truncate text-left">Weiterlernen</span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
+                  <Link
+                    to={activeCurriculumId ? `/minicheck?curriculum=${activeCurriculumId}` : '/minicheck'}
+                    data-cta-location="dashboard_quick_minicheck"
+                  >
+                    <Brain className="h-4 w-4 mr-2 shrink-0" />
+                    <span className="truncate text-left">MiniCheck fortsetzen</span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
+                  <Link
+                    to={activeCurriculumId ? `/exam-simulation?curriculum=${activeCurriculumId}` : '/exam-simulation'}
+                    data-cta-location="dashboard_quick_simulation"
+                  >
+                    <Target className="h-4 w-4 mr-2 shrink-0" />
+                    <span className="truncate text-left">Prüfung simulieren</span>
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
