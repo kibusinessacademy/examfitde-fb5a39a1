@@ -250,7 +250,7 @@ function SettingForm({ setting, onSave, onClose }: {
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs">Canonical URL</Label>
-          <Input value={form.canonical_url} onChange={e => setForm(f => ({ ...f, canonical_url: e.target.value }))} placeholder="https://examfit.de/..." />
+          <Input value={form.canonical_url} onChange={e => setForm(f => ({ ...f, canonical_url: e.target.value }))} placeholder="https://berufos.com/..." />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">OG-Image</Label>

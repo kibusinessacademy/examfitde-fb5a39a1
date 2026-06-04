@@ -24,7 +24,7 @@ Deaktivieren: `localStorage.removeItem('ef_gtm_debug')`.
 
 1. https://tagmanager.google.com → Container `GTM-K39CL625` öffnen
 2. Rechts oben **Vorschau** klicken
-3. Ziel-URL eingeben: `https://www.examfit.de/?gtm_debug=1` (oder Preview-URL)
+3. Ziel-URL eingeben: `https://berufos.com/?gtm_debug=1` (oder Preview-URL)
 4. Tag Assistant öffnet sich → Tab **Summary** zeigt jeden `dataLayer`-Push live
 5. Wichtige Events zum Verifizieren:
 

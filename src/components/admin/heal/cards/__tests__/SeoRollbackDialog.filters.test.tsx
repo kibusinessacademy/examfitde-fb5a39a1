@@ -36,7 +36,7 @@ function setupRpc() {
           enable_count_7d: 3,
           disable_count_7d: 2,
           last_toggle_at: new Date("2026-05-11T10:00:00Z").toISOString(),
-          last_toggle_actor: "admin@examfit.de",
+          last_toggle_actor: "admin@berufos.com",
           last_toggle_direction: "disable",
           rollback_frequency_score: 0.42,
         }],

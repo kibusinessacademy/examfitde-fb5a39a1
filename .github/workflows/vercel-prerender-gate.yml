@@ -53,7 +53,7 @@ jobs:
   post-deploy-smoke:
     # Only after main is pushed AND build verified.
     # Vercel auto-deploys on push; we wait, then smoke the live URL.
-    name: Post-Deploy Smoke against examfit.de
+    name: Post-Deploy Smoke against berufos.com
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build-and-verify
     runs-on: ubuntu-latest
@@ -71,9 +71,9 @@ jobs:
       - name: Verify per-route HTML is live
         run: |
           set -e
-          echo "▶ Checking per-route HTML drift on examfit.de"
-          ROOT=$(curl -sf https://examfit.de/ | head -c 8000)
-          ROUTE=$(curl -sf https://examfit.de/aevo-pruefung | head -c 8000)
+          echo "▶ Checking per-route HTML drift on berufos.com"
+          ROOT=$(curl -sf https://berufos.com/ | head -c 8000)
+          ROUTE=$(curl -sf https://berufos.com/aevo-pruefung | head -c 8000)
           if [ "$ROOT" = "$ROUTE" ]; then
             echo "❌ /aevo-pruefung is identical to / — Per-Route-HTML NOT served"
             exit 1
@@ -83,7 +83,7 @@ jobs:
       - name: X-Robots-Tag on protected routes
         run: |
           set -e
-          H=$(curl -sI https://examfit.de/dashboard | tr -d '\r' | grep -i '^x-robots-tag:' || true)
+          H=$(curl -sI https://berufos.com/dashboard | tr -d '\r' | grep -i '^x-robots-tag:' || true)
           echo "Header: $H"
           echo "$H" | grep -iq 'noindex' || { echo "❌ /dashboard missing X-Robots-Tag: noindex"; exit 1; }
           echo "✅ X-Robots-Tag OK"

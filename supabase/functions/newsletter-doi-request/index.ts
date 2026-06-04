@@ -11,7 +11,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY");
-const PUBLIC_BASE = Deno.env.get("E2E_BASE_URL") || "https://examfit.de";
+const PUBLIC_BASE = Deno.env.get("E2E_BASE_URL") || "https://berufos.com";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "ExamFit <noreply@examfit.de>",
+            from: "ExamFit <noreply@berufos.com>",
             to: [email],
             subject: "Bitte bestätige deine E-Mail-Adresse",
             html: `<div style="font-family:system-ui,Arial;line-height:1.5">

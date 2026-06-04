@@ -139,8 +139,8 @@ jobs:
           HOST: https://examfit.pages.dev
         run: node scripts/seo/spa-fallback-smoke.mjs
 
-      - name: Smoke against examfit.de (if live)
+      - name: Smoke against berufos.com (if live)
         continue-on-error: true
         env:
-          HOST: https://examfit.de
+          HOST: https://berufos.com
         run: node scripts/seo/spa-fallback-smoke.mjs

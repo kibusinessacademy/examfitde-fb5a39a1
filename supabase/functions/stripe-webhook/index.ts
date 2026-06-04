@@ -1495,7 +1495,7 @@ Deno.serve(async (req) => {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const meta = session.metadata || {};
-      const appBaseUrl = Deno.env.get('APP_BASE_URL') || 'https://examfit.de';
+      const appBaseUrl = Deno.env.get('APP_BASE_URL') || 'https://berufos.com';
       const brandName = 'ExamFit@work';
 
       const wBrandLower = String(meta.brand || '').toLowerCase();
@@ -1578,7 +1578,7 @@ Deno.serve(async (req) => {
                     <a href="${dlPrint}" style="display:inline-block;background:#333;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none">🖨️ PDF (Print-Ready)</a>
                   </div>
                   <p style="margin-top:14px;color:#444;font-size:14px">
-                    Tipp: Prüfungsvorbereitung & Lernsysteme findest du bei <a href="https://examfit.de">examfit.de</a>.
+                    Tipp: Prüfungsvorbereitung & Lernsysteme findest du bei <a href="https://berufos.com">berufos.com</a>.
                   </p>
                   <hr style="border:none;border-top:1px solid #eee;margin:16px 0"/>
                   <p style="color:#666;font-size:12px">Download-Links gültig bis: ${expiresStr} · ${brandName}</p>

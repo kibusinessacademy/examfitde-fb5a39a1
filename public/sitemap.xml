@@ -3,7 +3,7 @@
   BerufOS – Sitemap-Index (Hardcut 2026-05-25)
   Static fallback served at https://berufos.com/sitemap.xml (HTTP 200).
   Sub-sitemaps are generated dynamically by the `generate-sitemap` Edge Function.
-  Legacy host examfit.de → 301 to berufos.com on Cloudflare/Vercel.
+  Legacy host berufos.com → 301 to berufos.com on Cloudflare/Vercel.
 -->
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>

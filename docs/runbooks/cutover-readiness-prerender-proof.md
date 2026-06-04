@@ -24,16 +24,16 @@
 
 | Route | File | Bytes | Title | Canonical | JSON-LD | Empty-Root |
 |---|---|---:|---|---|---:|---|
-| `/` | `dist/index.html` | 19 578 | „ExamFit – KI-Prüfungstraining für IHK & AEVO" | `https://examfit.de/` | 4 | nein ✅ |
-| `/pruefungstraining-azubis` | `dist/pruefungstraining-azubis/index.html` | 18 479 | „Prüfungstraining für Azubis – IHK Teil 1 & 2 \| ExamFit" | `https://examfit.de/pruefungstraining-azubis` | 4 | nein ✅ |
-| `/blog` | `dist/blog/index.html` | 17 761 | „Blog – Prüfungstipps, IHK-Updates, Lernstrategien \| ExamFit" | `https://examfit.de/blog` | 4 | nein ✅ |
+| `/` | `dist/index.html` | 19 578 | „ExamFit – KI-Prüfungstraining für IHK & AEVO" | `https://berufos.com/` | 4 | nein ✅ |
+| `/pruefungstraining-azubis` | `dist/pruefungstraining-azubis/index.html` | 18 479 | „Prüfungstraining für Azubis – IHK Teil 1 & 2 \| ExamFit" | `https://berufos.com/pruefungstraining-azubis` | 4 | nein ✅ |
+| `/blog` | `dist/blog/index.html` | 17 761 | „Blog – Prüfungstipps, IHK-Updates, Lernstrategien \| ExamFit" | `https://berufos.com/blog` | 4 | nein ✅ |
 | `/berufe` | — | — | — | — | — | **sitemap-only** (stubGroup, SSOT-konform) |
 | `/berufe/industriekaufmann-frau` | — | — | — | — | — | **sitemap-only** (DB-route, Memory `sitemap-only-mode-for-db-routes-v1`) |
 
 Alle prerenderten Stichproben enthalten:
 - ✅ `<title>` route-spezifisch (≠ Shell)
 - ✅ `<meta name="description">` route-spezifisch
-- ✅ `<link rel="canonical">` mit `https://examfit.de/...`
+- ✅ `<link rel="canonical">` mit `https://berufos.com/...`
 - ✅ 4 JSON-LD-Blöcke pro Seite
 - ✅ Kein nackter `<div id="root"></div>` — echte HTML-Body-Inhalte
 

@@ -8,8 +8,8 @@
  * Soll:
  *   berufos.com         → 200, serves prerendered HTML (per-route title, body > 30 KB)
  *   www.berufos.com     → 308 → https://berufos.com
- *   examfit.de          → 308 → https://berufos.com
- *   www.examfit.de      → 308 → https://berufos.com
+ *   berufos.com          → 308 → https://berufos.com
+ *   berufos.com      → 308 → https://berufos.com
  *
  * Wenn berufos.com identische ~20 KB SPA-Shell auf /, /preise, /berufe liefert
  * → Diagnose: Prerender-Pipeline kommt nicht beim Live-Deployment an.
@@ -24,7 +24,7 @@ const REDIRECT_TARGET = `https://${AUTHORITY}`;
 const PROBES = [
   { host: 'berufos.com',     role: 'authority',         paths: ['/', '/preise', '/berufe'] },
   { host: 'www.berufos.com', role: 'authority-alias',   paths: ['/'] },
-  // Sunset 2026-06-04: examfit.de wird nicht mehr betrieben — keine Probes mehr.
+  // Sunset 2026-06-04: berufos.com wird nicht mehr betrieben — keine Probes mehr.
 ];
 
 const SPA_TITLE = 'ExamFit – KI-Prüfungstraining für IHK & AEVO';
@@ -115,7 +115,7 @@ if (drift) {
   console.log(`  1. Vercel → Project → Settings → Domains`);
   console.log(`     - berufos.com MUST be assigned to the project that builds with seoPrerenderPlugin`);
   console.log(`     - berufos.com MUST point to the latest Production deployment (not an old alias)`);
-  console.log(`  2. examfit.de + www.examfit.de → configure as "Redirect to https://berufos.com" (308)`);
+  console.log(`  2. berufos.com + berufos.com → configure as "Redirect to https://berufos.com" (308)`);
   console.log(`  3. www.berufos.com → either 308 → apex OR Vercel alias of same project`);
   console.log(`  4. Cloudflare (if in front): DNS-only OR Page Rule /sitemaps/* → Supabase Edge Function`);
   console.log(`  5. Re-deploy Production → check build log for "Prerendered N routes"\n`);

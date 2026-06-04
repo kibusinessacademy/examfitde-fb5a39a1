@@ -2,7 +2,7 @@
 /**
  * wait-for-dns-then-check.mjs
  *
- * Pollt DNS (via Cloudflare + Google DoH) für berufos.com + examfit.de,
+ * Pollt DNS (via Cloudflare + Google DoH) für berufos.com + berufos.com,
  * bis BEIDE Apex-Records auf die Vercel-IP `216.198.79.1` zeigen.
  * Danach läuft automatisch `vercel-domain-mapping-check.mjs` + `verify-authority-live.mjs`.
  *

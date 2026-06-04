@@ -183,8 +183,8 @@ const DEFAULT_ROUTES = [
   "/aevo-pruefung",
   "/fiae-pruefung",
 ];
-const DEFAULT_HOST = "https://examfit.de";
-const DEFAULT_SITEMAP = "https://examfit.de/sitemap.xml";
+const DEFAULT_HOST = "https://berufos.com";
+const DEFAULT_SITEMAP = "https://berufos.com/sitemap.xml";
 
 Deno.serve(async (req) => {
   const pre = handleCorsPreflightRequest(req);
@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
 
   try {
     if (action === "gsc_submit_sitemap") {
-      const siteUrl = String(body.siteUrl ?? "https://examfit.de/");
+      const siteUrl = String(body.siteUrl ?? "https://berufos.com/");
       const feedpath = String(body.feedpath ?? DEFAULT_SITEMAP);
       const r = await gscRequest("PUT", siteUrl, feedpath);
       await emitAudit(sb, {
@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "gsc_get_sitemap_status") {
-      const siteUrl = String(body.siteUrl ?? "https://examfit.de/");
+      const siteUrl = String(body.siteUrl ?? "https://berufos.com/");
       const feedpath = String(body.feedpath ?? DEFAULT_SITEMAP);
       const r = await gscRequest("GET", siteUrl, feedpath);
       return json(r.ok ? 200 : r.status, {

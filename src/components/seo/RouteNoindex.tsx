@@ -6,7 +6,7 @@ import {
 } from '@/lib/seo/authorityHost';
 
 /**
- * Pattern für Routen, die NIE im Index landen dürfen (auch nicht auf examfit.de).
+ * Pattern für Routen, die NIE im Index landen dürfen (auch nicht auf berufos.com).
  * Auth/Account/Checkout/Dashboard sind privat oder nutzerspezifisch.
  * robots.txt blockt klassische Crawler; dieser Hook setzt zusätzlich
  * meta name="robots" content="noindex, nofollow" für JS-fähige Crawler
@@ -65,7 +65,7 @@ export function isNoindexPath(pathname: string): boolean {
  * Globaler SEO-Guard. Mountet auf jeder Route.
  *
  * Zwei-Achsen-Logik (SSOT mem://constraints/hosting-and-seo-authority-topology-v1):
- * 1) HOST: Wenn der Host nicht `examfit.de` / `www.examfit.de` ist
+ * 1) HOST: Wenn der Host nicht `berufos.com` / `berufos.com` ist
  *    → IMMER noindex + canonical → apex. Greift für lovable.app,
  *      vercel.app, id-preview--*, localhost, jede sonstige Preview-/Legacy-URL.
  * 2) PATH: Auch auf Authority-Host sind geschützte Pfade noindex.
@@ -105,7 +105,7 @@ export function RouteNoindex() {
     // - Auf protected paths (auch auf Authority-Host): canonical entfernen,
     //   damit Google /dashboard nicht zu / dedupliziert.
     // - Auf Non-Authority-Host: canonical IMMER auf apex umbiegen, damit
-    //   Preview-Hosts examfit.de als Original signalisieren.
+    //   Preview-Hosts berufos.com als Original signalisieren.
     const existingCanon = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     const hreflangs = document.querySelectorAll('link[rel="alternate"][hreflang]');
 

@@ -40,9 +40,9 @@ curl -s https://examfit.vercel.app/fiae-pruefung | grep -E '<title|canonical' | 
 
 ## Schritt 3 — Custom Domain umziehen
 
-1. In Vercel: Project → Settings → Domains → Add `examfit.de` + `www.examfit.de`
+1. In Vercel: Project → Settings → Domains → Add `berufos.com` + `berufos.com`
 2. DNS bei Cloudflare:
-   - `examfit.de` A → `76.76.21.21` (Vercel)  *(oder CNAME-Variante laut Vercel-Dialog)*
+   - `berufos.com` A → `76.76.21.21` (Vercel)  *(oder CNAME-Variante laut Vercel-Dialog)*
    - `www` CNAME → `cname.vercel-dns.com`
 3. SSL: Vercel provisioniert automatisch (Let's Encrypt)
 4. Lovable: Custom Domain in Project Settings → Domains entfernen, **NACHDEM** Vercel grün ist
@@ -51,15 +51,15 @@ curl -s https://examfit.vercel.app/fiae-pruefung | grep -E '<title|canonical' | 
 
 ```bash
 # Per-Route-HTML
-diff <(curl -s https://examfit.de/) <(curl -s https://examfit.de/aevo-pruefung) | head
+diff <(curl -s https://berufos.com/) <(curl -s https://berufos.com/aevo-pruefung) | head
 # → soll DIFF zeigen, nicht identisch
 
 # X-Robots-Tag auf geschützten Routen
-curl -sI https://examfit.de/dashboard | grep -i x-robots
+curl -sI https://berufos.com/dashboard | grep -i x-robots
 # → "X-Robots-Tag: noindex, nofollow, noarchive"
 
 # Sitemap erreichbar
-curl -sI https://examfit.de/sitemap.xml | head -3
+curl -sI https://berufos.com/sitemap.xml | head -3
 
 # LLM-Visibility nach 1 Woche neu prüfen → erwarte Mention/Citation-Anstieg
 ```
@@ -67,7 +67,7 @@ curl -sI https://examfit.de/sitemap.xml | head -3
 ## Schritt 5 — Lighthouse / PageSpeed Baseline
 
 ```bash
-npx lighthouse https://examfit.de/aevo-pruefung --output=json --output-path=./baseline-aevo.json --chrome-flags="--headless"
+npx lighthouse https://berufos.com/aevo-pruefung --output=json --output-path=./baseline-aevo.json --chrome-flags="--headless"
 ```
 
 Oder PSI-API in CI: `.github/workflows/lighthouse-ci.yml` (existiert bereits).

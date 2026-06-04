@@ -34,7 +34,7 @@ const CertificationCategoryPage = () => {
       <Helmet>
         <title>{pageTitle} 2026 | ExamFit</title>
         <meta name="description" content={pageDescription} />
-        <link rel="canonical" href={`https://examfit.de/${category}`} />
+        <link rel="canonical" href={`https://berufos.com/${category}`} />
       </Helmet>
 
       <div className="max-w-6xl mx-auto px-4 py-8">

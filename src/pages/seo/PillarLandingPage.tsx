@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 
 interface BreadcrumbItem {
   href: string | null;

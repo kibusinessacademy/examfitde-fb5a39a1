@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     if (produkt?.beruf_id) {
       const { data: beruf } = await adminClient.from("work_berufe").select("slug").eq("id", produkt.beruf_id).single();
       if (beruf?.slug) {
-        const appBase = Deno.env.get("APP_BASE_URL") || "https://examfit.de";
+        const appBase = Deno.env.get("APP_BASE_URL") || "https://berufos.com";
         landingUrl = `${appBase}/work/beruf/${beruf.slug}`;
       }
     }

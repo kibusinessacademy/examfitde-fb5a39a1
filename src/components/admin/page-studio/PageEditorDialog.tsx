@@ -484,7 +484,7 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Canonical URL</Label>
-                <Input value={canonical} onChange={(e) => setMetaField(setCanonical, e.target.value)} placeholder="https://examfit.de/..." />
+                <Input value={canonical} onChange={(e) => setMetaField(setCanonical, e.target.value)} placeholder="https://berufos.com/..." />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Robots</Label>
@@ -507,7 +507,7 @@ export function PageEditorDialog({ pageId, open, onOpenChange }: Props) {
               <Card className="p-3 bg-muted/30">
                 <p className="text-[10px] text-muted-foreground mb-1">Google-Vorschau</p>
                 <p className="text-sm font-medium truncate text-primary">{seoTitle || title || 'Seitentitel'}</p>
-                <p className="text-xs truncate text-muted-foreground">{canonical || `examfit.de/${slug}`}</p>
+                <p className="text-xs truncate text-muted-foreground">{canonical || `berufos.com/${slug}`}</p>
                 <p className="text-xs text-muted-foreground line-clamp-2">{metaDesc || 'Meta-Beschreibung…'}</p>
               </Card>
             </div>

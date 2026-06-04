@@ -3,7 +3,7 @@
 # Hardcut to BerufOS: 2026-05-25
 #
 # Canonical host: berufos.com (apex). www.berufos.com is a 301 redirect.
-# Legacy domain examfit.de is a 301-redirect target — not crawled as
+# Legacy domain berufos.com is a 301-redirect target — not crawled as
 # an independent property. examfitwork.de / berufski.de existieren NICHT.
 
 # ───── Default ─────

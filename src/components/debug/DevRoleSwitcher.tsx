@@ -6,7 +6,7 @@ import { toast } from "sonner";
 /**
  * Dev-only role switcher for the preview/test environment.
  *
- * - Only renders on preview hosts (lovable.app, localhost) — never on examfit.de / berufos.com.
+ * - Only renders on preview hosts (lovable.app, localhost) — never on berufos.com / berufos.com.
  * - Stores test credentials per role in localStorage (`dev:role:<role>` => {email,password}).
  * - One-click sign-in + jump to common test surfaces (Oral-Trainer, Dashboard, Admin).
  *

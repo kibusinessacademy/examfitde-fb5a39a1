@@ -397,7 +397,7 @@ Deno.serve(async (req) => {
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     const customerId = customers.data.length > 0 ? customers.data[0].id : undefined;
 
-    const appUrl = origin || Deno.env.get("APP_URL") || "https://examfit.de";
+    const appUrl = origin || Deno.env.get("APP_URL") || "https://berufos.com";
 
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = price.stripe_price_id
       ? [{ price: price.stripe_price_id, quantity: 1 }]

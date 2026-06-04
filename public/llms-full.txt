@@ -33,16 +33,16 @@ ExamFit basiert auf dem Prinzip "Prüfung trainieren, nicht nur lernen". Das Sys
 
 ## Inhaltskategorien
 
-### Blog (examfit.de/blog)
+### Blog (berufos.com/blog)
 Praxisnahe Artikel zu Prüfungsstrategien, typischen Fehlern und Lerntipps.
 
-### Wissen (examfit.de/wissen)
+### Wissen (berufos.com/wissen)
 Fachspezifische Artikel und Erklärungen zu Prüfungsthemen.
 
-### Prüfungstraining (examfit.de/pruefungstraining)
+### Prüfungstraining (berufos.com/pruefungstraining)
 Übersicht aller verfügbaren Prüfungstrainings nach Kategorie.
 
-### Berufe (examfit.de/berufe)
+### Berufe (berufos.com/berufe)
 Detailseiten zu einzelnen Berufen mit Prüfungsinformationen.
 
 ## Strukturierte Daten
@@ -57,14 +57,14 @@ ExamFit verwendet Schema.org-Markup für:
 
 ## Sitemap
 
-Aktuelle Sitemap: https://examfit.de/sitemap.xml
+Aktuelle Sitemap: https://berufos.com/sitemap.xml
 
 ## Robots
 
-Robots.txt: https://examfit.de/robots.txt
+Robots.txt: https://berufos.com/robots.txt
 
 ## Kontakt
 
-- Website: https://examfit.de
-- E-Mail: info@examfit.de
+- Website: https://berufos.com
+- E-Mail: info@berufos.com
 - Standort: Deutschland

@@ -2,7 +2,7 @@
  * LaunchAlertSenderStatusCard
  * ----------------------------
  * Shows the current Resend sender configuration for 48h Launch Alerts:
- *   - Configured FROM address (alerts@examfit.de)
+ *   - Configured FROM address (alerts@berufos.com)
  *   - Domain verified flag (true/false)
  *   - Effective sender = verified ? configured : fallback (onboarding@resend.dev)
  *   - Recipients (admin_settings.launch_alert_recipients)
@@ -143,7 +143,7 @@ export default function LaunchAlertSenderStatusCard() {
         </CardTitle>
         <CardDescription>
           Status der FROM-Adresse für 48h-Soft-Launch-E-Mail-Alerts. Solange die Domain
-          examfit.de in Resend nicht grün ist, wird automatisch der Test-Absender genutzt.
+          berufos.com in Resend nicht grün ist, wird automatisch der Test-Absender genutzt.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -251,7 +251,7 @@ export default function LaunchAlertSenderStatusCard() {
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <div className="text-xs leading-relaxed">
               <div className="font-medium mb-1">DNS-Verifizierung ausstehend</div>
-              examfit.de ist in Resend noch nicht grün. Alerts werden derzeit über den
+              berufos.com ist in Resend noch nicht grün. Alerts werden derzeit über den
               Test-Absender <span className="font-mono">{fallbackEmail}</span> ausgeliefert.
               Sobald die Domain verifiziert ist, wird automatisch auf{' '}
               <span className="font-mono">{configuredEmail}</span> umgeschaltet.

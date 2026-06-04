@@ -55,7 +55,7 @@ HOST=https://examfit.pages.dev    node scripts/seo/initial-html-smoke.mjs
 ```
 
 **Erwartung:**
-- Lovable: ❌ alle 3 schlagen fehl (canonical drift = `https://examfit.de/`, h1 drift, kein Article-JSON-LD pro Route → SPA-Fallback bestätigt).
+- Lovable: ❌ alle 3 schlagen fehl (canonical drift = `https://berufos.com/`, h1 drift, kein Article-JSON-LD pro Route → SPA-Fallback bestätigt).
 - CF Pages: ✅ alle 3 grün, intent-spezifischer H1, Title, Description, Canonical, Article-JSON-LD pro Route, Noindex-Header auf `/dashboard`.
 
 ## Schritt 3 — OG/Social-Crawler Smoke
@@ -96,7 +96,7 @@ Wenn ≥7/8 ✅ → Domain-Migration planen (Schritt 6). Sonst → Vercel als Fa
 
 ## Schritt 6 — Custom Domain umziehen (erst nach grünem Smoke)
 
-1. CF Pages → Project → Custom domains → Add `examfit.de` + `www.examfit.de`
+1. CF Pages → Project → Custom domains → Add `berufos.com` + `berufos.com`
 2. Da Cloudflare-DNS bereits aktiv ist: Records werden automatisch konfiguriert (CNAME → `<project>.pages.dev`, Cloudflare-proxied).
 3. SSL: automatisch (Cloudflare Universal SSL).
 4. Lovable Custom Domain entfernen **NACHDEM** CF Pages Live ist + 5 Min Smoke grün.

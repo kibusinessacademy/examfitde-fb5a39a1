@@ -215,7 +215,7 @@ export default function IHKPruefungenPage() {
             <p className="font-semibold">ExamFit</p>
             <p className="text-sm text-muted-foreground">Inhaberin: Diana Keil · Einzelunternehmen</p>
             <p className="text-sm text-muted-foreground">Elsa-Brandström-Str. 4 · 76676 Graben-Neudorf</p>
-            <p className="text-sm text-muted-foreground">info@examfit.de</p>
+            <p className="text-sm text-muted-foreground">info@berufos.com</p>
           </div>
         </section>
 

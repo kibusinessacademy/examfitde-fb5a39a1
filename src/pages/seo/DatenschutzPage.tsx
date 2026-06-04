@@ -41,7 +41,7 @@ export default function DatenschutzPage() {
               <p className="text-muted-foreground mb-3">
                 ExamFit.de<br />
                 [Vollständige Adresse einfügen]<br />
-                E-Mail: datenschutz@examfit.de
+                E-Mail: datenschutz@berufos.com
               </p>
             </section>
 
@@ -186,7 +186,7 @@ export default function DatenschutzPage() {
                 widersprechen.</li>
               </ul>
               <p className="text-muted-foreground">
-                Zur Ausübung Ihrer Rechte kontaktieren Sie uns unter: datenschutz@examfit.de
+                Zur Ausübung Ihrer Rechte kontaktieren Sie uns unter: datenschutz@berufos.com
               </p>
             </section>
 

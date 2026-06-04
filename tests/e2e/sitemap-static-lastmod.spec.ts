@@ -36,7 +36,7 @@ test.describe('Sitemap — static class (/, /berufe, /preise)', () => {
     expect(blocks.length, 'mind. 3 URLs').toBeGreaterThanOrEqual(3);
 
     for (const suffix of ['/', '/berufe', '/preise']) {
-      const block = findBlockByLoc(blocks, suffix === '/' ? 'examfit.de/<' : suffix);
+      const block = findBlockByLoc(blocks, suffix === '/' ? 'berufos.com/<' : suffix);
       // Fallback: tolerantere Suche
       const matched =
         block ??

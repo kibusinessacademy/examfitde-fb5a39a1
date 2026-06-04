@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
-const SITE_URL = 'https://examfit.de';
+const SITE_URL = 'https://berufos.com';
 const PAGE_SIZE = 20;
 
 const ARTICLE_TYPES = [

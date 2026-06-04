@@ -3,7 +3,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 /**
  * seo-self-test
  * --------------
- * Server-side SEO smoke test for examfit.de.
+ * Server-side SEO smoke test for berufos.com.
  * Runs 4 suites against PUBLIC URLs and returns a structured report:
  *
  *   1. html-content        — H1 count, <title>, meta description per route
@@ -16,7 +16,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  * (the SEO-Crawler check is acceptable — Lovable hosting serves a SPA shell).
  */
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 const ROUTES_TO_TEST = [
   "/",
   "/preise",

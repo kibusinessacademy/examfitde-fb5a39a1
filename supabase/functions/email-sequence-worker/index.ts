@@ -30,7 +30,7 @@ function mdToHtml(md: string): string {
     if (/^<(h\d|blockquote|ul|ol)/.test(p.trim())) return p;
     return `<p>${p.replace(/\n/g, '<br>')}</p>`;
   }).join('\n');
-  return `<!doctype html><html><body style="font-family:system-ui,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111;background:#ffffff">${html}<hr style="margin:32px 0;border:none;border-top:1px solid #eee"><p style="font-size:12px;color:#888">ExamFit · <a href="https://examfit.de/newsletter/unsubscribe" style="color:#888">Abmelden</a></p></body></html>`;
+  return `<!doctype html><html><body style="font-family:system-ui,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111;background:#ffffff">${html}<hr style="margin:32px 0;border:none;border-top:1px solid #eee"><p style="font-size:12px;color:#888">ExamFit · <a href="https://berufos.com/newsletter/unsubscribe" style="color:#888">Abmelden</a></p></body></html>`;
 }
 
 Deno.serve(async (req) => {
@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'ExamFit <hello@examfit.de>',
+            from: 'ExamFit <hello@berufos.com>',
             to: [it.recipient_email],
             subject,
             html,

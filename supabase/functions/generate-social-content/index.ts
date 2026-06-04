@@ -55,7 +55,7 @@ serve(async (req) => {
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: `Du bist ein Social-Media-Content-Creator für ExamFit (Prüfungsvorbereitung). ${systemPrompt}` },
-          { role: "user", content: `Erstelle einen Post basierend auf:\n\n${sourceContent}\n\nPlattform: ${platform}\nMarke: ExamFit\nCTA: Prüfungsreife testen auf examfit.de` },
+          { role: "user", content: `Erstelle einen Post basierend auf:\n\n${sourceContent}\n\nPlattform: ${platform}\nMarke: ExamFit\nCTA: Prüfungsreife testen auf berufos.com` },
         ],
         tools: [{
           type: "function",

@@ -8,7 +8,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  * Hardened: Only status=published with valid canonical URLs
  */
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 
 function escapeXml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");

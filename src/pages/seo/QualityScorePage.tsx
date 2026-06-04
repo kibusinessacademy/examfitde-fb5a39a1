@@ -64,7 +64,7 @@ const QualityScorePage = () => {
       <Helmet>
         <title>{`Qualitätsscore: ${certTitle} | ExamFit`}</title>
         <meta name="description" content={`ExamFit Qualitäts-Score ${score}/100 (${badgeCfg.label}) für ${certTitle}. Transparente Qualitätsbewertung unserer Prüfungsvorbereitung.`} />
-        <link rel="canonical" href={`https://examfit.de/${slug}`} />
+        <link rel="canonical" href={`https://berufos.com/${slug}`} />
       </Helmet>
 
       <article className="max-w-4xl mx-auto px-4 py-8 space-y-8">

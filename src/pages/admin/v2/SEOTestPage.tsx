@@ -95,7 +95,7 @@ export default function SEOTestPage() {
           </Button>
           <h1 className="text-3xl font-bold">SEO Self-Test</h1>
           <p className="text-muted-foreground mt-1">
-            Live-Tests gegen <code className="text-xs bg-muted px-1.5 py-0.5 rounded">examfit.de</code> — HTML, Canonical, Sitemap, Trailing-Slash.
+            Live-Tests gegen <code className="text-xs bg-muted px-1.5 py-0.5 rounded">berufos.com</code> — HTML, Canonical, Sitemap, Trailing-Slash.
           </p>
         </div>
         <Button onClick={() => runTests()} disabled={!!running} size="lg">

@@ -12,7 +12,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  *   format=json     – Returns feed metadata as JSON (for admin)
  */
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 const FEED_TITLE = "ExamFit – Prüfungsvorbereitung & Wissen";
 const FEED_DESCRIPTION = "Aktuelle Artikel, Landingpages und Wissensressourcen von ExamFit.de";
 const MAX_FEED_ITEMS = 50;

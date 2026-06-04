@@ -33,13 +33,13 @@ function seedHead(routeKey: string, jsonLdBlocks = 2) {
   meta('robots', 'index, follow');
   meta('og:title', `OG ${routeKey}`, 'property');
   meta('og:description', `OG-Description für ${routeKey} mit genug Text.`, 'property');
-  meta('og:image', `https://examfit.de/og/${routeKey}.png`, 'property');
-  meta('og:url', `https://examfit.de${routeKey}`, 'property');
+  meta('og:image', `https://berufos.com/og/${routeKey}.png`, 'property');
+  meta('og:url', `https://berufos.com${routeKey}`, 'property');
   meta('og:type', 'website', 'property');
   meta('twitter:card', 'summary_large_image');
   const link = document.createElement('link');
   link.setAttribute('rel', 'canonical');
-  link.setAttribute('href', `https://examfit.de${routeKey}`);
+  link.setAttribute('href', `https://berufos.com${routeKey}`);
   document.head.appendChild(link);
   for (let i = 0; i < jsonLdBlocks; i++) {
     const s = document.createElement('script');
@@ -48,7 +48,7 @@ function seedHead(routeKey: string, jsonLdBlocks = 2) {
       '@context': 'https://schema.org',
       '@type': i === 0 ? 'WebSite' : 'BreadcrumbList',
       name: `${routeKey} #${i}`,
-      url: `https://examfit.de${routeKey}`,
+      url: `https://berufos.com${routeKey}`,
     });
     document.head.appendChild(s);
   }

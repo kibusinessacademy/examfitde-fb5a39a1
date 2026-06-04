@@ -2,7 +2,7 @@
 /**
  * ensure-cf-waf-allowlist.mjs
  *
- * Idempotent: stellt sicher, dass die Cloudflare-Zone `examfit.de` (oder die per
+ * Idempotent: stellt sicher, dass die Cloudflare-Zone `berufos.com` (oder die per
  * CF_ZONE_ID übergebene Zone) eine WAF-Custom-Rule besitzt, die Requests mit dem
  * Header `X-ExamFit-Smoke: $EXAMFIT_SMOKE_TOKEN` an Managed Challenge / Bot Fight
  * Mode / WAF Managed Rules vorbei lässt (action=skip).
@@ -13,7 +13,7 @@
  *
  * Required env:
  *   CF_API_TOKEN        - Token mit Permissions Zone:Read + Zone WAF:Edit
- *   CF_ZONE_ID          - z.B. "abcdef0123..." für examfit.de
+ *   CF_ZONE_ID          - z.B. "abcdef0123..." für berufos.com
  *   EXAMFIT_SMOKE_TOKEN - Shared Secret (frei wählbar, z.B. openssl rand -hex 24)
  *
  * Exit: 0 = ensured (created or already-correct), 1 = error.

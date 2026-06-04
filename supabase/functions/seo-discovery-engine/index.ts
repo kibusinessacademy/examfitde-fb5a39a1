@@ -13,7 +13,7 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  *   health_scores              – Calculate discovery health scores
  */
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 
 Deno.serve(async (req) => {
   const cors = handleCorsPreflightRequest(req);

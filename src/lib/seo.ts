@@ -1,7 +1,7 @@
 // SEO utility functions and structured data generators
 // Optimized for Google Search Guidelines 2025
 
-export const SITE_URL = 'https://examfit.de';
+export const SITE_URL = 'https://berufos.com';
 export const SITE_NAME = 'ExamFit';
 export const SITE_LEGAL_NAME = 'ExamFit.de';
 export const DEFAULT_OG_IMAGE = '/og-image.png';
@@ -327,7 +327,7 @@ export function generateOrganizationSchema() {
       '@type': 'ContactPoint',
       contactType: 'customer service',
       availableLanguage: 'German',
-      email: 'support@examfit.de',
+      email: 'support@berufos.com',
     },
   };
 }

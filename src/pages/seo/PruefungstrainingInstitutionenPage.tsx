@@ -20,7 +20,7 @@ const FAQS = [
   { question: 'Ist ExamFit DSGVO-konform und datenschutzsicher?', answer: 'Ja. Alle Daten werden auf EU-Servern verarbeitet. Kammern erhalten ausschließlich anonymisierte Aggregate – niemals personenbezogene Lernerdaten. ExamFit erfüllt Art. 25 (Privacy by Design) und Art. 32 DSGVO (technisch-organisatorische Maßnahmen).' },
   { question: 'Wie erfüllt ExamFit die Anforderungen des EU AI Act?', answer: 'ExamFit ist als KI-System im Bildungsbereich klassifiziert. Wir dokumentieren alle eingesetzten KI-Modelle, deren Datengrundlagen und Entscheidungslogik lückenlos. Alle KI-generierten Prüfungsinhalte durchlaufen ein mehrstufiges Quality-Gate mit menschlicher Aufsicht, bevor sie Lernenden zugänglich werden.' },
   { question: 'Welche Daten sehen Kammern – und welche nicht?', answer: 'Kammern sehen regionale Trends: aggregierte Bestehenswahrscheinlichkeiten, Risiko-Verteilungen nach Beruf und Schwächen-Cluster. Sie sehen NICHT: Namen, individuelle Ergebnisse oder betriebsbezogene Daten.' },
-  { question: 'Gibt es spezielle Konditionen für Kammer-Programme?', answer: 'Für regionale Förderprogramme oder größere Rollouts bieten wir individuelle Konditionen. Kontaktieren Sie uns unter info@examfit.de.' },
+  { question: 'Gibt es spezielle Konditionen für Kammer-Programme?', answer: 'Für regionale Förderprogramme oder größere Rollouts bieten wir individuelle Konditionen. Kontaktieren Sie uns unter info@berufos.com.' },
 ];
 
 const CONTACT = {
@@ -29,7 +29,7 @@ const CONTACT = {
   type: 'Einzelunternehmen',
   street: 'Elsa-Brandström-Str. 4',
   city: '76676 Graben-Neudorf',
-  email: 'info@examfit.de',
+  email: 'info@berufos.com',
 };
 
 export default function PruefungstrainingInstitutionenPage() {

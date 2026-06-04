@@ -17,9 +17,9 @@ import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
  *   indexnow_key – Returns IndexNow verification key
  */
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 // Sitemap-Index sub-loc URLs MUST point to a publicly resolvable origin.
-// Custom domain `examfit.de` does NOT proxy /functions/v1/*, so use Supabase project origin.
+// Custom domain `berufos.com` does NOT proxy /functions/v1/*, so use Supabase project origin.
 const SUPABASE_PROJECT_REF = "ubdvvvsiryenhrfmqsvw";
 const FUNCTIONS_URL_BASE = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/generate-sitemap`;
 const INDEXNOW_KEY = "examfit-indexnow-key-2026";

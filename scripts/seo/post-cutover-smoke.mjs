@@ -7,7 +7,7 @@
  */
 import { spawnSync } from 'node:child_process';
 
-const HOSTS = ['https://examfit.de', 'https://www.examfit.de'];
+const HOSTS = ['https://berufos.com', 'https://berufos.com'];
 let allGreen = true;
 
 for (const host of HOSTS) {
@@ -23,7 +23,7 @@ for (const host of HOSTS) {
 
 // www → apex redirect check
 console.log(`\n▶ www → apex redirect check`);
-const r = await fetch('https://www.examfit.de/', { redirect: 'manual' });
+const r = await fetch('https://berufos.com/', { redirect: 'manual' });
 const loc = r.headers.get('location') || '';
 const ok301 = (r.status === 301 || r.status === 308) && /examfit\.de/.test(loc) && !/www\./.test(loc);
 console.log(`  ${ok301 ? '✅' : '⚠️'} status=${r.status} location=${loc}`);

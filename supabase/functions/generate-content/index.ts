@@ -322,7 +322,7 @@ Liefere NUR das fertige Skript, keine Meta-Kommentare.`;
     status: "generated",
     script,
     hook: extractedHook,
-    cta: "Teste dich auf ExamFit → examfit.de",
+    cta: "Teste dich auf ExamFit → berufos.com",
     hashtags: ["IHKPrüfung", "Azubi", "Prüfungsvorbereitung", "ExamFit"],
     llm_model: "google/gemini-3-flash-preview",
     llm_cost_eur: 0,

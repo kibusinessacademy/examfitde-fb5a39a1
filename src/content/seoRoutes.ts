@@ -53,7 +53,7 @@ export interface SeoRoute {
   priority?: number;
 }
 
-const SITE = "https://examfit.de";
+const SITE = "https://berufos.com";
 
 // Konsolidiert mit dem EducationalOrganization-Knoten in index.html (#organization)
 // via @id-Verlinkung — vermeidet Duplikate und stärkt die Knowledge-Graph-Entität.
@@ -224,10 +224,10 @@ const live: SeoRoute[] = [
       "Antworten auf die häufigsten Fragen zu ExamFit, IHK-Prüfungen, Lernkursen, Lernplänen, Tarifen und dem KI-Tutor.",
     h1: "Häufig gestellte Fragen",
     intro:
-      "Hier findest du Antworten auf die häufigsten Fragen zur Plattform, zu IHK-Prüfungen und zur Funktionsweise des adaptiven Lernsystems. Die FAQ ist gegliedert in: Plattform und Tarife, Prüfungsorganisation, Lernmethodik, KI-Tutor sowie Datenschutz und Hosting. Für Auszubildende beantworten wir Fragen zum Selbsttest, Lernplan, Mini-Checks und zur mündlichen Prüfungssimulation. Für Betriebe und Bildungsträger erklären wir Reporting-Möglichkeiten, Bulk-Onboarding, AVV nach Art. 28 DSGVO und individuelle Konditionen. Sollte deine Frage hier nicht beantwortet sein, erreichst du den Support unter info@examfit.de und in der Regel werktags innerhalb von 24 Stunden eine Antwort.",
+      "Hier findest du Antworten auf die häufigsten Fragen zur Plattform, zu IHK-Prüfungen und zur Funktionsweise des adaptiven Lernsystems. Die FAQ ist gegliedert in: Plattform und Tarife, Prüfungsorganisation, Lernmethodik, KI-Tutor sowie Datenschutz und Hosting. Für Auszubildende beantworten wir Fragen zum Selbsttest, Lernplan, Mini-Checks und zur mündlichen Prüfungssimulation. Für Betriebe und Bildungsträger erklären wir Reporting-Möglichkeiten, Bulk-Onboarding, AVV nach Art. 28 DSGVO und individuelle Konditionen. Sollte deine Frage hier nicht beantwortet sein, erreichst du den Support unter info@berufos.com und in der Regel werktags innerhalb von 24 Stunden eine Antwort.",
     keyFacts: [
       { label: "Themenbereiche", value: "Plattform, Prüfung, Lernmethodik, KI, Datenschutz" },
-      { label: "Support", value: "info@examfit.de" },
+      { label: "Support", value: "info@berufos.com" },
       { label: "Antwortzeit", value: "Werktags innerhalb 24 Stunden" },
       { label: "Sprachen", value: "Deutsch" },
       { label: "Wissensbasis", value: "Umfangreiche Wissensbasis" },

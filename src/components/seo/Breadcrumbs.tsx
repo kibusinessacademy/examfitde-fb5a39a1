@@ -29,13 +29,13 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
         '@type': 'ListItem',
         position: 1,
         name: 'Home',
-        item: 'https://examfit.de',
+        item: 'https://berufos.com',
       },
       ...items.map((item, index) => ({
         '@type': 'ListItem',
         position: index + 2,
         name: item.label,
-        ...(item.href && { item: `https://examfit.de${item.href}` }),
+        ...(item.href && { item: `https://berufos.com${item.href}` }),
       })),
     ],
   };

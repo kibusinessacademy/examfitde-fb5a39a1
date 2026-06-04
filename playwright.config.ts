@@ -2,12 +2,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // Resolve base URL with explicit named targets:
-//   E2E_TARGET=production  → https://www.examfit.de
+//   E2E_TARGET=production  → https://berufos.com
 //   E2E_TARGET=preview     → preview deployment URL
 //   E2E_TARGET=local       → http://localhost:8080
 // Direct overrides (BASE_URL/STAGING_URL) still win for ad-hoc runs.
 const TARGETS: Record<string, string> = {
-  production: process.env.PRODUCTION_URL || 'https://www.examfit.de',
+  production: process.env.PRODUCTION_URL || 'https://berufos.com',
   preview: process.env.PREVIEW_URL || 'https://examfitde.lovable.app',
   local: process.env.LOCAL_URL || 'http://localhost:8080',
 };

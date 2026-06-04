@@ -67,7 +67,7 @@ const CONTACT = {
   type: 'Einzelunternehmen',
   street: 'Elsa-Brandström-Str. 4',
   city: '76676 Graben-Neudorf',
-  email: 'info@examfit.de',
+  email: 'info@berufos.com',
 };
 
 /* ─── Pricing tiers for "Ausbildung" category (primary B2B target) ─── */

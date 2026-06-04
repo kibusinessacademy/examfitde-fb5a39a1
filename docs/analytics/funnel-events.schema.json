@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
-  "$id": "https://examfit.de/schemas/funnel-events.schema.json",
+  "$id": "https://berufos.com/schemas/funnel-events.schema.json",
   "title": "ExamFit Funnel Events SSOT",
   "description": "Single source of truth for FunnelEventType -> canonical GTM event name -> required DataLayer fields. Keep in sync with src/lib/conversionTracking.ts (FunnelEventType) and src/lib/gtm.ts (FUNNEL_TO_GTM_EVENT). Required fields MUST be present (value may be null) on every DataLayer push made via gtmEmitFunnel.",
   "version": "1.0.0",

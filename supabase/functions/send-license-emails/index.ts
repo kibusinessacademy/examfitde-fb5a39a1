@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
           : '';
 
         await resend.emails.send({
-          from: "ExamFit <noreply@examfit.de>",
+          from: "ExamFit <noreply@berufos.com>",
           to: [seat.invite_email],
           subject: `Ihre Lizenz für ${curriculumTitle} – ExamFit`,
           html: `

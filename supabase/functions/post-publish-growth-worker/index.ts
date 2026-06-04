@@ -28,7 +28,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
-const SITE_URL = "https://examfit.de";
+const SITE_URL = "https://berufos.com";
 const MAX_JOBS_PER_RUN = 20;
 const LEASE_MINUTES = 5;
 
