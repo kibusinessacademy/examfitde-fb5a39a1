@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 import { SEOHead } from "@/components/seo/SEOHead";
@@ -89,32 +89,39 @@ export default function BerufOSHub() {
           )}
           <span className="berufos-chip">
             <span className="dot" />
-            AI-native Workforce Platform · v1
+            IHK-Prüfung · Adaptive Vorbereitung · KI-Tutor mit Quellen
           </span>
 
-          {/* Reality-Audit Fix: Hero-Typo — `leading-[1.05]` + Gradient-Clip + <br /> clippte Descender und überlappte Zeilen.
-              Lösung: leading 1.1, span als inline-block mit pb-2 (keine -webkit-text-fill-Cuts), Zeile 2 als eigener block. */}
+          {/* P0.1 Hero: 5-Sekunden-Erklärung der IHK-Prüfung + primärer CTA „Prüfung starten". */}
           <h1 className="mt-6 text-4xl md:text-6xl lg:text-7xl font-semibold tracking-tight leading-[1.1] max-w-4xl">
-            <span className="berufos-gradient-text inline-block pb-1">Das AI-Betriebssystem</span>
-            <span className="block">für Berufe.</span>
+            <span className="berufos-gradient-text inline-block pb-1">Bestehe deine IHK-Prüfung</span>
+            <span className="block">— sicher und stressfrei.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg berufos-text-dim leading-relaxed">
-            {BERUFOS.subline}
+            ExamFit bereitet dich in 4 Wochen auf deine IHK-Abschlussprüfung vor: adaptiver Lernplan,
+            KI-Tutor mit Quellen, prüfungsnahe Simulationen und mündliches Fachgespräch.
+            <strong className="text-foreground"> Einmalig 24,90 €</strong> · 12 Monate Zugang · Kein Abo.
           </p>
           <div className="mt-10 flex flex-wrap gap-3">
-            <a
-              href={BERUFOS.subBrands.examfit.domain}
+            <Link
+              to="/berufe"
               className="berufos-btn-primary px-6 py-3 inline-flex items-center gap-2"
+              data-cta-location="home_hero_primary"
             >
-              ExamFit starten <ExternalLink className="w-4 h-4" />
-            </a>
-            <Link to="/berufs-ki" className="berufos-btn-ghost px-6 py-3">
-              Berufs-KI testen
+              Prüfung starten <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/demo"
+              className="berufos-btn-ghost px-6 py-3"
+              data-cta-location="home_hero_demo"
+            >
+              Kostenlos testen
             </Link>
             <a href="#module" className="berufos-btn-ghost px-6 py-3">
               Plattform entdecken
             </a>
           </div>
+
 
           {/* Trust strip */}
           <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-px bg-[hsl(var(--bos-border))] border berufos-hairline rounded-2xl overflow-hidden">
