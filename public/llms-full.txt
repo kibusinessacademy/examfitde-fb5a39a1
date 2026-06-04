@@ -1,10 +1,10 @@
 # BerufOS – Vollständige AI-Referenz
 
-> ExamFit ist das intelligente Prüfungstrainings-System für berufliche Abschlussprüfungen in Deutschland.
+> BerufOS ist das intelligente Prüfungstrainings-System für berufliche Abschlussprüfungen in Deutschland.
 
-## Über ExamFit
+## Über BerufOS
 
-ExamFit trainiert Prüflinge systematisch auf ihre IHK-Abschlussprüfung, Fachwirtprüfung, Meisterprüfung oder Sachkundeprüfung vor. Anders als klassische Lernplattformen setzt ExamFit auf aktives Prüfungstraining statt passivem Konsum.
+BerufOS trainiert Prüflinge systematisch auf ihre IHK-Abschlussprüfung, Fachwirtprüfung, Meisterprüfung oder Sachkundeprüfung vor. Anders als klassische Lernplattformen setzt BerufOS auf aktives Prüfungstraining statt passivem Konsum.
 
 ### Kernfunktionen
 
@@ -25,7 +25,7 @@ ExamFit trainiert Prüflinge systematisch auf ihre IHK-Abschlussprüfung, Fachwi
 
 ### Methodik
 
-ExamFit basiert auf dem Prinzip "Prüfung trainieren, nicht nur lernen". Das System:
+BerufOS basiert auf dem Prinzip "Prüfung trainieren, nicht nur lernen". Das System:
 - Analysiert typische Prüfungsfallen und Denkfehler
 - Trainiert Transferwissen statt reiner Faktenabfrage
 - Nutzt kognitive Taxonomien (Bloom) für gezielte Kompetenzentwicklung
@@ -47,7 +47,7 @@ Detailseiten zu einzelnen Berufen mit Prüfungsinformationen.
 
 ## Strukturierte Daten
 
-ExamFit verwendet Schema.org-Markup für:
+BerufOS verwendet Schema.org-Markup für:
 - Organization
 - Course
 - Product
