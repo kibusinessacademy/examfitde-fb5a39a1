@@ -265,6 +265,41 @@
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- End Google Tag Manager (noscript) -->
     <div id="root"></div>
+    <!--
+      P0.2 Cold-Load SSR Fallback (Reality-Gate Bridge)
+      Pre-Hydration Static Anchor: garantiert sichtbaren €-Preis + Kauf-CTA auf /preise
+      auch ohne Vercel-Prerender (Lovable-Preview-Host). createRoot() ersetzt #root
+      bei Mount — kein Hydration-Mismatch, kein Doppel-Render.
+      SSOT: src/config/pricing.ts (BUNDLE_PRICE = 24,90 €)
+    -->
+    <script>
+      (function () {
+        try {
+          var path = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
+          var root = document.getElementById('root');
+          if (!root || root.childNodes.length > 0) return;
+
+          if (path === '/preise') {
+            root.innerHTML = [
+              '<main data-prehydration="preise" style="max-width:960px;margin:0 auto;padding:48px 24px;font-family:Inter,system-ui,sans-serif;color:#0f172a;">',
+              '  <p style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 8px;">ExamFit Komplettpaket</p>',
+              '  <h1 style="font-size:40px;line-height:1.1;margin:0 0 12px;">Prüfungsvorbereitung — 24,90 €</h1>',
+              '  <p style="font-size:18px;color:#334155;margin:0 0 24px;">Einmalig 24,90 € · 12 Monate Vollzugriff · Kein Abo. Lernkurs, Prüfungstrainer, mündliche Simulation &amp; KI-Tutor in einem Paket.</p>',
+              '  <p style="margin:0 0 32px;">',
+              '    <a href="/berufe" data-cta-location="preise_prehydration" style="display:inline-block;background:#0F3D3E;color:#fff;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;">Jetzt Prüfungstraining starten →</a>',
+              '  </p>',
+              '  <ul style="list-style:none;padding:0;margin:0;display:grid;gap:8px;color:#475569;font-size:15px;">',
+              '    <li>✓ 12 Monate Zugang · keine automatische Verlängerung</li>',
+              '    <li>✓ Lernkurs + Prüfungstrainer + mündliche Simulation + KI-Tutor</li>',
+              '    <li>✓ Rechnung mit ausgewiesener MwSt., SEPA/Karte/PayPal</li>',
+              '    <li>✓ Team-Lizenzen für Betriebe &amp; Hochschulen verfügbar</li>',
+              '  </ul>',
+              '</main>'
+            ].join('');
+          }
+        } catch (e) { /* fail-open: SPA übernimmt */ }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       // Remove no-transitions class after initial load
