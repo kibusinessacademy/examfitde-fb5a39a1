@@ -39,14 +39,14 @@ export const BERUFOS = {
     subBrands: ["ExamFit", "ExamFit@work"],
   },
 
-  /** Email-SSOT für transactional + support. Legacy-Adressen nur als Aliases. */
+  /** Email-SSOT für transactional + support. */
   email: {
     from: "BerufOS <hello@berufos.com>",
     support: "support@berufos.com",
     noreply: "noreply@berufos.com",
     billing: "billing@berufos.com",
-    /** Legacy-Adressen bleiben als Forwarding-Aliases (kein outbound). */
-    legacy: ["support@examfit.de"],
+    /** examfit.de wird stillgelegt — keine Forwarding-Aliases mehr aktiv. */
+    legacy: [] as ReadonlyArray<string>,
   },
 
   /** Tonalitäts-Marker für Copy-Guardrails. */
