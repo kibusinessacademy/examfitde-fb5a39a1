@@ -6,11 +6,12 @@
  * Customer-Reality-Triage Workflow committed). Keine DB, kein Edge.
  */
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, ArrowDown, ArrowUp, Minus, RefreshCw } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, CheckCircle2, Loader2, Minus, RefreshCw } from 'lucide-react';
 
 interface Finding {
   fingerprint: string;
@@ -103,19 +104,63 @@ function fmtAgo(iso?: string | null): string {
   return `${Math.round(h / 24)}d ago`;
 }
 
-function useLatest() {
+/**
+ * Adaptive Auto-Refresh:
+ * - Polls every 15s while the run is plausibly "active" (ts younger than 10min
+ *   OR content_hash changed within the last 3 fetches).
+ * - Drops to 120s once the content_hash has been stable across ≥3 polls AND
+ *   the run timestamp is older than 10min → the run is considered terminated.
+ * This guarantees we automatically see the FINAL state of a triage run
+ * (content_hash, top_open_task, remaining_blockers) without manual refresh.
+ */
+function fnv1a(str: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+const FAST_MS = 15_000;
+const SLOW_MS = 120_000;
+
+function useAdaptiveInterval(contentHash: string | undefined, ts: string | null | undefined) {
+  const [interval, setIntervalMs] = useState<number>(FAST_MS);
+  const stableCount = useRef(0);
+  const lastHash = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!contentHash) return;
+    if (contentHash === lastHash.current) {
+      stableCount.current += 1;
+    } else {
+      stableCount.current = 0;
+      lastHash.current = contentHash;
+    }
+    const ageMs = ts ? Date.now() - new Date(ts).getTime() : Infinity;
+    const terminated = stableCount.current >= 3 && ageMs > 10 * 60_000;
+    setIntervalMs(terminated ? SLOW_MS : FAST_MS);
+  }, [contentHash, ts]);
+  return interval;
+}
+
+function useLatest(refetchMs: number) {
   return useQuery({
     queryKey: ['reality-latest'],
     queryFn: async () => {
       const r = await fetch(`/reality/latest.json?ts=${Date.now()}`);
       if (!r.ok) throw new Error('latest.json missing');
-      return r.json() as Promise<Latest>;
+      const text = await r.text();
+      const data = JSON.parse(text) as Latest;
+      (data as Latest & { _content_hash: string })._content_hash = fnv1a(text);
+      return data as Latest & { _content_hash: string };
     },
-    refetchInterval: 120_000,
-    staleTime: 60_000,
+    refetchInterval: refetchMs,
+    refetchIntervalInBackground: true,
+    staleTime: 5_000,
   });
 }
-function useHistory() {
+function useHistory(refetchMs: number) {
   return useQuery({
     queryKey: ['reality-history'],
     queryFn: async () => {
@@ -123,8 +168,9 @@ function useHistory() {
       if (!r.ok) throw new Error('history.json missing');
       return r.json() as Promise<HistoryEntry[]>;
     },
-    refetchInterval: 120_000,
-    staleTime: 60_000,
+    refetchInterval: refetchMs,
+    refetchIntervalInBackground: true,
+    staleTime: 5_000,
   });
 }
 
@@ -180,9 +226,110 @@ function fmtEtaDue(iso?: string): string {
 }
 
 
+type LatestWithHash = Latest & { _content_hash: string };
+
+function RunSummaryPanel({
+  latest,
+  refetchMs,
+  justUpdatedAt,
+  isFetching,
+}: {
+  latest: LatestWithHash;
+  refetchMs: number;
+  justUpdatedAt: number | null;
+  isFetching: boolean;
+}) {
+  const ageMs = latest.ts ? Date.now() - new Date(latest.ts).getTime() : Infinity;
+  const terminated = refetchMs >= SLOW_MS;
+  const remainingBlockers = latest.counts.p0;
+  const topOpen = [...latest.findings].sort((a, b) => {
+    const order = { P0: 0, P1: 1, P2: 2 } as const;
+    return order[a.severity] - order[b.severity];
+  })[0];
+  const flash = justUpdatedAt && Date.now() - justUpdatedAt < 4_000;
+
+  return (
+    <Card className={flash ? 'border-status-success/60 transition-colors' : 'transition-colors'}>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="text-base flex items-center gap-2">
+          {terminated ? (
+            <CheckCircle2 className="h-4 w-4 text-status-success" aria-label="terminated" />
+          ) : (
+            <Loader2 className="h-4 w-4 animate-spin text-status-info" aria-label="polling" />
+          )}
+          Run Summary
+          {isFetching && <span className="text-xs text-text-muted">· fetching…</span>}
+        </CardTitle>
+        <div className="flex items-center gap-2 text-xs text-text-muted">
+          <span>Poll {Math.round(refetchMs / 1000)}s</span>
+          <span>·</span>
+          <span>{terminated ? 'terminated' : 'live'}</span>
+          {ageMs !== Infinity && <span>· run {fmtAgo(latest.ts)}</span>}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div className="text-xs text-text-muted uppercase tracking-wide mb-1">content_hash</div>
+            <div className="font-mono text-base">{latest._content_hash}</div>
+            <div className="text-xs text-text-muted mt-1">
+              {justUpdatedAt
+                ? `letzte Änderung ${fmtAgo(new Date(justUpdatedAt).toISOString())}`
+                : 'stabil seit Mount'}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-text-muted uppercase tracking-wide mb-1">remaining_blockers</div>
+            <div className={`text-2xl font-semibold ${remainingBlockers > 0 ? 'text-status-danger' : 'text-status-success'}`}>
+              {remainingBlockers}
+            </div>
+            <div className="text-xs text-text-muted mt-1">
+              P0 offen · gesamt {latest.counts.total} ({latest.counts.p1} P1 / {latest.counts.p2} P2)
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-text-muted uppercase tracking-wide mb-1">top_open_task</div>
+            {topOpen ? (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={SEV_STYLES[topOpen.severity]}>{topOpen.severity}</Badge>
+                  <span className="font-medium text-sm">{topOpen.kind}</span>
+                </div>
+                <div className="font-mono text-xs text-text-muted truncate" title={topOpen.route ?? topOpen.journey}>
+                  {topOpen.route ?? topOpen.journey}
+                </div>
+                <div className="text-xs text-text-muted truncate" title={topOpen.fix_hint}>{topOpen.fix_hint}</div>
+              </div>
+            ) : (
+              <div className="text-status-success text-sm flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" /> keine offenen Tasks
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function RealityRepairPage() {
-  const latestQ = useLatest();
-  const historyQ = useHistory();
+  // Two-step: read current hash + ts first, then derive adaptive interval.
+  const initialQ = useLatest(FAST_MS);
+  const refetchMs = useAdaptiveInterval(initialQ.data?._content_hash, initialQ.data?.ts ?? null);
+  const latestQ = useLatest(refetchMs);
+  const historyQ = useHistory(refetchMs);
+
+  const lastSeenHash = useRef<string | undefined>(undefined);
+  const [justUpdatedAt, setJustUpdatedAt] = useState<number | null>(null);
+  useEffect(() => {
+    const h = latestQ.data?._content_hash;
+    if (!h) return;
+    if (lastSeenHash.current && lastSeenHash.current !== h) {
+      setJustUpdatedAt(Date.now());
+    }
+    lastSeenHash.current = h;
+  }, [latestQ.data?._content_hash]);
+  void initialQ; // keep query alive — same key, dedupes
 
   if (latestQ.isLoading || historyQ.isLoading) {
     return (
@@ -239,6 +386,16 @@ export default function RealityRepairPage() {
           </button>
         </div>
       </header>
+
+      {/* Run Summary Panel — auto-refresh terminator view */}
+      <RunSummaryPanel
+        latest={latest}
+        refetchMs={refetchMs}
+        justUpdatedAt={justUpdatedAt}
+        isFetching={latestQ.isFetching}
+      />
+
+
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
