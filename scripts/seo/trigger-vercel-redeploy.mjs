@@ -114,6 +114,23 @@ async function viaVercelApi() {
   return true;
 }
 
+async function viaDeployHook() {
+  const url = process.env.VERCEL_DEPLOY_HOOK_URL;
+  if (!url) return false;
+  console.log("▶ Pfad C: Vercel Deploy Hook");
+  const r = await fetch(url, { method: "POST" });
+  const txt = await r.text();
+  if (!r.ok) {
+    console.error(`✗ Deploy Hook ${r.status}: ${txt}`);
+    return false;
+  }
+  console.log(`✓ Deploy queued: ${txt}`);
+  return true;
+}
+
+// Preferred order: Deploy Hook (zero-auth) → GitHub dispatch → Vercel API
+const okC = await viaDeployHook();
+if (okC) process.exit(0);
 const okA = await viaGitHubDispatch();
 if (okA) {
   console.log("✓ GitHub repository_dispatch gesendet — Vercel deployt automatisch.");
@@ -124,7 +141,8 @@ if (okB) process.exit(0);
 
 console.error(`
 ✗ Keine Credentials gefunden.
-  Pfad A (empfohlen): gh CLI authentifizieren ODER GITHUB_TOKEN + GITHUB_REPOSITORY setzen.
-  Pfad B (Fallback):   VERCEL_TOKEN + VERCEL_PROJECT_ID setzen.
+  Pfad C (empfohlen): VERCEL_DEPLOY_HOOK_URL als Secret setzen.
+  Pfad A (Fallback):  gh CLI authentifizieren ODER GITHUB_TOKEN + GITHUB_REPOSITORY setzen.
+  Pfad B (Fallback):  VERCEL_TOKEN + VERCEL_PROJECT_ID setzen.
 `);
 process.exit(2);
