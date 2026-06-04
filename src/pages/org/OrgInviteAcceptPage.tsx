@@ -12,13 +12,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface InvitePreview {
-  email: string;
+  email: string; // masked: jo**@example.com
   role: string;
   org_id: string;
   org_name: string | null;
   product_title: string | null;
   status: string;
   expires_at: string;
+  is_expired?: boolean;
+  is_accepted?: boolean;
+  is_revoked?: boolean;
 }
 
 export default function OrgInviteAcceptPage() {
