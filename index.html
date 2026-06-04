@@ -330,6 +330,60 @@
               '  </ul>',
               '</main>'
             ].join('');
+          } else if (path === '/berufe' || path.indexOf('/berufe/') === 0) {
+            // P0.3 /berufe Cold-Load: echte Berufslinks + CTA, damit Discovery nicht 0 Links hat.
+            // SSOT: src/content/seoRoutes.ts (Top-5 Berufe + Komplettpaket-CTA).
+            var BERUFE = [
+              ['einzelhandelskaufmann-frau', 'Einzelhandelskaufmann/-frau', 'IHK'],
+              ['kaufmann-frau-bueromanagement', 'Kaufmann/-frau für Büromanagement', 'IHK'],
+              ['industriekaufmann-frau', 'Industriekaufmann/-frau', 'IHK'],
+              ['fachinformatiker-systemintegration', 'Fachinformatiker/-in Systemintegration', 'IHK'],
+              ['kfz-mechatroniker-in', 'Kfz-Mechatroniker/-in', 'HWK'],
+              ['bankkaufmann-frau', 'Bankkaufmann/-frau', 'IHK'],
+              ['medizinische-fachangestellte', 'Medizinische/r Fachangestellte/r', 'ÄK'],
+              ['pflegefachmann-frau', 'Pflegefachmann/-frau', 'PflBG']
+            ];
+            var slug = path === '/berufe' ? null : path.replace('/berufe/', '').replace(/\/.*$/, '');
+            if (slug) {
+              var match = BERUFE.find(function (b) { return b[0] === slug; });
+              var title = match ? match[1] : decodeURIComponent(slug).replace(/-/g, ' ');
+              var kammer = match ? match[2] : 'IHK';
+              root.innerHTML = [
+                '<main data-prehydration="beruf-detail" style="max-width:960px;margin:0 auto;padding:48px 24px;font-family:Inter,system-ui,sans-serif;color:#0f172a;">',
+                '  <p style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 8px;"><a href="/berufe" style="color:#64748b;text-decoration:none;">← Alle Berufe</a> · ' + kammer + '-Abschlussprüfung</p>',
+                '  <h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">' + title + ' — Prüfungstraining</h1>',
+                '  <p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:680px;">Adaptiver 4-Wochen-Lernplan nach DIHK-Rahmenstoffplan, KI-Tutor mit Quellen, Mini-Checks pro Lektion, prüfungsnahe Simulationen mit Readiness-Score und mündliches Fachgespräch. <strong>Einmalig 24,90 €</strong> · 12 Monate Zugang · Kein Abo.</p>',
+                '  <p style="margin:0 0 28px;display:flex;gap:12px;flex-wrap:wrap;">',
+                '    <a href="/preise" data-cta-location="beruf_detail_prehydration_primary" style="display:inline-block;background:#0F3D3E;color:#fff;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;">Prüfung starten →</a>',
+                '    <a href="/berufe" data-cta-location="beruf_detail_prehydration_switch" style="display:inline-block;background:transparent;color:#0F3D3E;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;border:1px solid #0F3D3E;">Anderen Beruf wählen</a>',
+                '  </p>',
+                '  <ul style="list-style:none;padding:0;margin:0;display:grid;gap:10px;color:#475569;font-size:15px;max-width:640px;">',
+                '    <li>✓ Adaptiver Lernplan — rückwärts ab Prüfungstermin</li>',
+                '    <li>✓ Lernkurse pro Handlungsfeld nach Rahmenstoffplan</li>',
+                '    <li>✓ KI-Tutor mit Quellen (Strict-RAG, keine Halluzinationen)</li>',
+                '    <li>✓ Schriftliche &amp; mündliche Prüfungssimulation</li>',
+                '  </ul>',
+                '</main>'
+              ].join('');
+            } else {
+              var items = BERUFE.map(function (b) {
+                return '<li style="margin:0;"><a href="/berufe/' + b[0] + '" data-cta-location="berufe_prehydration_item" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;text-decoration:none;color:#0f172a;font-weight:600;">' +
+                  '<span><span style="display:inline-block;font-size:11px;letter-spacing:.08em;color:#64748b;text-transform:uppercase;margin-right:8px;">' + b[2] + '</span>' + b[1] + '</span>' +
+                  '<span style="color:#0F3D3E;font-weight:600;font-size:14px;white-space:nowrap;">Prüfung starten →</span>' +
+                  '</a></li>';
+              }).join('');
+              root.innerHTML = [
+                '<main data-prehydration="berufe" style="max-width:1040px;margin:0 auto;padding:48px 24px;font-family:Inter,system-ui,sans-serif;color:#0f172a;">',
+                '  <p style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 8px;">Über 200 IHK- &amp; HWK-Berufe · Komplettpaket 24,90 €</p>',
+                '  <h1 style="font-size:40px;line-height:1.1;margin:0 0 12px;">Wähle deinen Beruf</h1>',
+                '  <p style="font-size:18px;color:#334155;margin:0 0 28px;max-width:680px;">Starte direkt mit deinem Prüfungstraining: adaptiver Lernplan, KI-Tutor mit Quellen, prüfungsnahe Simulationen und mündliches Fachgespräch — pro Beruf maßgeschneidert.</p>',
+                '  <ul style="list-style:none;padding:0;margin:0 0 28px;display:grid;gap:10px;">',
+                items,
+                '  </ul>',
+                '  <p style="margin:0;color:#475569;font-size:15px;">Beruf nicht dabei? <a href="/preise" style="color:#0F3D3E;font-weight:600;text-decoration:underline;">Komplettpaket ansehen</a> oder <a href="/demo" style="color:#0F3D3E;font-weight:600;text-decoration:underline;">kostenlos testen</a>.</p>',
+                '</main>'
+              ].join('');
+            }
           }
         } catch (e) { /* fail-open: SPA übernimmt */ }
       })();

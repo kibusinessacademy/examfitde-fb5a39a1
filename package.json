@@ -96,7 +96,7 @@
     "glob": "^11.1.0",
     "h5p-standalone": "^3.8.0",
     "input-otp": "^1.4.2",
-    "jsdom": "^20.0.3",
+    "jsdom": "^29.1.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",

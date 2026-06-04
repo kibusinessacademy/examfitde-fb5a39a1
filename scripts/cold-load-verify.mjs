@@ -1,0 +1,73 @@
+#!/usr/bin/env node
+/**
+ * Cold-Load Verifier (Reality-Gate Bridge)
+ * ------------------------------------------
+ * Liest dist/index.html (oder index.html als Fallback) und simuliert den
+ * Pre-Hydration-State pro Route via jsdom. Prüft:
+ *   B1 Homepage:  Demo-CTA sichtbar (href="/demo" + Label matched)
+ *   B2 /demo:     Body innerText > 200 Zeichen + mindestens ein Einstiegs-CTA
+ *   P02 /berufe:  Mindestens 5 Berufslinks (/berufe/<slug>) sichtbar
+ *   P04 /preise:  €/EUR-Preis sichtbar + Kauf-CTA sichtbar
+ *
+ * Kein Browser, kein Build nötig — verifiziert nur den index.html-Fallback,
+ * der vom Reality-Gate als Cold-Load gewertet wird.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { JSDOM } from 'jsdom';
+
+const ROOT = process.cwd();
+const HTML_PATH = fs.existsSync(path.join(ROOT, 'dist/index.html'))
+  ? path.join(ROOT, 'dist/index.html')
+  : path.join(ROOT, 'index.html');
+
+const html = fs.readFileSync(HTML_PATH, 'utf8');
+
+const CHECKS = [
+  { id: 'P01_home_demo_cta', path: '/', validate: (doc) => {
+      const demo = doc.querySelector('a[href="/demo"]');
+      if (!demo) return { ok: false, detail: 'no <a href="/demo">' };
+      const label = (demo.textContent || '').trim();
+      if (!/demo|kostenlos|testen/i.test(label)) return { ok: false, detail: `bad label "${label}"` };
+      return { ok: true, detail: `demo CTA "${label}"` };
+  }},
+  { id: 'P01_home_primary_cta', path: '/', validate: (doc) => {
+      const t = (doc.body.textContent || '');
+      if (!/Prüfung starten/i.test(t)) return { ok: false, detail: 'no "Prüfung starten"' };
+      return { ok: true, detail: 'primary CTA present' };
+  }},
+  { id: 'B2_demo_body_gt_200', path: '/demo', validate: (doc) => {
+      const t = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 200) return { ok: false, detail: `body=${t.length} chars` };
+      const cta = doc.querySelector('a[href^="/demo/"], a[href="/berufe"]');
+      if (!cta) return { ok: false, detail: 'no demo entry CTA' };
+      return { ok: true, detail: `body=${t.length} chars + CTA` };
+  }},
+  { id: 'P02_berufe_links', path: '/berufe', validate: (doc) => {
+      const links = [...doc.querySelectorAll('a[href^="/berufe/"]')];
+      if (links.length < 5) return { ok: false, detail: `links=${links.length}` };
+      return { ok: true, detail: `${links.length} beruf links` };
+  }},
+  { id: 'P04_pricing', path: '/preise', validate: (doc) => {
+      const t = (doc.body.textContent || '');
+      if (!/€|EUR/.test(t)) return { ok: false, detail: 'no €/EUR' };
+      const cta = doc.querySelector('a[data-cta-location^="preise_"]');
+      if (!cta) return { ok: false, detail: 'no kauf CTA' };
+      return { ok: true, detail: `price + CTA` };
+  }},
+];
+
+let pass = 0, fail = 0;
+const rows = [];
+for (const c of CHECKS) {
+  const dom = new JSDOM(html, { url: `https://example.com${c.path}`, runScripts: 'dangerously' });
+  // give inline pre-hydration script a tick
+  const res = c.validate(dom.window.document);
+  rows.push({ id: c.id, path: c.path, ...res });
+  if (res.ok) pass++; else fail++;
+  console.log(`${res.ok ? '✅' : '❌'} ${c.id.padEnd(28)} ${c.path.padEnd(10)} ${res.detail}`);
+  dom.window.close();
+}
+
+console.log(`\n${pass}/${pass + fail} cold-load checks pass`);
+process.exit(fail === 0 ? 0 : 1);
