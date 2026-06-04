@@ -226,6 +226,92 @@ function fmtEtaDue(iso?: string): string {
 }
 
 
+type LatestWithHash = Latest & { _content_hash: string };
+
+function RunSummaryPanel({
+  latest,
+  refetchMs,
+  justUpdatedAt,
+  isFetching,
+}: {
+  latest: LatestWithHash;
+  refetchMs: number;
+  justUpdatedAt: number | null;
+  isFetching: boolean;
+}) {
+  const ageMs = latest.ts ? Date.now() - new Date(latest.ts).getTime() : Infinity;
+  const terminated = refetchMs >= SLOW_MS;
+  const remainingBlockers = latest.counts.p0;
+  const topOpen = [...latest.findings].sort((a, b) => {
+    const order = { P0: 0, P1: 1, P2: 2 } as const;
+    return order[a.severity] - order[b.severity];
+  })[0];
+  const flash = justUpdatedAt && Date.now() - justUpdatedAt < 4_000;
+
+  return (
+    <Card className={flash ? 'border-status-success/60 transition-colors' : 'transition-colors'}>
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="text-base flex items-center gap-2">
+          {terminated ? (
+            <CheckCircle2 className="h-4 w-4 text-status-success" aria-label="terminated" />
+          ) : (
+            <Loader2 className="h-4 w-4 animate-spin text-status-info" aria-label="polling" />
+          )}
+          Run Summary
+          {isFetching && <span className="text-xs text-text-muted">· fetching…</span>}
+        </CardTitle>
+        <div className="flex items-center gap-2 text-xs text-text-muted">
+          <span>Poll {Math.round(refetchMs / 1000)}s</span>
+          <span>·</span>
+          <span>{terminated ? 'terminated' : 'live'}</span>
+          {ageMs !== Infinity && <span>· run {fmtAgo(latest.ts)}</span>}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div className="text-xs text-text-muted uppercase tracking-wide mb-1">content_hash</div>
+            <div className="font-mono text-base">{latest._content_hash}</div>
+            <div className="text-xs text-text-muted mt-1">
+              {justUpdatedAt
+                ? `letzte Änderung ${fmtAgo(new Date(justUpdatedAt).toISOString())}`
+                : 'stabil seit Mount'}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-text-muted uppercase tracking-wide mb-1">remaining_blockers</div>
+            <div className={`text-2xl font-semibold ${remainingBlockers > 0 ? 'text-status-danger' : 'text-status-success'}`}>
+              {remainingBlockers}
+            </div>
+            <div className="text-xs text-text-muted mt-1">
+              P0 offen · gesamt {latest.counts.total} ({latest.counts.p1} P1 / {latest.counts.p2} P2)
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-text-muted uppercase tracking-wide mb-1">top_open_task</div>
+            {topOpen ? (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={SEV_STYLES[topOpen.severity]}>{topOpen.severity}</Badge>
+                  <span className="font-medium text-sm">{topOpen.kind}</span>
+                </div>
+                <div className="font-mono text-xs text-text-muted truncate" title={topOpen.route ?? topOpen.journey}>
+                  {topOpen.route ?? topOpen.journey}
+                </div>
+                <div className="text-xs text-text-muted truncate" title={topOpen.fix_hint}>{topOpen.fix_hint}</div>
+              </div>
+            ) : (
+              <div className="text-status-success text-sm flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" /> keine offenen Tasks
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function RealityRepairPage() {
   // Two-step: read current hash + ts first, then derive adaptive interval.
   const initialQ = useLatest(FAST_MS);
