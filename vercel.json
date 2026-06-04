@@ -65,13 +65,7 @@
     }
   ],
   "redirects": [
-    { "source": "/berufski/:path*", "destination": "/work", "statusCode": 410 },
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "www.examfit.de" }],
-      "destination": "https://examfit.de/:path*",
-      "statusCode": 301
-    }
+    { "source": "/berufski/:path*", "destination": "/work", "statusCode": 410 }
   ],
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
