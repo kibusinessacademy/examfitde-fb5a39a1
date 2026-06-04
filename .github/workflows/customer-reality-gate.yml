@@ -40,6 +40,12 @@ jobs:
       - name: Install deps
         run: bun install --frozen-lockfile
 
+      - name: Cold-Load Verify (Early-Fail Gate P0.1–P0.4)
+        id: coldload
+        run: node scripts/cold-load-verify.mjs
+        # Early-Fail: schützt den Public-Funnel vor stiller Regression
+        # und macht Gate-BLOCKs erklärbarer, bevor wir Playwright zünden.
+
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
