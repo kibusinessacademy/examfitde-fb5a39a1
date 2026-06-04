@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "policy": {
+    "reviewBlocksProduction": true,
+    "staleArtifactsBlockProduction": true,
+    "maxArtifactAgeHours": 168,
+    "autoDiscover": true
+  },
+  "requiredGates": [
+    {
+      "id": "pre_customer_reality",
+      "path": "reality-results/pre-customer-reality-results.json",
+      "required": true,
+      "description": "Pre-login funnel reality result. Production requires RELEASE."
+    }
+  ],
+  "optionalGates": [
+    {
+      "id": "learner_reality",
+      "path": "reality-results/learner-reality-results.json",
+      "required": false,
+      "description": "Authenticated learner journey reality result, when present."
+    },
+    {
+      "id": "billing_statement_reality",
+      "path": "qa-state/billing/next-fix-bundle.json",
+      "required": false,
+      "description": "Billing readiness bundle, when present."
+    }
+  ]
+}
