@@ -25,6 +25,7 @@ import path from 'node:path';
 
 const RESULTS_DIR = path.resolve(process.cwd(), 'reality-results');
 const PASS_DIR = path.join(RESULTS_DIR, 'journey-pass');
+const FINDINGS_DIR = path.join(RESULTS_DIR, 'findings');
 const LOGIN_FLAG = path.join(RESULTS_DIR, 'learner-login-success.flag');
 
 // 12 kanonische Journeys → existierende Pass-File-IDs.
