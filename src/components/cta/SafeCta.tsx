@@ -15,7 +15,6 @@ import * as React from "react";
 import { Link, type LinkProps } from "react-router-dom";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { isKnownRoute, SAFE_FALLBACK_ROUTE } from "@/lib/route-registry";
-import { resolveAuthorityHref, isAuthorityForceActive } from "@/lib/seo/authorityHref";
 
 export interface SafeCtaProps extends Omit<ButtonProps, "asChild"> {
   /** Internal SPA route. Routed through react-router <Link>. */
