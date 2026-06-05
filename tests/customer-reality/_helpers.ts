@@ -11,7 +11,7 @@ import path from 'node:path';
 export const BASE_URL =
   process.env.REALITY_BASE_URL ||
   process.env.PREVIEW_URL ||
-  'https://examfitde.lovable.app';
+  'https://berufos.com';
 
 export const PM = {
   email: process.env.REALITY_PM_EMAIL || '',
