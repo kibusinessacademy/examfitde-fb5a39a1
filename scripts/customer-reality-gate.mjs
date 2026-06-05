@@ -99,13 +99,59 @@ const currentRunFindings = runContext.run_id
   : findings;
 const currentRunP0 = currentRunFindings.filter((f) => f.severity === 'P0').length;
 
+// --- P0.1 Domain-Drift-Detector ------------------------------------------
+// Jedes Finding, dessen detail/route auf einen Host außerhalb der Test-Base
+// verweist, ist ein Mess-Hygiene-Bruch (gemischte Systeme). Wir extrahieren
+// alle https?-URLs aus detail+route und vergleichen den Hostname gegen die
+// Base-URL des Runs. Treffer landen als synthetische P0-Findings im Report
+// — damit P0.1 auditierbar bleibt, ohne neue Specs zu bauen.
+function extractHosts(str) {
+  if (!str) return [];
+  const out = [];
+  const re = /https?:\/\/([^/\s)"'<>]+)/gi;
+  let m;
+  while ((m = re.exec(str)) !== null) out.push(m[1].toLowerCase());
+  return out;
+}
+let baseHost = null;
+try { baseHost = runContext.base_url ? new URL(runContext.base_url).hostname.toLowerCase() : null; } catch {}
+const driftFindings = [];
+if (baseHost) {
+  for (const f of currentRunFindings) {
+    const hosts = [...extractHosts(f.detail), ...extractHosts(f.route)];
+    const foreign = hosts.filter((h) => h !== baseHost && !isAllowedExternalHost(h));
+    if (foreign.length) {
+      driftFindings.push({
+        severity: 'P0',
+        kind: 'domain_drift',
+        journey: f.journey || 'AUDIT',
+        route: f.route || null,
+        detail: `Finding referenziert Fremd-Host(s) ${[...new Set(foreign)].join(', ')} bei Test-Base ${baseHost}. Original: ${f.detail || ''}`,
+        fix: 'Pre-Hydration / SafeCta / Canonical prüfen — keine absoluten Hrefs auf Fremd-Host außer Authority-Canonical.',
+        source_finding_ts: f.ts || null,
+      });
+    }
+  }
+}
+function isAllowedExternalHost(h) {
+  // Bekannte 3rd-Party-Hosts die in Findings legitim auftauchen dürfen.
+  return /(^|\.)stripe\.com$/.test(h)
+      || /(^|\.)google\.com$/.test(h)
+      || /(^|\.)gstatic\.com$/.test(h)
+      || /(^|\.)googletagmanager\.com$/.test(h)
+      || /(^|\.)cloudflare\.com$/.test(h);
+}
+const driftCount = driftFindings.length;
+
+
 let verdict, exitCode;
-if (p0Count > 0) { verdict = 'BLOCK'; exitCode = 2; }
+if (p0Count > 0 || driftCount > 0) { verdict = 'BLOCK'; exitCode = 2; }
 else if (passCount >= 10) { verdict = 'RELEASE'; exitCode = 0; }
 else if (passCount >= 8) { verdict = 'REVIEW';  exitCode = 1; }
 else { verdict = 'BLOCK'; exitCode = 2; }
 
-const RULE = 'Any P0 finding → BLOCK · sonst PASS>=10/12 → RELEASE · 8..9 → REVIEW · <8 → BLOCK';
+const RULE = 'Any P0 (incl. domain_drift) → BLOCK · sonst PASS>=10/12 → RELEASE · 8..9 → REVIEW · <8 → BLOCK';
+
 
 const out = {
   generated_at: new Date().toISOString(),
@@ -119,6 +165,8 @@ const out = {
   p0_count: p0Count,
   findings_count_current_run: currentRunFindings.length,
   p0_count_current_run: currentRunP0,
+  domain_drift_count: driftCount,
+  base_host: baseHost,
   rule: RULE,
   journeys: rows,
   p0_findings: p0.map((f) => ({
@@ -131,6 +179,8 @@ const out = {
     run_id: f.run_id || null,
     base_url: f.base_url || null,
   })),
+  domain_drift_findings: driftFindings,
+
 };
 
 fs.mkdirSync(RESULTS_DIR, { recursive: true });
@@ -153,18 +203,28 @@ const md = [
   ``,
   `**Run:** \`${runContext.run_id || 'local'}\`${runContext.run_url ? ` · [run url](${runContext.run_url})` : ''}`,
   `**Base URL:** ${runContext.base_url || '(unknown)'}  ·  **Generated:** ${out.generated_at}`,
-  `**Score:** ${passCount} / ${total}  ·  **P0 findings:** ${p0Count} (this run: ${currentRunP0})  ·  **Findings this run:** ${currentRunFindings.length}`,
+  `**Score:** ${passCount} / ${total}  ·  **P0 findings:** ${p0Count} (this run: ${currentRunP0})  ·  **Domain-drift:** ${driftCount}  ·  **Base host:** ${baseHost || '?'}`,
   `**Rule:** ${RULE}`,
   ``,
   `| # | Journey | Source | Status | Detail |`,
   `|---|---------|--------|--------|--------|`,
   ...rows.map((r, i) => `| ${i + 1} | ${r.label} | ${r.source} | ${r.status === 'pass' ? '✅ pass' : r.status === 'fail' ? '❌ fail' : '⚠️ missing'} | ${r.detail || ''} |`),
   p0Md,
+  driftCount
+    ? [
+        ``,
+        `## 🌐 Domain-Drift (P0.1 Mess-Hygiene)`,
+        ``,
+        ...driftFindings.map((d, i) => `${i + 1}. \`${d.route || '?'}\` — ${d.detail}`),
+        ``,
+      ].join('\n')
+    : '',
   `_Bridge over learner-reality + pre-customer-reality aggregators. No fork._`,
   ``,
 ].join('\n');
 fs.writeFileSync(path.join(RESULTS_DIR, 'customer-reality-gate.md'), md);
 
 console.log(md);
-console.log(`\nVerdict: ${verdict}  (P0=${p0Count}, score=${passCount}/${total}, exit ${exitCode})`);
+console.log(`\nVerdict: ${verdict}  (P0=${p0Count}, drift=${driftCount}, score=${passCount}/${total}, exit ${exitCode})`);
 process.exit(exitCode);
+
