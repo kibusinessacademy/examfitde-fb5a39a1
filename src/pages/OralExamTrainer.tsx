@@ -463,6 +463,10 @@ export default function OralExamTrainer() {
   }, [isTimerActive, timeRemaining, phase]);
 
   const handleStartExam = async () => {
+    reportEntryFallbackCtaClick('oral', 'oral_start', {
+      has_selected_curriculum: !!selectedCurriculum,
+      curricula_count: curricula?.length ?? 0,
+    });
     if (!selectedCurriculum) return;
     await startSession();
     setPhase('question');
