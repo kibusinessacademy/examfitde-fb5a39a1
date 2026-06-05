@@ -36,3 +36,5 @@ jobs:
           npx vitest run src/features/admin/__tests__/adminPreviewAutoTestQueue.test.ts --reporter=verbose
           npx vitest run src/features/admin/__tests__/edgeFunctionContracts.test.ts --reporter=verbose
           npx vitest run src/features/admin/__tests__/qaFeedbackLoop.test.ts --reporter=verbose
+          npx vitest run src/test/path-aware-loading-fallback.xss.test.tsx --reporter=verbose
+
