@@ -47,6 +47,13 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Vercel rewrites ↔ SSOT parity (P0.2 cold-load guard)
+        # Without an explicit rewrite per prerendered route, Vercel's catch-all
+        # `/(.*) → /index.html` hijacks the cold-load and serves the homepage,
+        # which the Customer Reality Gate records as `links=0`, `hasPrice=false`,
+        # and `body too short`. Run BEFORE the build so drift fails fast.
+        run: node scripts/guards/vercel-prerender-rewrites-parity.mjs
+
       - name: Build (runs Vite + Prerender plugin)
         run: npm run build
 
