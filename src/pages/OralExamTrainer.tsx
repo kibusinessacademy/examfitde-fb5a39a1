@@ -593,6 +593,7 @@ export default function OralExamTrainer() {
         "container max-w-4xl py-8 relative transition-colors duration-slow ease-out-expo",
         stressActive && "oral-stress-vignette",
       )}
+      data-testid="oral-exam-surface"
     >
       <div className="mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-3">
