@@ -1,10 +1,15 @@
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ArrowRight, Brain, Target, Sparkles } from 'lucide-react';
 import { SITE_URL } from '@/lib/seo';
+import {
+  reportEntryFallbackView,
+  reportEntryFallbackCtaClick,
+} from '@/lib/monitoring/entryFallbackSignal';
 
 /**
  * /minicheck and /minicheck/:sessionId — Reality-QA stable MiniCheck entry.
