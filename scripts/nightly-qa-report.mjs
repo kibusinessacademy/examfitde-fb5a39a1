@@ -103,7 +103,13 @@ const SUITES = [
     label: "QA Feedback Loop Scoring",
     pattern: "src/features/admin/__tests__/qaFeedbackLoop",
   },
+  {
+    key: "xss_path_aware_loading_fallback",
+    label: "XSS Guard: PathAwareLoadingFallback (Beruf-Slug)",
+    pattern: "src/test/path-aware-loading-fallback.xss",
+  },
 ];
+
 
 async function main() {
   const startedAt = nowIso();
