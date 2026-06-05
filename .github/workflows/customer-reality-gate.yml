@@ -65,6 +65,14 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
+      - name: Live Published Smoke (Pre-Flight)
+        id: livesmoke
+        # Hard fail-fast: if the deployed build at REALITY_BASE_URL doesn't
+        # serve a fresh /berufe (≥10 links), /preise (24,90 €) and /oral-exam
+        # surface, the Playwright run would just produce stale findings.
+        # Better to abort here and tell the operator to publish first.
+        run: node scripts/live-smoke-published.mjs
+
       - name: Run pre-customer-reality
         continue-on-error: true
         run: bunx playwright test --project=pre-customer-reality
