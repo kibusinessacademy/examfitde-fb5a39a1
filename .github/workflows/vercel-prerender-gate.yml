@@ -6,6 +6,21 @@ name: Vercel Prerender Gate
 # and the post-deploy smoke (verify the live URL after Vercel finishes).
 
 on:
+on:
+  pull_request:
+    paths:
+      - 'vercel.json'
+      - 'src/content/seoRoutes.ts'
+      - 'scripts/seo/**'
+      - 'scripts/guards/vercel-prerender-rewrites-parity.mjs'
+      - '.github/workflows/vercel-prerender-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'vercel.json'
+      - 'src/content/seoRoutes.ts'
+      - 'scripts/seo/**'
+      - 'scripts/guards/vercel-prerender-rewrites-parity.mjs'
   workflow_dispatch:
 
 concurrency:
@@ -31,6 +46,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+
+      - name: Vercel rewrites ↔ SSOT parity (P0.2 cold-load guard)
+        # Without an explicit rewrite per prerendered route, Vercel's catch-all
+        # `/(.*) → /index.html` hijacks the cold-load and serves the homepage,
+        # which the Customer Reality Gate records as `links=0`, `hasPrice=false`,
+        # and `body too short`. Run BEFORE the build so drift fails fast.
+        run: node scripts/guards/vercel-prerender-rewrites-parity.mjs
 
       - name: Build (runs Vite + Prerender plugin)
         run: npm run build
@@ -73,12 +95,42 @@ jobs:
           set -e
           echo "▶ Checking per-route HTML drift on berufos.com"
           ROOT=$(curl -sf https://berufos.com/ | head -c 8000)
-          ROUTE=$(curl -sf https://berufos.com/aevo-pruefung | head -c 8000)
+          ROUTE=$(curl -sf https://berufos.com/fiae-pruefungsvorbereitung | head -c 8000)
           if [ "$ROOT" = "$ROUTE" ]; then
-            echo "❌ /aevo-pruefung is identical to / — Per-Route-HTML NOT served"
+            echo "❌ /fiae-pruefungsvorbereitung is identical to / — Per-Route-HTML NOT served"
             exit 1
           fi
           echo "✅ Per-Route-HTML drift OK"
+
+      - name: P0.2 Funnel Cold-Load Smoke (/berufe, /berufe/:slug, /preise)
+        # Acceptance gate for P0.2 (2026-06-05): the Customer Reality Gate
+        # observed `links=0`, `hasPrice=false`, `body too short` on these
+        # routes when the SPA catch-all hijacked the cold-load. Reproduce
+        # the Reality-Test assertions at the smoke level so a regression
+        # blocks the deploy instead of surfacing 24h later in the nightly.
+        run: |
+          set -e
+          fail=0
+          BERUFE=$(curl -sf https://berufos.com/berufe)
+          LINKS=$(printf '%s' "$BERUFE" | grep -oE 'href="/berufe/[a-z][^"]+"' | sort -u | wc -l)
+          echo "/berufe static <a href=\"/berufe/:slug\"> count: $LINKS"
+          if [ "$LINKS" -lt 3 ]; then echo "❌ /berufe has $LINKS static beruf links (<3)"; fail=1; fi
+
+          SLUG=$(curl -sf https://berufos.com/berufe/einzelhandelskaufmann-frau)
+          BYTES=$(printf '%s' "$SLUG" | wc -c)
+          echo "/berufe/einzelhandelskaufmann-frau bytes: $BYTES"
+          if [ "$BYTES" -lt 4000 ]; then echo "❌ beruf slug body too short ($BYTES <4000)"; fail=1; fi
+          if ! printf '%s' "$SLUG" | grep -q "Einzelhandelskaufmann"; then echo "❌ beruf slug missing route-specific H1"; fail=1; fi
+
+          PREISE=$(curl -sf https://berufos.com/preise)
+          if ! printf '%s' "$PREISE" | grep -qE '24,90|€|EUR'; then echo "❌ /preise missing € / 24,90"; fail=1; fi
+          if ! printf '%s' "$PREISE" | grep -qE '/berufe|kaufen|starten|sichern|loslegen'; then echo "❌ /preise missing primary CTA target"; fail=1; fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::P0.2 funnel smoke failed — rewrites/prerender drift"
+            exit 1
+          fi
+          echo "✅ P0.2 funnel smoke OK"
 
       - name: X-Robots-Tag on protected routes
         run: |
