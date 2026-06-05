@@ -84,8 +84,25 @@ function renderBerufe() {
   );
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderBerufDetail(slug: string) {
-  const title = decodeURIComponent(slug).replace(/-/g, ' ');
+  let decoded = slug;
+  try {
+    decoded = decodeURIComponent(slug);
+  } catch {
+    decoded = slug;
+  }
+  // Only allow plausible slug characters; strip anything else defensively.
+  const safeRaw = decoded.replace(/[^a-zA-Z0-9äöüÄÖÜß \-_/]/g, '');
+  const title = escapeHtml(safeRaw.replace(/-/g, ' '));
   return wrap(
     'beruf-detail',
     `<p style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 8px;"><a href="/berufe" style="color:#64748b;text-decoration:none;">← Alle Berufe</a> · IHK-Abschlussprüfung</p><h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">${title} — Prüfungstraining</h1><p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:680px;">Adaptiver 4-Wochen-Lernplan, KI-Tutor mit Quellen, Mini-Checks, prüfungsnahe Simulationen und mündliches Fachgespräch. <strong>Einmalig 24,90 €</strong> · 12 Monate Zugang.</p><p style="margin:0;display:flex;gap:12px;flex-wrap:wrap;"><a href="/preise" data-cta-location="beruf_detail_loading_primary" style="${btnPrimary}">Prüfung starten →</a><a href="/berufe" data-cta-location="beruf_detail_loading_switch" style="${btnSecondary}">Anderen Beruf wählen</a></p>`,
