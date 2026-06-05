@@ -501,6 +501,17 @@ export default function OralExamTrainer() {
     }
   }, [currentQuestion?.id, phase]);
 
+  // P0.4 monitoring: emit entry/fallback signal whenever the setup surface
+  // renders, so empty-state regressions in production are visible immediately.
+  useEffect(() => {
+    if (phase !== 'setup') return;
+    const hasCurricula = !!(curricula && curricula.length > 0);
+    reportEntryFallbackView('oral', hasCurricula ? 'ready' : 'recovery', {
+      curricula_count: curricula?.length ?? 0,
+      has_selected_curriculum: !!selectedCurriculum,
+    });
+  }, [phase, curricula, selectedCurriculum]);
+
   const handleReadQuestion = () => {
     if (currentQuestion?.question_text) {
       speakText(currentQuestion.question_text, () => {
