@@ -749,6 +749,9 @@ export default function OralExamTrainer() {
                     className="w-full"
                     data-testid="oral-recovery-cta"
                     data-cta-location="oral_setup_no_curriculum"
+                    onClick={() =>
+                      reportEntryFallbackCtaClick('oral', 'oral_recovery')
+                    }
                   >
                     <a href="/berufe">
                       <Play className="h-4 w-4 mr-2" />
