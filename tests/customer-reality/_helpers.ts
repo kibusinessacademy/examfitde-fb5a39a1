@@ -64,7 +64,19 @@ export interface Finding {
   detail: string;
   fix?: string;
   ts: string;
+  run_id?: string;
+  base_url?: string;
 }
+
+/**
+ * Stable run identifier for the current Reality run. Uses GITHUB_RUN_ID when
+ * available, otherwise a per-process synthetic id. Lets the aggregator separate
+ * "findings produced by THIS run" from any stale artefacts.
+ */
+export const RUN_ID: string =
+  process.env.GITHUB_RUN_ID ||
+  process.env.REALITY_RUN_ID ||
+  `local-${process.pid}-${Date.now()}`;
 
 /**
  * Append a finding to disk so the aggregator can pick it up without depending
@@ -72,7 +84,12 @@ export interface Finding {
  */
 export function recordFinding(f: Omit<Finding, 'ts'>) {
   ensureReportDir();
-  const full: Finding = { ...f, ts: new Date().toISOString() };
+  const full: Finding = {
+    ...f,
+    ts: new Date().toISOString(),
+    run_id: RUN_ID,
+    base_url: BASE_URL,
+  };
   const file = path.join(
     REPORT_DIR,
     'findings',
