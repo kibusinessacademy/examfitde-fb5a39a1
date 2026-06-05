@@ -1,11 +1,15 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ArrowRight, Brain, Sparkles } from 'lucide-react';
 import { SITE_URL } from '@/lib/seo';
+import {
+  reportEntryFallbackView,
+  reportEntryFallbackCtaClick,
+} from '@/lib/monitoring/entryFallbackSignal';
 
 /**
  * /tutor — Reality-QA stable Tutor entry surface.
@@ -25,8 +29,20 @@ export default function TutorEntryPage() {
   const navigate = useNavigate();
   const [draft, setDraft] = useState('');
 
+  // Tutor entry has no curriculum context here → always 'recovery' until the
+  // learner submits a question (the real tutor surface lives at /app/tutor).
+  useEffect(() => {
+    reportEntryFallbackView('tutor', 'recovery', {
+      authenticated: !!user,
+    });
+  }, [user]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    reportEntryFallbackCtaClick('tutor', 'tutor_submit', {
+      authenticated: !!user,
+      draft_length: draft.length,
+    });
     if (!user) {
       navigate(`/auth?redirect=${encodeURIComponent('/app/tutor')}`);
       return;
@@ -102,7 +118,13 @@ export default function TutorEntryPage() {
                 zuerst deinen Beruf — der Tutor übernimmt den Kontext automatisch.
               </p>
             </div>
-            <Button asChild variant="outline">
+            <Button
+              asChild
+              variant="outline"
+              onClick={() =>
+                reportEntryFallbackCtaClick('tutor', 'tutor_recovery')
+              }
+            >
               <Link to="/berufe">Beruf auswählen</Link>
             </Button>
           </CardContent>

@@ -41,6 +41,10 @@ import { useTerminology } from '@/hooks/useProgramType';
 import { OralWaveform } from '@/components/oral/OralWaveform';
 import { ExaminerThinkingBeat } from '@/components/oral/ExaminerThinkingBeat';
 import { OralReplayCard, type TurnMetric } from '@/components/oral/OralReplayCard';
+import {
+  reportEntryFallbackView,
+  reportEntryFallbackCtaClick,
+} from '@/lib/monitoring/entryFallbackSignal';
 
 type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
 
@@ -459,6 +463,10 @@ export default function OralExamTrainer() {
   }, [isTimerActive, timeRemaining, phase]);
 
   const handleStartExam = async () => {
+    reportEntryFallbackCtaClick('oral', 'oral_start', {
+      has_selected_curriculum: !!selectedCurriculum,
+      curricula_count: curricula?.length ?? 0,
+    });
     if (!selectedCurriculum) return;
     await startSession();
     setPhase('question');
@@ -496,6 +504,17 @@ export default function OralExamTrainer() {
       });
     }
   }, [currentQuestion?.id, phase]);
+
+  // P0.4 monitoring: emit entry/fallback signal whenever the setup surface
+  // renders, so empty-state regressions in production are visible immediately.
+  useEffect(() => {
+    if (phase !== 'setup') return;
+    const hasCurricula = !!(curricula && curricula.length > 0);
+    reportEntryFallbackView('oral', hasCurricula ? 'ready' : 'recovery', {
+      curricula_count: curricula?.length ?? 0,
+      has_selected_curriculum: !!selectedCurriculum,
+    });
+  }, [phase, curricula, selectedCurriculum]);
 
   const handleReadQuestion = () => {
     if (currentQuestion?.question_text) {
@@ -730,6 +749,9 @@ export default function OralExamTrainer() {
                     className="w-full"
                     data-testid="oral-recovery-cta"
                     data-cta-location="oral_setup_no_curriculum"
+                    onClick={() =>
+                      reportEntryFallbackCtaClick('oral', 'oral_recovery')
+                    }
                   >
                     <a href="/berufe">
                       <Play className="h-4 w-4 mr-2" />
