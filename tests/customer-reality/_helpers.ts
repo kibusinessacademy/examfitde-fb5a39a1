@@ -52,7 +52,9 @@ export type FindingKind =
   | 'demo_unreachable'
   | 'checkout_unreachable'
   | 'role_blocked'
-  | 'http_error';
+  | 'http_error'
+  | 'global_security_blocker'
+  | 'navigation_no_content_change';
 
 export interface Finding {
   severity: Severity;
