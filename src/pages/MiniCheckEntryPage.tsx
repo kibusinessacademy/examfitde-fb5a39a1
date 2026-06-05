@@ -39,7 +39,21 @@ export default function MiniCheckEntryPage() {
   const [search] = useSearchParams();
   const curriculumId = search.get('curriculum');
 
+  const state = sessionId || curriculumId ? 'ready' : 'recovery';
+  useEffect(() => {
+    reportEntryFallbackView('minicheck', state, {
+      has_session: !!sessionId,
+      has_curriculum: !!curriculumId,
+      authenticated: !!user,
+    });
+  }, [state, sessionId, curriculumId, user]);
+
   const handleStart = () => {
+    reportEntryFallbackCtaClick('minicheck', 'minicheck_start', {
+      has_session: !!sessionId,
+      has_curriculum: !!curriculumId,
+      authenticated: !!user,
+    });
     if (!user) {
       const next = sessionId ? `/app/minicheck/${sessionId}` : '/app/minicheck';
       navigate(`/auth?redirect=${encodeURIComponent(next)}`);
