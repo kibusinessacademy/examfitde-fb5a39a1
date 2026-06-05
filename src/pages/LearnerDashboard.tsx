@@ -46,6 +46,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  resolveDashboardNextStep,
+  type ResolverEnrollment,
+} from '@/features/activation/resolveDashboardNextStep';
 
 export default function LearnerDashboard() {
   const { user, isAdmin } = useAuth();
@@ -79,21 +83,22 @@ export default function LearnerDashboard() {
     );
   }
 
-  // Reality-QA: Bestimme ALWAYS-VISIBLE primary Next-Step CTA.
-  // J04 verlangt sichtbaren Button/Link mit /starten|weiter|lerneinheit|fortsetzen|challenge/i.
+  // ━━━ Deterministic Next-Step CTA (SSOT) ━━━
+  // P0.3 (2026-06-05): the resolver lives in src/features/activation and is
+  // unit-tested. Dashboard MUST NOT guess on its own — every branch is part
+  // of the SSOT contract that the Customer Reality Gate asserts against
+  // (`dead_cta` / `no next-step cta` on /dashboard must stay at zero).
   const firstEnrollment = enrollments[0];
-  const primaryNextStep = (() => {
-    if (firstEnrollment?.course_id) {
-      return {
-        label: 'Training fortsetzen',
-        to: `/course/${firstEnrollment.course_id}`,
-      };
-    }
-    if (activeCurriculumId) {
-      return { label: 'Nächste Lerneinheit starten', to: '/courses' };
-    }
-    return { label: 'Beruf wählen & starten', to: '/berufe' };
-  })();
+  const resolverEnrollments: ResolverEnrollment[] = enrollments.map((e) => ({
+    course_id: e.course_id,
+    title: e.title,
+    total_lessons: e.total_lessons || 0,
+    completed_lessons: e.completed_lessons || 0,
+  }));
+  const nextStep = resolveDashboardNextStep({
+    enrollments: resolverEnrollments,
+    activeCurriculumId,
+  });
 
   return (
     <div className="py-4 sm:py-8 px-3 sm:px-4">
@@ -117,9 +122,13 @@ export default function LearnerDashboard() {
         </div>
 
         {/* ━━━ Reality-QA: ALWAYS-VISIBLE primary Next-Step + Quick-Actions ━━━
-            P0.5: Sichtbarer Next-Step + 4 Quick-Actions aus vorhandenem
-            Enrollment/Curriculum-State. Robust für leere/teil-leere Daten. */}
-        <div className="mb-4" data-testid="dashboard-next-step">
+            P0.3: Next-Step kommt aus resolveDashboardNextStep (SSOT). Niemals
+            leerer Zustand, niemals stiller Spinner-Loop, niemals dead CTA. */}
+        <div
+          className="mb-4"
+          data-testid="dashboard-next-step"
+          data-next-step-kind={nextStep.kind}
+        >
           <Card className="glass-card border-primary/30">
             <CardContent className="p-4">
               <div className="flex items-center gap-3 justify-between">
@@ -127,17 +136,22 @@ export default function LearnerDashboard() {
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">
                     Dein nächster Schritt
                   </p>
-                  <p className="text-sm sm:text-base font-semibold truncate">
-                    {firstEnrollment?.title
-                      ? `Weiter mit: ${firstEnrollment.title}`
-                      : activeCurriculumId
-                      ? 'Empfohlene Lerneinheit für heute'
-                      : 'Lege deinen Prüfungsberuf fest, um zu starten.'}
+                  <p
+                    className="text-sm sm:text-base font-semibold truncate"
+                    data-testid="dashboard-next-step-rationale"
+                  >
+                    {nextStep.rationale}
                   </p>
                 </div>
                 <Button asChild size="sm" className="shrink-0">
-                  <Link to={primaryNextStep.to} data-cta-location="dashboard_next_step">
-                    {primaryNextStep.label}
+                  <Link
+                    to={nextStep.to}
+                    aria-label="dashboard-next-step-cta"
+                    data-testid="dashboard-next-step-cta"
+                    data-cta-location="dashboard_next_step"
+                    data-next-step-kind={nextStep.kind}
+                  >
+                    {nextStep.label}
                     <ArrowRight className="ml-1 h-4 w-4" />
                   </Link>
                 </Button>
