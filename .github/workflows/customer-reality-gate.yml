@@ -47,6 +47,32 @@ jobs:
       - name: Install deps
         run: bun install --frozen-lockfile
 
+      - name: Resolve REALITY_BASE_URL (auto-detect published domain)
+        # If neither workflow_dispatch input nor secret provided a base URL,
+        # probe the candidate domains in priority order and pick the first one
+        # that responds 200. This keeps the gate runnable even if the secret
+        # is missing, and automatically follows the currently-served domain
+        # (custom domain berufos.com → Lovable subdomain examfitde.lovable.app).
+        run: |
+          set -e
+          CURRENT="${REALITY_BASE_URL}"
+          if [ -n "$CURRENT" ]; then
+            echo "Using provided REALITY_BASE_URL=$CURRENT"
+            echo "REALITY_BASE_URL=$CURRENT" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          for CANDIDATE in "https://berufos.com" "https://examfitde.lovable.app"; do
+            CODE=$(curl -sSL -o /dev/null -w "%{http_code}" --max-time 10 "$CANDIDATE/" || echo "000")
+            echo "Probe $CANDIDATE → HTTP $CODE"
+            if [ "$CODE" = "200" ]; then
+              echo "Auto-detected REALITY_BASE_URL=$CANDIDATE"
+              echo "REALITY_BASE_URL=$CANDIDATE" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          done
+          echo "::error::No candidate domain responded 200 — set REALITY_BASE_URL secret or workflow_dispatch input."
+          exit 2
+
       - name: Reset reality results (Hygiene Guard)
         # Verhindert, dass alte P0-Findings aus früheren Runs den Gate dauerhaft
         # blocken oder neue/alte Findings vermischt werden. Jeder Run startet sauber.
