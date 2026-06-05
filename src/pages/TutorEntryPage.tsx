@@ -118,7 +118,13 @@ export default function TutorEntryPage() {
                 zuerst deinen Beruf — der Tutor übernimmt den Kontext automatisch.
               </p>
             </div>
-            <Button asChild variant="outline">
+            <Button
+              asChild
+              variant="outline"
+              onClick={() =>
+                reportEntryFallbackCtaClick('tutor', 'tutor_recovery')
+              }
+            >
               <Link to="/berufe">Beruf auswählen</Link>
             </Button>
           </CardContent>
