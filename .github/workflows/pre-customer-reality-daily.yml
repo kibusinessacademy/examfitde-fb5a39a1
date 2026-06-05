@@ -25,7 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      REALITY_BASE_URL: ${{ github.event.inputs.base_url != '' && github.event.inputs.base_url || secrets.REALITY_BASE_URL || 'https://examfitde.lovable.app' }}
+      # P0.1 Domain-Drift-Fix (2026-06-05): Default = berufos.com (Authority-SSOT).
+      # Muss mit customer-reality-gate.yml + learner-reality-daily.yml identisch sein.
+      REALITY_BASE_URL: ${{ github.event.inputs.base_url != '' && github.event.inputs.base_url || secrets.REALITY_BASE_URL || 'https://berufos.com' }}
       CHECKOUT_TEST_MODE: 'true'
     steps:
       - uses: actions/checkout@v4
