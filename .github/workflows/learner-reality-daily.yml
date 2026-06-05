@@ -24,7 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      REALITY_BASE_URL: ${{ github.event.inputs.base_url != '' && github.event.inputs.base_url || secrets.REALITY_BASE_URL || 'https://examfitde.lovable.app' }}
+      # P0.1 Domain-Drift-Fix (2026-06-05): Default = berufos.com (Authority-SSOT).
+      # Muss mit customer-reality-gate.yml übereinstimmen, sonst landen Findings
+      # auf gemischten Hosts und der Aggregator misst gegen den falschen Funnel.
+      REALITY_BASE_URL: ${{ github.event.inputs.base_url != '' && github.event.inputs.base_url || secrets.REALITY_BASE_URL || 'https://berufos.com' }}
       REALITY_LEARNER_EMAIL: ${{ secrets.REALITY_LEARNER_EMAIL }}
       REALITY_LEARNER_PASSWORD: ${{ secrets.REALITY_LEARNER_PASSWORD }}
       REALITY_B2B_LEARNER_EMAIL: ${{ secrets.REALITY_B2B_LEARNER_EMAIL }}
