@@ -27,6 +27,10 @@ const guards = [
   "trigger-function-parity-guard.mjs",
   "sql-discipline-guard.mjs",
   "guard-package-status-demotes.mjs",
+  // P0.2 root-cause guard: vercel.json must hold an explicit rewrite for every
+  // prerendered SSOT route, otherwise the SPA catch-all hijacks cold-loads and
+  // serves the homepage HTML — see scripts/guards/vercel-prerender-rewrites-parity.mjs.
+  "vercel-prerender-rewrites-parity.mjs",
 ];
 
 function run(entry) {
