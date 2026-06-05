@@ -6,6 +6,21 @@ name: Vercel Prerender Gate
 # and the post-deploy smoke (verify the live URL after Vercel finishes).
 
 on:
+on:
+  pull_request:
+    paths:
+      - 'vercel.json'
+      - 'src/content/seoRoutes.ts'
+      - 'scripts/seo/**'
+      - 'scripts/guards/vercel-prerender-rewrites-parity.mjs'
+      - '.github/workflows/vercel-prerender-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'vercel.json'
+      - 'src/content/seoRoutes.ts'
+      - 'scripts/seo/**'
+      - 'scripts/guards/vercel-prerender-rewrites-parity.mjs'
   workflow_dispatch:
 
 concurrency:
