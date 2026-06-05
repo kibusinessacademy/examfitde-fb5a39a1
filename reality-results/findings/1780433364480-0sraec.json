@@ -1,9 +1,0 @@
-{
-  "severity": "P0",
-  "kind": "dead_cta",
-  "journey": "A",
-  "route": "/",
-  "detail": "Kein primärer CTA im sichtbaren Bereich der Homepage.",
-  "fix": "Hero-CTA prüfen / cookie banner darf CTA nicht verdecken.",
-  "ts": "2026-06-02T20:49:24.480Z"
-}

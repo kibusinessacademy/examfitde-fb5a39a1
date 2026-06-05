@@ -1,9 +1,0 @@
-{
-  "severity": "P0",
-  "kind": "white_screen",
-  "journey": "E",
-  "route": "https://berufos.com/muendliche-pruefung",
-  "detail": "Oral-Oberfläche leer.",
-  "fix": "Renderer / Datenpfad prüfen.",
-  "ts": "2026-06-02T20:49:57.175Z"
-}

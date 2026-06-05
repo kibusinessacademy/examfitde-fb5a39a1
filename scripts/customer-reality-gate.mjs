@@ -88,6 +88,17 @@ const findings = readFindings();
 const p0 = findings.filter((f) => f && f.severity === 'P0');
 const p0Count = p0.length;
 
+// Run-Kontext aus Workflow-Stamp (hygiene guard) — falls vorhanden.
+let runContext = { run_id: process.env.GITHUB_RUN_ID || null, run_url: null, base_url: process.env.REALITY_BASE_URL || null, started_at: null };
+const runCtxFile = path.join(RESULTS_DIR, 'run-context.json');
+if (fs.existsSync(runCtxFile)) {
+  try { runContext = { ...runContext, ...JSON.parse(fs.readFileSync(runCtxFile, 'utf8')) }; } catch {}
+}
+const currentRunFindings = runContext.run_id
+  ? findings.filter((f) => f && f.run_id === runContext.run_id)
+  : findings;
+const currentRunP0 = currentRunFindings.filter((f) => f.severity === 'P0').length;
+
 let verdict, exitCode;
 if (p0Count > 0) { verdict = 'BLOCK'; exitCode = 2; }
 else if (passCount >= 10) { verdict = 'RELEASE'; exitCode = 0; }
@@ -98,10 +109,16 @@ const RULE = 'Any P0 finding → BLOCK · sonst PASS>=10/12 → RELEASE · 8..9 
 
 const out = {
   generated_at: new Date().toISOString(),
+  run_id: runContext.run_id,
+  run_url: runContext.run_url,
+  base_url: runContext.base_url,
+  started_at: runContext.started_at,
   verdict,
   pass: passCount,
   total,
   p0_count: p0Count,
+  findings_count_current_run: currentRunFindings.length,
+  p0_count_current_run: currentRunP0,
   rule: RULE,
   journeys: rows,
   p0_findings: p0.map((f) => ({
@@ -111,6 +128,8 @@ const out = {
     detail: f.detail || '',
     fix: f.fix || null,
     ts: f.ts || null,
+    run_id: f.run_id || null,
+    base_url: f.base_url || null,
   })),
 };
 
@@ -132,7 +151,10 @@ const p0Md = p0.length
 const md = [
   `# Customer Reality Gate — ${verdict}`,
   ``,
-  `**Score:** ${passCount} / ${total}  ·  **P0 findings:** ${p0Count}  ·  **Rule:** ${RULE}`,
+  `**Run:** \`${runContext.run_id || 'local'}\`${runContext.run_url ? ` · [run url](${runContext.run_url})` : ''}`,
+  `**Base URL:** ${runContext.base_url || '(unknown)'}  ·  **Generated:** ${out.generated_at}`,
+  `**Score:** ${passCount} / ${total}  ·  **P0 findings:** ${p0Count} (this run: ${currentRunP0})  ·  **Findings this run:** ${currentRunFindings.length}`,
+  `**Rule:** ${RULE}`,
   ``,
   `| # | Journey | Source | Status | Detail |`,
   `|---|---------|--------|--------|--------|`,

@@ -1,9 +1,0 @@
-{
-  "severity": "P0",
-  "kind": "broken_route",
-  "journey": "A",
-  "route": "/preise",
-  "detail": "Public route /preise returned status 200 / empty body.",
-  "fix": "Route reparieren oder Navigation entfernen.",
-  "ts": "2026-06-02T20:49:23.969Z"
-}

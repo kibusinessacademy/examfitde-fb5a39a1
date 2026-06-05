@@ -1,9 +1,0 @@
-{
-  "severity": "P1",
-  "kind": "broken_route",
-  "journey": "A",
-  "route": "/",
-  "detail": "Datenschutz-Link fehlt auf Homepage / im Footer.",
-  "fix": "Footer-Block mit Datenschutz-Link ergänzen (DE-Recht / Stripe-Requirement).",
-  "ts": "2026-06-03T13:53:20.028Z"
-}

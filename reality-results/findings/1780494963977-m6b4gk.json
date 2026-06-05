@@ -1,9 +1,0 @@
-{
-  "severity": "P0",
-  "kind": "broken_route",
-  "journey": "A",
-  "route": "/berufe/fachkraft-fuer-lagerlogistik",
-  "detail": "Cold-load body too short (0 chars).",
-  "fix": "SSR / static fallback für Route sicherstellen.",
-  "ts": "2026-06-03T13:56:03.976Z"
-}
