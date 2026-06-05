@@ -151,7 +151,10 @@ const p0Md = p0.length
 const md = [
   `# Customer Reality Gate — ${verdict}`,
   ``,
-  `**Score:** ${passCount} / ${total}  ·  **P0 findings:** ${p0Count}  ·  **Rule:** ${RULE}`,
+  `**Run:** \`${runContext.run_id || 'local'}\`${runContext.run_url ? ` · [run url](${runContext.run_url})` : ''}`,
+  `**Base URL:** ${runContext.base_url || '(unknown)'}  ·  **Generated:** ${out.generated_at}`,
+  `**Score:** ${passCount} / ${total}  ·  **P0 findings:** ${p0Count} (this run: ${currentRunP0})  ·  **Findings this run:** ${currentRunFindings.length}`,
+  `**Rule:** ${RULE}`,
   ``,
   `| # | Journey | Source | Status | Detail |`,
   `|---|---------|--------|--------|--------|`,
