@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+// Loader2 removed — PathAwareLoadingFallback owns the Suspense shell.
 
 /** Retry a dynamic import up to 3 times with a short delay (handles Vite HMR restarts). */
 function lazyRetry<T extends { default: React.ComponentType<any> }>(
