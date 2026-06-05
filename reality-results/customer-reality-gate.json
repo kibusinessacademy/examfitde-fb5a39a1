@@ -1,9 +1,10 @@
 {
-  "generated_at": "2026-06-04T20:56:32.051Z",
+  "generated_at": "2026-06-05T12:20:30.720Z",
   "verdict": "BLOCK",
   "pass": 1,
   "total": 12,
-  "rule": "PASS>=10/12 → RELEASE · 8..9 → REVIEW · <8 → BLOCK",
+  "p0_count": 42,
+  "rule": "Any P0 finding → BLOCK · sonst PASS>=10/12 → RELEASE · 8..9 → REVIEW · <8 → BLOCK",
   "journeys": [
     {
       "key": "homepage",
@@ -27,7 +28,7 @@
       "source": "pre",
       "id": "P03_open_course",
       "status": "fail",
-      "detail": "ttc=1153ms url=NONE"
+      "detail": "ttc=696ms url=NONE"
     },
     {
       "key": "pricing",
@@ -100,6 +101,344 @@
       "id": "J10_return",
       "status": "missing",
       "detail": "no result file"
+    }
+  ],
+  "p0_findings": [
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/preise",
+      "detail": "Public route /preise returned status 200 / empty body.",
+      "fix": "Route reparieren oder Navigation entfernen.",
+      "ts": "2026-06-02T20:49:23.969Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe",
+      "detail": "Public route /berufe returned status 200 / empty body.",
+      "fix": "Route reparieren oder Navigation entfernen.",
+      "ts": "2026-06-02T20:49:24.262Z"
+    },
+    {
+      "kind": "dead_cta",
+      "journey": "A",
+      "route": "/",
+      "detail": "Kein primärer CTA im sichtbaren Bereich der Homepage.",
+      "fix": "Hero-CTA prüfen / cookie banner darf CTA nicht verdecken.",
+      "ts": "2026-06-02T20:49:24.480Z"
+    },
+    {
+      "kind": "demo_unreachable",
+      "journey": "B",
+      "route": "/berufe",
+      "detail": "Kein Produkt-Einstiegspunkt erreichbar.",
+      "fix": "Produktkatalog reparieren.",
+      "ts": "2026-06-02T20:49:33.332Z"
+    },
+    {
+      "kind": "dead_cta",
+      "journey": "D",
+      "route": "/dashboard",
+      "detail": "Kein next-step CTA im Dashboard sichtbar.",
+      "fix": "Primary-Next-Action im Dashboard.",
+      "ts": "2026-06-02T20:49:36.999Z"
+    },
+    {
+      "kind": "white_screen",
+      "journey": "E",
+      "route": "https://berufos.com/muendliche-pruefung",
+      "detail": "Oral-Oberfläche leer.",
+      "fix": "Renderer / Datenpfad prüfen.",
+      "ts": "2026-06-02T20:49:57.175Z"
+    },
+    {
+      "kind": "dead_cta",
+      "journey": "A",
+      "route": "/",
+      "detail": "Kein primärer CTA above the fold.",
+      "fix": "Hero-CTA sichtbar machen, Cookie-Banner darf CTA nicht verdecken.",
+      "ts": "2026-06-03T13:48:37.994Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe",
+      "detail": "Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.",
+      "fix": "Berufs-Liste hydratisieren / SSR-Fallback prüfen.",
+      "ts": "2026-06-03T13:48:41.350Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": null,
+      "detail": "Visitor erreicht keine Kurs-/Produktseite ab Homepage.",
+      "fix": "Berufe-Hub muss klickbare Karten mit echten Detail-Routen liefern.",
+      "ts": "2026-06-03T13:48:45.385Z"
+    },
+    {
+      "kind": "workflow_no_feedback",
+      "journey": "A",
+      "route": "/preise",
+      "detail": "Pricing-Seite zeigt keinen €/EUR-Preis.",
+      "fix": "Pricing-SSOT auf /preise rendern (statt nur auf Produktseiten).",
+      "ts": "2026-06-03T13:48:48.467Z"
+    },
+    {
+      "kind": "dead_cta",
+      "journey": "A",
+      "route": "/preise",
+      "detail": "Pricing-Seite hat keinen sichtbaren Kauf-CTA.",
+      "fix": "Primary-CTA pro Pricing-Tier hinzufügen.",
+      "ts": "2026-06-03T13:48:48.477Z"
+    },
+    {
+      "kind": "dead_cta",
+      "journey": "A",
+      "route": null,
+      "detail": "Konnte keine Kursseite öffnen für CTA-Test.",
+      "fix": "Erst P03 (Discovery) fixen.",
+      "ts": "2026-06-03T13:48:52.462Z"
+    },
+    {
+      "kind": "checkout_unreachable",
+      "journey": "A",
+      "route": null,
+      "detail": "Konnte keine Kursseite öffnen — Checkout-Surface untestbar.",
+      "fix": "P03 fixen.",
+      "ts": "2026-06-03T13:48:56.468Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe",
+      "detail": "Cold-load body too short (76 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:53:21.855Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/einzelhandelskaufmann-frau",
+      "detail": "Cold-load body too short (76 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:53:24.354Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/kaufmann-frau-bueromanagement",
+      "detail": "Cold-load body too short (76 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:53:26.678Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/fachinformatiker-systemintegration",
+      "detail": "Cold-load body too short (76 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:53:29.245Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/kfz-mechatroniker-in",
+      "detail": "Cold-load body too short (76 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:53:31.574Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/bankkaufmann-frau",
+      "detail": "Cold-load body too short (76 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:53:36.191Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/fachkraft-fuer-lagerlogistik",
+      "detail": "Cold-load body too short (76 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:53:39.022Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/chemielaborant-in",
+      "detail": "Cold-load body too short (76 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:53:41.840Z"
+    },
+    {
+      "kind": "dead_cta",
+      "journey": "A",
+      "route": "/",
+      "detail": "Kein primärer CTA above the fold.",
+      "fix": "Hero-CTA sichtbar machen, Cookie-Banner darf CTA nicht verdecken.",
+      "ts": "2026-06-03T13:55:05.502Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe",
+      "detail": "Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.",
+      "fix": "Berufs-Liste hydratisieren / SSR-Fallback prüfen.",
+      "ts": "2026-06-03T13:55:08.633Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": null,
+      "detail": "Visitor erreicht keine Kurs-/Produktseite ab Homepage.",
+      "fix": "Berufe-Hub muss klickbare Karten mit echten Detail-Routen liefern.",
+      "ts": "2026-06-03T13:55:12.742Z"
+    },
+    {
+      "kind": "workflow_no_feedback",
+      "journey": "A",
+      "route": "/preise",
+      "detail": "Pricing-Seite zeigt keinen €/EUR-Preis.",
+      "fix": "Pricing-SSOT auf /preise rendern (statt nur auf Produktseiten).",
+      "ts": "2026-06-03T13:55:16.647Z"
+    },
+    {
+      "kind": "dead_cta",
+      "journey": "A",
+      "route": null,
+      "detail": "Konnte keine Kursseite öffnen für CTA-Test.",
+      "fix": "Erst P03 (Discovery) fixen.",
+      "ts": "2026-06-03T13:55:20.479Z"
+    },
+    {
+      "kind": "checkout_unreachable",
+      "journey": "A",
+      "route": null,
+      "detail": "Konnte keine Kursseite öffnen — Checkout-Surface untestbar.",
+      "fix": "P03 fixen.",
+      "ts": "2026-06-03T13:55:24.992Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": null,
+      "detail": "Mobile-Discovery erreicht keine Kursseite ab Homepage.",
+      "fix": "Berufe-Hub-Karten müssen auf 390px tappable sein (min 44px Höhe).",
+      "ts": "2026-06-03T13:55:41.982Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe",
+      "detail": "Cold-load body too short (0 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:55:48.678Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/einzelhandelskaufmann-frau",
+      "detail": "Cold-load body too short (0 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:55:51.499Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/kaufmann-frau-bueromanagement",
+      "detail": "Cold-load body too short (0 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:55:53.989Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/fachinformatiker-systemintegration",
+      "detail": "Cold-load body too short (0 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:55:56.515Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/kfz-mechatroniker-in",
+      "detail": "Cold-load body too short (0 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:55:59.025Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/bankkaufmann-frau",
+      "detail": "Cold-load body too short (0 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:56:01.675Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/fachkraft-fuer-lagerlogistik",
+      "detail": "Cold-load body too short (0 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:56:03.976Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe/chemielaborant-in",
+      "detail": "Cold-load body too short (0 chars).",
+      "fix": "SSR / static fallback für Route sicherstellen.",
+      "ts": "2026-06-03T13:56:06.331Z"
+    },
+    {
+      "kind": "dead_cta",
+      "journey": "A",
+      "route": "/",
+      "detail": "Kein primärer CTA above the fold.",
+      "fix": "Hero-CTA sichtbar machen, Cookie-Banner darf CTA nicht verdecken.",
+      "ts": "2026-06-04T21:06:13.458Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": "/berufe",
+      "detail": "Nur 0 Beruf-Links sichtbar — Visitor kann keinen Beruf finden.",
+      "fix": "Berufs-Liste hydratisieren / SSR-Fallback prüfen.",
+      "ts": "2026-06-04T21:06:15.658Z"
+    },
+    {
+      "kind": "broken_route",
+      "journey": "A",
+      "route": null,
+      "detail": "Visitor erreicht keine Kurs-/Produktseite ab Homepage.",
+      "fix": "Berufe-Hub muss klickbare Karten mit echten Detail-Routen liefern.",
+      "ts": "2026-06-04T21:06:17.914Z"
+    },
+    {
+      "kind": "workflow_no_feedback",
+      "journey": "A",
+      "route": "/preise",
+      "detail": "Pricing-Seite zeigt keinen €/EUR-Preis.",
+      "fix": "Pricing-SSOT auf /preise rendern (statt nur auf Produktseiten).",
+      "ts": "2026-06-04T21:06:20.018Z"
+    },
+    {
+      "kind": "dead_cta",
+      "journey": "A",
+      "route": "/preise",
+      "detail": "Pricing-Seite hat keinen sichtbaren Kauf-CTA.",
+      "fix": "Primary-CTA pro Pricing-Tier hinzufügen.",
+      "ts": "2026-06-04T21:06:20.025Z"
+    },
+    {
+      "kind": "dead_cta",
+      "journey": "A",
+      "route": null,
+      "detail": "Konnte keine Kursseite öffnen für CTA-Test.",
+      "fix": "Erst P03 (Discovery) fixen.",
+      "ts": "2026-06-04T21:06:22.517Z"
     }
   ]
 }
