@@ -694,19 +694,50 @@ export default function OralExamTrainer() {
               <label className="text-sm font-medium mb-2 block">
                 {isAcademic ? 'Studiengang / Curriculum' : 'Ausbildungsberuf / Curriculum'}
               </label>
-              <div className="grid gap-2">
-                {curricula?.map(curriculum => (
+              {/* P0.4 Reality Fix: when no curricula are reachable (cold cache,
+                  empty DB, RLS), never strand the learner with a disabled
+                  start button. Show a fachlich sinnvolle Recovery-CTA → /berufe.
+                  Bewertungsdimensionen werden sichtbar, damit Trust-Signale
+                  und Surface-Signals (Fachlichkeit / Struktur / Praxisbezug)
+                  immer ankommen. */}
+              {curricula && curricula.length > 0 ? (
+                <div className="grid gap-2" data-testid="oral-curriculum-grid">
+                  {curricula.map(curriculum => (
+                    <Button
+                      key={curriculum.id}
+                      variant={selectedCurriculum === curriculum.id ? 'default' : 'outline'}
+                      className="justify-start h-auto py-3"
+                      onClick={() => setSelectedCurriculum(curriculum.id)}
+                    >
+                      <BookOpen className="h-4 w-4 mr-2" />
+                      {curriculum.title}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  className="rounded-lg border border-dashed p-4 space-y-3"
+                  data-testid="oral-curriculum-empty"
+                >
+                  <p className="text-sm text-muted-foreground">
+                    Noch kein Prüfungstraining ausgewählt. Wähle deinen Beruf,
+                    um die mündliche Prüfung zu simulieren — Oral-Exam-Fragen
+                    stammen aus denselben Blueprints wie MiniChecks und
+                    Prüfungssimulation.
+                  </p>
                   <Button
-                    key={curriculum.id}
-                    variant={selectedCurriculum === curriculum.id ? 'default' : 'outline'}
-                    className="justify-start h-auto py-3"
-                    onClick={() => setSelectedCurriculum(curriculum.id)}
+                    asChild
+                    className="w-full"
+                    data-testid="oral-recovery-cta"
+                    data-cta-location="oral_setup_no_curriculum"
                   >
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    {curriculum.title}
+                    <a href="/berufe">
+                      <Play className="h-4 w-4 mr-2" />
+                      Prüfungstraining wählen
+                    </a>
                   </Button>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
 
             <Separator />
@@ -716,24 +747,26 @@ export default function OralExamTrainer() {
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• {t('oralQStyle')}</li>
                 <li>• 3 Minuten Antwortzeit pro Frage</li>
-                <li>• {t('oralCriteria')}</li>
+                <li>• Bewertet nach <strong>Fachlichkeit</strong>, <strong>Struktur</strong>, <strong>Begriffssicherheit</strong> und <strong>Praxisbezug</strong></li>
                 <li>• Detailliertes Feedback nach jeder Antwort</li>
                 {speechSupported && <li>• <strong>Neu:</strong> Sprachaufnahme für authentische Simulation</li>}
               </ul>
             </div>
 
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               className="w-full"
               disabled={!selectedCurriculum || isLoading}
               onClick={handleStartExam}
+              data-testid="oral-start-cta"
+              data-cta-location="oral_setup_start"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Play className="h-4 w-4 mr-2" />
               )}
-              {t('examStart')}
+              {selectedCurriculum ? t('examStart') : 'Simulation starten'}
             </Button>
           </CardContent>
         </Card>
