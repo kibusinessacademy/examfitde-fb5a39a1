@@ -1,11 +1,15 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ArrowRight, Brain, Sparkles } from 'lucide-react';
 import { SITE_URL } from '@/lib/seo';
+import {
+  reportEntryFallbackView,
+  reportEntryFallbackCtaClick,
+} from '@/lib/monitoring/entryFallbackSignal';
 
 /**
  * /tutor — Reality-QA stable Tutor entry surface.
