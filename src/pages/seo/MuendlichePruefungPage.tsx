@@ -67,7 +67,11 @@ export default function MuendlichePruefungPage() {
               </p>
             </div>
             <Button size="lg" className="shrink-0" asChild>
-              <Link to="/oral-exam" data-cta-location="oral_static_anchor">
+              <Link
+                to="/oral-exam"
+                data-testid="oral-start-cta"
+                data-cta-location="oral_static_anchor"
+              >
                 Jetzt Simulation starten <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>

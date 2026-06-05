@@ -314,6 +314,7 @@ const ExamSimulation = lazyRetry(() => import('@/pages/ExamSimulation'));
 const ExamResultsPage = lazyRetry(() => import('@/pages/ExamResultsPage'));
 const OralExamTrainer = lazyRetry(() => import('@/pages/OralExamTrainer'));
 const TutorEntryPage = lazyRetry(() => import('@/pages/TutorEntryPage'));
+const MiniCheckEntryPage = lazyRetry(() => import('@/pages/MiniCheckEntryPage'));
 
 // Enhanced Learning Pages
 const SpacedRepetitionSession = lazyRetry(() => import('@/pages/SpacedRepetitionSession'));
@@ -727,6 +728,11 @@ const AppRoutes = () => {
             {/* Reality-QA: stable /tutor + /ai-tutor entry surfaces */}
             <Route path="/tutor" element={<TutorEntryPage />} />
             <Route path="/ai-tutor" element={<Navigate to="/tutor" replace />} />
+            {/* P0.4 Reality-QA: stable /minicheck entry + session passthrough.
+                Resolver (resolveDashboardNextStep) routes here cold; the in-course
+                engine lives at /app/minicheck (FROZEN under Architecture Freeze). */}
+            <Route path="/minicheck" element={<MiniCheckEntryPage />} />
+            <Route path="/minicheck/:sessionId" element={<MiniCheckEntryPage />} />
             <Route path="/exam-simulation" element={<ExamSimulation />} />
             <Route path="/exam-simulation/:sessionId" element={<ExamSimulation />} />
             <Route path="/exam-results/:sessionId" element={<ExamResultsPage />} />
