@@ -85,16 +85,9 @@ export const SafeCta = React.forwardRef<HTMLButtonElement, SafeCtaProps>(
 
     if (to) {
       const safeTo = resolveSafeTarget(to);
-      // Reality-Gate: in Authority-Force-Mode CTAs absolutisieren auf berufos.com,
-      // damit Tests cross-origin nicht versehentlich auf preview-hosts driften.
-      if (isAuthorityForceActive()) {
-        const absHref = resolveAuthorityHref(safeTo);
-        return (
-          <Button asChild ref={ref} {...buttonProps}>
-            <a href={absHref}>{children}</a>
-          </Button>
-        );
-      }
+      // P0.1 Domain-Drift-Fix (2026-06-05): CTAs IMMER relativ rendern.
+      // Der Host, gegen den der Reality-Gate (oder der User) läuft, bestimmt
+      // die Domain — niemals ein Build-Flag. Siehe src/lib/seo/authorityHref.ts.
       return (
         <Button asChild ref={ref} {...buttonProps}>
           <Link to={safeTo} {...linkProps}>
