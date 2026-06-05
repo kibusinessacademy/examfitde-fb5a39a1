@@ -93,12 +93,58 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
+      - name: Validate resolved REALITY_BASE_URL (HTTP status gate)
+        id: validatebase
+        # Re-probes the resolved REALITY_BASE_URL (post auto-detect) on the
+        # three canonical funnel paths. Any non-200 (404 / 500 / 502 / 503 /
+        # connection error / unexpected redirect off-host) hard-fails the job
+        # BEFORE the Live Smoke step. Without this, the smoke script would run
+        # against a partially-broken deploy and produce noisy false positives.
+        run: |
+          set -e
+          if [ -z "${REALITY_BASE_URL}" ]; then
+            echo "::error::REALITY_BASE_URL is empty after resolve step."
+            exit 2
+          fi
+          HOST=$(echo "${REALITY_BASE_URL}" | sed -E 's#^https?://([^/]+).*#\1#')
+          echo "Validating ${REALITY_BASE_URL} (host=${HOST})"
+          FAILED=0
+          for P in "/" "/berufe" "/preise" "/oral-exam"; do
+            URL="${REALITY_BASE_URL}${P}"
+            # -o /dev/null discards body; -w writes status + final URL
+            RESP=$(curl -sSL -o /dev/null -w "%{http_code} %{url_effective}" \
+              --max-time 15 \
+              -H "User-Agent: LovableRealityGate-BaseValidator/1.0" \
+              "$URL" || echo "000 ERR")
+            CODE=$(echo "$RESP" | awk '{print $1}')
+            FINAL=$(echo "$RESP" | awk '{print $2}')
+            FINAL_HOST=$(echo "$FINAL" | sed -E 's#^https?://([^/]+).*#\1#')
+            if [ "$CODE" != "200" ]; then
+              echo "::error::HTTP $CODE for $URL (final=$FINAL)"
+              FAILED=$((FAILED+1))
+              continue
+            fi
+            if [ -n "$FINAL_HOST" ] && [ "$FINAL_HOST" != "$HOST" ]; then
+              echo "::error::$URL redirected off-host to $FINAL_HOST (expected $HOST) — domain drift"
+              FAILED=$((FAILED+1))
+              continue
+            fi
+            echo "OK  $CODE  $URL"
+          done
+          if [ "$FAILED" -gt 0 ]; then
+            echo "::error::$FAILED path(s) failed validation — aborting before Live Smoke."
+            exit 2
+          fi
+          echo "All paths returned 200 on-host. Proceeding to Live Smoke."
+
       - name: Live Published Smoke (Pre-Flight)
         id: livesmoke
         # Hard fail-fast: if the deployed build at REALITY_BASE_URL doesn't
         # serve a fresh /berufe (≥10 links), /preise (24,90 €) and /oral-exam
         # surface, the Playwright run would just produce stale findings.
         # Better to abort here and tell the operator to publish first.
+        # Gated by the "Validate resolved REALITY_BASE_URL" step above —
+        # a non-200 base URL skips this step entirely.
         run: node scripts/live-smoke-published.mjs
 
       - name: Run pre-customer-reality
