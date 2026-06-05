@@ -15,6 +15,7 @@ import * as React from "react";
 import { Link, type LinkProps } from "react-router-dom";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { isKnownRoute, SAFE_FALLBACK_ROUTE } from "@/lib/route-registry";
+import { resolveAuthorityHref, isAuthorityForceActive } from "@/lib/seo/authorityHref";
 
 export interface SafeCtaProps extends Omit<ButtonProps, "asChild"> {
   /** Internal SPA route. Routed through react-router <Link>. */
@@ -85,6 +86,16 @@ export const SafeCta = React.forwardRef<HTMLButtonElement, SafeCtaProps>(
 
     if (to) {
       const safeTo = resolveSafeTarget(to);
+      // Reality-Gate: in Authority-Force-Mode CTAs absolutisieren auf berufos.com,
+      // damit Tests cross-origin nicht versehentlich auf preview-hosts driften.
+      if (isAuthorityForceActive()) {
+        const absHref = resolveAuthorityHref(safeTo);
+        return (
+          <Button asChild ref={ref} {...buttonProps}>
+            <a href={absHref}>{children}</a>
+          </Button>
+        );
+      }
       return (
         <Button asChild ref={ref} {...buttonProps}>
           <Link to={safeTo} {...linkProps}>
