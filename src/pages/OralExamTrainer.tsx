@@ -41,6 +41,10 @@ import { useTerminology } from '@/hooks/useProgramType';
 import { OralWaveform } from '@/components/oral/OralWaveform';
 import { ExaminerThinkingBeat } from '@/components/oral/ExaminerThinkingBeat';
 import { OralReplayCard, type TurnMetric } from '@/components/oral/OralReplayCard';
+import {
+  reportEntryFallbackView,
+  reportEntryFallbackCtaClick,
+} from '@/lib/monitoring/entryFallbackSignal';
 
 type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
 
