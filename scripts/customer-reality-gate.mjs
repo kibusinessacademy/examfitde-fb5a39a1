@@ -203,18 +203,28 @@ const md = [
   ``,
   `**Run:** \`${runContext.run_id || 'local'}\`${runContext.run_url ? ` · [run url](${runContext.run_url})` : ''}`,
   `**Base URL:** ${runContext.base_url || '(unknown)'}  ·  **Generated:** ${out.generated_at}`,
-  `**Score:** ${passCount} / ${total}  ·  **P0 findings:** ${p0Count} (this run: ${currentRunP0})  ·  **Findings this run:** ${currentRunFindings.length}`,
+  `**Score:** ${passCount} / ${total}  ·  **P0 findings:** ${p0Count} (this run: ${currentRunP0})  ·  **Domain-drift:** ${driftCount}  ·  **Base host:** ${baseHost || '?'}`,
   `**Rule:** ${RULE}`,
   ``,
   `| # | Journey | Source | Status | Detail |`,
   `|---|---------|--------|--------|--------|`,
   ...rows.map((r, i) => `| ${i + 1} | ${r.label} | ${r.source} | ${r.status === 'pass' ? '✅ pass' : r.status === 'fail' ? '❌ fail' : '⚠️ missing'} | ${r.detail || ''} |`),
   p0Md,
+  driftCount
+    ? [
+        ``,
+        `## 🌐 Domain-Drift (P0.1 Mess-Hygiene)`,
+        ``,
+        ...driftFindings.map((d, i) => `${i + 1}. \`${d.route || '?'}\` — ${d.detail}`),
+        ``,
+      ].join('\n')
+    : '',
   `_Bridge over learner-reality + pre-customer-reality aggregators. No fork._`,
   ``,
 ].join('\n');
 fs.writeFileSync(path.join(RESULTS_DIR, 'customer-reality-gate.md'), md);
 
 console.log(md);
-console.log(`\nVerdict: ${verdict}  (P0=${p0Count}, score=${passCount}/${total}, exit ${exitCode})`);
+console.log(`\nVerdict: ${verdict}  (P0=${p0Count}, drift=${driftCount}, score=${passCount}/${total}, exit ${exitCode})`);
 process.exit(exitCode);
+
