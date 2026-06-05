@@ -278,11 +278,29 @@
           var path = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
           var root = document.getElementById('root');
           if (!root) return;
-          // Bail nur, wenn wir auf genau diese Route bereits prehydriert haben.
-          // SPA-Fallback (dist/index.html mit prerenderter Homepage) muss überschrieben werden,
-          // sonst zeigen /demo, /minicheck, /tutor etc. die Homepage statt der Cold-Load-Hülle.
+
+          // Map current path → expected prehydration key. Bail only when the
+          // existing shell ALREADY matches THIS route; otherwise we must
+          // overwrite a stale SPA-fallback prerender (e.g. homepage HTML
+          // served for /berufe) so the visitor sees route-correct content.
+          var expectedKey = null;
+          if (path === '/') expectedKey = 'home';
+          else if (path === '/demo') expectedKey = 'demo';
+          else if (path === '/demo/journey') expectedKey = 'demo-journey';
+          else if (path === '/preise') expectedKey = 'preise';
+          else if (path === '/berufe') expectedKey = 'berufe';
+          else if (path.indexOf('/berufe/') === 0) expectedKey = 'beruf-detail';
+          else if (path === '/exam-simulation' || path.indexOf('/exam-simulation/') === 0) expectedKey = 'exam-simulation';
+          else if (path === '/minicheck' || path === '/app/minicheck' || path.indexOf('/app/minicheck/') === 0) expectedKey = 'minicheck';
+          else if (path === '/tutor' || path === '/ai-tutor' || path === '/app/tutor') expectedKey = 'tutor';
+          else if (path === '/oral-exam' || path === '/oral' || path === '/app/oral' || path === '/muendlich' || path === '/muendliche-pruefung') expectedKey = 'oral';
+
           var firstChild = root.firstElementChild;
-          if (firstChild && firstChild.getAttribute && firstChild.getAttribute('data-prehydration')) return;
+          var existingKey = firstChild && firstChild.getAttribute ? firstChild.getAttribute('data-prehydration') : null;
+          // Only bail when the existing shell already matches this route. If
+          // it's a different prehydration key (stale SPA fallback HTML) or
+          // root is empty, continue and render the route-correct shell.
+          if (existingKey && expectedKey && existingKey === expectedKey) return;
 
 
           if (path === '/preise') {

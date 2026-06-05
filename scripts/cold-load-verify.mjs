@@ -60,6 +60,27 @@ const CHECKS = [
       if (!price) return { ok: false, detail: 'no price visible' };
       return { ok: true, detail: `body=${t.length} + CTA + €` };
   }},
+  // P0.2 — additional /berufe/:slug routes the Reality-Gate exercises.
+  ...[
+    'kaufmann-frau-bueromanagement',
+    'fachinformatiker-systemintegration',
+    'kfz-mechatroniker-in',
+    'bankkaufmann-frau',
+    'fachkraft-fuer-lagerlogistik',
+    'chemielaborant-in',
+  ].map((slug) => ({
+    id: `P02b_beruf_detail_${slug}`,
+    path: `/berufe/${slug}`,
+    validate: (doc) => {
+      const t = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 200) return { ok: false, detail: `body=${t.length}` };
+      if (!/Prüfungstraining/i.test(t)) return { ok: false, detail: 'no "Prüfungstraining"' };
+      const cta = doc.querySelector('a[data-cta-location^="beruf_detail_"]');
+      if (!cta) return { ok: false, detail: 'no detail CTA' };
+      if (!/24,90|24\.90|€/.test(t)) return { ok: false, detail: 'no price visible' };
+      return { ok: true, detail: `body=${t.length} + CTA + €` };
+    },
+  })),
   { id: 'P04_pricing', path: '/preise', validate: (doc) => {
       const t = (doc.body.textContent || '');
       if (!/€|EUR/.test(t)) return { ok: false, detail: 'no €/EUR' };
