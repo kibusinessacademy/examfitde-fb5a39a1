@@ -45,7 +45,10 @@ const CHECKS = [
   }},
   { id: 'P02_berufe_links', path: '/berufe', validate: (doc) => {
       const links = [...doc.querySelectorAll('a[href^="/berufe/"]')];
-      if (links.length < 5) return { ok: false, detail: `links=${links.length}` };
+      // P0.2 acceptance: ≥10 Beruf-Links in cold-load shell (SSOT alignment
+      // with the original Reality-Gate spec). Lower bound was 5 historically;
+      // raised to 10 after BERUFE prehydration list grew to 10 entries.
+      if (links.length < 10) return { ok: false, detail: `links=${links.length} (need >=10)` };
       const visibleText = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
       if (!/Beruf/i.test(visibleText)) return { ok: false, detail: 'no "Beruf" text' };
       return { ok: true, detail: `${links.length} beruf links + visible text` };
