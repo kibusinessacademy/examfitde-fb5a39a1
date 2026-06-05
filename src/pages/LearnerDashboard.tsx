@@ -75,13 +75,13 @@ export default function LearnerDashboard() {
     return Math.round((e.completed_lessons / e.total_lessons) * 100);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // P0.3 (2026-06-05): NEVER early-return on loading. The Customer Reality
+  // Gate treated a bare spinner as `white_screen` / `dead_cta` on /dashboard
+  // whenever `useDashboardSummary` was slow or stuck (RLS, cold cache, learner
+  // without enrollments). The Next-Step card must always render — the
+  // resolver's terminal branch (`choose_beruf` → /berufe) guarantees a valid
+  // CTA even when enrollments is empty. A small inline spinner replaces the
+  // full-screen one.
 
   // ━━━ Deterministic Next-Step CTA (SSOT) ━━━
   // P0.3 (2026-06-05): the resolver lives in src/features/activation and is
