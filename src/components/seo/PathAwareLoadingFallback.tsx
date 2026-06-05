@@ -16,6 +16,14 @@
 import { useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
+const wrap = (data: string, body: string) =>
+  `<main data-loading-shell="${data}" style="max-width:1040px;margin:0 auto;padding:48px 24px;font-family:Inter,system-ui,sans-serif;color:#0f172a;">${body}</main>`;
+
+const btnPrimary =
+  'display:inline-block;background:#0F3D3E;color:#fff;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;';
+const btnSecondary =
+  'display:inline-block;background:transparent;color:#0F3D3E;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;border:1px solid #0F3D3E;';
+
 const SHELL: Record<string, string> = {
   '/berufe': renderBerufe(),
   '/preise': renderPreise(),
@@ -55,13 +63,6 @@ export function PathAwareLoadingFallback() {
   );
 }
 
-const wrap = (data: string, body: string) =>
-  `<main data-loading-shell="${data}" style="max-width:1040px;margin:0 auto;padding:48px 24px;font-family:Inter,system-ui,sans-serif;color:#0f172a;">${body}</main>`;
-
-const btnPrimary =
-  'display:inline-block;background:#0F3D3E;color:#fff;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;';
-const btnSecondary =
-  'display:inline-block;background:transparent;color:#0F3D3E;font-weight:600;padding:14px 22px;border-radius:10px;text-decoration:none;border:1px solid #0F3D3E;';
 
 function renderBerufe() {
   const BERUFE: Array<[string, string, string]> = [
