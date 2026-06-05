@@ -9,8 +9,8 @@ on:
     - cron: '47 6 * * *' # 06:47 UTC — direkt nach pre-customer-reality (06:37) + learner-reality (06:17)
   workflow_dispatch:
     inputs:
-      base_url:
-        description: 'Override base URL (default = REALITY_BASE_URL secret)'
+      reality_base_url:
+        description: 'REALITY_BASE_URL override (leave empty = auto-detect currently published domain: berufos.com → examfitde.lovable.app)'
         required: false
         default: ''
 
