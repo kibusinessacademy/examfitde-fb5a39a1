@@ -40,6 +40,17 @@ jobs:
       - name: Install deps
         run: bun install --frozen-lockfile
 
+      - name: Reset reality results (Hygiene Guard)
+        # Verhindert, dass alte P0-Findings aus früheren Runs den Gate dauerhaft
+        # blocken oder neue/alte Findings vermischt werden. Jeder Run startet sauber.
+        run: rm -rf reality-results test-results playwright-report
+
+      - name: Stamp run context
+        # Liefert run_id + base_url an den Aggregator (für Beweisbarkeit im Report).
+        run: |
+          mkdir -p reality-results
+          echo "{\"run_id\":\"${{ github.run_id }}\",\"run_url\":\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",\"base_url\":\"${REALITY_BASE_URL}\",\"started_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > reality-results/run-context.json
+
       - name: Cold-Load Verify (Early-Fail Gate P0.1–P0.4)
         id: coldload
         run: node scripts/cold-load-verify.mjs
