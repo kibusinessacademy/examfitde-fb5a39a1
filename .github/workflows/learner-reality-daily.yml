@@ -46,6 +46,14 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
+      - name: Cold-Load Verify (Early-Fail P0.1–P0.4)
+        # Parity mit customer-reality-gate.yml + pre-customer-reality-daily.yml:
+        # prüft /berufe, /preise und /berufe/:slug pre-hydration auf sichtbaren
+        # Beruf/Preis/CTA-Text bevor die Playwright-Suite zündet.
+        # Enforcement: scripts/guards/reality-gate-parity.mjs.
+        continue-on-error: true
+        run: node scripts/cold-load-verify.mjs
+
       - name: Run learner-reality suite
         id: pw
         continue-on-error: true
