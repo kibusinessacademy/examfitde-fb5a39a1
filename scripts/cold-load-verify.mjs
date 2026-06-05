@@ -46,11 +46,24 @@ const CHECKS = [
   { id: 'P02_berufe_links', path: '/berufe', validate: (doc) => {
       const links = [...doc.querySelectorAll('a[href^="/berufe/"]')];
       if (links.length < 5) return { ok: false, detail: `links=${links.length}` };
-      return { ok: true, detail: `${links.length} beruf links` };
+      const visibleText = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!/Beruf/i.test(visibleText)) return { ok: false, detail: 'no "Beruf" text' };
+      return { ok: true, detail: `${links.length} beruf links + visible text` };
+  }},
+  { id: 'P02b_beruf_detail', path: '/berufe/einzelhandelskaufmann-frau', validate: (doc) => {
+      const t = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length < 200) return { ok: false, detail: `body=${t.length}` };
+      if (!/Einzelhandel|Prüfungstraining/i.test(t)) return { ok: false, detail: 'no beruf-detail text' };
+      const cta = doc.querySelector('a[data-cta-location^="beruf_detail_"]');
+      if (!cta) return { ok: false, detail: 'no detail CTA' };
+      const price = /24,90|24\.90|€/.test(t);
+      if (!price) return { ok: false, detail: 'no price visible' };
+      return { ok: true, detail: `body=${t.length} + CTA + €` };
   }},
   { id: 'P04_pricing', path: '/preise', validate: (doc) => {
       const t = (doc.body.textContent || '');
       if (!/€|EUR/.test(t)) return { ok: false, detail: 'no €/EUR' };
+      if (!/24,90|24\.90/.test(t)) return { ok: false, detail: 'no 24,90 € visible' };
       const cta = doc.querySelector('a[data-cta-location^="preise_"]');
       if (!cta) return { ok: false, detail: 'no kauf CTA' };
       return { ok: true, detail: `price + CTA` };

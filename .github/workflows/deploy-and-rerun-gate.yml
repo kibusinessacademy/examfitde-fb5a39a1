@@ -1,0 +1,145 @@
+name: Deploy berufos.com + Rerun Customer Reality Gate
+
+# Pipeline-Step (2026-06-05):
+#   1. Triggert Cloudflare Pages Deploy auf berufos.com (Authority)
+#   2. Pollt berufos.com bis das neue Build live ist
+#   3. Triggert Customer Reality Gate (12 Journeys) gegen berufos.com
+#   4. Wartet auf Gate-Run + reportet Verdict/Score in Summary
+#
+# Ziel: kein manueller Cut zwischen "Code gepusht" und "Gate-Score gemessen".
+# Antwort auf Reality-Gate-Cycle-Time-Problem ("Findings landen auf falschem Host").
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_deploy:
+        description: 'Skip Cloudflare deploy, just rerun gate (true/false)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  actions: write   # needed to trigger sibling workflow
+
+concurrency:
+  group: deploy-and-rerun-gate
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event.inputs.skip_deploy != 'true' }}
+    name: Trigger Cloudflare Pages Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dispatch cloudflare-pages-deploy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run cloudflare-pages-deploy.yml --ref "${GITHUB_REF_NAME}"
+          echo "✓ cloudflare-pages-deploy dispatched"
+      - name: Wait for deploy completion
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sleep 15
+          for i in $(seq 1 60); do
+            STATUS=$(gh run list --workflow=cloudflare-pages-deploy.yml --limit 1 --json status,conclusion --jq '.[0]')
+            ST=$(echo "$STATUS" | jq -r '.status')
+            CO=$(echo "$STATUS" | jq -r '.conclusion')
+            echo "[poll $i/60] status=$ST conclusion=$CO"
+            if [ "$ST" = "completed" ]; then
+              if [ "$CO" = "success" ]; then
+                echo "✓ Deploy succeeded"
+                exit 0
+              fi
+              echo "::error::Deploy failed (conclusion=$CO)"
+              exit 1
+            fi
+            sleep 20
+          done
+          echo "::error::Deploy did not finish within poll budget"
+          exit 1
+
+  verify-live:
+    name: Verify berufos.com serves new build
+    needs: [deploy]
+    if: ${{ always() && (github.event.inputs.skip_deploy == 'true' || needs.deploy.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - name: Probe per-route HTML on berufos.com
+        run: node scripts/seo/verify-authority-live.mjs --host=berufos.com --retries=8 --delay=20
+
+  rerun-gate:
+    name: Trigger Customer Reality Gate
+    needs: [verify-live]
+    runs-on: ubuntu-latest
+    outputs:
+      gate_run_id: ${{ steps.dispatch.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dispatch customer-reality-gate
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run customer-reality-gate.yml \
+            --ref "${GITHUB_REF_NAME}" \
+            -f base_url=https://berufos.com
+          sleep 8
+          RUN_ID=$(gh run list --workflow=customer-reality-gate.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "✓ Customer Reality Gate dispatched (run_id=$RUN_ID)"
+
+  report:
+    name: Wait for gate + report score
+    needs: [rerun-gate]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for gate completion
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ needs.rerun-gate.outputs.gate_run_id }}
+        run: |
+          for i in $(seq 1 90); do
+            ST=$(gh run view "$RUN_ID" --json status,conclusion --jq '.status')
+            CO=$(gh run view "$RUN_ID" --json status,conclusion --jq '.conclusion')
+            echo "[poll $i/90] status=$ST conclusion=$CO"
+            if [ "$ST" = "completed" ]; then
+              echo "GATE_CONCLUSION=$CO" >> "$GITHUB_ENV"
+              break
+            fi
+            sleep 20
+          done
+      - name: Download gate artifact + render score
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ needs.rerun-gate.outputs.gate_run_id }}
+        run: |
+          mkdir -p _gate
+          gh run download "$RUN_ID" -D _gate || true
+          REPORT=$(find _gate -name 'customer-reality-gate.json' | head -1)
+          if [ -z "$REPORT" ]; then
+            echo "::warning::No gate report artifact found"
+            exit 0
+          fi
+          VERDICT=$(jq -r '.verdict' "$REPORT")
+          PASS=$(jq -r '.pass' "$REPORT")
+          TOTAL=$(jq -r '.total' "$REPORT")
+          P0=$(jq -r '.p0_count_current_run // .p0_count // 0' "$REPORT")
+          FINDINGS=$(jq -r '.findings_count_current_run // 0' "$REPORT")
+          {
+            echo "## Reality Gate (after deploy)"
+            echo ""
+            echo "- **Verdict:** $VERDICT"
+            echo "- **Score:** $PASS / $TOTAL"
+            echo "- **P0 findings (this run):** $P0"
+            echo "- **All findings (this run):** $FINDINGS"
+            echo "- **Run:** [#${RUN_ID}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${RUN_ID})"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$VERDICT" = "BLOCK" ]; then exit 2; fi
+          if [ "$VERDICT" = "REVIEW" ]; then exit 1; fi
