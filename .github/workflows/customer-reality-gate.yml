@@ -27,7 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      REALITY_BASE_URL: ${{ github.event.inputs.base_url != '' && github.event.inputs.base_url || secrets.REALITY_BASE_URL || 'https://examfitde.lovable.app' }}
+      # P0.1 Domain-Drift-Fix (2026-06-05): Default = Production-Authority `berufos.com`.
+      # Vorher testete der Gate gegen examfitde.lovable.app und folgte dem Hosting-
+      # Redirect auf berufos.com — Findings landeten dann auf gemischten Hosts und
+      # waren als "Domain-Drift" nicht mehr eindeutig einem System zuzuordnen.
+      # SSOT: src/lib/seo/authorityHost.ts (berufos.com = einzige Authority).
+      REALITY_BASE_URL: ${{ github.event.inputs.base_url != '' && github.event.inputs.base_url || secrets.REALITY_BASE_URL || 'https://berufos.com' }}
       REALITY_LEARNER_EMAIL: ${{ secrets.REALITY_LEARNER_EMAIL }}
       REALITY_LEARNER_PASSWORD: ${{ secrets.REALITY_LEARNER_PASSWORD }}
       CHECKOUT_TEST_MODE: 'true'
