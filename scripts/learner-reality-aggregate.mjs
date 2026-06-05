@@ -35,6 +35,8 @@ const WEIGHTS = {
   J08_written_exam: 10,
   J09_oral_exam: 10,
   J10_return: 5,
+  // Hard P0-Guard: globaler TOTP/Security-Blocker darf nicht durchrutschen.
+  J11_navigation_no_totp_blocker: 15,
 };
 
 function readDir(dir) {
