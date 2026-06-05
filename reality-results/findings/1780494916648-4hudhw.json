@@ -1,9 +1,0 @@
-{
-  "severity": "P0",
-  "kind": "workflow_no_feedback",
-  "journey": "A",
-  "route": "/preise",
-  "detail": "Pricing-Seite zeigt keinen €/EUR-Preis.",
-  "fix": "Pricing-SSOT auf /preise rendern (statt nur auf Produktseiten).",
-  "ts": "2026-06-03T13:55:16.647Z"
-}

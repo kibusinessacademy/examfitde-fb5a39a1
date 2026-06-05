@@ -1,9 +1,0 @@
-{
-  "severity": "P0",
-  "kind": "dead_cta",
-  "journey": "D",
-  "route": "/dashboard",
-  "detail": "Kein next-step CTA im Dashboard sichtbar.",
-  "fix": "Primary-Next-Action im Dashboard.",
-  "ts": "2026-06-02T20:49:36.999Z"
-}

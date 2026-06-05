@@ -1,9 +1,0 @@
-{
-  "severity": "P0",
-  "kind": "dead_cta",
-  "journey": "A",
-  "route": "/",
-  "detail": "Kein primärer CTA above the fold.",
-  "fix": "Hero-CTA sichtbar machen, Cookie-Banner darf CTA nicht verdecken.",
-  "ts": "2026-06-03T13:48:37.994Z"
-}
