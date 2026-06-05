@@ -72,6 +72,31 @@
     { "source": "/assets/:path*", "destination": "/assets/:path*" },
     { "source": "/sitemap.xml", "destination": "https://ubdvvvsiryenhrfmqsvw.supabase.co/functions/v1/generate-sitemap" },
     { "source": "/sitemaps/:shard.xml", "destination": "https://ubdvvvsiryenhrfmqsvw.supabase.co/functions/v1/generate-sitemap?type=:shard" },
+
+    { "source": "/berufe", "destination": "/berufe/index.html" },
+    { "source": "/berufe/einzelhandelskaufmann-frau", "destination": "/berufe/einzelhandelskaufmann-frau/index.html" },
+    { "source": "/berufe/kaufmann-frau-bueromanagement", "destination": "/berufe/kaufmann-frau-bueromanagement/index.html" },
+    { "source": "/berufe/industriekaufmann-frau", "destination": "/berufe/industriekaufmann-frau/index.html" },
+    { "source": "/berufe/fachinformatiker-systemintegration", "destination": "/berufe/fachinformatiker-systemintegration/index.html" },
+    { "source": "/berufe/kfz-mechatroniker-in", "destination": "/berufe/kfz-mechatroniker-in/index.html" },
+    { "source": "/preise", "destination": "/preise/index.html" },
+    { "source": "/produkte", "destination": "/produkte/index.html" },
+    { "source": "/faq", "destination": "/faq/index.html" },
+    { "source": "/blog", "destination": "/blog/index.html" },
+    { "source": "/courses", "destination": "/courses/index.html" },
+    { "source": "/lernkurse", "destination": "/lernkurse/index.html" },
+    { "source": "/bilanzbuchhalter-buchhaltung", "destination": "/bilanzbuchhalter-buchhaltung/index.html" },
+    { "source": "/bilanzbuchhalter-jahresabschluss", "destination": "/bilanzbuchhalter-jahresabschluss/index.html" },
+    { "source": "/bilanzbuchhalter-pruefungsvorbereitung", "destination": "/bilanzbuchhalter-pruefungsvorbereitung/index.html" },
+    { "source": "/bilanzbuchhalter-steuern", "destination": "/bilanzbuchhalter-steuern/index.html" },
+    { "source": "/fiae-anwendungsentwicklung", "destination": "/fiae-anwendungsentwicklung/index.html" },
+    { "source": "/fiae-projektarbeit", "destination": "/fiae-projektarbeit/index.html" },
+    { "source": "/fiae-pruefungsvorbereitung", "destination": "/fiae-pruefungsvorbereitung/index.html" },
+    { "source": "/fiae-wiso", "destination": "/fiae-wiso/index.html" },
+    { "source": "/pruefungstraining-azubis", "destination": "/pruefungstraining-azubis/index.html" },
+    { "source": "/pruefungstraining-betriebe", "destination": "/pruefungstraining-betriebe/index.html" },
+    { "source": "/pruefungstraining-institutionen", "destination": "/pruefungstraining-institutionen/index.html" },
+
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
