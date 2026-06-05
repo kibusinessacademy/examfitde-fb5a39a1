@@ -29,8 +29,20 @@ export default function TutorEntryPage() {
   const navigate = useNavigate();
   const [draft, setDraft] = useState('');
 
+  // Tutor entry has no curriculum context here → always 'recovery' until the
+  // learner submits a question (the real tutor surface lives at /app/tutor).
+  useEffect(() => {
+    reportEntryFallbackView('tutor', 'recovery', {
+      authenticated: !!user,
+    });
+  }, [user]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    reportEntryFallbackCtaClick('tutor', 'tutor_submit', {
+      authenticated: !!user,
+      draft_length: draft.length,
+    });
     if (!user) {
       navigate(`/auth?redirect=${encodeURIComponent('/app/tutor')}`);
       return;
