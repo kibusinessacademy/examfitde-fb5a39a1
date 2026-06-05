@@ -1,0 +1,42 @@
+name: Reality Gate Parity Guard
+
+# Enforces that all Reality-related workflows (Main Gate + Feeders) share the
+# same early-fail surface: Authority host default, Cold-Load Verify, Playwright
+# install, and pinned setup actions. Drift between feeders and the main gate
+# causes findings to land on the wrong host or skips Cold-Load early-fail.
+#
+# Triggered on PRs touching any Reality workflow or the guard itself, plus
+# nightly to catch drift introduced via direct edits to main.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/customer-reality-gate.yml'
+      - '.github/workflows/learner-reality-daily.yml'
+      - '.github/workflows/pre-customer-reality-daily.yml'
+      - '.github/workflows/reality-gate-parity.yml'
+      - 'scripts/guards/reality-gate-parity.mjs'
+      - 'scripts/cold-load-verify.mjs'
+  schedule:
+    - cron: '5 6 * * *' # 06:05 UTC — vor learner-reality (06:17)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reality-gate-parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    name: Verify Reality workflow parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Run parity guard
+        run: node scripts/guards/reality-gate-parity.mjs
