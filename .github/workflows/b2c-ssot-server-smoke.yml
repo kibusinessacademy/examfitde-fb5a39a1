@@ -20,7 +20,7 @@ jobs:
         uses: ./.github/actions/validate-db-secrets
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
         with:
           required: SUPABASE_SERVICE_ROLE_KEY SUPABASE_URL
           mode: strict
@@ -34,14 +34,14 @@ jobs:
           fi
       - name: Stripe-Webhook Signed-Event Smoke (handler-level, fast-fail)
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SMOKE_MODE: 'both'
           SMOKE_CLEANUP: 'true'
         run: node scripts/stripe-webhook-smoke.mjs
       - name: Run B2C SSOT Server-Smoke (DB pipeline, single+bundle+refund)
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SMOKE_CLEANUP: 'true'
         run: node scripts/b2c-ssot-server-smoke.mjs
