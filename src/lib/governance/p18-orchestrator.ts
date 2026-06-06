@@ -47,7 +47,9 @@ export type DriftType =
   | 'orphan_node'
   | 'rule_violation'
   | 'reuse_recommendation'
-  | 'duplicate_registration';
+  | 'duplicate_registration'
+  /** UX-Lücke (Leerzustand / Recovery-Surface / Reality-QA-Befund). EXTEND_ONLY. */
+  | 'ux_gap';
 
 export type DriftCategory = 'architecture' | 'governance' | 'quality' | 'seo' | 'runtime';
 
