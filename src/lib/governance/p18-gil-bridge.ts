@@ -23,6 +23,7 @@ export const KNOWN_BRIDGEABLE_DRIFT_TYPES: ReadonlyArray<DriftType> = [
   'rule_violation',
   'reuse_recommendation',
   'duplicate_registration',
+  'ux_gap',
 ];
 
 const SEV_MAP: Record<DriftSeverity, GilSignalSeverity> = {

@@ -82,6 +82,7 @@ const DOMAIN_GUESS: Record<DriftType, string> = {
   ssot_conflict: 'architecture',
   cross_domain_unbridged: 'architecture',
   rule_violation: 'governance',
+  ux_gap: 'ux',
 };
 
 export function buildKnownSystemSuggestion(drift: DriftSignal): KnownSystemSuggestion {

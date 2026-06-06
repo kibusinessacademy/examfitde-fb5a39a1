@@ -47,7 +47,9 @@ export type DriftType =
   | 'orphan_node'
   | 'rule_violation'
   | 'reuse_recommendation'
-  | 'duplicate_registration';
+  | 'duplicate_registration'
+  /** UX-Lücke (Leerzustand / Recovery-Surface / Reality-QA-Befund). EXTEND_ONLY. */
+  | 'ux_gap';
 
 export type DriftCategory = 'architecture' | 'governance' | 'quality' | 'seo' | 'runtime';
 
@@ -109,6 +111,7 @@ const DRIFT_CATEGORY: Record<DriftType, DriftCategory> = {
   rule_violation: 'governance',
   reuse_recommendation: 'architecture',
   duplicate_registration: 'governance',
+  ux_gap: 'runtime',
 };
 
 const DRIFT_SEVERITY: Record<DriftType, DriftSeverity> = {
@@ -119,6 +122,7 @@ const DRIFT_SEVERITY: Record<DriftType, DriftSeverity> = {
   rule_violation: 'warn',
   orphan_node: 'info',
   reuse_recommendation: 'info',
+  ux_gap: 'warn',
 };
 
 const ESCALATION: Record<DriftType, DriftEvidence['escalation_target']> = {
@@ -129,6 +133,7 @@ const ESCALATION: Record<DriftType, DriftEvidence['escalation_target']> = {
   rule_violation: 'auto-bounded-cut2',
   orphan_node: 'observe-only',
   reuse_recommendation: 'observe-only',
+  ux_gap: 'auto-bounded-cut2',
 };
 
 // ─── Helper: Mutationspfad? ──────────────────────────────────────────
