@@ -177,12 +177,64 @@ jobs:
             echo "Gate produced no report" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: UX-Gap Scan (combined Reality + Static + DB signals)
+        id: uxgap
+        continue-on-error: true
+        env:
+          PGHOST: ${{ secrets.SUPABASE_DB_HOST }}
+          PGUSER: ${{ secrets.SUPABASE_DB_USER }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGDATABASE: ${{ secrets.SUPABASE_DB_NAME }}
+          PGPORT: ${{ secrets.SUPABASE_DB_PORT }}
+        run: node scripts/ux-gap-scan.mjs || true
+
+      - name: Push P0 UX-Gaps → P18 Ledger (ux-gap-bridge)
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -e
+          REPORT="/mnt/documents/ux-gap-report.json"
+          [ -f "$REPORT" ] || REPORT="reality-results/ux-gap-report.json"
+          if [ ! -f "$REPORT" ]; then
+            echo "::warning::ux-gap-report.json missing — skipping bridge POST"
+            exit 0
+          fi
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::warning::SUPABASE_URL / SERVICE_ROLE_KEY not set — skipping bridge POST"
+            exit 0
+          fi
+          P0_JSON=$(node -e "
+            const r = JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));
+            const items = (r.findings || r || []).filter(f => f.severity === 'P0');
+            process.stdout.write(JSON.stringify({ findings: items }));
+          " "$REPORT")
+          COUNT=$(echo "$P0_JSON" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).findings.length))")
+          echo "P0 findings to bridge: $COUNT"
+          echo "## UX-Gap → P18 Bridge" >> "$GITHUB_STEP_SUMMARY"
+          echo "P0 UX-Gaps pushed: **$COUNT**" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$COUNT" = "0" ]; then exit 0; fi
+          RESP=$(curl -sS -X POST \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            --data "$P0_JSON" \
+            "$SUPABASE_URL/functions/v1/ux-gap-bridge")
+          echo "$RESP"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "$RESP" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload reality-results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: customer-reality-gate-${{ github.run_id }}
-          path: reality-results/
+          path: |
+            reality-results/
+            /mnt/documents/ux-gap-report.json
           retention-days: 30
 
       - name: Hard-fail on BLOCK / REVIEW
