@@ -111,6 +111,7 @@ const DRIFT_CATEGORY: Record<DriftType, DriftCategory> = {
   rule_violation: 'governance',
   reuse_recommendation: 'architecture',
   duplicate_registration: 'governance',
+  ux_gap: 'runtime',
 };
 
 const DRIFT_SEVERITY: Record<DriftType, DriftSeverity> = {
@@ -121,6 +122,7 @@ const DRIFT_SEVERITY: Record<DriftType, DriftSeverity> = {
   rule_violation: 'warn',
   orphan_node: 'info',
   reuse_recommendation: 'info',
+  ux_gap: 'warn',
 };
 
 const ESCALATION: Record<DriftType, DriftEvidence['escalation_target']> = {
@@ -131,6 +133,7 @@ const ESCALATION: Record<DriftType, DriftEvidence['escalation_target']> = {
   rule_violation: 'auto-bounded-cut2',
   orphan_node: 'observe-only',
   reuse_recommendation: 'observe-only',
+  ux_gap: 'auto-bounded-cut2',
 };
 
 // ─── Helper: Mutationspfad? ──────────────────────────────────────────
