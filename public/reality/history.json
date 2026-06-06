@@ -262,5 +262,68 @@
         "time_to_course_ok": true
       }
     }
+  },
+  {
+    "ts": "2026-06-06T09:14:34.697Z",
+    "overall": "REVIEW",
+    "counts": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "total": 0
+    },
+    "fingerprints": [],
+    "new_fps": [],
+    "resolved_fps": [
+      "P0-broken_route-zb4rqf",
+      "P0-broken_route-xee7w9",
+      "P0-dead_cta-8vzb5z",
+      "P0-demo_unreachable-k3a4n9",
+      "P0-dead_cta-x4056r",
+      "P0-white_screen-odgdrc",
+      "P0-dead_cta-4x1nq2",
+      "P0-broken_route-uj1ea1",
+      "P0-broken_route-ao5qlr",
+      "P0-workflow_no_feedback-ow3gzq",
+      "P0-dead_cta-l21y0w",
+      "P0-dead_cta-1evdma",
+      "P0-checkout_unreachable-ks4z33",
+      "P0-broken_route-sfsc8g",
+      "P0-broken_route-5ceo63",
+      "P0-broken_route-qi41vc",
+      "P0-broken_route-60snde",
+      "P0-broken_route-r2o1b5",
+      "P0-broken_route-l0u9kn",
+      "P0-broken_route-hbgsxi",
+      "P0-broken_route-2sr6hf",
+      "P0-broken_route-jtx31f",
+      "P0-broken_route-mjz8u5",
+      "P0-broken_route-xmz5im",
+      "P0-broken_route-lhyuaz",
+      "P0-broken_route-xm6txh",
+      "P0-broken_route-8umzim",
+      "P0-broken_route-ezgvcm",
+      "P0-broken_route-6vha6b",
+      "P0-broken_route-jz0acm",
+      "P1-dead_button-o2kkww",
+      "P1-demo_unreachable-dmqtkf",
+      "P1-demo_unreachable-smtxzz",
+      "P1-workflow_no_feedback-2lzkao",
+      "P1-broken_route-5wlg2j",
+      "P1-workflow_no_feedback-orcxtn",
+      "P1-dead_cta-ta5wsk",
+      "P1-broken_route-ea3sbt",
+      "P1-broken_route-ag61bf",
+      "P1-broken_route-291s6q",
+      "P2-placeholder_end_state-uhun04",
+      "P2-workflow_no_feedback-1pafze",
+      "P2-workflow_no_feedback-p5o10j",
+      "P2-workflow_no_feedback-dybbfc",
+      "P2-workflow_no_feedback-cudsgr"
+    ],
+    "runs": {
+      "learner": null,
+      "pre_customer": null
+    }
   }
 ]
