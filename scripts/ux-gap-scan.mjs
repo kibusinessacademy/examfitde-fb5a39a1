@@ -26,7 +26,8 @@ import { execSync } from 'node:child_process';
 import crypto from 'node:crypto';
 
 const ROOT = process.cwd();
-const REPORT_DIR = '/mnt/documents';
+const REPORT_DIR = process.env.UX_GAP_REPORT_DIR
+  || (fs.existsSync('/mnt/documents') ? '/mnt/documents' : path.join(process.cwd(), 'reality-results'));
 const FINDINGS_DIR = path.join(ROOT, 'reality-results', 'findings');
 const NOW = new Date().toISOString();
 

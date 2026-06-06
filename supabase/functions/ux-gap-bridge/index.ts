@@ -82,11 +82,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: auth } } },
-    );
+    // CI-mode: when caller presents the service-role key as bearer (used by the
+    // daily customer-reality-gate workflow), we run the RPC with the service
+    // client and bypass the admin user check. Otherwise we forward the caller's
+    // JWT and rely on has_role(auth.uid(),'admin') inside the RPC.
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const bearer = auth.replace(/^Bearer\s+/i, "").trim();
+    const isCiServiceCall = bearer === SERVICE_KEY;
+    const supabase = isCiServiceCall
+      ? createClient(Deno.env.get("SUPABASE_URL")!, SERVICE_KEY)
+      : createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: auth } } },
+        );
 
     const results: Array<{ id: string; ok: boolean; error?: string }> = [];
     for (const f of findings.slice(0, 200)) {
