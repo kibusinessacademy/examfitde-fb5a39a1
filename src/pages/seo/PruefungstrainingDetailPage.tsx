@@ -200,8 +200,10 @@ const PruefungstrainingDetailPage = () => {
                   <Target className="h-5 w-5 mr-2" /> Jetzt Prüfungstraining starten
                 </Button>
               ) : (
-                <Button size="lg" disabled className="opacity-60 rounded-xl h-14 px-8">
-                  <Clock className="mr-2 h-5 w-5" /> Bald verfügbar
+                <Button asChild size="lg" variant="outline" className="rounded-xl h-14 px-8">
+                  <Link to="/shop">
+                    <Clock className="mr-2 h-5 w-5" /> Verfügbare Trainings ansehen
+                  </Link>
                 </Button>
               )}
             </div>
