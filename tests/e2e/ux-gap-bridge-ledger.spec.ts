@@ -66,7 +66,7 @@ test.describe('ux-gap-bridge ledger E2E', () => {
         Authorization: `Bearer ${SERVICE_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ _limit: 100, _drift_type: 'ux_gap' }),
+      body: JSON.stringify({ p_limit: 100, p_drift_type: 'ux_gap' }),
     });
     const rows = await lookup.json();
     expect(lookup.status, `rpc http ${lookup.status}: ${JSON.stringify(rows).slice(0, 300)}`).toBe(200);
