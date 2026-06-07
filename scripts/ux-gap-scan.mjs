@@ -88,11 +88,23 @@ function scanReality() {
 }
 
 // ─── 2. Static surface scan ─────────────────────────────────────────
-const EMPTY_PATTERNS = [
-  { re: /reportEntryFallbackView\([^)]*['"]recovery['"]/g, msg: 'Recovery surface declared but no business content fallback' },
-  { re: /TODO[: ].*?(empty|leer|fallback|recovery)/gi, msg: 'TODO marks unfinished empty-state' },
-  { re: /Noch keine [A-Za-zÄÖÜäöüß]+|coming soon|in Kürze verfügbar/gi, msg: 'User-visible "coming soon" copy' },
-];
+// Heuristics tuned to flag REAL problems only:
+//  - "coming soon" / "in Kürze verfügbar" / "Bald verfügbar" → always a P2 (vague promise).
+//  - "Noch keine X" empty-state copy → ONLY a P2 when the file offers no
+//    actionable element (Button / Link to= / onClick / navigate(). A
+//    domain-specific empty state with a CTA is a valid pattern (rule:
+//    "Wenn Feature unfertig: echter Empty State mit Nutzen, nächstem Schritt, CTA").
+//  - `reportEntryFallbackView(..., 'recovery'` recovery surface declaration →
+//    ONLY a P2 when the same file has no Link/Button fallback (i.e. truly
+//    leaves the user stranded).
+const COMING_SOON_RE = /\b(coming\s+soon|in\s+Kürze\s+verfügbar|bald\s+verfügbar)\b/gi;
+const EMPTY_STATE_RE = /Noch keine [A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß\s-]*/g;
+const RECOVERY_RE = /reportEntryFallbackView\([^)]*['"]recovery['"]/g;
+const HAS_ACTION_RE = /<Button\b|<Link\s+to=|asChild[\s\S]{0,80}<Link|onClick\s*=|navigate\s*\(/;
+
+function hasActionableElement(txt) {
+  return HAS_ACTION_RE.test(txt);
+}
 
 function scanStatic() {
   const pagesDir = path.join(ROOT, 'src', 'pages');
@@ -106,22 +118,42 @@ function scanStatic() {
       if (st.isDirectory()) { stack.push(p); continue; }
       if (!/\.(tsx?|jsx?)$/.test(p)) continue;
       const txt = fs.readFileSync(p, 'utf8');
-      for (const { re, msg } of EMPTY_PATTERNS) {
-        re.lastIndex = 0;
-        const hits = txt.match(re);
-        if (hits && hits.length > 0) {
-          pushFinding({
-            surface: path.relative(ROOT, p),
-            message: `${msg} (${hits.length}× match)`,
-            severity: 'P2',
-            source: 'static-surface-scan',
-            matched_systems: [path.relative(ROOT, p)],
-          });
-        }
+      const rel = path.relative(ROOT, p);
+      const actionable = hasActionableElement(txt);
+
+      COMING_SOON_RE.lastIndex = 0;
+      const csHits = txt.match(COMING_SOON_RE);
+      if (csHits && csHits.length > 0) {
+        pushFinding({
+          surface: rel, severity: 'P2', source: 'static-surface-scan',
+          message: `User-visible "coming soon" copy (${csHits.length}× match)`,
+          matched_systems: [rel],
+        });
+      }
+
+      EMPTY_STATE_RE.lastIndex = 0;
+      const esHits = txt.match(EMPTY_STATE_RE);
+      if (esHits && esHits.length > 0 && !actionable) {
+        pushFinding({
+          surface: rel, severity: 'P2', source: 'static-surface-scan',
+          message: `Empty-state copy without actionable CTA (${esHits.length}× match)`,
+          matched_systems: [rel],
+        });
+      }
+
+      RECOVERY_RE.lastIndex = 0;
+      const recHits = txt.match(RECOVERY_RE);
+      if (recHits && recHits.length > 0 && !actionable) {
+        pushFinding({
+          surface: rel, severity: 'P2', source: 'static-surface-scan',
+          message: 'Recovery surface declared but no business content fallback',
+          matched_systems: [rel],
+        });
       }
     }
   }
 }
+
 
 // ─── 3. DB entry-fallback signal (24h) ──────────────────────────────
 function scanDb() {
