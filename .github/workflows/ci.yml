@@ -83,6 +83,8 @@ jobs:
             src/test/oral-exam-trainer-no-elevenlabs.unit.test.ts \
             src/test/oral-voice-no-elevenlabs.test.ts \
             --reporter=verbose
+      - name: ux-gap-scan hydration-drift regression (explicit)
+        run: npx vitest run src/test/ux-gap-scan.regression.test.ts --reporter=verbose
       - name: Generate test summary
         if: always()
         run: |
