@@ -307,6 +307,9 @@ export default function ArchitecturePage() {
         <TabsContent value="p18heal" className="mt-4">
           <P18BoundedHealPanel />
         </TabsContent>
+        <TabsContent value="uxgap" className="mt-4">
+          <P18UxGapDetailPanel />
+        </TabsContent>
       </Tabs>
     </div>
   );
