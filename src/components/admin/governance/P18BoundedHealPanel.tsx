@@ -131,7 +131,7 @@ export default function P18BoundedHealPanel() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Alle</SelectItem>
-                  {['ssot_conflict','healability_missing','cross_domain_unbridged','orphan_node','rule_violation','reuse_recommendation','duplicate_registration'].map((s) => (
+                  {['ssot_conflict','healability_missing','cross_domain_unbridged','orphan_node','rule_violation','reuse_recommendation','duplicate_registration','ux_gap'].map((s) => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
