@@ -28,6 +28,7 @@ import { deriveSemanticRuntimeGraph } from '@/lib/governance/semantic-runtime-gr
 import { runP18Cut1, type DriftSignal, type DriftSeverity } from '@/lib/governance/p18-orchestrator';
 import { runP18DetectionForArchitectureReview, type P18ReviewHookResult } from '@/lib/governance/p18-review-hook';
 import P18BoundedHealPanel from '@/components/admin/governance/P18BoundedHealPanel';
+import P18UxGapDetailPanel from '@/components/admin/governance/P18UxGapDetailPanel';
 import { useToast } from '@/hooks/use-toast';
 import { ShieldCheck, AlertTriangle, Ban, Info } from 'lucide-react';
 
