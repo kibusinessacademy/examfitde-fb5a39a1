@@ -84,7 +84,7 @@ export default function WissenPage() {
           <section className="py-16">
             <div className="container text-center">
               <FileText className="h-16 w-16 text-muted-foreground/40 mx-auto mb-4" />
-              <h2 className="text-2xl font-display font-bold mb-2">Bald verfügbar</h2>
+              <h2 className="text-2xl font-display font-bold mb-2">Wissens-Hub im Aufbau</h2>
               <p className="text-muted-foreground max-w-md mx-auto mb-6">
                 Unsere Experten arbeiten an hilfreichen Artikeln rund um Ausbildung, Prüfungsvorbereitung und Karriere.
               </p>
