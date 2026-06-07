@@ -28,6 +28,7 @@ import { deriveSemanticRuntimeGraph } from '@/lib/governance/semantic-runtime-gr
 import { runP18Cut1, type DriftSignal, type DriftSeverity } from '@/lib/governance/p18-orchestrator';
 import { runP18DetectionForArchitectureReview, type P18ReviewHookResult } from '@/lib/governance/p18-review-hook';
 import P18BoundedHealPanel from '@/components/admin/governance/P18BoundedHealPanel';
+import P18UxGapDetailPanel from '@/components/admin/governance/P18UxGapDetailPanel';
 import { useToast } from '@/hooks/use-toast';
 import { ShieldCheck, AlertTriangle, Ban, Info } from 'lucide-react';
 
@@ -158,6 +159,7 @@ export default function ArchitecturePage() {
           <TabsTrigger value="graph">Runtime Graph</TabsTrigger>
           <TabsTrigger value="p18">P18 Forensics</TabsTrigger>
           <TabsTrigger value="p18heal">P18 Bounded Heal</TabsTrigger>
+          <TabsTrigger value="uxgap">UX-Gap Detail</TabsTrigger>
         </TabsList>
         <TabsContent value="proposal" className="mt-4">
 
@@ -304,6 +306,9 @@ export default function ArchitecturePage() {
         </TabsContent>
         <TabsContent value="p18heal" className="mt-4">
           <P18BoundedHealPanel />
+        </TabsContent>
+        <TabsContent value="uxgap" className="mt-4">
+          <P18UxGapDetailPanel />
         </TabsContent>
       </Tabs>
     </div>

@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: customer-reality-gate
@@ -189,43 +190,138 @@ jobs:
         run: node scripts/ux-gap-scan.mjs || true
 
       - name: Push P0 UX-Gaps → P18 Ledger (ux-gap-bridge)
+        id: uxbridge
         if: always()
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          set -e
+          set +e
           REPORT="/mnt/documents/ux-gap-report.json"
           [ -f "$REPORT" ] || REPORT="reality-results/ux-gap-report.json"
+
+          # Default health signals — consumed by the alert step below.
+          echo "report_present=false"   >> "$GITHUB_OUTPUT"
+          echo "total_findings=0"        >> "$GITHUB_OUTPUT"
+          echo "p0_findings=0"           >> "$GITHUB_OUTPUT"
+          echo "bridge_skipped=true"     >> "$GITHUB_OUTPUT"
+          echo "bridge_failed=0"         >> "$GITHUB_OUTPUT"
+          echo "bridge_recorded=0"       >> "$GITHUB_OUTPUT"
+          echo "bridge_http_status=0"    >> "$GITHUB_OUTPUT"
+
           if [ ! -f "$REPORT" ]; then
-            echo "::warning::ux-gap-report.json missing — skipping bridge POST"
+            echo "::warning::ux-gap-report.json missing — scanner produced no output"
+            echo "## UX-Gap → P18 Bridge"   >> "$GITHUB_STEP_SUMMARY"
+            echo "❌ report missing"        >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          echo "report_present=true" >> "$GITHUB_OUTPUT"
+
+          TOTAL=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));console.log((r.findings||r||[]).length)" "$REPORT")
+          echo "total_findings=$TOTAL" >> "$GITHUB_OUTPUT"
+
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "::warning::SUPABASE_URL / SERVICE_ROLE_KEY not set — skipping bridge POST"
             exit 0
           fi
+
           P0_JSON=$(node -e "
             const r = JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));
             const items = (r.findings || r || []).filter(f => f.severity === 'P0');
             process.stdout.write(JSON.stringify({ findings: items }));
           " "$REPORT")
           COUNT=$(echo "$P0_JSON" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).findings.length))")
+          echo "p0_findings=$COUNT" >> "$GITHUB_OUTPUT"
           echo "P0 findings to bridge: $COUNT"
           echo "## UX-Gap → P18 Bridge" >> "$GITHUB_STEP_SUMMARY"
-          echo "P0 UX-Gaps pushed: **$COUNT**" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$COUNT" = "0" ]; then exit 0; fi
-          RESP=$(curl -sS -X POST \
+          echo "Total findings: **$TOTAL**, P0: **$COUNT**" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$COUNT" = "0" ]; then
+            echo "bridge_skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "bridge_skipped=false" >> "$GITHUB_OUTPUT"
+          HTTP_CODE=$(curl -sS -o /tmp/bridge-resp.json -w "%{http_code}" -X POST \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
             -H "Content-Type: application/json" \
+            --max-time 60 \
             --data "$P0_JSON" \
             "$SUPABASE_URL/functions/v1/ux-gap-bridge")
+          echo "bridge_http_status=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+          RESP=$(cat /tmp/bridge-resp.json 2>/dev/null || echo '{}')
           echo "$RESP"
           echo '```json' >> "$GITHUB_STEP_SUMMARY"
-          echo "$RESP" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "$RESP"   >> "$GITHUB_STEP_SUMMARY"
+          echo '```'     >> "$GITHUB_STEP_SUMMARY"
+
+          REC=$(echo "$RESP"   | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).recorded||0)}catch{console.log(0)}})")
+          FAIL=$(echo "$RESP"  | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).failed||0)}catch{console.log(0)}})")
+          echo "bridge_recorded=$REC" >> "$GITHUB_OUTPUT"
+          echo "bridge_failed=$FAIL"  >> "$GITHUB_OUTPUT"
+
+      - name: Health-Check Alert (zero-findings / bridge failure)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORT_PRESENT: ${{ steps.uxbridge.outputs.report_present }}
+          TOTAL: ${{ steps.uxbridge.outputs.total_findings }}
+          P0: ${{ steps.uxbridge.outputs.p0_findings }}
+          BRIDGE_SKIPPED: ${{ steps.uxbridge.outputs.bridge_skipped }}
+          BRIDGE_FAILED: ${{ steps.uxbridge.outputs.bridge_failed }}
+          BRIDGE_RECORDED: ${{ steps.uxbridge.outputs.bridge_recorded }}
+          HTTP_CODE: ${{ steps.uxbridge.outputs.bridge_http_status }}
+        run: |
+          set +e
+          REASONS=()
+          # 1) Scanner did not even produce a report -> wiring is broken
+          if [ "${REPORT_PRESENT:-false}" != "true" ]; then
+            REASONS+=("scanner produced no ux-gap-report.json")
+          fi
+          # 2) Scanner produced a report but ZERO findings of any severity
+          #    (P0+P1+P2). Means the three sources silently went dark.
+          if [ "${REPORT_PRESENT:-false}" = "true" ] && [ "${TOTAL:-0}" = "0" ]; then
+            REASONS+=("scan returned 0 total findings (P0+P1+P2) — sources may be dark")
+          fi
+          # 3) Bridge attempted but HTTP error or every row failed
+          if [ "${BRIDGE_SKIPPED:-true}" = "false" ]; then
+            if [ "${HTTP_CODE:-0}" != "200" ]; then
+              REASONS+=("bridge HTTP ${HTTP_CODE} (expected 200)")
+            fi
+            if [ "${BRIDGE_FAILED:-0}" != "0" ] && [ "${BRIDGE_RECORDED:-0}" = "0" ]; then
+              REASONS+=("bridge recorded 0 / failed ${BRIDGE_FAILED} — every finding rejected")
+            fi
+          fi
+
+          if [ "${#REASONS[@]}" = "0" ]; then
+            echo "UX-Gap health OK (total=${TOTAL}, p0=${P0}, recorded=${BRIDGE_RECORDED})"
+            exit 0
+          fi
+
+          TITLE="[UX-Gap Health] Daily run flagged $(date -u +%Y-%m-%d) — ${#REASONS[@]} issue(s)"
+          BODY=$(printf '## UX-Gap → P18 Bridge — daily health alert\n\n- run: %s\n- total findings: %s\n- p0 findings: %s\n- bridge http: %s\n- bridge recorded: %s / failed: %s\n\n### Reasons\n' \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "${TOTAL}" "${P0}" "${HTTP_CODE}" "${BRIDGE_RECORDED}" "${BRIDGE_FAILED}")
+          for R in "${REASONS[@]}"; do BODY="${BODY}- ${R}"$'\n'; done
+          echo "::warning::${TITLE}"
+          echo "## ⚠️ UX-Gap Health Alert"  >> "$GITHUB_STEP_SUMMARY"
+          for R in "${REASONS[@]}"; do echo "- $R" >> "$GITHUB_STEP_SUMMARY"; done
+
+          # Open or update a daily GitHub issue (one per UTC day) so the operator
+          # gets a notification via standard GitHub notification channels.
+          DAY=$(date -u +%Y-%m-%d)
+          if command -v gh >/dev/null 2>&1; then
+            EXISTING=$(gh issue list --search "UX-Gap Health daily ${DAY} in:title" --state open --json number --jq '.[0].number' 2>/dev/null)
+            if [ -n "$EXISTING" ]; then
+              gh issue comment "$EXISTING" --body "$BODY" || true
+            else
+              gh issue create --title "UX-Gap Health daily ${DAY}" --label "ops,ux-gap" --body "$BODY" || true
+            fi
+          fi
+          # Mark step as failed so the run is visibly red — but only for hard issues
+          exit 1
 
       - name: Upload reality-results
         if: always()
