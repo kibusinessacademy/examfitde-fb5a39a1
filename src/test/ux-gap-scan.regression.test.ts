@@ -32,7 +32,7 @@ function writeFixture(root: string, id: string, detail: string) {
 }
 
 function runScan(root: string) {
-  const env = { ...process.env, UX_GAP_REPORT_DIR: root };
+  const env: Record<string, string> = { ...(process.env as Record<string, string>), UX_GAP_REPORT_DIR: root };
   delete env.PGHOST; // ensure DB scan is skipped deterministically
   const res = spawnSync(process.execPath, [SCRIPT], {
     cwd: root,
