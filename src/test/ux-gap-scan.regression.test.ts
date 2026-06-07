@@ -128,3 +128,130 @@ describe('ux-gap-scan hydration-drift regression', () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────
+// P2 Surface Hygiene heuristic — locks the tightened static-surface-scan
+// rules so future tweaks can't silently flag legitimate empty states
+// with CTAs or stop flagging real "coming soon" lies.
+// ─────────────────────────────────────────────────────────────────────
+describe('ux-gap-scan static-surface heuristic', () => {
+  function writePage(root: string, relPath: string, content: string) {
+    const abs = path.join(root, 'src', 'pages', relPath);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content);
+  }
+
+  function runScanOn(root: string) {
+    const env: Record<string, string> = { ...(process.env as Record<string, string>), UX_GAP_REPORT_DIR: root };
+    delete env.PGHOST;
+    spawnSync(process.execPath, [SCRIPT], { cwd: root, env, encoding: 'utf8' });
+    return JSON.parse(fs.readFileSync(path.join(root, 'ux-gap-report.json'), 'utf8'));
+  }
+
+  it('flags "Coming Soon" copy unconditionally', () => {
+    const root = makeTmpRoot();
+    try {
+      writePage(root, 'CSPage.tsx', `export default () => <div>Coming Soon — bald da</div>;`);
+      const r = runScanOn(root);
+      const f = r.findings.find((x: any) => x.surface.endsWith('CSPage.tsx'));
+      expect(f, 'coming-soon must be flagged').toBeTruthy();
+      expect(f.severity).toBe('P2');
+      expect(f.message).toMatch(/coming soon/i);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('flags "Bald verfügbar" copy unconditionally', () => {
+    const root = makeTmpRoot();
+    try {
+      writePage(root, 'BVPage.tsx', `export default () => <button disabled>Bald verfügbar</button>;`);
+      const r = runScanOn(root);
+      const f = r.findings.find((x: any) => x.surface.endsWith('BVPage.tsx'));
+      expect(f).toBeTruthy();
+      expect(f.message).toMatch(/coming soon/i);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does NOT flag "Noch keine X" empty states that have a CTA', () => {
+    const root = makeTmpRoot();
+    try {
+      writePage(
+        root,
+        'OkEmpty.tsx',
+        `import { Link } from 'react-router-dom';
+         export default () => (
+           <div>
+             <p>Noch keine Rechnungen vorhanden.</p>
+             <Link to="/shop">Zum Shop</Link>
+           </div>
+         );`,
+      );
+      const r = runScanOn(root);
+      const f = r.findings.find((x: any) => x.surface.endsWith('OkEmpty.tsx'));
+      expect(f, 'empty state with CTA must NOT be flagged').toBeFalsy();
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('DOES flag "Noch keine X" empty states without any actionable element', () => {
+    const root = makeTmpRoot();
+    try {
+      writePage(
+        root,
+        'DeadEnd.tsx',
+        `export default () => <div><p>Noch keine Daten vorhanden.</p></div>;`,
+      );
+      const r = runScanOn(root);
+      const f = r.findings.find((x: any) => x.surface.endsWith('DeadEnd.tsx'));
+      expect(f, 'dead-end empty state must be flagged').toBeTruthy();
+      expect(f.message).toMatch(/without actionable CTA/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('does NOT flag recovery-fallback when a Link/Button is present', () => {
+    const root = makeTmpRoot();
+    try {
+      writePage(
+        root,
+        'TutorOk.tsx',
+        `import { Link } from 'react-router-dom';
+         import { Button } from '@/components/ui/button';
+         export default () => {
+           reportEntryFallbackView('tutor', 'recovery');
+           return <Button asChild><Link to="/berufe">Beruf auswählen</Link></Button>;
+         };`,
+      );
+      const r = runScanOn(root);
+      const f = r.findings.find((x: any) => x.surface.endsWith('TutorOk.tsx'));
+      expect(f, 'recovery surface with CTA must NOT be flagged').toBeFalsy();
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('DOES flag recovery-fallback when no Link/Button fallback exists', () => {
+    const root = makeTmpRoot();
+    try {
+      writePage(
+        root,
+        'TutorBad.tsx',
+        `export default () => {
+           reportEntryFallbackView('tutor', 'recovery');
+           return <p>Etwas ist schiefgegangen.</p>;
+         };`,
+      );
+      const r = runScanOn(root);
+      const f = r.findings.find((x: any) => x.surface.endsWith('TutorBad.tsx'));
+      expect(f, 'recovery surface without fallback must be flagged').toBeTruthy();
+      expect(f.message).toMatch(/Recovery surface/);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
