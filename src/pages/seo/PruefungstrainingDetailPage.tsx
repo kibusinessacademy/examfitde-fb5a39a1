@@ -164,13 +164,16 @@ const PruefungstrainingDetailPage = () => {
             <Breadcrumbs items={breadcrumbsUI} />
 
             {!isPublished && (
-              <div className="mt-4 rounded-xl bg-muted/60 border border-border p-4 text-center">
-                <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-primary text-sm font-semibold mb-2">
-                  <Clock className="h-4 w-4" /> Coming Soon
+              <div className="mt-4 rounded-xl bg-muted/60 border border-border p-4 text-center space-y-2">
+                <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-primary text-sm font-semibold">
+                  <Clock className="h-4 w-4" /> In Vorbereitung
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Das Prüfungstraining für <strong>{name}</strong> wird gerade erstellt und ist in Kürze verfügbar.
+                  Das Prüfungstraining für <strong>{name}</strong> ist in aktiver Entwicklung. In der Zwischenzeit findest du verwandte, sofort verfügbare Prüfungstrainings im Shop.
                 </p>
+                <Button asChild size="sm" variant="outline" className="mt-2">
+                  <Link to="/shop">Verfügbare Prüfungstrainings ansehen</Link>
+                </Button>
               </div>
             )}
 
