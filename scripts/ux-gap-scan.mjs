@@ -38,6 +38,22 @@ function pushFinding(f) {
   findings.push({ detected_at: NOW, ...f, id });
 }
 
+// Hydration-Drift heuristic: pre-customer signals where cold-load HTML
+// rendered the surface correctly but post-hydration React mounted empty.
+// Mapped from qa-state/pre-customer/*.json detail strings written by the
+// 01..05 spec helpers.
+const HYDRATION_DRIFT_HINTS = [
+  { id: 'P01_homepage',    re: /problems=/,        route: '/',         element: 'hero CTA "Prüfung starten" / Demo-CTA' },
+  { id: 'P02_find_beruf',  re: /links=0/,          route: '/berufe',   element: 'Beruf-Karten-Liste' },
+  { id: 'P03_open_course', re: /url=NONE/,         route: '/berufe',   element: 'Kurs-Discovery-Link' },
+  { id: 'P04_pricing',     re: /hasPrice=false/,   route: '/preise',   element: '€-Preis + Kauf-CTA' },
+];
+function hydrationDriftHint(id, detail) {
+  const hit = HYDRATION_DRIFT_HINTS.find((h) => h.id === id && h.re.test(String(detail ?? '')));
+  if (!hit) return null;
+  return `HYDRATION-DRIFT auf ${hit.route}: Cold-Load liefert ${hit.element}, post-hydration React rendert leer. Default-Render der Komponente sichtbar machen (nicht hinter Loading-State).`;
+}
+
 // ─── 1. Reality findings ────────────────────────────────────────────
 function scanReality() {
   const dirs = [
@@ -53,13 +69,17 @@ function scanReality() {
         const status = j.status ?? j.severity ?? 'unknown';
         const surface = j.surface ?? j.id ?? f.replace(/\.json$/, '');
         if (status === 'fail' || j.severity === 'P0') {
+          const drift = hydrationDriftHint(j.id ?? surface, j.detail);
           pushFinding({
             surface,
             message: j.detail ?? j.message ?? `${surface} failed reality check`,
             severity: j.severity === 'P0' || status === 'fail' ? 'P0' : 'P1',
             source: d.includes('pre-customer') ? 'pre-customer-reality' : 'learner-reality',
             matched_systems: [surface],
-            recommended_action: j.recommended_action ?? `Re-run gate and fix the failing surface "${surface}".`,
+            recommended_action:
+              j.recommended_action
+              ?? drift
+              ?? `Re-run gate and fix the failing surface "${surface}".`,
           });
         }
       } catch { /* skip unreadable */ }
