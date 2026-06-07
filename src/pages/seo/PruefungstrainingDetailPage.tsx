@@ -520,9 +520,16 @@ const PruefungstrainingDetailPage = () => {
                     </Link>
                   </>
                 ) : (
-                  <p className="text-muted-foreground">
-                    Dieses Prüfungstraining wird gerade erstellt und ist bald verfügbar.
-                  </p>
+                  <div className="space-y-3">
+                    <p className="text-muted-foreground">
+                      Dieses Prüfungstraining ist in aktiver Entwicklung. Verwandte, sofort verfügbare Trainings findest du im Shop.
+                    </p>
+                    <Link to="/shop">
+                      <Button size="lg" variant="outline" className="rounded-xl h-12 px-6">
+                        Verfügbare Prüfungstrainings ansehen
+                      </Button>
+                    </Link>
+                  </div>
                 )}
               </div>
             </div>
