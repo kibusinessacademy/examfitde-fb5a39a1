@@ -159,6 +159,7 @@ export default function ArchitecturePage() {
           <TabsTrigger value="graph">Runtime Graph</TabsTrigger>
           <TabsTrigger value="p18">P18 Forensics</TabsTrigger>
           <TabsTrigger value="p18heal">P18 Bounded Heal</TabsTrigger>
+          <TabsTrigger value="uxgap">UX-Gap Detail</TabsTrigger>
         </TabsList>
         <TabsContent value="proposal" className="mt-4">
 
