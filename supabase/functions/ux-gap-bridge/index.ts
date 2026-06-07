@@ -13,7 +13,12 @@
  */
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 type UxGapSeverity = "P0" | "P1" | "P2";
 type UxGapSource =
