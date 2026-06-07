@@ -178,10 +178,18 @@ export default function VerwaltungGovernancePage() {
             </div>
 
             {refusal.data.by_department.length === 0 ? (
-              <p className="rounded border border-border-subtle bg-surface-2 p-4 text-sm text-text-muted">
-                Noch keine Oral-Sessions im Fenster — Refusal-Telemetrie startet
-                automatisch mit der ersten Sitzung.
-              </p>
+              <div className="rounded border border-border-subtle bg-surface-2 p-4 text-sm text-text-muted space-y-2">
+                <p>
+                  Noch keine Oral-Sessions im Fenster — Refusal-Telemetrie startet
+                  automatisch mit der ersten Sitzung.
+                </p>
+                <Link
+                  to="/admin/oral-exam"
+                  className="inline-flex items-center text-primary hover:underline"
+                >
+                  Oral-Exam Übersicht öffnen →
+                </Link>
+              </div>
             ) : (
               <div className="overflow-auto rounded border border-border-subtle">
                 <table className="w-full text-sm">
