@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  issues: write   # Health-Check Alert opens/comments the daily UX-Gap Health issue
 
 concurrency:
   group: pre-customer-reality-daily
@@ -70,6 +71,65 @@ jobs:
             echo "## Pre-Customer Reality QA" >> "$GITHUB_STEP_SUMMARY"
             echo "Aggregator produced no report — check Playwright artifact." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      # Bridge pre-customer P0-Findings (qa-state/pre-customer/*.json + findings/*.json)
+      # into the same P18 ledger the learner gate already feeds. SSOT composite —
+      # do NOT inline a parallel scan/POST here.
+      - name: UX-Gap Scan + P18 Bridge Push (SSOT composite)
+        id: uxbridge
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/ux-gap-push
+        with:
+          supabase_url:     ${{ secrets.SUPABASE_URL }}
+          service_role_key: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          pg_host:          ${{ secrets.SUPABASE_DB_HOST }}
+          pg_user:          ${{ secrets.SUPABASE_DB_USER }}
+          pg_password:      ${{ secrets.SUPABASE_DB_PASSWORD }}
+          pg_database:      ${{ secrets.SUPABASE_DB_NAME }}
+          pg_port:          ${{ secrets.SUPABASE_DB_PORT }}
+
+      - name: Health-Check Alert (zero-findings / bridge failure)
+        if: always()
+        env:
+          GH_TOKEN:        ${{ secrets.GITHUB_TOKEN }}
+          REPORT_PRESENT:  ${{ steps.uxbridge.outputs.report_present }}
+          TOTAL:           ${{ steps.uxbridge.outputs.total_findings }}
+          P0:              ${{ steps.uxbridge.outputs.p0_findings }}
+          BRIDGE_SKIPPED:  ${{ steps.uxbridge.outputs.bridge_skipped }}
+          BRIDGE_FAILED:   ${{ steps.uxbridge.outputs.bridge_failed }}
+          BRIDGE_RECORDED: ${{ steps.uxbridge.outputs.bridge_recorded }}
+          HTTP_CODE:       ${{ steps.uxbridge.outputs.bridge_http_status }}
+        run: |
+          set +e
+          REASONS=()
+          [ "${REPORT_PRESENT:-false}" = "true" ] || REASONS+=("scanner produced no ux-gap-report.json")
+          if [ "${REPORT_PRESENT:-false}" = "true" ] && [ "${TOTAL:-0}" = "0" ]; then
+            REASONS+=("pre-customer scan returned 0 findings — sources may be dark")
+          fi
+          if [ "${BRIDGE_SKIPPED:-true}" = "false" ]; then
+            [ "${HTTP_CODE:-0}" = "200" ] || REASONS+=("bridge HTTP ${HTTP_CODE} (expected 200)")
+            if [ "${BRIDGE_FAILED:-0}" != "0" ] && [ "${BRIDGE_RECORDED:-0}" = "0" ]; then
+              REASONS+=("bridge recorded 0 / failed ${BRIDGE_FAILED}")
+            fi
+          fi
+          [ "${#REASONS[@]}" = "0" ] && { echo "UX-Gap health OK (pre-customer)"; exit 0; }
+
+          DAY=$(date -u +%Y-%m-%d)
+          BODY=$(printf '## Pre-Customer UX-Gap → P18 — daily health alert\n\n- run: %s\n- total: %s · p0: %s\n- bridge http: %s · recorded: %s · failed: %s\n\n### Reasons\n' \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "${TOTAL}" "${P0}" "${HTTP_CODE}" "${BRIDGE_RECORDED}" "${BRIDGE_FAILED}")
+          for R in "${REASONS[@]}"; do BODY="${BODY}- ${R}"$'\n'; done
+          if command -v gh >/dev/null 2>&1; then
+            EXISTING=$(gh issue list --search "UX-Gap Health daily ${DAY} in:title" --state open --json number --jq '.[0].number' 2>/dev/null)
+            if [ -n "$EXISTING" ]; then
+              gh issue comment "$EXISTING" --body "$BODY" || true
+            else
+              gh issue create --title "UX-Gap Health daily ${DAY}" --label "ops,ux-gap,pre-customer" --body "$BODY" || true
+            fi
+          fi
+          exit 1
+
 
       - name: Upload reality-results
         if: always()

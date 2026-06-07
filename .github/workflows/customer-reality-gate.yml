@@ -178,89 +178,19 @@ jobs:
             echo "Gate produced no report" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: UX-Gap Scan (combined Reality + Static + DB signals)
-        id: uxgap
-        continue-on-error: true
-        env:
-          PGHOST: ${{ secrets.SUPABASE_DB_HOST }}
-          PGUSER: ${{ secrets.SUPABASE_DB_USER }}
-          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          PGDATABASE: ${{ secrets.SUPABASE_DB_NAME }}
-          PGPORT: ${{ secrets.SUPABASE_DB_PORT }}
-        run: node scripts/ux-gap-scan.mjs || true
-
-      - name: Push P0 UX-Gaps → P18 Ledger (ux-gap-bridge)
+      - name: UX-Gap Scan + P18 Bridge Push (SSOT composite)
         id: uxbridge
         if: always()
         continue-on-error: true
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          set +e
-          REPORT="/mnt/documents/ux-gap-report.json"
-          [ -f "$REPORT" ] || REPORT="reality-results/ux-gap-report.json"
-
-          # Default health signals — consumed by the alert step below.
-          echo "report_present=false"   >> "$GITHUB_OUTPUT"
-          echo "total_findings=0"        >> "$GITHUB_OUTPUT"
-          echo "p0_findings=0"           >> "$GITHUB_OUTPUT"
-          echo "bridge_skipped=true"     >> "$GITHUB_OUTPUT"
-          echo "bridge_failed=0"         >> "$GITHUB_OUTPUT"
-          echo "bridge_recorded=0"       >> "$GITHUB_OUTPUT"
-          echo "bridge_http_status=0"    >> "$GITHUB_OUTPUT"
-
-          if [ ! -f "$REPORT" ]; then
-            echo "::warning::ux-gap-report.json missing — scanner produced no output"
-            echo "## UX-Gap → P18 Bridge"   >> "$GITHUB_STEP_SUMMARY"
-            echo "❌ report missing"        >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          echo "report_present=true" >> "$GITHUB_OUTPUT"
-
-          TOTAL=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));console.log((r.findings||r||[]).length)" "$REPORT")
-          echo "total_findings=$TOTAL" >> "$GITHUB_OUTPUT"
-
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "::warning::SUPABASE_URL / SERVICE_ROLE_KEY not set — skipping bridge POST"
-            exit 0
-          fi
-
-          P0_JSON=$(node -e "
-            const r = JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));
-            const items = (r.findings || r || []).filter(f => f.severity === 'P0');
-            process.stdout.write(JSON.stringify({ findings: items }));
-          " "$REPORT")
-          COUNT=$(echo "$P0_JSON" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).findings.length))")
-          echo "p0_findings=$COUNT" >> "$GITHUB_OUTPUT"
-          echo "P0 findings to bridge: $COUNT"
-          echo "## UX-Gap → P18 Bridge" >> "$GITHUB_STEP_SUMMARY"
-          echo "Total findings: **$TOTAL**, P0: **$COUNT**" >> "$GITHUB_STEP_SUMMARY"
-
-          if [ "$COUNT" = "0" ]; then
-            echo "bridge_skipped=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "bridge_skipped=false" >> "$GITHUB_OUTPUT"
-          HTTP_CODE=$(curl -sS -o /tmp/bridge-resp.json -w "%{http_code}" -X POST \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Content-Type: application/json" \
-            --max-time 60 \
-            --data "$P0_JSON" \
-            "$SUPABASE_URL/functions/v1/ux-gap-bridge")
-          echo "bridge_http_status=$HTTP_CODE" >> "$GITHUB_OUTPUT"
-          RESP=$(cat /tmp/bridge-resp.json 2>/dev/null || echo '{}')
-          echo "$RESP"
-          echo '```json' >> "$GITHUB_STEP_SUMMARY"
-          echo "$RESP"   >> "$GITHUB_STEP_SUMMARY"
-          echo '```'     >> "$GITHUB_STEP_SUMMARY"
-
-          REC=$(echo "$RESP"   | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).recorded||0)}catch{console.log(0)}})")
-          FAIL=$(echo "$RESP"  | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).failed||0)}catch{console.log(0)}})")
-          echo "bridge_recorded=$REC" >> "$GITHUB_OUTPUT"
-          echo "bridge_failed=$FAIL"  >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/ux-gap-push
+        with:
+          supabase_url:     ${{ secrets.SUPABASE_URL }}
+          service_role_key: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          pg_host:          ${{ secrets.SUPABASE_DB_HOST }}
+          pg_user:          ${{ secrets.SUPABASE_DB_USER }}
+          pg_password:      ${{ secrets.SUPABASE_DB_PASSWORD }}
+          pg_database:      ${{ secrets.SUPABASE_DB_NAME }}
+          pg_port:          ${{ secrets.SUPABASE_DB_PORT }}
 
       - name: Health-Check Alert (zero-findings / bridge failure)
         if: always()

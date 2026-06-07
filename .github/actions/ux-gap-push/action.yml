@@ -1,0 +1,115 @@
+name: 'UX-Gap Scan + P18 Bridge Push'
+description: >
+  Runs scripts/ux-gap-scan.mjs, then POSTs P0 findings to the ux-gap-bridge
+  edge function so they land in the P18 idempotency ledger. Emits health
+  signals as step outputs for downstream alerting.
+
+  SSOT: single source of truth for the "scan → bridge" handshake. Used by
+  both customer-reality-gate.yml (learner) and pre-customer-reality-daily.yml
+  (visitor funnel). Do not inline-duplicate this logic.
+
+inputs:
+  supabase_url:
+    description: SUPABASE_URL for the ux-gap-bridge endpoint
+    required: false
+  service_role_key:
+    description: SUPABASE_SERVICE_ROLE_KEY (Bearer for the edge function)
+    required: false
+  pg_host:        { required: false, description: optional PGHOST for DB signal }
+  pg_user:        { required: false, description: optional PGUSER }
+  pg_password:    { required: false, description: optional PGPASSWORD }
+  pg_database:    { required: false, description: optional PGDATABASE }
+  pg_port:        { required: false, description: optional PGPORT }
+
+outputs:
+  report_present:    { description: 'true if ux-gap-report.json was produced',  value: ${{ steps.bridge.outputs.report_present }} }
+  total_findings:    { description: 'total findings across all severities',     value: ${{ steps.bridge.outputs.total_findings }} }
+  p0_findings:       { description: 'P0 findings count',                        value: ${{ steps.bridge.outputs.p0_findings }} }
+  bridge_skipped:    { description: 'true if bridge POST was not attempted',    value: ${{ steps.bridge.outputs.bridge_skipped }} }
+  bridge_failed:     { description: 'rows rejected by bridge',                  value: ${{ steps.bridge.outputs.bridge_failed }} }
+  bridge_recorded:   { description: 'rows recorded by bridge',                  value: ${{ steps.bridge.outputs.bridge_recorded }} }
+  bridge_http_status:{ description: 'HTTP status from bridge POST',             value: ${{ steps.bridge.outputs.bridge_http_status }} }
+
+runs:
+  using: composite
+  steps:
+    - name: UX-Gap Scan
+      shell: bash
+      continue-on-error: true
+      env:
+        PGHOST:     ${{ inputs.pg_host }}
+        PGUSER:     ${{ inputs.pg_user }}
+        PGPASSWORD: ${{ inputs.pg_password }}
+        PGDATABASE: ${{ inputs.pg_database }}
+        PGPORT:     ${{ inputs.pg_port }}
+      run: node scripts/ux-gap-scan.mjs || true
+
+    - name: Push P0 UX-Gaps → P18 Ledger
+      id: bridge
+      shell: bash
+      env:
+        SUPABASE_URL: ${{ inputs.supabase_url }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ inputs.service_role_key }}
+      run: |
+        set +e
+        REPORT="/mnt/documents/ux-gap-report.json"
+        [ -f "$REPORT" ] || REPORT="reality-results/ux-gap-report.json"
+
+        echo "report_present=false"   >> "$GITHUB_OUTPUT"
+        echo "total_findings=0"        >> "$GITHUB_OUTPUT"
+        echo "p0_findings=0"           >> "$GITHUB_OUTPUT"
+        echo "bridge_skipped=true"     >> "$GITHUB_OUTPUT"
+        echo "bridge_failed=0"         >> "$GITHUB_OUTPUT"
+        echo "bridge_recorded=0"       >> "$GITHUB_OUTPUT"
+        echo "bridge_http_status=0"    >> "$GITHUB_OUTPUT"
+
+        if [ ! -f "$REPORT" ]; then
+          echo "::warning::ux-gap-report.json missing"
+          echo "## UX-Gap → P18 Bridge"   >> "$GITHUB_STEP_SUMMARY"
+          echo "❌ report missing"        >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        echo "report_present=true" >> "$GITHUB_OUTPUT"
+
+        TOTAL=$(node -e "const r=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));console.log((r.findings||r||[]).length)" "$REPORT")
+        echo "total_findings=$TOTAL" >> "$GITHUB_OUTPUT"
+
+        if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+          echo "::warning::SUPABASE_URL / SERVICE_ROLE_KEY not set — skipping bridge POST"
+          exit 0
+        fi
+
+        P0_JSON=$(node -e "
+          const r = JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));
+          const items = (r.findings || r || []).filter(f => f.severity === 'P0');
+          process.stdout.write(JSON.stringify({ findings: items }));
+        " "$REPORT")
+        COUNT=$(echo "$P0_JSON" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).findings.length))")
+        echo "p0_findings=$COUNT" >> "$GITHUB_OUTPUT"
+        echo "## UX-Gap → P18 Bridge" >> "$GITHUB_STEP_SUMMARY"
+        echo "Total findings: **$TOTAL**, P0: **$COUNT**" >> "$GITHUB_STEP_SUMMARY"
+
+        if [ "$COUNT" = "0" ]; then
+          echo "bridge_skipped=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "bridge_skipped=false" >> "$GITHUB_OUTPUT"
+        HTTP_CODE=$(curl -sS -o /tmp/bridge-resp.json -w "%{http_code}" -X POST \
+          -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+          -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+          -H "Content-Type: application/json" \
+          --max-time 60 \
+          --data "$P0_JSON" \
+          "$SUPABASE_URL/functions/v1/ux-gap-bridge")
+        echo "bridge_http_status=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+        RESP=$(cat /tmp/bridge-resp.json 2>/dev/null || echo '{}')
+        echo "$RESP"
+        echo '```json' >> "$GITHUB_STEP_SUMMARY"
+        echo "$RESP"   >> "$GITHUB_STEP_SUMMARY"
+        echo '```'     >> "$GITHUB_STEP_SUMMARY"
+
+        REC=$(echo  "$RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).recorded||0)}catch{console.log(0)}})")
+        FAIL=$(echo "$RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{console.log(JSON.parse(d).failed||0)}catch{console.log(0)}})")
+        echo "bridge_recorded=$REC" >> "$GITHUB_OUTPUT"
+        echo "bridge_failed=$FAIL"  >> "$GITHUB_OUTPUT"
