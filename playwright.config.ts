@@ -79,6 +79,11 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
+      name: 'ux-gap-bridge',
+      testMatch: /ux-gap-bridge-ledger\.spec\.ts/,
+      timeout: 90_000,
+    },
+    {
       name: 'mobile-overlap',
       testMatch: /mobile-banner-cta-overlap\.spec\.ts/,
       timeout: 60_000,
