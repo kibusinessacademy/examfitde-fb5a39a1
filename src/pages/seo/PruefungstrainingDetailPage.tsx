@@ -440,8 +440,8 @@ const PruefungstrainingDetailPage = () => {
                     </Button>
                   </Link>
                 ) : (
-                  <Button size="lg" disabled className="w-full opacity-60 rounded-xl h-14">
-                    Bald verfügbar
+                  <Button asChild size="lg" variant="outline" className="w-full rounded-xl h-14">
+                    <Link to="/shop">Verfügbare Trainings ansehen</Link>
                   </Button>
                 )}
 
