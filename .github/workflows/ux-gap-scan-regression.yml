@@ -1,0 +1,50 @@
+name: ux-gap-scan regression
+
+on:
+  pull_request:
+    paths:
+      - "scripts/ux-gap-scan.mjs"
+      - "src/test/ux-gap-scan.regression.test.ts"
+      - ".github/workflows/ux-gap-scan-regression.yml"
+      - "qa-state/pre-customer/**"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/ux-gap-scan.mjs"
+      - "src/test/ux-gap-scan.regression.test.ts"
+  workflow_dispatch:
+
+concurrency:
+  group: ux-gap-scan-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  regression:
+    name: Vitest · ux-gap-scan regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+      - name: Verify Node.js 24
+        run: |
+          NODE_MAJOR=$(node -v | sed 's/v\([0-9]*\).*/\1/')
+          if [ "$NODE_MAJOR" != "24" ]; then
+            echo "::error::Expected Node.js 24, got $(node -v)"
+            exit 1
+          fi
+      - run: npm ci --legacy-peer-deps
+      - name: Run hydration-drift regression suite
+        run: npx vitest run src/test/ux-gap-scan.regression.test.ts --reporter=verbose
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 🔁 ux-gap-scan Regression" >> $GITHUB_STEP_SUMMARY
+          echo "Locks hydration-drift classification + P0 emission contract for" >> $GITHUB_STEP_SUMMARY
+          echo "\`scripts/ux-gap-scan.mjs\` consumed by the Daily customer-reality-gate" >> $GITHUB_STEP_SUMMARY
+          echo "and \`ux-gap-bridge\` edge function." >> $GITHUB_STEP_SUMMARY
