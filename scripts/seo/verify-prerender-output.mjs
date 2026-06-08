@@ -24,21 +24,24 @@ const MIN_PRERENDERED_ROUTES = parseInt(process.env.MIN_PRERENDERED || '20', 10)
 
 // Routes that MUST be prerendered as dist/<slug>/index.html with
 // route-specific title/canonical. Keep aligned with src/content/seoRoutes.ts.
+//
+// /berufe is a fully prerendered SSOT hub route (see src/content/seoRoutes.ts:594),
+// NOT sitemap-only. It MUST exist as dist/berufe/index.html — probe it explicitly
+// so a regression to "sitemap-only" mode fails this gate instead of slipping past.
 const SAMPLE_PROBE_ROUTES = [
+  'berufe',
   'fiae-pruefungsvorbereitung',
   'bilanzbuchhalter-pruefungsvorbereitung',
   'pruefungstraining-azubis',
   'preise',
 ];
 
-// Sitemap-only routes: DB-driven category/listing pages that are intentionally
-// NOT prerendered (memory `sitemap-only-mode-for-db-routes-v1`). The build
-// must NOT produce dist/<slug>/index.html for these — Vercel rewrites to the
-// SPA shell at request time. Each entry's sitemap shard must be referenced
-// in dist/sitemap.xml (the sitemap-index).
-// NOTE: /berufe is a fully prerendered SSOT hub route (see src/content/seoRoutes.ts:594),
-// NOT sitemap-only. It MUST exist as dist/berufe/index.html. Keep this array for future
-// truly DB-only listing routes (none currently).
+// Sitemap-only routes: DB-driven listing pages that are intentionally NOT
+// prerendered (memory `sitemap-only-mode-for-db-routes-v1`). For each entry,
+// dist/<slug>/index.html MUST be absent (Vercel rewrites SPA shell at request
+// time) AND the sitemap shard MUST be referenced in dist/sitemap.xml.
+// Currently empty — /berufe was removed from this list because it is a fully
+// prerendered hub route. Keep array for future truly DB-only routes.
 const SITEMAP_ONLY_ROUTES = [];
 
 let failures = 0;
@@ -114,9 +117,12 @@ log(sitemapXml.length > 0, `dist/sitemap.xml present (${sitemapXml.length} bytes
 
 for (const { slug, sitemapShard } of SITEMAP_ONLY_ROUTES) {
   const htmlPath = join(DIST, slug, 'index.html');
+  const absent = !existsSync(htmlPath);
   log(
-    !existsSync(htmlPath),
-    `/${slug} → no dist/${slug}/index.html (sitemap-only, must be absent)`,
+    absent,
+    absent
+      ? `/${slug} → no dist/${slug}/index.html (sitemap-only, absent as expected)`
+      : `/${slug} → dist/${slug}/index.html exists, but route is declared sitemap-only`,
   );
   // Sitemap shard is referenced as ?type=<shard> in the sitemap-index.
   const shardRef = `type=${sitemapShard}`;

@@ -41,12 +41,33 @@ const SUPABASE_URL =
   _envFile.SUPABASE_URL ||
   _envFile.VITE_SUPABASE_URL ||
   "";
+// Build-time SEO key resolver. Priority order:
+//   1. SUPABASE_SECRET_KEY  (sb_secret_…)  — server-only, bypasses RLS for prerender.
+//   2. SUPABASE_PUBLISHABLE_KEY / VITE_SUPABASE_PUBLISHABLE_KEY  (sb_publishable_…) — new publishable.
+//   3. Legacy SUPABASE_ANON_KEY / VITE_SUPABASE_ANON_KEY — accepted only as last-resort fallback;
+//      Supabase has disabled legacy keys for most projects, so these will 401. Logged on use.
+// NEVER set SUPABASE_SECRET_KEY as a VITE_* var — that would ship it client-side.
 const SUPABASE_KEY =
+  process.env.SUPABASE_SECRET_KEY ||
+  _envFile.SUPABASE_SECRET_KEY ||
   process.env.SUPABASE_PUBLISHABLE_KEY ||
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   _envFile.SUPABASE_PUBLISHABLE_KEY ||
   _envFile.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
   "";
+if (
+  SUPABASE_KEY &&
+  !SUPABASE_KEY.startsWith("sb_") &&
+  !process.env.__SEO_KEY_WARNED__
+) {
+  console.warn(
+    "[seo-dynamic] WARN: using legacy Supabase key — Supabase has disabled legacy keys for most projects. " +
+      "Set SUPABASE_SECRET_KEY (server-only) or VITE_SUPABASE_PUBLISHABLE_KEY (sb_publishable_…) instead.",
+  );
+  process.env.__SEO_KEY_WARNED__ = "1";
+}
 
 
 function clamp(s, min, max) {
