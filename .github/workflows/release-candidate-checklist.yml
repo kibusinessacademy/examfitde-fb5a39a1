@@ -93,6 +93,15 @@ jobs:
           npx vitest run --reporter=verbose 2>&1 | tee rc-evidence/test.log
           echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
+      # ── Gate 4: VibeOS Public-Bundle Hard-Separation Guard ──────────
+      - name: VibeOS public-bundle guard (berufos.com)
+        id: vibeos_guard
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          node scripts/guards/vibeos-public-bundle-guard.mjs 2>&1 | tee rc-evidence/vibeos-guard.log
+          echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
       # ── Render the Markdown evidence artifact ────────────────────────
       - name: Compose Release Evidence (Markdown)
         if: always()
@@ -101,6 +110,7 @@ jobs:
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
           TEST_OUTCOME: ${{ steps.test.outcome }}
+          VIBEOS_OUTCOME: ${{ steps.vibeos_guard.outcome }}
           GH_SHA: ${{ github.sha }}
           GH_REF: ${{ github.ref }}
           GH_ACTOR: ${{ github.actor }}
@@ -115,9 +125,10 @@ jobs:
           const label = (o) => o === 'success' ? 'PASS' : o === 'skipped' ? 'SKIPPED' : 'FAIL';
 
           const gates = [
-            { key: 'build',     name: 'pnpm build',      cmd: 'vite build',    outcome: process.env.BUILD_OUTCOME,     log: 'rc-evidence/build.log' },
-            { key: 'typecheck', name: 'pnpm typecheck',  cmd: 'tsc --noEmit',  outcome: process.env.TYPECHECK_OUTCOME, log: 'rc-evidence/typecheck.log' },
-            { key: 'test',      name: 'pnpm test',       cmd: 'vitest run',    outcome: process.env.TEST_OUTCOME,      log: 'rc-evidence/test.log' },
+            { key: 'build',     name: 'pnpm build',       cmd: 'vite build',                           outcome: process.env.BUILD_OUTCOME,     log: 'rc-evidence/build.log' },
+            { key: 'typecheck', name: 'pnpm typecheck',   cmd: 'tsc --noEmit',                         outcome: process.env.TYPECHECK_OUTCOME, log: 'rc-evidence/typecheck.log' },
+            { key: 'test',      name: 'pnpm test',        cmd: 'vitest run',                           outcome: process.env.TEST_OUTCOME,      log: 'rc-evidence/test.log' },
+            { key: 'vibeos',    name: 'vibeos-guard',     cmd: 'node scripts/guards/vibeos-public-bundle-guard.mjs', outcome: process.env.VIBEOS_OUTCOME, log: 'rc-evidence/vibeos-guard.log' },
           ];
 
           const tail = (p, n = 40) => {
@@ -224,10 +235,11 @@ jobs:
           BUILD="${{ steps.build.outcome }}"
           TYPECHECK="${{ steps.typecheck.outcome }}"
           TEST="${{ steps.test.outcome }}"
-          echo "build=$BUILD typecheck=$TYPECHECK test=$TEST"
-          if [ "$BUILD" = "success" ] && [ "$TYPECHECK" = "success" ] && [ "$TEST" = "success" ]; then
+          VIBEOS="${{ steps.vibeos_guard.outcome }}"
+          echo "build=$BUILD typecheck=$TYPECHECK test=$TEST vibeos=$VIBEOS"
+          if [ "$BUILD" = "success" ] && [ "$TYPECHECK" = "success" ] && [ "$TEST" = "success" ] && [ "$VIBEOS" = "success" ]; then
             echo "✅ RELEASE CANDIDATE — GREEN"
             exit 0
           fi
-          echo "::error::RC Checklist failed — build=$BUILD typecheck=$TYPECHECK test=$TEST"
+          echo "::error::RC Checklist failed — build=$BUILD typecheck=$TYPECHECK test=$TEST vibeos=$VIBEOS"
           exit 1
