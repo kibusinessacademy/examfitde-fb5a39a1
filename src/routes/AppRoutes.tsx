@@ -224,8 +224,8 @@ const WorkBuyPage = lazyRetry(() => import('@/pages/work/WorkBuyPage'));
 // WorkBundleBuyPage removed 2026-05-17 (A4 dead-code cleanup, no active funnel pointing to /work/bundles/:bundleId)
 const WorkCorporatePage = lazyRetry(() => import('@/pages/work/WorkCorporatePage'));
 
-// VibeOS Masterbrand Landingpage
-const VibeOSLandingPage = lazyRetry(() => import('@/pages/VibeOSLandingPage'));
+// VibeOS Masterbrand Landingpage — removed 2026-06-08 (brand hard-separation).
+// /vibeos and /platform now return 404 on berufos.com (see route definitions below).
 const BerufOSHub = lazyRetry(() => import('@/pages/BerufOSHub'));
 const BerufOSModulePage = lazyRetry(() => import('@/pages/berufos/BerufOSModulePage'));
 const ProduktHubPage = lazyRetry(() => import('@/pages/products/ProduktHubPage'));
@@ -442,8 +442,16 @@ const AppRoutes = () => {
             Hardcut 2026-05-25: Module sind primär unter /<slug> erreichbar. */}
         <Route path="/berufos" element={<Navigate to="/" replace />} />
         <Route path="/berufos/:slug" element={<BerufOSModulePage />} />
-        <Route path="/vibeos" element={<Navigate to="/" replace />} />
-        <Route path="/platform" element={<Navigate to="/" replace />} />
+        {/* VibeOS surface is forbidden on berufos.com — hard 404 instead of redirect. */}
+        <Route path="/vibeos" element={<NotFound />} />
+        <Route path="/vibeos/*" element={<NotFound />} />
+        <Route path="/platform" element={<NotFound />} />
+        <Route path="/platform/*" element={<NotFound />} />
+        <Route path="/avatar" element={<NotFound />} />
+        <Route path="/avatar/*" element={<NotFound />} />
+        <Route path="/runtime" element={<NotFound />} />
+        <Route path="/runtime/*" element={<NotFound />} />
+        <Route path="/apps/new" element={<NotFound />} />
 
         {/* BerufOS Module unter Root (kanonische URLs) */}
         <Route path="/agents" element={<BerufOSModulePage slug="agents" />} />
