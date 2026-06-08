@@ -117,9 +117,12 @@ log(sitemapXml.length > 0, `dist/sitemap.xml present (${sitemapXml.length} bytes
 
 for (const { slug, sitemapShard } of SITEMAP_ONLY_ROUTES) {
   const htmlPath = join(DIST, slug, 'index.html');
+  const absent = !existsSync(htmlPath);
   log(
-    !existsSync(htmlPath),
-    `/${slug} → no dist/${slug}/index.html (sitemap-only, must be absent)`,
+    absent,
+    absent
+      ? `/${slug} → no dist/${slug}/index.html (sitemap-only, absent as expected)`
+      : `/${slug} → dist/${slug}/index.html exists, but route is declared sitemap-only`,
   );
   // Sitemap shard is referenced as ?type=<shard> in the sitemap-index.
   const shardRef = `type=${sitemapShard}`;
