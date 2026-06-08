@@ -53,10 +53,17 @@ const envFile = readEnvFallback();
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL ||
   envFile.SUPABASE_URL || envFile.VITE_SUPABASE_URL;
+// Build-time key resolver: prefer SUPABASE_SECRET_KEY (server-only),
+// then new publishable keys, then legacy anon as last-resort fallback.
 const SUPABASE_KEY =
+  process.env.SUPABASE_SECRET_KEY ||
+  envFile.SUPABASE_SECRET_KEY ||
   process.env.SUPABASE_PUBLISHABLE_KEY ||
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  envFile.SUPABASE_PUBLISHABLE_KEY || envFile.VITE_SUPABASE_PUBLISHABLE_KEY;
+  envFile.SUPABASE_PUBLISHABLE_KEY ||
+  envFile.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error("[smoke] missing SUPABASE_URL/KEY");
