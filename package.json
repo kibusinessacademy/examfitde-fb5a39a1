@@ -40,7 +40,8 @@
     "guard:architecture:examples": "node scripts/guards/architecture-continuity-guard.mjs --dir docs/examples/architecture-proposals || true",
     "guard:known-systems-sync": "node scripts/guards/known-systems-memory-sync.mjs",
     "guard:pricing-ssot": "node scripts/guards/pricing-text-ssot-guard.mjs",
-    "guard:namespace-drift": "node scripts/guards/namespace-drift-guard.mjs"
+    "guard:namespace-drift": "node scripts/guards/namespace-drift-guard.mjs",
+    "guard:vibeos-public": "node scripts/guards/vibeos-public-bundle-guard.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
