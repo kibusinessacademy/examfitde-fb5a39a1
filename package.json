@@ -41,7 +41,8 @@
     "guard:known-systems-sync": "node scripts/guards/known-systems-memory-sync.mjs",
     "guard:pricing-ssot": "node scripts/guards/pricing-text-ssot-guard.mjs",
     "guard:namespace-drift": "node scripts/guards/namespace-drift-guard.mjs",
-    "guard:vibeos-public": "node scripts/guards/vibeos-public-bundle-guard.mjs"
+    "guard:vibeos-public": "node scripts/guards/vibeos-public-bundle-guard.mjs",
+    "verify:post-deploy:vibeos": "node scripts/guards/post-deploy-vibeos-separation.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
