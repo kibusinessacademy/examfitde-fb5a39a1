@@ -13,7 +13,7 @@
  *   - Cold HTML-Snapshot:   /mnt/documents/evidence/cold/<P>.html
  *   - Cold Header-Dump:     /mnt/documents/evidence/cold/<P>.headers.txt
  *   - Hydration JSON:       reality-results/journey-pass/<file>.json
- *   - Playwright Trace/PNG: test-results/**<spec>**/* (screenshots, traces, logs)
+ *   - Playwright Trace/PNG: test-results/<spec>/... (screenshots, traces, logs)
  *
  * Output: Markdown → /mnt/documents/pre-customer-mapping-report.md + stdout.
  */
