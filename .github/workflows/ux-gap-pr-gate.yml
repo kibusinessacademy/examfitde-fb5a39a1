@@ -122,20 +122,22 @@ jobs:
             const top = r.findings.slice(0, 10)
               .map(f => `- **${f.severity}** \`${f.surface || f.source}\` — ${(f.recommended_action || f.detail || '').slice(0, 200)}`)
               .join('\n') || '_(none)_';
-            const body = `## ❌ UX-Gap PR Gate failed
-
-| Severity | Count |
-|----------|-------|
-| P0 | ${s.P0} |
-| P1 | ${s.P1} |
-| P2 | ${s.P2} |
-
-PR-Gate requires **P0 = P1 = P2 = 0** across static-surface-scan + pre-customer-reality fixtures.
-
-### Top findings
-${top}
-
-_See workflow run for full \`ux-gap-report.json\` artifact._`;
+            const body = [
+              '## ❌ UX-Gap PR Gate failed',
+              '',
+              '| Severity | Count |',
+              '|----------|-------|',
+              `| P0 | ${s.P0} |`,
+              `| P1 | ${s.P1} |`,
+              `| P2 | ${s.P2} |`,
+              '',
+              'PR-Gate requires **P0 = P1 = P2 = 0** across static-surface-scan + pre-customer-reality fixtures.',
+              '',
+              '### Top findings',
+              top,
+              '',
+              '_See workflow run for full `ux-gap-report.json` artifact._',
+            ].join('\n');
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,

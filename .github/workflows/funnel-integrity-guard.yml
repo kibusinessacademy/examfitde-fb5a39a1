@@ -9,6 +9,8 @@ name: Funnel Integrity Regression Guard
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   funnel-integrity:
     runs-on: ubuntu-latest

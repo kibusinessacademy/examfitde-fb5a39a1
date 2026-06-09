@@ -3,9 +3,12 @@ name: Notification Policy Contract Guard
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:

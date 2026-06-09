@@ -3,10 +3,13 @@ name: SQL Discipline Guard
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   guard:
     name: Hard-Block SQL Anti-Patterns
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

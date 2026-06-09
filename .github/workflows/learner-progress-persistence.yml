@@ -26,7 +26,7 @@ jobs:
       E2E_QA_LESSON_ID: ${{ secrets.E2E_QA_LESSON_ID }}
     steps:
       - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
         with: { bun-version: latest }
       - name: Validate required secrets
         uses: ./.github/actions/validate-db-secrets

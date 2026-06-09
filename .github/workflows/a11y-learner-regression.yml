@@ -3,12 +3,15 @@ name: a11y-learner-regression
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   axe:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
         with: { bun-version: latest }
       - run: bun install --frozen-lockfile
       - run: bunx vitest run src/test/a11y/learner-components.a11y.test.tsx
