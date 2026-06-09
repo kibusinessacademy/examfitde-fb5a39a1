@@ -7,6 +7,8 @@ name: GTM Event Mapping Guard
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   gtm-mapping:
     runs-on: ubuntu-latest

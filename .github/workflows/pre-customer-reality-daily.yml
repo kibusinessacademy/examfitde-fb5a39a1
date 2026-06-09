@@ -31,7 +31,7 @@ jobs:
       REALITY_BASE_URL: ${{ github.event.inputs.base_url != '' && github.event.inputs.base_url || secrets.REALITY_BASE_URL || 'https://berufos.com' }}
       CHECKOUT_TEST_MODE: 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
         with:

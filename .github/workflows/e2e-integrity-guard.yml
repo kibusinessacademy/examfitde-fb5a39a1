@@ -3,9 +3,12 @@ name: E2E Pipeline Integrity Guard
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   e2e-integrity:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

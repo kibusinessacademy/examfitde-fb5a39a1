@@ -18,6 +18,8 @@ name: stripe-smoke-b2c
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   smoke:
     if: ${{ inputs.i_understand_live_mode == 'LIVE_MODE_OK' }}

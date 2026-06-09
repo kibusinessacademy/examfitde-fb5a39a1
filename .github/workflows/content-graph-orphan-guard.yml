@@ -3,9 +3,12 @@ name: Content Graph Orphan Guard (warn-only)
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   orphan-guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:

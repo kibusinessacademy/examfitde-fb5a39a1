@@ -3,9 +3,12 @@ name: Canonical Identity Contract Guard
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   identity-guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

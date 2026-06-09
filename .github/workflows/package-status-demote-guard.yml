@@ -3,9 +3,12 @@ name: package-status-demote-guard
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

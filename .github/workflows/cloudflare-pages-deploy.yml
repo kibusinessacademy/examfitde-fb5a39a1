@@ -4,6 +4,8 @@ name: Cloudflare Pages Deploy + SPA Smoke
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 concurrency:
   group: cf-pages-deploy
   cancel-in-progress: false

@@ -3,13 +3,16 @@ name: seo-schema-ssot
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Run guard
         run: node scripts/guards/seo-schema-ssot.mjs

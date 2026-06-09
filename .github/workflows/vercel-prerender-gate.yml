@@ -23,6 +23,8 @@ on:
       - 'scripts/guards/vercel-prerender-rewrites-parity.mjs'
   workflow_dispatch:
 
+permissions: read-all
+
 concurrency:
   group: vercel-prerender-gate-${{ github.ref }}
   cancel-in-progress: true
@@ -41,7 +43,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: "24"
           cache: npm
 
       - name: Install dependencies
@@ -85,7 +87,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: "24"
 
       - name: Wait for Vercel deploy to propagate (90s)
         run: sleep 90

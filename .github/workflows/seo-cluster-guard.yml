@@ -3,10 +3,13 @@ name: SEO Cluster Guard
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   seo-static-audit:
     name: Link, Canonical & Sitemap Parity
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

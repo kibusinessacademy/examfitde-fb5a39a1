@@ -7,6 +7,8 @@ name: Pricing Integrity Regression Guard
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   pricing-integrity:
     runs-on: ubuntu-latest

@@ -2,13 +2,16 @@ name: semantic-graph-integrity-guard
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   graph-guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: "20" }
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: "24" }
       - name: Run semantic graph integrity guard
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

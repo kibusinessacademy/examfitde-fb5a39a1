@@ -3,9 +3,12 @@ name: dead-column-audit
 on:
   workflow_dispatch:
 
+permissions: read-all
+
 jobs:
   dead-column-audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - name: Use Node 24
