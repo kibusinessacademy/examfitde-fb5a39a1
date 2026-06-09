@@ -1,0 +1,87 @@
+name: Post-Deploy VibeOS Separation
+
+# Verifies that production deployments of berufos.com do NOT expose
+# VibeOS public surface (routes, tokens, fallbacks). Runs automatically
+# after any successful production deploy and fails on content-grep hits.
+
+on:
+  workflow_run:
+    workflows: ["Vercel Deploy", "Cloudflare Pages Deploy + SPA Smoke"]
+    types: [completed]
+  repository_dispatch:
+    types: [vercel-deploy-success, deploy-success]
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Target host (e.g. https://berufos.com)"
+        required: false
+        default: "https://berufos.com"
+  schedule:
+    - cron: "30 * * * *"
+
+permissions: read-all
+
+concurrency:
+  group: post-deploy-vibeos-separation-${{ github.event.inputs.host || 'default' }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: VibeOS Separation Verify
+    # Only auto-run after successful deploy workflows; manual/scheduled/dispatch always run.
+    if: >
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Resolve host
+        id: cfg
+        run: |
+          HOST="${{ github.event.inputs.host || github.event.client_payload.host || 'https://berufos.com' }}"
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+
+      - name: Wait briefly for deploy propagation
+        if: github.event_name == 'workflow_run' || github.event_name == 'repository_dispatch'
+        run: sleep 20
+
+      - name: Run post-deploy VibeOS separation check
+        id: check
+        env:
+          HOST: ${{ steps.cfg.outputs.host }}
+        run: |
+          set -o pipefail
+          node scripts/guards/post-deploy-vibeos-separation.mjs \
+            --host="$HOST" \
+            --retries=6 \
+            --timeout=12000 \
+            --backoff=2000 \
+            --max-backoff=30000 | tee verify.log
+
+      - name: Step summary
+        if: always()
+        run: |
+          {
+            echo "## Post-Deploy VibeOS Separation"
+            echo ""
+            echo "- **Host:** \`${{ steps.cfg.outputs.host }}\`"
+            echo "- **Result:** ${{ steps.check.outcome }}"
+            echo ""
+            echo '```'
+            tail -n 120 verify.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload verify log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-vibeos-separation-${{ github.run_id }}
+          path: verify.log
+          retention-days: 30
