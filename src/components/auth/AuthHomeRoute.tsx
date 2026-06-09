@@ -1,7 +1,4 @@
-import { Suspense, lazy } from 'react';
-import { Loader2 } from 'lucide-react';
-
-const BerufOSHub = lazy(() => import('@/pages/BerufOSHub'));
+import BerufOSHub from '@/pages/BerufOSHub';
 
 /**
  * Route-level guard for /.
@@ -12,21 +9,13 @@ const BerufOSHub = lazy(() => import('@/pages/BerufOSHub'));
  *
  * P0 Hydration-Drift Fix (2026-06-07): Wir blockieren NICHT mehr auf
  * `useAuth().loading` — das hatte den Hub nach React-Hydration durch einen
- * Full-Page-Spinner ersetzt und die Pre-Customer Reality Gate auf P01 rot
- * geschaltet (Hero-CTA verschwand post-hydration). BerufOSHub liest `user`
- * selbst und rendert ein optionales Re-Entry-Banner, sobald die Session
- * aufgelöst ist — der öffentliche Funnel-Content ist davon unabhängig.
+ * Full-Page-Spinner ersetzt.
+ *
+ * P0 Hydration-Drift Fix v2 (2026-06-09): BerufOSHub wird EAGER importiert.
+ * Vorher: lazy() + Suspense-Spinner → Pre-Customer Reality Probe nach
+ * `domcontentloaded` sah nur den Spinner, Hero-CTA „Prüfung starten" galt
+ * als fehlend → P01 rot. Root-Route ist immer kritisch, kein Code-Splitting.
  */
 export default function AuthHomeRoute() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      }
-    >
-      <BerufOSHub />
-    </Suspense>
-  );
+  return <BerufOSHub />;
 }
