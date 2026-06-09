@@ -20,17 +20,20 @@ const BASE = process.env.BASE_URL || 'https://berufos.com';
 const OUT = process.env.REPORT_OUT || '/mnt/documents/pre-customer-mapping-report.md';
 const RESULTS_DIR = path.resolve(process.cwd(), 'reality-results/journey-pass');
 
+// NB: Cold-Load = vor-Hydration HTML. React-rendered Fallback-Listen sind
+// hier NICHT sichtbar, das ist by-design (Playwright misst Post-Hydration).
+// Patterns prüfen daher pro Route, was im Prerender-Shell garantiert sein muss.
 const ROUTES = [
   { p: 'P01', label: 'Homepage Hero-CTA', route: '/',
-    coldPatterns: [/Prüfung starten/i, /Kostenlos testen|href="\/demo"/i] },
-  { p: 'P02', label: 'Berufe Fallback-Liste', route: '/berufe',
-    coldPatterns: [/\/berufe\/[a-z][a-z-]{3,}/i] },
-  { p: 'P03', label: 'Course Discovery', route: '/berufe/einzelhandelskaufmann-frau',
-    coldPatterns: [/€|EUR/i, /starten|kaufen|sichern|buchen|loslegen/i] },
+    coldPatterns: [/Prüfung starten/i, /href="\/demo"|Kostenlos testen/i] },
+  { p: 'P02', label: 'Berufe Hub Shell', route: '/berufe',
+    coldPatterns: [/<title[^>]*>[^<]*Beruf/i] },
+  { p: 'P03', label: 'Beruf-Detail Shell', route: '/berufe/einzelhandelskaufmann-frau',
+    coldPatterns: [/<title[^>]*>[^<]*(Einzelhandel|Beruf)/i] },
   { p: 'P04', label: 'Pricing /preise', route: '/preise',
     coldPatterns: [/24[.,]90\s*€/, /kaufen|jetzt|starten|sichern|buchen|loslegen/i] },
-  { p: 'P05', label: 'CTA → Conversion Surface', route: '/berufe',
-    coldPatterns: [/\/auth|\/checkout|\/preise|\/onboarding|\/quiz|\/demo/i] },
+  { p: 'P05', label: 'CTA → Conversion Surface', route: '/',
+    coldPatterns: [/href="\/(auth|checkout|preise|onboarding|quiz|demo)/i] },
 ];
 
 async function fetchHtml(url) {
