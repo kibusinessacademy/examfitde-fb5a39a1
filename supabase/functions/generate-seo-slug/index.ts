@@ -64,57 +64,79 @@ Deno.serve(async (req) => {
     let seoTitle = `${curriculum.title} ${product.name} | ExamFit`;
     let seoDescription = curriculum.description || `${product.name} für ${curriculum.title}. Bereite dich optimal auf deine IHK-Prüfung vor.`;
 
-    // Use Lovable AI Gateway (SSOT) — never call api.openai.com directly.
+    // ── Canary Phase 2: VibeOS Gateway Routing (per-function override) ──
+    // Resolution order:
+    //   1. AI_GATEWAY_MODE_GENERATE_SEO_SLUG  (per-function canary switch)
+    //   2. AI_GATEWAY_MODE                    (global SSOT)
+    //   3. auto: prefer VibeOS if URL+KEY, else Lovable
+    // Rollback: unset AI_GATEWAY_MODE_GENERATE_SEO_SLUG → falls back to global/auto.
+    const fnMode = (Deno.env.get('AI_GATEWAY_MODE_GENERATE_SEO_SLUG') || '').trim().toLowerCase();
+    const globalMode = (Deno.env.get('AI_GATEWAY_MODE') || '').trim().toLowerCase();
+    const vibeosUrl = Deno.env.get('VIBEOS_AI_GATEWAY_URL');
+    const vibeosKey = Deno.env.get('VIBEOS_AI_GATEWAY_KEY');
     const lovableKey = Deno.env.get('LOVABLE_API_KEY');
-    if (lovableKey) {
+
+    let routeUrl: string | null = null;
+    let routeKey: string | null = null;
+    let routeMode: 'vibeos' | 'lovable' | 'none' = 'none';
+    const effectiveMode = fnMode || globalMode;
+
+    if (effectiveMode === 'vibeos') {
+      if (vibeosUrl && vibeosKey) { routeUrl = vibeosUrl; routeKey = vibeosKey; routeMode = 'vibeos'; }
+      else console.warn('[SEO-SLUG] mode=vibeos but VIBEOS_AI_GATEWAY_URL/KEY missing — falling back to Lovable');
+    }
+    if (routeMode === 'none' && effectiveMode === 'lovable' && lovableKey) {
+      routeUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions'; routeKey = lovableKey; routeMode = 'lovable';
+    }
+    if (routeMode === 'none') {
+      if (vibeosUrl && vibeosKey && !effectiveMode) { routeUrl = vibeosUrl; routeKey = vibeosKey; routeMode = 'vibeos'; }
+      else if (lovableKey) { routeUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions'; routeKey = lovableKey; routeMode = 'lovable'; }
+    }
+
+    if (routeUrl && routeKey) {
+      const model = 'openai/gpt-5.2';
+      const t0 = Date.now();
+      console.log(`[SEO-SLUG] route=${routeMode} model=${model} fn_mode=${fnMode || '-'} global_mode=${globalMode || '-'}`);
       try {
-        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        const aiResponse = await fetch(routeUrl, {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${lovableKey}`,
-            'Content-Type': 'application/json',
-          },
+          headers: { Authorization: `Bearer ${routeKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'openai/gpt-5.2',
-
+            model,
             messages: [
-              {
-                role: 'system',
-                content: `Du bist ein SEO-Experte für Bildungsprodukte. 
-                Erstelle prägnante, keyword-optimierte Titel und Beschreibungen für Prüfungsvorbereitungskurse.
-                Antworte AUSSCHLIESSLICH mit JSON.`
-              },
-              {
-                role: 'user',
-                content: `Erstelle SEO-optimierte Metadaten für:
-
-Beruf: ${curriculum.title}
-Produkt: ${product.name}
-Beschreibung: ${curriculum.description || 'Keine Beschreibung verfügbar'}
-
-Antworte mit JSON:
-{
-  "seo_title": "Max 60 Zeichen, Hauptkeyword zuerst",
-  "seo_description": "Max 160 Zeichen, Call-to-Action, Vorteile"
-}`
-              }
+              { role: 'system', content: `Du bist ein SEO-Experte für Bildungsprodukte. Erstelle prägnante, keyword-optimierte Titel und Beschreibungen für Prüfungsvorbereitungskurse. Antworte AUSSCHLIESSLICH mit JSON.` },
+              { role: 'user', content: `Erstelle SEO-optimierte Metadaten für:\n\nBeruf: ${curriculum.title}\nProdukt: ${product.name}\nBeschreibung: ${curriculum.description || 'Keine Beschreibung verfügbar'}\n\nAntworte mit JSON:\n{\n  "seo_title": "Max 60 Zeichen, Hauptkeyword zuerst",\n  "seo_description": "Max 160 Zeichen, Call-to-Action, Vorteile"\n}` }
             ],
             temperature: 0.7,
           }),
         });
+        const ms = Date.now() - t0;
+        console.log(`[SEO-SLUG] route=${routeMode} status=${aiResponse.status} ms=${ms}`);
+
+        // Audit (best-effort, never blocks)
+        try {
+          await supabase.rpc('fn_emit_audit', {
+            p_action_type: 'vibeos_gateway_route_resolved',
+            p_payload: {
+              caller: 'generate-seo-slug',
+              route: routeMode,
+              model,
+              status: aiResponse.status,
+              ms,
+              fn_mode: fnMode || null,
+              global_mode: globalMode || null,
+              canary: !!fnMode,
+            },
+          });
+        } catch (_e) { /* audit optional */ }
 
         if (aiResponse.ok) {
           const result = await aiResponse.json();
           const content = result.choices?.[0]?.message?.content;
-          
           if (content) {
             try {
-              const cleanContent = content
-                .replace(/```json\n?/g, '')
-                .replace(/```\n?/g, '')
-                .trim();
+              const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
               const parsed = JSON.parse(cleanContent);
-              
               if (parsed.seo_title) seoTitle = parsed.seo_title.substring(0, 60);
               if (parsed.seo_description) seoDescription = parsed.seo_description.substring(0, 160);
             } catch {
@@ -123,8 +145,10 @@ Antworte mit JSON:
           }
         }
       } catch (aiError) {
-        console.error('[SEO-SLUG] AI error:', aiError);
+        console.error(`[SEO-SLUG] route=${routeMode} AI error:`, aiError);
       }
+    } else {
+      console.warn('[SEO-SLUG] no gateway key configured — defaults only');
     }
 
     // Update curriculum_product with SEO data
