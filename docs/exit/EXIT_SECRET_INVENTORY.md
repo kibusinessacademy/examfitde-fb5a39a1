@@ -1,3 +1,5 @@
+<!-- version: v1 · 2026-06-10 · source: /mnt/documents/EXIT_SECRET_INVENTORY.md -->
+
 # EXIT_SECRET_INVENTORY
 
 35 Secrets live. Bewertung für Lovable-Exit.
