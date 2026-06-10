@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
     ?? "";
   if (!KEYS.GATEWAY) return bridgeError(500, "VIBEOS_AI_GATEWAY_KEY not configured");
   // constant-time compare
-  const a = new TextEncoder().encoder ? new TextEncoder().encode(auth) : new TextEncoder().encode(auth);
+  const a = new TextEncoder().encode(auth);
   const b = new TextEncoder().encode(KEYS.GATEWAY);
   if (a.length !== b.length) return unauthorized("invalid gateway key");
   let diff = 0;
