@@ -289,10 +289,10 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       }
     }
 
-    resp = await fetch(cfg.url, {
+    resp = await fetch(targetUrl, {
       method: "POST",
       headers: {
-        "x-api-key": apiKey,
+        [route.authHeader.name]: route.authHeader.value,
         "anthropic-version": "2023-06-01",
         // NOTE: prompt-caching-2024-07-31 beta header REMOVED — caching is GA since Dec 2024.
         // The deprecated beta header was being rejected by newer models, preventing caching entirely.
