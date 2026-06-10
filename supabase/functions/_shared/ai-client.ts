@@ -314,7 +314,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     resp = await fetch(targetUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        [route.authHeader.name]: route.authHeader.value,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
