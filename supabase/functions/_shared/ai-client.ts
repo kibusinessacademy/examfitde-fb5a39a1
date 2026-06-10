@@ -100,6 +100,16 @@ interface RouteResolution {
 function resolveRoute(provider: AIProvider, cfgUrl: string, cfgKeyEnv: string): RouteResolution {
   const mode = resolvedMode();
 
+  // Anthropic: native API body shape — always direct, regardless of gateway mode.
+  // Gateways accept anthropic via OpenAI-shape transform, but our caller code
+  // (callAIJSON anthropic branch) emits native Anthropic body. Forcing direct
+  // keeps wire-contract stable and avoids broken transforms in Phase 1.
+  if (provider === "anthropic") {
+    const directKey = Deno.env.get(cfgKeyEnv);
+    if (!directKey) throw new Error(`${cfgKeyEnv} not configured`);
+    return { mode: "direct", url: cfgUrl, authHeader: { name: "x-api-key", value: directKey }, gatewayShape: false };
+  }
+
   if (mode === "vibeos") {
     const url = Deno.env.get("VIBEOS_AI_GATEWAY_URL");
     const key = Deno.env.get("VIBEOS_AI_GATEWAY_KEY");
@@ -110,21 +120,13 @@ function resolveRoute(provider: AIProvider, cfgUrl: string, cfgKeyEnv: string): 
   if (mode === "lovable") {
     const key = Deno.env.get("LOVABLE_API_KEY");
     if (!key) throw new Error("AI_GATEWAY_MODE=lovable but LOVABLE_API_KEY not configured");
-    // Lovable Gateway covers openai+google; anthropic falls back to direct.
-    if (provider === "anthropic") {
-      const directKey = Deno.env.get(cfgKeyEnv);
-      if (!directKey) throw new Error(`${cfgKeyEnv} not configured (anthropic direct fallback under mode=lovable)`);
-      return { mode: "direct", url: cfgUrl, authHeader: { name: "x-api-key", value: directKey }, gatewayShape: false };
-    }
     return { mode, url: LOVABLE_GATEWAY_URL, authHeader: { name: "Authorization", value: `Bearer ${key}` }, gatewayShape: true };
   }
 
   // direct
   const directKey = Deno.env.get(cfgKeyEnv);
   if (!directKey) throw new Error(`${cfgKeyEnv} not configured`);
-  const authName = provider === "anthropic" ? "x-api-key" : "Authorization";
-  const authValue = provider === "anthropic" ? directKey : `Bearer ${directKey}`;
-  return { mode: "direct", url: cfgUrl, authHeader: { name: authName, value: authValue }, gatewayShape: false };
+  return { mode: "direct", url: cfgUrl, authHeader: { name: "Authorization", value: `Bearer ${directKey}` }, gatewayShape: false };
 }
 
 function ensureGatewayModel(provider: AIProvider, model: string): string {
