@@ -60,29 +60,80 @@ export interface AIResponse {
 }
 
 /**
- * Lovable AI Gateway — SSOT for openai/google providers.
+ * AI Gateway Routing — SSOT (Exit Phase 2)
  *
- * Direct calls to api.openai.com or generativelanguage.googleapis.com
- * fail on Gateway-only model names (e.g. `gpt-5.4-mini`, `gemini-2.5-flash`).
- * The Gateway accepts prefixed model IDs (`openai/...`, `google/...`) and
- * authenticates via `LOVABLE_API_KEY` for both providers.
+ * ENV switch `AI_GATEWAY_MODE`:
+ *   - `vibeos`  → route via VIBEOS_AI_GATEWAY_URL + VIBEOS_AI_GATEWAY_KEY
+ *   - `lovable` → route via Lovable AI Gateway + LOVABLE_API_KEY
+ *   - `direct`  → call provider APIs directly (OPENAI/ANTHROPIC/GOOGLE keys)
+ *   - unset     → auto: prefer VibeOS if URL+KEY present, else Lovable, else direct
  *
- * When LOVABLE_API_KEY is present (always true in this project), `openai`
- * and `google` providers are routed through the Gateway. The model name is
- * auto-prefixed if the caller passed an unprefixed value.
+ * Wire-contract for vibeos + lovable is identical (OpenAI-compatible),
+ * so route resolution only swaps URL + auth header.
  *
- * Anthropic stays direct (separate API + key + endpoint).
+ * Anthropic stays on its native API path (separate body shape) unless mode
+ * forces gateway routing — gateways accept anthropic via the OpenAI body shape.
+ *
+ * Rollback: `unset AI_GATEWAY_MODE` + `unset VIBEOS_AI_GATEWAY_URL` →
+ * automatic fallback to Lovable Gateway. See docs/runbooks/vibeos-ai-gateway-rollback.md
  */
 const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-function lovableGatewayEnabled(): boolean {
-  return !!Deno.env.get("LOVABLE_API_KEY");
+type GatewayMode = "vibeos" | "lovable" | "direct";
+
+function resolvedMode(): GatewayMode {
+  const raw = (Deno.env.get("AI_GATEWAY_MODE") || "").trim().toLowerCase();
+  if (raw === "vibeos" || raw === "lovable" || raw === "direct") return raw as GatewayMode;
+  // Auto: prefer VibeOS when configured, then Lovable, then direct
+  if (Deno.env.get("VIBEOS_AI_GATEWAY_URL") && Deno.env.get("VIBEOS_AI_GATEWAY_KEY")) return "vibeos";
+  if (Deno.env.get("LOVABLE_API_KEY")) return "lovable";
+  return "direct";
+}
+
+interface RouteResolution {
+  mode: GatewayMode;
+  url: string;
+  authHeader: { name: string; value: string };
+  gatewayShape: boolean; // true = OpenAI-compatible body even for anthropic
+}
+
+function resolveRoute(provider: AIProvider, cfgUrl: string, cfgKeyEnv: string): RouteResolution {
+  const mode = resolvedMode();
+
+  // Anthropic: native API body shape — always direct, regardless of gateway mode.
+  // Gateways accept anthropic via OpenAI-shape transform, but our caller code
+  // (callAIJSON anthropic branch) emits native Anthropic body. Forcing direct
+  // keeps wire-contract stable and avoids broken transforms in Phase 1.
+  if (provider === "anthropic") {
+    const directKey = Deno.env.get(cfgKeyEnv);
+    if (!directKey) throw new Error(`${cfgKeyEnv} not configured`);
+    return { mode: "direct", url: cfgUrl, authHeader: { name: "x-api-key", value: directKey }, gatewayShape: false };
+  }
+
+  if (mode === "vibeos") {
+    const url = Deno.env.get("VIBEOS_AI_GATEWAY_URL");
+    const key = Deno.env.get("VIBEOS_AI_GATEWAY_KEY");
+    if (!url || !key) throw new Error("AI_GATEWAY_MODE=vibeos but VIBEOS_AI_GATEWAY_URL/KEY not configured");
+    return { mode, url, authHeader: { name: "Authorization", value: `Bearer ${key}` }, gatewayShape: true };
+  }
+
+  if (mode === "lovable") {
+    const key = Deno.env.get("LOVABLE_API_KEY");
+    if (!key) throw new Error("AI_GATEWAY_MODE=lovable but LOVABLE_API_KEY not configured");
+    return { mode, url: LOVABLE_GATEWAY_URL, authHeader: { name: "Authorization", value: `Bearer ${key}` }, gatewayShape: true };
+  }
+
+  // direct
+  const directKey = Deno.env.get(cfgKeyEnv);
+  if (!directKey) throw new Error(`${cfgKeyEnv} not configured`);
+  return { mode: "direct", url: cfgUrl, authHeader: { name: "Authorization", value: `Bearer ${directKey}` }, gatewayShape: false };
 }
 
 function ensureGatewayModel(provider: AIProvider, model: string): string {
   if (model.includes("/")) return model; // already prefixed
   if (provider === "openai") return `openai/${model}`;
   if (provider === "google") return `google/${model}`;
+  if (provider === "anthropic") return `anthropic/${model}`;
   return model;
 }
 
@@ -132,15 +183,10 @@ const AI_FETCH_TIMEOUT_MS = 48_000;  // v15: was 38s — raised to 48s. 38s was 
 export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const cfg = PROVIDER_DEFAULTS[opts.provider];
 
-  // ── SSOT routing: openai + google route through Lovable AI Gateway ──
-  // The Gateway accepts both providers via LOVABLE_API_KEY and avoids
-  // `invalid model ID` errors caused by Gateway-only model names being
-  // sent to api.openai.com directly.
-  const useGateway = lovableGatewayEnabled() && (opts.provider === "openai" || opts.provider === "google");
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const apiKey = useGateway ? lovableKey! : Deno.env.get(cfg.keyEnv);
-  if (!apiKey) throw new Error(`${useGateway ? "LOVABLE_API_KEY" : cfg.keyEnv} not configured`);
-  const targetUrl = useGateway ? LOVABLE_GATEWAY_URL : cfg.url;
+  // ── Route resolution: AI_GATEWAY_MODE = vibeos | lovable | direct (auto-fallback) ──
+  const route = resolveRoute(opts.provider, cfg.url, cfg.keyEnv);
+  const useGateway = route.gatewayShape; // OpenAI-compatible body via gateway
+  const targetUrl = route.url;
 
   // ── Proactive rate-limit check (with cooldown wait) ──
   let health = getProviderHealth(opts.provider);
@@ -186,7 +232,9 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
   const model = useGateway ? ensureGatewayModel(opts.provider, rawModel) : rawModel;
 
   if (useGateway && rawModel !== model) {
-    console.info(`[AI-CLIENT] Gateway route: ${opts.provider} ${rawModel} → ${model} (auto-prefixed)`);
+    console.info(`[AI-CLIENT] Gateway route: mode=${route.mode} ${opts.provider} ${rawModel} → ${model} (auto-prefixed)`);
+  } else {
+    console.info(`[AI-CLIENT] route=${route.mode} provider=${opts.provider} model=${model}`);
   }
   let resp: Response;
 
@@ -241,10 +289,10 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
       }
     }
 
-    resp = await fetch(cfg.url, {
+    resp = await fetch(targetUrl, {
       method: "POST",
       headers: {
-        "x-api-key": apiKey,
+        [route.authHeader.name]: route.authHeader.value,
         "anthropic-version": "2023-06-01",
         // NOTE: prompt-caching-2024-07-31 beta header REMOVED — caching is GA since Dec 2024.
         // The deprecated beta header was being rejected by newer models, preventing caching entirely.
@@ -266,7 +314,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     resp = await fetch(targetUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        [route.authHeader.name]: route.authHeader.value,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -302,7 +350,7 @@ export async function callAI(opts: AIRequestOptions): Promise<AIResponse> {
     resp = await fetch(targetUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        [route.authHeader.name]: route.authHeader.value,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
