@@ -116,8 +116,8 @@ Deno.serve(async (req) => {
         // Audit (best-effort, never blocks)
         try {
           await supabase.rpc('fn_emit_audit', {
-            p_action_type: 'vibeos_gateway_route_resolved',
-            p_payload: {
+            _action_type: 'vibeos_gateway_route_resolved',
+            _payload: {
               caller: 'generate-seo-slug',
               route: routeMode,
               model,
