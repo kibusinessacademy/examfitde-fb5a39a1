@@ -69,11 +69,15 @@ async function runOne(
   let error_code: string | null = null;
   let output = "";
   try {
+    const platformKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Vibeos-Gateway-Key": key,
+        // Supabase edge router requires a platform key for edge-to-edge calls
+        "apikey": platformKey,
+        "Authorization": `Bearer ${platformKey}`,
       },
       body: JSON.stringify({
         model,
