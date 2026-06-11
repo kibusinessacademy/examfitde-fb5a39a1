@@ -160,11 +160,14 @@ Deno.serve(async (req) => {
   const target = URL_.endsWith("/v1/chat/completions") ? URL_ : `${URL_.replace(/\/$/, "")}/v1/chat/completions`;
 
   const results: RunResult[] = [];
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   let i = 0;
   for (const p of STANDARD_PROMPTS) {
+    if (i > 0) await sleep(REQUEST_SPACING_MS);
     results.push(await runOne(++i, "standard", p, target, KEY_, model));
   }
   for (const p of EDGE_CASE_PROMPTS) {
+    await sleep(REQUEST_SPACING_MS);
     results.push(await runOne(++i, "edge", p, target, KEY_, model));
   }
 
