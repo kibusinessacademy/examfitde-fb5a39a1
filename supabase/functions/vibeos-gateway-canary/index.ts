@@ -19,7 +19,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { assertAdmin } from "../_shared/edgeAuthContract.ts";
 
 const FN_NAME = "vibeos-gateway-canary";
-const DEFAULT_MODEL = "openai/gpt-5.2-mini";
+const DEFAULT_MODEL = "openai/gpt-4o-mini"; // Direct OpenAI model (Vibeos gateway proxies straight to api.openai.com)
+const REQUEST_SPACING_MS = 800;
 
 const STANDARD_PROMPTS = [
   "Write a 5-word SEO slug for: Bürokauffrau Ausbildung Prüfungsvorbereitung",
@@ -69,11 +70,16 @@ async function runOne(
   let error_code: string | null = null;
   let output = "";
   try {
+    const platformKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        // Gateway-Auth (proxy reads this first).
         "Vibeos-Gateway-Key": key,
+        // Supabase edge router requires platform creds for edge-to-edge calls.
+        "apikey": platformKey,
+        "Authorization": `Bearer ${platformKey}`,
       },
       body: JSON.stringify({
         model,
@@ -154,11 +160,14 @@ Deno.serve(async (req) => {
   const target = URL_.endsWith("/v1/chat/completions") ? URL_ : `${URL_.replace(/\/$/, "")}/v1/chat/completions`;
 
   const results: RunResult[] = [];
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   let i = 0;
   for (const p of STANDARD_PROMPTS) {
+    if (i > 0) await sleep(REQUEST_SPACING_MS);
     results.push(await runOne(++i, "standard", p, target, KEY_, model));
   }
   for (const p of EDGE_CASE_PROMPTS) {
+    await sleep(REQUEST_SPACING_MS);
     results.push(await runOne(++i, "edge", p, target, KEY_, model));
   }
 

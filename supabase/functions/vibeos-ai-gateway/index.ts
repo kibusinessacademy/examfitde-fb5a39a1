@@ -192,9 +192,10 @@ Deno.serve(async (req) => {
 
   if (req.method !== "POST") return badRequest("method not allowed");
 
-  // Auth
-  const auth = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "")
-    ?? req.headers.get("vibeos-gateway-key")
+  // Auth — prefer dedicated header so edge-to-edge callers can pass the Supabase
+  // platform JWT in Authorization for the router without confusing the gateway.
+  const auth = req.headers.get("vibeos-gateway-key")
+    ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "")
     ?? "";
   if (!KEYS.GATEWAY) return bridgeError(500, "VIBEOS_AI_GATEWAY_KEY not configured");
   // constant-time compare
