@@ -74,12 +74,11 @@ async function runOne(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        // Gateway-Auth (proxy reads this first).
         "Vibeos-Gateway-Key": key,
-        // Supabase edge router requires apikey for edge-to-edge calls.
-        // We intentionally do NOT set Authorization here, because the gateway
-        // prefers Authorization over Vibeos-Gateway-Key and would mis-read the
-        // platform JWT as the gateway key.
+        // Supabase edge router requires platform creds for edge-to-edge calls.
         "apikey": platformKey,
+        "Authorization": `Bearer ${platformKey}`,
       },
       body: JSON.stringify({
         model,
