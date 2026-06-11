@@ -19,7 +19,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { assertAdmin } from "../_shared/edgeAuthContract.ts";
 
 const FN_NAME = "vibeos-gateway-canary";
-const DEFAULT_MODEL = "openai/gpt-5.2-mini";
+const DEFAULT_MODEL = "openai/gpt-4o-mini"; // Direct OpenAI model (Vibeos gateway proxies straight to api.openai.com)
+const REQUEST_SPACING_MS = 800;
 
 const STANDARD_PROMPTS = [
   "Write a 5-word SEO slug for: Bürokauffrau Ausbildung Prüfungsvorbereitung",
