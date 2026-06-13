@@ -28,6 +28,9 @@ import {
   useLearnerRealityBridge,
   type LearnerRealitySnapshot,
 } from "@/hooks/useLearnerRealityBridge";
+import { RouteIdentityBlock } from "@/components/learner/RouteIdentityBlock";
+import { OutcomeHintBlock } from "@/components/learner/OutcomeHintBlock";
+import { useOsBeruf } from "@/lib/os/os-identity";
 
 /**
  * /app/lernpfad — P0-3 Sprint 1: DB-gebundene Prüfungsstrategie.
@@ -35,12 +38,30 @@ import {
  */
 export default function AppLernpfadPage() {
   const reality = useLearnerRealityBridge();
+  const beruf = useOsBeruf();
 
   return (
     <main className="lp-v2 min-h-screen w-full">
       <div className="relative mx-auto flex min-h-screen w-full max-w-[680px] flex-col px-5 pb-24 pt-8 sm:px-8 sm:pt-12">
         <BackgroundAura />
         <StrategyHeader />
+        <RouteIdentityBlock
+          title="Mein Lernpfad"
+          subtitle="Deine priorisierte Prüfungsstrategie — Schritt für Schritt, basierend auf deinen aktuellen Schwächen."
+          contextLine={beruf?.label ? `für ${beruf.label}` : undefined}
+          description="ExamFit Lernpfad: priorisierte Kompetenzen und der konkret nächste Schritt zu deiner IHK-Prüfung."
+          testId="lernpfad-identity"
+        />
+        <OutcomeHintBlock
+          heading="Nach dem nächsten Schritt:"
+          bullets={[
+            "Konkrete Übung statt Themenliste",
+            "Priorisierung passt sich an deine Antworten an",
+            "Du näherst dich messbar der Prüfungsreife",
+          ]}
+          className="mb-5"
+          testId="lernpfad-outcome-hint"
+        />
         {reality.needsOnboarding ? (
           <LernpfadOnboarding />
         ) : reality.loading && !reality.hasData ? (

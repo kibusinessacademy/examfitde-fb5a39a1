@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { RouteIdentityBlock } from "@/components/learner/RouteIdentityBlock";
+import { OutcomeHintBlock } from "@/components/learner/OutcomeHintBlock";
+import { useOsBeruf } from "@/lib/os/os-identity";
 import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -192,6 +195,7 @@ function RiskChip({ t, children }: { t: RiskTone; children: React.ReactNode }) {
 export default function AppMiniCheckPage() {
   const { competencyId } = useParams();
   const system = useSystemConsciousness();
+  const beruf = useOsBeruf();
   const [stage, setStage] = useState<Stage>("pre");
   const [pick, setPick] = useState<DiagPrompt["options"][number] | null>(null);
   const [recalcPulse, setRecalcPulse] = useState(false);
@@ -288,6 +292,25 @@ export default function AppMiniCheckPage() {
       <BackgroundAura t={stateAfter?.risk ?? PROMPT.riskBefore} />
 
       <div className="relative mx-auto w-full max-w-2xl px-5 pt-8 pb-32">
+        <RouteIdentityBlock
+          eyebrow="MiniCheck · Diagnose"
+          title="MiniCheck"
+          subtitle="Kein Quiz, sondern ein diagnostischer Impuls: misst, wie stabil du eine prüfungsrelevante Kompetenz heute beherrschst."
+          contextLine={beruf?.label ? `für ${beruf.label}` : undefined}
+          description="ExamFit MiniCheck: kurze diagnostische Impulse, die deinen aktuellen Prüfungszustand re-evaluieren."
+          testId="minicheck-identity"
+        />
+        <OutcomeHintBlock
+          heading="Nach diesem Check:"
+          bullets={[
+            "Aktualisierter Prüfungszustand für diese Kompetenz",
+            "Empfehlung für den nächsten Lernschritt",
+            "Schwächen werden automatisch in deinen Lernpfad übernommen",
+          ]}
+          className="mb-4"
+          testId="minicheck-outcome-hint"
+        />
+
         {/* System-Strip */}
         <SystemStrip recalcPulse={recalcPulse} elapsed={elapsed} stage={stage} />
 

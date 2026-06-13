@@ -26,6 +26,9 @@ import {
   useLearnerRealityBridge,
   type LearnerRealitySnapshot,
 } from "@/hooks/useLearnerRealityBridge";
+import { RouteIdentityBlock } from "@/components/learner/RouteIdentityBlock";
+import { OutcomeHintBlock } from "@/components/learner/OutcomeHintBlock";
+import { useOsBeruf } from "@/lib/os/os-identity";
 
 /**
  * /app/tutor — P0-3 Sprint 1: DB-gebundener Tutor.
@@ -33,12 +36,30 @@ import {
  */
 export default function AppTutorPage() {
   const reality = useLearnerRealityBridge();
+  const beruf = useOsBeruf();
 
   return (
     <main className="lp-v2 min-h-screen w-full">
       <div className="relative mx-auto flex min-h-screen w-full max-w-[680px] flex-col px-5 pb-28 pt-8 sm:px-8 sm:pt-12">
         <BackgroundAura />
         <TutorHeader />
+        <RouteIdentityBlock
+          title="AI Tutor"
+          subtitle="Dein persönlicher Prüfungscoach — erkennt deine Schwächen und führt dich gezielt zur nächsten Übung."
+          contextLine={beruf?.label ? `für ${beruf.label}` : undefined}
+          description="ExamFit AI Tutor: erkennt deine Schwächen, erklärt Prüfungsmuster und schlägt den nächsten Lernschritt vor."
+          testId="tutor-identity"
+        />
+        <OutcomeHintBlock
+          heading="Nach dem Start:"
+          bullets={[
+            "Schwächen erkennen — Tutor analysiert deine letzten Antworten",
+            "Lernempfehlungen erhalten — passend zu deinem Beruf",
+            "Gezielt auf die Prüfung vorbereiten — Schritt für Schritt",
+          ]}
+          className="mb-5"
+          testId="tutor-outcome-hint"
+        />
         {reality.needsOnboarding || (!reality.hasData && !reality.loading) ? (
           <TutorOnboarding />
         ) : reality.loading && !reality.hasData ? (

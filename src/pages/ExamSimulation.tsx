@@ -37,6 +37,8 @@ import { BlueprintSelector } from '@/components/exam/BlueprintSelector';
 import { QuestionCard } from '@/components/exam/QuestionCard';
 import { ResultsScreen } from '@/components/exam/ResultsScreen';
 import { SimulationGateGuard } from '@/components/exam/SimulationGateGuard';
+import { RouteIdentityBlock } from '@/components/learner/RouteIdentityBlock';
+import { useOsBeruf } from '@/lib/os/os-identity';
 import { ExamTimer } from '@/components/exam/ExamTimer';
 import { ConfidenceSlider } from '@/components/exam/ConfidenceSlider';
 import { PassProbabilityBadge } from '@/components/exam/PassProbabilityBadge';
@@ -61,7 +63,8 @@ function getAIMode(examMode: string): AIMode {
 export default function ExamSimulation() {
   const { sessionId } = useParams<{ sessionId?: string }>();
   const navigate = useNavigate();
-  
+  const beruf = useOsBeruf();
+
   const [examResult, setExamResult] = useState<ExamResult | null>(null);
   const [showFinishDialog, setShowFinishDialog] = useState(false);
   const [confidence, setConfidence] = useState(50);
@@ -162,6 +165,14 @@ export default function ExamSimulation() {
     
     return (
       <div className="container max-w-4xl py-8">
+        <RouteIdentityBlock
+          eyebrow="Prüfungssimulation"
+          title="Prüfungssimulation starten"
+          subtitle="Simuliere eine vollständige IHK-Prüfung unter realen Bedingungen — und erkenne, wo du heute stehst."
+          contextLine={beruf?.label ? `für ${beruf.label}` : undefined}
+          description="ExamFit Prüfungssimulation: IHK-nahe Simulation mit Auswertung, Schwächenanalyse und nächster Lernempfehlung."
+          testId="exam-sim-identity"
+        />
         {firstCurriculumId ? (
           <SimulationGateGuard curriculumId={firstCurriculumId}>
             <BlueprintSelector 

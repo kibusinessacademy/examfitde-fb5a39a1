@@ -50,12 +50,17 @@ import {
   resolveDashboardNextStep,
   type ResolverEnrollment,
 } from '@/features/activation/resolveDashboardNextStep';
+import { RouteIdentityBlock } from '@/components/learner/RouteIdentityBlock';
+import { OutcomeHintBlock } from '@/components/learner/OutcomeHintBlock';
+import { useOsBeruf } from '@/lib/os/os-identity';
 
 export default function LearnerDashboard() {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { data: dashboard, isLoading: loading } = useDashboardSummary();
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const beruf = useOsBeruf();
 
   const enrollments = dashboard?.enrollments || [];
   const activeCurriculumId = dashboard?.active_curriculum_id || null;
@@ -103,37 +108,37 @@ export default function LearnerDashboard() {
   return (
     <div className="py-4 sm:py-8 px-3 sm:px-4">
       <div className="container mx-auto max-w-3xl">
-        {/* ━━━ Compact Header ━━━ */}
-        <div className="mb-5">
-          <h1 className="text-xl sm:text-2xl font-display font-bold leading-tight">
-            Hallo,{' '}
-            <span className="text-gradient">
-              {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
-            </span>
-          </h1>
-          {isAdmin && (
-            <Link to="/admin/command">
-              <Button variant="ghost" size="sm" className="mt-1 h-8 text-xs">
-                <Sparkles className="h-3 w-3 mr-1" />
-                Admin
-              </Button>
-            </Link>
-          )}
-        </div>
+        {/* ━━━ Route Identity (KIMI.2 QFAF Q1+Q2) ━━━ */}
+        <RouteIdentityBlock
+          eyebrow={`Hallo, ${user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Lernende:r'}`}
+          title="Dashboard"
+          subtitle="Hier steuerst du deine komplette Prüfungsvorbereitung."
+          contextLine={beruf?.label ? `Aktiver Beruf: ${beruf.label}` : 'Wähle deinen Beruf, um Lernpfad, Tutor und Prüfungssimulation zu aktivieren.'}
+          description="ExamFit Dashboard: dein zentraler Lern-Hub für IHK-Prüfungsvorbereitung mit Lernpfad, Tutor und Prüfungssimulation."
+          testId="dashboard-identity"
+          className="mb-4"
+        />
+        {isAdmin && (
+          <Link to="/admin/command">
+            <Button variant="ghost" size="sm" className="mb-3 h-8 text-xs">
+              <Sparkles className="h-3 w-3 mr-1" />
+              Admin
+            </Button>
+          </Link>
+        )}
 
-        {/* ━━━ Reality-QA: ALWAYS-VISIBLE primary Next-Step + Quick-Actions ━━━
-            P0.3: Next-Step kommt aus resolveDashboardNextStep (SSOT). Niemals
-            leerer Zustand, niemals stiller Spinner-Loop, niemals dead CTA. */}
+        {/* ━━━ Primary Next-Step (single dominant CTA) ━━━
+            KIMI.2: Quick-Actions sind sekundär und collapsen unter „Weitere Aktionen". */}
         <div
           className="mb-4"
           data-testid="dashboard-next-step"
           data-next-step-kind={nextStep.kind}
         >
           <Card className="glass-card border-primary/30">
-            <CardContent className="p-4">
+            <CardContent className="p-4 space-y-3">
               <div className="flex items-center gap-3 justify-between">
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  <p className="text-xs uppercase tracking-wider text-primary font-semibold">
                     Dein nächster Schritt
                   </p>
                   <p
@@ -143,11 +148,11 @@ export default function LearnerDashboard() {
                     {nextStep.rationale}
                   </p>
                 </div>
-                <Button asChild size="sm" className="shrink-0">
+                <Button asChild size="lg" className="shrink-0 shadow-glow-sm" data-primary-cta="dashboard">
                   <Link
                     to={nextStep.to}
                     aria-label="dashboard-next-step-cta"
-                    data-testid="dashboard-next-step-cta"
+                    data-testid="dashboard-primary-cta"
                     data-cta-location="dashboard_next_step"
                     data-next-step-kind={nextStep.kind}
                   >
@@ -157,51 +162,78 @@ export default function LearnerDashboard() {
                 </Button>
               </div>
 
-              {/* Quick-Actions: immer 4 sichtbar, robuster Fallback */}
-              <div
-                className="mt-4 grid grid-cols-2 gap-2"
-                data-testid="dashboard-quick-actions"
-              >
-                <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
-                  <Link
-                    to={firstEnrollment?.course_id ? `/course/${firstEnrollment.course_id}` : '/berufe'}
-                    data-cta-location="dashboard_quick_pruefung_starten"
+              {/* Outcome-Hint: Was passiert nach dem Klick? (KIMI.2 Q4) */}
+              <OutcomeHintBlock
+                heading="Nach dem Klick:"
+                bullets={[
+                  beruf?.label
+                    ? `Du landest direkt im passenden Lernschritt für ${beruf.label}`
+                    : 'Du wählst deinen Beruf — danach werden Lernpfad, Tutor und Prüfungssimulation aktiv',
+                  'Lernpfad zeigt dir die priorisierte nächste Übung',
+                  'Tutor und Prüfungssimulation passen sich an deinen Stand an',
+                ]}
+                testId="dashboard-outcome-hint"
+              />
+
+              {/* Sekundäre Aktionen — bewusst eingeklappt, damit der Primary CTA dominiert */}
+              <Collapsible open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
+                <CollapsibleTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary transition-colors"
+                    data-testid="dashboard-more-actions-toggle"
                   >
-                    <GraduationCap className="h-4 w-4 mr-2 shrink-0" />
-                    <span className="truncate text-left">Prüfung starten</span>
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
-                  <Link
-                    to={firstEnrollment?.course_id ? `/course/${firstEnrollment.course_id}` : '/courses'}
-                    data-cta-location="dashboard_quick_weiterlernen"
+                    <ChevronDown
+                      className={cn('h-3 w-3 transition-transform', moreActionsOpen && 'rotate-180')}
+                    />
+                    {moreActionsOpen ? 'Weitere Aktionen ausblenden' : 'Weitere Aktionen anzeigen'}
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div
+                    className="mt-3 grid grid-cols-2 gap-2"
+                    data-testid="dashboard-quick-actions"
                   >
-                    <BookOpen className="h-4 w-4 mr-2 shrink-0" />
-                    <span className="truncate text-left">Weiterlernen</span>
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
-                  <Link
-                    to={activeCurriculumId ? `/minicheck?curriculum=${activeCurriculumId}` : '/minicheck'}
-                    data-cta-location="dashboard_quick_minicheck"
-                  >
-                    <Brain className="h-4 w-4 mr-2 shrink-0" />
-                    <span className="truncate text-left">MiniCheck fortsetzen</span>
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
-                  <Link
-                    to={activeCurriculumId ? `/exam-simulation?curriculum=${activeCurriculumId}` : '/exam-simulation'}
-                    data-cta-location="dashboard_quick_simulation"
-                  >
-                    <Target className="h-4 w-4 mr-2 shrink-0" />
-                    <span className="truncate text-left">Prüfung simulieren</span>
-                  </Link>
-                </Button>
-              </div>
+                    <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
+                      <Link
+                        to={firstEnrollment?.course_id ? `/course/${firstEnrollment.course_id}` : '/courses'}
+                        data-cta-location="dashboard_quick_weiterlernen"
+                      >
+                        <BookOpen className="h-4 w-4 mr-2 shrink-0" />
+                        <span className="truncate text-left">Weiterlernen</span>
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
+                      <Link
+                        to={activeCurriculumId ? `/minicheck?curriculum=${activeCurriculumId}` : '/minicheck'}
+                        data-cta-location="dashboard_quick_minicheck"
+                      >
+                        <Brain className="h-4 w-4 mr-2 shrink-0" />
+                        <span className="truncate text-left">MiniCheck</span>
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
+                      <Link
+                        to={activeCurriculumId ? `/exam-simulation?curriculum=${activeCurriculumId}` : '/exam-simulation'}
+                        data-cta-location="dashboard_quick_simulation"
+                      >
+                        <Target className="h-4 w-4 mr-2 shrink-0" />
+                        <span className="truncate text-left">Prüfung simulieren</span>
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="justify-start h-auto py-2">
+                      <Link to="/app/tutor" data-cta-location="dashboard_quick_tutor">
+                        <Sparkles className="h-4 w-4 mr-2 shrink-0" />
+                        <span className="truncate text-left">AI Tutor</span>
+                      </Link>
+                    </Button>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
         </div>
+
 
 
         {/* ━━━ HERO: Re-Entry + Intelligence (Above the Fold) ━━━ */}
