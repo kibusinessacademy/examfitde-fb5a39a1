@@ -423,14 +423,44 @@ function RiskState({ reality }: { reality: LearnerRealitySnapshot }) {
 /* -------------------------------------------------------------------- */
 /* Priority Competency — eine Haupthandlung + Prüfersprache              */
 /* -------------------------------------------------------------------- */
-function PriorityCompetency() {
+function PriorityCompetency({ reality }: { reality: LearnerRealitySnapshot }) {
+  const top = reality.weak[0] ?? reality.partial[0];
+  const total = reality.weak.length + reality.partial.length;
+  const tone: "critical" | "watch" | "stable" = reality.weak.length > 0 ? "critical" : reality.partial.length > 0 ? "watch" : "stable";
+  const toneLabel = tone === "critical" ? "Kritisch" : tone === "watch" ? "Beobachtet" : "Stabil";
+  const toneColor = tone === "critical" ? "var(--lp-danger)" : tone === "watch" ? "var(--lp-warn)" : "var(--lp-aqua)";
+  const toneBg = tone === "critical" ? "rgba(239,77,107,0.10)" : tone === "watch" ? "rgba(245,183,84,0.10)" : "rgba(46,211,183,0.10)";
+
+  if (!top) {
+    return (
+      <section className="mb-6">
+        <div className="lp-card p-5 sm:p-6">
+          <div className="text-[11px] uppercase tracking-wider text-[var(--lp-emerald)]">
+            Alle Kompetenzen aktuell stabil
+          </div>
+          <h2 className="lp-display mt-1 text-lg font-semibold text-[var(--lp-text)]">
+            Bereit für eine Prüfungssimulation?
+          </h2>
+          <Link
+            to="/app/exam-trainer"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-medium"
+            style={{ background: "linear-gradient(180deg, var(--lp-emerald), #1fb89e)", color: "#04221C" }}
+          >
+            Prüfung starten
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="mb-6">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--lp-text-3)]">
           Höchste Priorität · vom System gewählt
         </span>
-        <span className="text-[11px] text-[var(--lp-text-3)]">1 / 8</span>
+        <span className="text-[11px] text-[var(--lp-text-3)]">1 / {Math.max(1, total)}</span>
       </div>
 
       <motion.div
@@ -440,55 +470,38 @@ function PriorityCompetency() {
         className="lp-card relative overflow-hidden p-5 sm:p-6"
         style={{
           borderColor: "var(--lp-border-emerald)",
-          boxShadow:
-            "0 0 0 1px rgba(46,211,183,0.18), 0 24px 60px -32px rgba(46,211,183,0.35)",
+          boxShadow: "0 0 0 1px rgba(46,211,183,0.18), 0 24px 60px -32px rgba(46,211,183,0.35)",
         }}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-wider text-[var(--lp-emerald)]">
-              Kompetenz · LF 5
+              Kompetenz · {top.field || "Lernfeld"}
             </div>
             <h2 className="lp-display mt-1 text-lg font-semibold text-[var(--lp-text)] sm:text-xl">
-              Bewertungsaufgaben sicher strukturieren
+              {top.title}
             </h2>
           </div>
           <span
             className="shrink-0 rounded-md px-2 py-1 text-[10px] font-medium uppercase tracking-wider"
-            style={{
-              background: "rgba(239,77,107,0.10)",
-              color: "var(--lp-danger)",
-              border: "1px solid rgba(239,77,107,0.25)",
-            }}
+            style={{ background: toneBg, color: toneColor, border: `1px solid ${toneColor}40` }}
           >
-            Kritisch
+            {toneLabel}
           </span>
         </div>
 
         <ul className="mb-4 space-y-2 text-[13px] text-[var(--lp-text-2)]">
-          <Tag>Relevant für schriftlich & mündlich</Tag>
-          <Tag>Typischer Punktverlust ≈ 9 Pkt</Tag>
-          <Tag>Bewertungskriterium · Argumentationsstruktur</Tag>
+          <Tag>Aktueller Score · {Math.round(top.score)} / 100</Tag>
+          <Tag>{reality.weak.length} kritische · {reality.partial.length} beobachtete Kompetenz{(reality.weak.length + reality.partial.length) === 1 ? "" : "en"}</Tag>
+          {reality.lastActivity ? (
+            <Tag>Zuletzt aktiv · {reality.lastActivity.lessonTitle}</Tag>
+          ) : (
+            <Tag>Bewertungskriterium · Argumentationsstruktur</Tag>
+          )}
         </ul>
 
-        {/* Examiner micro-quote */}
-        <div
-          className="mb-5 flex gap-2.5 rounded-lg p-3"
-          style={{
-            background: "rgba(255,255,255,0.025)",
-            border: "1px solid var(--lp-border)",
-          }}
-        >
-          <Quote className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[var(--lp-text-3)]" />
-          <p className="text-[12px] leading-relaxed italic text-[var(--lp-text-2)]">
-            „Hier würde ein Prüfer nach der{" "}
-            <span className="not-italic text-[var(--lp-text)]">Begründung</span>{" "}
-            fragen — nicht nach der Lösung."
-          </p>
-        </div>
-
         <Link
-          to="/exam-trainer?mode=competency&priority=1&from=app-start"
+          to={`/app/minicheck/${top.id}`}
           className="group flex w-full items-center justify-between rounded-xl px-5 py-4 text-[15px] font-medium transition-transform active:scale-[0.99]"
           style={{
             background: "linear-gradient(180deg, var(--lp-emerald), #1fb89e)",
@@ -496,7 +509,7 @@ function PriorityCompetency() {
             boxShadow: "0 12px 30px -12px rgba(46,211,183,0.55)",
           }}
         >
-          <span>Diese Kompetenz jetzt trainieren · 22 Min</span>
+          <span>MiniCheck starten · diese Kompetenz</span>
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </motion.div>
