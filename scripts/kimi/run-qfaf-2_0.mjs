@@ -203,10 +203,16 @@ const totals = {
   P1: results.flatMap(r => r.findings).filter(f => f.severity === 'P1').length,
   P2: results.flatMap(r => r.findings).filter(f => f.severity === 'P2').length,
 };
+// KIMI.2.2b — Trust Score: Anteil entschiedener (PASS+FAIL) Fragen an allen QFAF-Fragen.
+// Niedriger Trust Score = Auditor liefert viele INCONS = Ergebnis nicht belastbar.
+const decided = totals.PASS + totals.FAIL;
+const total_q = decided + totals.INCONS;
+totals.trust_score_pct = total_q ? Math.round((decided / total_q) * 100) : 0;
+totals.qfaf_score_pct  = total_q ? Math.round((totals.PASS / total_q) * 100) : 0;
 
 const jsonPath = path.join(OUT_DIR, 'qfaf-pilot-2_0.json');
 fs.writeFileSync(jsonPath, JSON.stringify({
-  meta: { base_url: BASE_URL, ts: new Date().toISOString(), sprint: '2.1_consistency_gate', totals },
+  meta: { base_url: BASE_URL, ts: new Date().toISOString(), sprint: '2.3_stakes_outcome_sweep', totals },
   scorecards: cards,
   results: results.map(r => ({
     route: r.snap.route,
@@ -220,8 +226,20 @@ fs.writeFileSync(jsonPath, JSON.stringify({
 }, null, 2));
 
 const md = [];
-md.push(`# KIMI.2.1 — QFAF Re-Run mit Consistency-Gate`);
+md.push(`# KIMI.2.3 — QFAF Re-Run (Stakes & Outcome Sweep + Trust Score)`);
 md.push(`_Generated ${new Date().toISOString()} · Base ${BASE_URL} · Learner ${EMAIL}_`);
+md.push('');
+md.push(`## KPI-Bar`);
+md.push('```');
+md.push(`PASS  = ${totals.PASS}`);
+md.push(`FAIL  = ${totals.FAIL}        (echte Produktfehler)`);
+md.push(`INCONS= ${totals.INCONS}        (Auditor-Bias, kein Produktfehler)`);
+md.push(`P0    = ${totals.P0}`);
+md.push(`P1    = ${totals.P1}`);
+md.push(`P2    = ${totals.P2}`);
+md.push(`Trust Score = ${totals.trust_score_pct}%   (decided / total)`);
+md.push(`QFAF  Score = ${totals.qfaf_score_pct}%   (PASS / total)`);
+md.push('```');
 md.push('');
 md.push(`## Scorecard (Status: PASS · FAIL · INCONS)`);
 md.push('| Route | Q1 | Q2 | Q3 | Q4 | Passed | Inconsistent |');
@@ -256,5 +274,5 @@ for (const r of results) {
 const mdPath = path.join(OUT_DIR, 'qfaf-pilot-2_0.md');
 fs.writeFileSync(mdPath, md.join('\n'));
 
-console.log(`\n[kimi.2.1] DONE → ${mdPath}`);
-console.log(`[kimi.2.1] routes=${totals.routes}  PASS=${totals.PASS} FAIL=${totals.FAIL} INCONS=${totals.INCONS}  P0=${totals.P0} P1=${totals.P1} P2=${totals.P2}`);
+console.log(`\n[kimi.2.3] DONE → ${mdPath}`);
+console.log(`[kimi.2.3] routes=${totals.routes}  PASS=${totals.PASS} FAIL=${totals.FAIL} INCONS=${totals.INCONS}  P0=${totals.P0} P1=${totals.P1} P2=${totals.P2}  Trust=${totals.trust_score_pct}%  QFAF=${totals.qfaf_score_pct}%`);

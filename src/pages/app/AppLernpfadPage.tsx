@@ -47,7 +47,7 @@ export default function AppLernpfadPage() {
         <StrategyHeader />
         <RouteIdentityBlock
           title="Mein Lernpfad"
-          subtitle="Deine priorisierte Prüfungsstrategie — Schritt für Schritt, basierend auf deinen aktuellen Schwächen."
+          subtitle="Dein Lernpfad priorisiert die Themen, die am stärksten auf deine IHK-Prüfung wirken — damit du deine Lernzeit dort einsetzt, wo sie Punkte bringt."
           contextLine={beruf?.label ? `für ${beruf.label}` : undefined}
           description="ExamFit Lernpfad: priorisierte Kompetenzen und der konkret nächste Schritt zu deiner IHK-Prüfung."
           testId="lernpfad-identity"
@@ -55,9 +55,9 @@ export default function AppLernpfadPage() {
         <OutcomeHintBlock
           heading="Nach dem nächsten Schritt:"
           bullets={[
-            "Konkrete Übung statt Themenliste",
-            "Priorisierung passt sich an deine Antworten an",
-            "Du näherst dich messbar der Prüfungsreife",
+            "Du startest direkt in eine konkrete prüfungsrelevante Übung — keine Themenliste",
+            "Danach passt sich die Priorisierung automatisch an deine Antworten an",
+            "Du näherst dich messbar deiner Prüfungsreife",
           ]}
           className="mb-5"
           testId="lernpfad-outcome-hint"
