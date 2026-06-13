@@ -171,7 +171,7 @@ function computeWhyMissed(f, snap, gates) {
 }
 
 // --- Main ------------------------------------------------------------------
-const browser = await chromium.launch();
+const browser = await chromium.launch({ executablePath: '/bin/chromium', args: ['--no-sandbox'] });
 console.log(`[kimi.1] base=${BASE_URL}  routes=${ROUTES.length}  modes=${MODES.length}`);
 
 const snapshots = [];
