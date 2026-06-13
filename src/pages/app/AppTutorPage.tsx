@@ -39,10 +39,15 @@ export default function AppTutorPage() {
       <div className="relative mx-auto flex min-h-screen w-full max-w-[680px] flex-col px-5 pb-28 pt-8 sm:px-8 sm:pt-12">
         <BackgroundAura />
         <TutorHeader />
-        {reality.needsOnboarding ? (
+        {reality.needsOnboarding || (!reality.hasData && !reality.loading) ? (
           <TutorOnboarding />
         ) : reality.loading && !reality.hasData ? (
-          <TutorLoading />
+          <>
+            <TutorLoading />
+            {/* KIMI.1.5 P0-Fix: niemals leerer Tutor ohne Folgeaktion.
+                Auch während Loading bleibt eine echte CTA klickbar. */}
+            <TutorOnboarding />
+          </>
         ) : (
           <>
             <TutorPresenceCard />
@@ -63,21 +68,34 @@ export default function AppTutorPage() {
 
 function TutorOnboarding() {
   return (
-    <section className="mt-8 rounded-2xl border border-white/[0.06] bg-[rgba(13,22,40,0.55)] p-6 text-center">
+    <section
+      data-testid="tutor-onboarding"
+      className="mt-8 rounded-2xl border border-white/[0.06] bg-[rgba(13,22,40,0.55)] p-6 text-center"
+    >
       <h2 className="lp-display text-xl text-[color:var(--lp-text-primary,#e8ecf3)]">
         Tutor wartet auf dein Curriculum
       </h2>
       <p className="mt-2 text-[14px] text-[color:var(--lp-text-secondary,#a8b3c2)]">
         Wähle einen Beruf — danach kann der Tutor deine Schwächen erkennen.
       </p>
-      <Link
-        to="/berufe"
-        className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium"
-        style={{ background: "linear-gradient(135deg, rgba(46,211,183,0.95), rgba(36,180,160,0.95))", color: "rgb(8,18,20)" }}
-      >
-        Beruf wählen
-        <ArrowRight className="h-4 w-4" />
-      </Link>
+      <div className="mt-5 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+        <Link
+          to="/berufe"
+          data-testid="tutor-onboarding-primary"
+          className="inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium"
+          style={{ background: "linear-gradient(135deg, rgba(46,211,183,0.95), rgba(36,180,160,0.95))", color: "rgb(8,18,20)" }}
+        >
+          Beruf auswählen
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+        <Link
+          to="/app/lernpfad"
+          data-testid="tutor-onboarding-secondary"
+          className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 text-sm font-medium text-white/85"
+        >
+          Lernpfad starten
+        </Link>
+      </div>
     </section>
   );
 }

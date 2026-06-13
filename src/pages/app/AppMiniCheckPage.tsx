@@ -440,6 +440,7 @@ function PreCheck({ onStart }: { onStart: () => void }) {
         </div>
         <button
           onClick={onStart}
+          data-testid="minicheck-start"
           className="group inline-flex items-center justify-center gap-2 rounded-xl border border-border-subtle bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-elev-2 transition hover:shadow-elev-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           Impuls starten
@@ -480,7 +481,7 @@ function QuestionStage({
   pick: DiagPrompt["options"][number] | null;
 }) {
   return (
-    <div className="rounded-2xl border border-border-subtle bg-surface-raised/70 p-6 shadow-elev-2 backdrop-blur-sm sm:p-8">
+    <div data-testid="minicheck-question-stage" className="rounded-2xl border border-border-subtle bg-surface-raised/70 p-6 shadow-elev-2 backdrop-blur-sm sm:p-8">
       <div className="flex items-center gap-2">
         <RiskChip t={PROMPT.riskBefore}>{PROMPT.competency}</RiskChip>
       </div>
