@@ -128,9 +128,14 @@ async function callQfaf(route, snap) {
     }),
   });
   const txt = await res.text();
-  if (!res.ok) return { ok: false, status: res.status, error: txt.slice(0, 400), findings: [] };
-  try { const j = JSON.parse(txt); return { ok: true, findings: j.findings || [], meta: j.meta }; }
-  catch { return { ok: false, error: 'parse', findings: [] }; }
+  if (!res.ok) return { ok: false, status: res.status, error: txt.slice(0, 400), findings: [], inconsistencies: [] };
+  try {
+    const j = JSON.parse(txt);
+    const all = j.findings || [];
+    const real = j.real_findings || all.filter((f) => f.verdict !== 'inconsistent');
+    const inc  = j.inconsistencies || all.filter((f) => f.verdict === 'inconsistent');
+    return { ok: true, findings: real, inconsistencies: inc, all, meta: j.meta };
+  } catch { return { ok: false, error: 'parse', findings: [], inconsistencies: [] }; }
 }
 
 const Q_LABEL = {
@@ -140,15 +145,18 @@ const Q_LABEL = {
   qfaf_q4_outcome:     'Q4 OUTCOME     — Was passiert nach dem Klick?',
 };
 
-function scorecard(route, findings) {
+function scorecard(route, findings, inconsistencies = []) {
   const failed = new Set(findings.map(f => f.kind));
+  const incons = new Set(inconsistencies.map(f => f.kind));
+  const status = (kind) => failed.has(kind) ? 'FAIL' : (incons.has(kind) ? 'INCONS' : 'PASS');
   return {
     route,
-    q1: failed.has('qfaf_q1_orientation') ? 'NEIN' : 'ja',
-    q2: failed.has('qfaf_q2_stakes') ? 'NEIN' : 'ja',
-    q3: failed.has('qfaf_q3_action') ? 'NEIN' : 'ja',
-    q4: failed.has('qfaf_q4_outcome') ? 'NEIN' : 'ja',
-    passed: 4 - failed.size,
+    q1: status('qfaf_q1_orientation'),
+    q2: status('qfaf_q2_stakes'),
+    q3: status('qfaf_q3_action'),
+    q4: status('qfaf_q4_outcome'),
+    passed: 4 - failed.size - incons.size,
+    inconsistent: incons.size,
   };
 }
 
