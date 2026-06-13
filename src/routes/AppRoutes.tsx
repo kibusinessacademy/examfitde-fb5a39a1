@@ -424,6 +424,10 @@ const AppRoutes = () => {
         <Route path="/app/minicheck" element={<AppMiniCheckPage />} />
         {/* Phase 5.7 — Exam-Trainer: simulierte Prüfungssituation */}
         <Route path="/app/exam-trainer" element={<AppExamTrainerPage />} />
+        {/* KIMI.1.5 P0-Fix: /app/exam-simulation alias → richtige Prüfungssimulation,
+            damit Dashboard- und Tutor-CTAs nicht auf 404 laufen. */}
+        <Route path="/app/exam-simulation" element={<Navigate to="/exam-simulation" replace />} />
+        <Route path="/app/exam-simulation/:sessionId" element={<Navigate to="/exam-simulation" replace />} />
         {/* Phase 5.9 — Öffentliche diagnostische Erstbewertung (Prüfungscheck) */}
         <Route path="/pruefungscheck" element={<PruefungscheckPage />} />
         <Route path="/pruefungscheck/:slug" element={<PruefungscheckPage />} />
