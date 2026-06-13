@@ -195,6 +195,7 @@ function RiskChip({ t, children }: { t: RiskTone; children: React.ReactNode }) {
 export default function AppMiniCheckPage() {
   const { competencyId } = useParams();
   const system = useSystemConsciousness();
+  const beruf = useOsBeruf();
   const [stage, setStage] = useState<Stage>("pre");
   const [pick, setPick] = useState<DiagPrompt["options"][number] | null>(null);
   const [recalcPulse, setRecalcPulse] = useState(false);
