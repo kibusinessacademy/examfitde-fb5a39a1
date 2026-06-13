@@ -113,6 +113,20 @@ function buildUserPrompt(input: {
   if (ctx.goal) lines.push(`Nutzerziel: ${ctx.goal}`);
   if (s.title) lines.push(`Title: ${s.title}`);
   if (s.url) lines.push(`URL: ${s.url}`);
+  // Structured CTA model (so the model doesn't have to infer "is a link a CTA?")
+  const ctaCount = Number(s.cta_count ?? (Array.isArray(s.ctas) ? s.ctas.length : 0));
+  const buttonsCount = Number(s.buttons_count ?? (Array.isArray(s.buttons) ? s.buttons.length : 0));
+  const linksCount = Number(s.links_count ?? (Array.isArray(s.links) ? s.links.length : 0));
+  lines.push(`CTA-Metrik: cta_count=${ctaCount}  buttons_count=${buttonsCount}  links_count=${linksCount}`);
+  if (Array.isArray(s.cta_labels) && s.cta_labels.length) {
+    lines.push(`CTA-Labels (unified, button+link+role=button): ${JSON.stringify(s.cta_labels).slice(0, 2000)}`);
+  }
+  if (Array.isArray(s.ctas) && s.ctas.length) {
+    lines.push(`CTA-Details: ${JSON.stringify(s.ctas).slice(0, 2500)}`);
+  }
+  if (Array.isArray(s.testids) && s.testids.length) {
+    lines.push(`Test-IDs (data-testid im DOM): ${JSON.stringify(s.testids).slice(0, 1500)}`);
+  }
   if (Array.isArray(s.buttons) && s.buttons.length) {
     lines.push(`Sichtbare Buttons: ${JSON.stringify(s.buttons).slice(0, 2000)}`);
   }
