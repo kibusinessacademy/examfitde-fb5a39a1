@@ -75,6 +75,14 @@ export function BlueprintSelector({ blueprints, isLoading, onSelect }: Blueprint
 
       <Card className="glass-card border-primary/40 shadow-elev-2">
         <CardContent className="pt-6 space-y-4">
+          <div className="flex items-center justify-center">
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
+              Empfohlen für dich
+            </Badge>
+          </div>
+          <p className="text-sm text-center text-muted-foreground">
+            Diese Variante passt zu deinem Beruf und deinem aktuellen Lernstand.
+          </p>
           <Button
             size="lg"
             className="w-full"
@@ -85,22 +93,31 @@ export function BlueprintSelector({ blueprints, isLoading, onSelect }: Blueprint
             Prüfungssimulation starten
           </Button>
           <p className="text-xs text-center text-muted-foreground">
-            Aktueller Modus: <span className="font-medium">{labelForMode(selectedMode)}</span>
+            Modus: <span className="font-medium text-foreground">{labelForMode(selectedMode)}</span>
+            {' · '}{descForMode(selectedMode)}
           </p>
+          <div
+            className="rounded-lg border border-border/60 bg-muted/30 px-4 py-3 text-xs text-muted-foreground text-center"
+            data-testid="exam-sim-post-exam-hint"
+          >
+            Nach der Simulation erhältst du <span className="font-medium text-foreground">Auswertung</span>,
+            erkannte <span className="font-medium text-foreground">Schwächen</span> und deine
+            <span className="font-medium text-foreground"> nächste Lernempfehlung</span>.
+          </div>
         </CardContent>
       </Card>
 
       {/* Mode Selection — secondary */}
       <details className="group" data-testid="exam-sim-mode-options">
         <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-          Modus anpassen
+          Modus anpassen — bestimmt, wie streng die Simulation läuft
         </summary>
         <div className="grid gap-3 mt-3">
           {([
-            { value: 'simulation' as const, label: 'Simulation', desc: 'Ohne Zeitdruck, mit Feedback nach jeder Frage', icon: BookOpen },
-            { value: 'practice' as const, label: 'Übungsmodus', desc: 'Zeigt Erklärungen sofort an', icon: Target },
-            { value: 'timed_exam' as const, label: 'Prüfungsmodus', desc: 'Mit Zeitlimit wie in der echten Prüfung', icon: Clock },
-            { value: 'adaptive' as const, label: 'Adaptive Übung (IRT)', desc: 'Fragen passen sich deinem Können an', icon: Brain },
+            { value: 'simulation' as const, label: 'Realistische Simulation (empfohlen)', desc: 'Wie die echte Prüfung, aber mit Feedback nach jeder Frage — bestes Einstiegssetup.', icon: BookOpen },
+            { value: 'practice' as const, label: 'Üben mit Erklärungen', desc: 'Antwort + Erklärung sofort sichtbar. Ideal zum Aufbauen von Sicherheit.', icon: Target },
+            { value: 'timed_exam' as const, label: 'Ernstfall mit Zeitlimit', desc: 'Volles Zeitlimit, keine Hinweise — Generalprobe für den Prüfungstag.', icon: Clock },
+            { value: 'adaptive' as const, label: 'Adaptive Übung (passt sich an)', desc: 'Fragen werden leichter oder schwerer, je nachdem wie du antwortest.', icon: Brain },
           ]).map(mode => (
             <button
               key={mode.value}
@@ -174,9 +191,18 @@ export function BlueprintSelector({ blueprints, isLoading, onSelect }: Blueprint
 
 function labelForMode(mode: ExamMode): string {
   switch (mode) {
-    case 'simulation': return 'Simulation';
-    case 'practice': return 'Übungsmodus';
-    case 'timed_exam': return 'Prüfungsmodus';
+    case 'simulation': return 'Realistische Simulation';
+    case 'practice': return 'Üben mit Erklärungen';
+    case 'timed_exam': return 'Ernstfall mit Zeitlimit';
     case 'adaptive': return 'Adaptive Übung';
+  }
+}
+
+function descForMode(mode: ExamMode): string {
+  switch (mode) {
+    case 'simulation': return 'wie die echte Prüfung, mit Feedback';
+    case 'practice': return 'Erklärungen direkt sichtbar';
+    case 'timed_exam': return 'volles Zeitlimit, keine Hilfen';
+    case 'adaptive': return 'Schwierigkeit passt sich an';
   }
 }
