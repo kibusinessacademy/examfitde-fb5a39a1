@@ -19,53 +19,95 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 type ChatMsg = { role: "system" | "user" | "assistant" | "tool"; content: any };
+type Provider = "openai" | "anthropic" | "google" | "kimi";
 
 const env = (k: string) => Deno.env.get(k) ?? "";
+const envBool = (k: string, def = false) => {
+  const v = env(k).trim().toLowerCase();
+  if (!v) return def;
+  return v === "1" || v === "true" || v === "yes" || v === "on";
+};
 
 const KEYS = {
   GATEWAY: env("VIBEOS_AI_GATEWAY_KEY"),
   OPENAI: env("OPENAI_API_KEY"),
   ANTHROPIC: env("ANTHROPIC_API_KEY"),
   GOOGLE: env("GOOGLE_AI_API_KEY"),
+  KIMI: env("KIMI_API_KEY"),
 };
+
+// Kimi K2 Code-Agent Lane — optional, default OFF.
+const KIMI_FLAG_ENABLED = envBool("KIMI_CODE_AGENT_ENABLED", false);
+const KIMI_BASE_URL = (env("KIMI_BASE_URL") || "https://api.moonshot.ai/v1").replace(/\/+$/, "");
+const KIMI_ALLOWED_LANES = new Set([
+  "debug_agent",
+  "test_agent",
+  "code_planner",
+  "code_patch_builder",
+]);
+// Hard-Block: diese Lanes dürfen Kimi unter keinen Umständen nutzen.
+const KIMI_FORBIDDEN_LANES = new Set([
+  "ai_tutor", "tutor", "exam", "exam_questions",
+  "course", "learning_content",
+  "billing", "license", "purchase", "checkout",
+  "rls_migration", "db_migration",
+]);
 
 function unauthorized(msg: string) {
   return new Response(JSON.stringify({ error: { message: msg, type: "unauthorized" } }), {
-    status: 401,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
 function badRequest(msg: string) {
   return new Response(JSON.stringify({ error: { message: msg, type: "invalid_request_error" } }), {
-    status: 400,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+function forbidden(msg: string) {
+  return new Response(JSON.stringify({ error: { message: msg, type: "lane_forbidden" } }), {
+    status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
 function bridgeError(status: number, msg: string, raw?: unknown) {
   return new Response(JSON.stringify({ error: { message: msg, type: "upstream_error", raw } }), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
 
-function parseModel(model: string): { provider: "openai" | "anthropic" | "google"; modelId: string } | null {
+function parseModel(model: string): { provider: Provider; modelId: string } | null {
   if (!model || !model.includes("/")) return null;
   const [provider, ...rest] = model.split("/");
   const modelId = rest.join("/");
-  if (provider !== "openai" && provider !== "anthropic" && provider !== "google") return null;
-  return { provider, modelId };
+  if (provider !== "openai" && provider !== "anthropic" && provider !== "google" && provider !== "kimi") return null;
+  return { provider: provider as Provider, modelId };
 }
 
-async function audit(payload: Record<string, unknown>) {
+async function audit(actionType: string, payload: Record<string, unknown>) {
   try {
     const sb = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
-    await sb.rpc("fn_emit_audit", {
-      _action_type: "vibeos_gateway_route_resolved",
-      _payload: payload,
-    });
-  } catch {
-    /* audit best-effort */
-  }
+    await sb.rpc("fn_emit_audit", { _action_type: actionType, _payload: payload });
+  } catch { /* audit best-effort */ }
+}
+
+// ── Kimi K2 (Moonshot, OpenAI-compatible) ─────────────────────────
+async function routeKimi(modelId: string, body: any): Promise<Response> {
+  if (!KEYS.KIMI) return bridgeError(500, "KIMI_API_KEY not configured");
+  const upstream = await fetch(`${KIMI_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${KEYS.KIMI}`,
+    },
+    body: JSON.stringify({ ...body, model: modelId }),
+  });
+  const text = await upstream.text();
+  return new Response(text, {
+    status: upstream.status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": upstream.headers.get("Content-Type") ?? "application/json",
+    },
+  });
 }
 
 // ── OpenAI passthrough ─────────────────────────────────────────────
