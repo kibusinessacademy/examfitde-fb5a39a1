@@ -470,20 +470,18 @@ function PrioritizedFocus({ reality }: { reality: LearnerRealitySnapshot }) {
           className="lp-display text-[20px] leading-[1.3]"
           style={{ color: "rgba(238,247,245,0.96)" }}
         >
-          Begründungs-Drill auf LF5-Transferaufgaben
+          {focusTitle}
         </h3>
         <p
           className="mt-2 text-[13.5px] leading-[1.55]"
           style={{ color: "rgba(220,235,232,0.7)" }}
         >
-          12 Minuten · 6 Aufgaben mit erzwungener Begründungs­struktur.
-          Adressiert direkt das Muster, das in den letzten 3 Sessions
-          Punkte gekostet hat.
+          {focusReason}
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Link
-            to="/app/lernpfad"
+            to={primaryHref}
             className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-medium transition-all"
             style={{
               background:
@@ -492,7 +490,7 @@ function PrioritizedFocus({ reality }: { reality: LearnerRealitySnapshot }) {
               boxShadow: "0 8px 24px -10px rgba(46,211,183,0.5)",
             }}
           >
-            Drill starten
+            {primaryLabel}
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
           <Link
