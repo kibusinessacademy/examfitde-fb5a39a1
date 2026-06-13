@@ -94,11 +94,12 @@ function TutorOnboarding() {
       className="mt-8 rounded-2xl border border-white/[0.06] bg-[rgba(13,22,40,0.55)] p-6 text-center"
     >
       <h2 className="lp-display text-xl text-[color:var(--lp-text-primary,#e8ecf3)]">
-        Tutor wartet auf dein Curriculum
+        Dein KI-Prüfungs-Tutor wartet auf dein Curriculum
       </h2>
       <p className="mt-2 text-[14px] text-[color:var(--lp-text-secondary,#a8b3c2)]">
-        Wähle einen Beruf — danach kann der Tutor deine Schwächen erkennen.
+        Der Tutor erklärt dir Prüfungsfragen anhand deines IHK-Curriculums — wähle zuerst deinen Beruf, damit er deine Schwächen kennt.
       </p>
+
 
       {/* Primary CTA — genau ein empfohlener nächster Schritt */}
       <div className="mt-6 flex flex-col items-center gap-3">
