@@ -24,40 +24,87 @@ import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
 import { ExaminerBiographyCard } from "@/components/system/ExaminerBiographyCard";
 import { LearnerRecommendationStrip } from "@/components/recommendations/LearnerRecommendationStrip";
 import { RecoveryPlanCard } from "@/components/recovery/RecoveryPlanCard";
+import {
+  useLearnerRealityBridge,
+  type LearnerRealitySnapshot,
+} from "@/hooks/useLearnerRealityBridge";
 
 /**
- * /app/lernpfad — Phase 5.3: Risiko-orientierte Prüfungsstrategie
- *
- * Pure presentation. Kein Kursplan, keine Modul-Liste, kein LMS.
- * Das System steuert Prüfungsreife — der Nutzer folgt der Priorisierung.
+ * /app/lernpfad — P0-3 Sprint 1: DB-gebundene Prüfungsstrategie.
+ * Frage „Was sollte ich als Nächstes lernen?" → priorisierte Kompetenzen + nächster Schritt.
  */
 export default function AppLernpfadPage() {
+  const reality = useLearnerRealityBridge();
+
   return (
     <main className="lp-v2 min-h-screen w-full">
       <div className="relative mx-auto flex min-h-screen w-full max-w-[680px] flex-col px-5 pb-24 pt-8 sm:px-8 sm:pt-12">
         <BackgroundAura />
         <StrategyHeader />
-        <SystemStatusStrip />
-        <div className="mb-3"><DramaturgyChip /></div>
-        <div className="mb-3"><ExaminerLensCard /></div>
-        <div className="mb-3"><ExaminerBiographyCard /></div>
-        <TodayPriority />
-        <StrategyTimeline />
-        <CompetencyStates />
-        <RecoveryPlanCard
-          sourceEntityKind="app_lernpfad"
-          sourceEntitySlug="lernpfad_recovery"
-          limit={4}
-        />
-        <LearnerRecommendationStrip
-          sourceEntityKind="app_lernpfad"
-          sourceEntitySlug="lernpfad_strategy"
-          limit={4}
-        />
-        <StrategistTutor />
-        <RecalcStripe />
+        {reality.needsOnboarding ? (
+          <LernpfadOnboarding />
+        ) : reality.loading && !reality.hasData ? (
+          <LernpfadLoading />
+        ) : (
+          <>
+            <SystemStatusStrip />
+            <div className="mb-3"><DramaturgyChip /></div>
+            <div className="mb-3"><ExaminerLensCard /></div>
+            <div className="mb-3"><ExaminerBiographyCard /></div>
+            <TodayPriority reality={reality} />
+            <StrategyTimeline />
+            <CompetencyStates reality={reality} />
+            <RecoveryPlanCard
+              sourceEntityKind="app_lernpfad"
+              sourceEntitySlug="lernpfad_recovery"
+              limit={4}
+            />
+            <LearnerRecommendationStrip
+              sourceEntityKind="app_lernpfad"
+              sourceEntitySlug="lernpfad_strategy"
+              limit={4}
+            />
+            <StrategistTutor />
+            <RecalcStripe />
+          </>
+        )}
       </div>
     </main>
+  );
+}
+
+function LernpfadOnboarding() {
+  return (
+    <section className="mt-8 rounded-2xl border border-white/[0.06] bg-[rgba(13,22,40,0.55)] p-6 text-center">
+      <h2 className="lp-display text-xl text-[color:var(--lp-text-primary,#e8ecf3)]">
+        Wähle deinen Beruf, um den Lernpfad zu starten
+      </h2>
+      <p className="mt-2 text-[14px] text-[color:var(--lp-text-secondary,#a8b3c2)]">
+        Sobald ein Curriculum aktiv ist, priorisiert das System deine Kompetenzen.
+      </p>
+      <Link
+        to="/berufe"
+        className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium"
+        style={{
+          background: "linear-gradient(180deg, rgba(46,211,183,0.16), rgba(46,211,183,0.08))",
+          border: "1px solid rgba(46,211,183,0.35)",
+          color: "rgb(46,211,183)",
+        }}
+      >
+        Beruf wählen
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+    </section>
+  );
+}
+
+function LernpfadLoading() {
+  return (
+    <div className="mt-8 space-y-3">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="h-20 animate-pulse rounded-xl border border-white/[0.05] bg-white/[0.03]" />
+      ))}
+    </div>
   );
 }
 
