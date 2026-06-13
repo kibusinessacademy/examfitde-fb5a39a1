@@ -558,7 +558,23 @@ const STATE_TONE: Record<CompetencyState, { color: string; bg: string; border: s
   },
 };
 
-function CompetencyStates() {
+function CompetencyStates({ reality }: { reality: LearnerRealitySnapshot }) {
+  const items = [
+    ...reality.weak.map((c) => ({ ...c, state: "kritisch" as const, trend: "flat" as const })),
+    ...reality.partial.map((c) => ({ ...c, state: "instabil" as const, trend: "up" as const })),
+    ...reality.mastered.map((c) => ({ ...c, state: "prüfungsreif" as const, trend: "up" as const })),
+  ].slice(0, 6);
+
+  if (items.length === 0) {
+    return (
+      <section className="mb-6">
+        <div className="rounded-xl border border-white/[0.05] bg-white/[0.03] p-4 text-center text-[12px] text-[color:var(--lp-text-tertiary,#7a8696)]">
+          Noch keine Kompetenzdaten — starte den ersten MiniCheck, um den Pfad zu kalibrieren.
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="mb-6">
       <div className="mb-2 flex items-center justify-between">
@@ -566,15 +582,15 @@ function CompetencyStates() {
           Beobachtete Kompetenzen
         </span>
         <span className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--lp-text-tertiary,#7a8696)]">
-          Top 5 · risikogewichtet
+          {items.length} · risikogewichtet
         </span>
       </div>
       <ul className="space-y-2">
-        {COMPS.map((c) => {
+        {items.map((c) => {
           const tone = STATE_TONE[c.state];
           return (
             <li
-              key={c.title}
+              key={c.id}
               className="flex items-center gap-3 rounded-xl px-3 py-3"
               style={{
                 background: "rgba(255,255,255,0.03)",
@@ -583,17 +599,21 @@ function CompetencyStates() {
             >
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--lp-text-tertiary,#7a8696)]">
-                  {c.area}
+                  {c.field || "Kompetenz"}
                 </div>
-                <div className="truncate text-[14px] text-[color:var(--lp-text-primary,#e8ecf3)]">
+                <Link
+                  to={`/app/kompetenz/${c.id}`}
+                  className="block truncate text-[14px] text-[color:var(--lp-text-primary,#e8ecf3)] hover:underline"
+                >
                   {c.title}
-                </div>
+                </Link>
                 <div className="text-[11px] text-[color:var(--lp-text-tertiary,#7a8696)]">
-                  {c.memory}
+                  Score {Math.round(c.score)} / 100
                 </div>
               </div>
               <TrendArrow trend={c.trend} />
-              <div
+              <Link
+                to={`/app/minicheck/${c.id}`}
                 className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium"
                 style={{
                   color: tone.color,
@@ -602,7 +622,7 @@ function CompetencyStates() {
                 }}
               >
                 {c.state}
-              </div>
+              </Link>
             </li>
           );
         })}
