@@ -481,7 +481,7 @@ function QuestionStage({
   pick: DiagPrompt["options"][number] | null;
 }) {
   return (
-    <div className="rounded-2xl border border-border-subtle bg-surface-raised/70 p-6 shadow-elev-2 backdrop-blur-sm sm:p-8">
+    <div data-testid="minicheck-question-stage" className="rounded-2xl border border-border-subtle bg-surface-raised/70 p-6 shadow-elev-2 backdrop-blur-sm sm:p-8">
       <div className="flex items-center gap-2">
         <RiskChip t={PROMPT.riskBefore}>{PROMPT.competency}</RiskChip>
       </div>
