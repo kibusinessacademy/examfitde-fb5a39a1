@@ -606,10 +606,14 @@ Deno.serve(async (req) => {
 
   // KIMI.2.1 — text-bias Consistency-Gate (positive prose vs. NEIN verdict).
   // KIMI.2.2 — structural Q-Gate (DOM signals: title/headings/CTAs/testids/outcome).
+  // KIMI.3   — structural Journey-Gate (CTA-route handoff, dead-end, loop-closure).
   const consistency = mode === "qfaf" ? applyConsistencyGate(findings) : { downgraded: 0 };
   const structural = mode === "qfaf"
     ? applyStructuralQGate(findings, body.snapshot)
     : { q1_demoted: 0, q3_demoted: 0, q4_demoted: 0, severity_capped: 0 };
+  const journey = mode === "journey"
+    ? applyStructuralJourneyGate(findings, body.snapshot)
+    : { handoff_passed: 0, deadend_passed: 0, loop_passed: 0, orientation_passed: 0 };
   const realFails = findings.filter((f) => f.verdict === "fail");
   const inconsistent = findings.filter((f) => f.verdict === "inconsistent");
   const passes = findings.filter((f) => f.verdict === "pass");
