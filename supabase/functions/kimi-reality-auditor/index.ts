@@ -512,7 +512,7 @@ Deno.serve(async (req) => {
   }
 
   const mode = String(body?.audit_mode ?? "reality") as AuditMode;
-  if (!["reality", "ux_text", "next_action", "qfaf"].includes(mode)) {
+  if (!["reality", "ux_text", "next_action", "qfaf", "journey"].includes(mode)) {
     return new Response(JSON.stringify({ error: "invalid audit_mode" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -523,7 +523,13 @@ Deno.serve(async (req) => {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  if (!body?.snapshot?.visible_text) {
+  if (mode === "journey") {
+    if (!Array.isArray(body?.snapshot?.steps) || body.snapshot.steps.length < 2) {
+      return new Response(JSON.stringify({ error: "snapshot.steps[] (>=2) required for journey mode" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  } else if (!body?.snapshot?.visible_text) {
     return new Response(JSON.stringify({ error: "snapshot.visible_text required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
