@@ -1,9 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle, Clock, Target, Play, BookOpen, Brain } from 'lucide-react';
+import { Loader2, AlertCircle, Clock, Target, Play, BookOpen, Brain, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 interface ExamBlueprint {
   id: string;
@@ -29,7 +30,7 @@ interface BlueprintSelectorProps {
 
 export function BlueprintSelector({ blueprints, isLoading, onSelect }: BlueprintSelectorProps) {
   const [selectedMode, setSelectedMode] = useState<ExamMode>('simulation');
-  
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -37,144 +38,145 @@ export function BlueprintSelector({ blueprints, isLoading, onSelect }: Blueprint
       </div>
     );
   }
-  
+
+  // Empty / prerequisite state → single primary CTA to pick a profession
   if (!blueprints?.length) {
     return (
       <Card className="glass-card max-w-lg mx-auto">
-        <CardContent className="pt-6 text-center">
-          <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-2">Keine Prüfungen verfügbar</h3>
+        <CardContent className="pt-6 text-center space-y-4">
+          <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground" />
+          <h1 className="text-xl font-display font-bold">Noch keine Prüfung verfügbar</h1>
           <p className="text-muted-foreground">
-            Es sind derzeit keine freigegebenen Prüfungssimulationen verfügbar.
-            Prüfungen erscheinen hier erst, wenn sie vollständig produziert und freigegeben wurden.
+            Wähle zuerst deinen Beruf – danach steht deine Prüfungssimulation bereit.
           </p>
+          <Button asChild size="lg" className="w-full" data-testid="exam-sim-primary-cta">
+            <Link to="/berufe">
+              <Briefcase className="h-4 w-4 mr-2" />
+              Beruf auswählen
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     );
   }
-  
+
+  const primary = blueprints[0];
+  const others = blueprints.slice(1);
+
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      <div className="text-center">
-        <h1 className="text-2xl font-display font-bold mb-2">Prüfungssimulation</h1>
+    <div className="space-y-8 max-w-2xl mx-auto">
+      {/* Hero / Primary CTA */}
+      <div className="text-center space-y-2">
+        <h1 className="text-2xl font-display font-bold">Prüfungssimulation</h1>
         <p className="text-muted-foreground">
-          Wähle eine Prüfung und den Modus
+          {primary.title} · {primary.total_questions} Fragen · {primary.time_limit_minutes} Min.
         </p>
       </div>
-      
-      {/* Mode Selection */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="text-lg">Modus wählen</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
-            {([
-              { 
-                value: 'simulation' as const, 
-                label: 'Simulation', 
-                desc: 'Ohne Zeitdruck, mit Feedback nach jeder Frage',
-                icon: BookOpen
-              },
-              { 
-                value: 'practice' as const, 
-                label: 'Übungsmodus', 
-                desc: 'Zeigt Erklärungen sofort an',
-                icon: Target
-              },
-              { 
-                value: 'timed_exam' as const, 
-                label: 'Prüfungsmodus', 
-                desc: 'Mit Zeitlimit wie in der echten Prüfung',
-                icon: Clock
-              },
-              {
-                value: 'adaptive' as const,
-                label: 'Adaptive Übung (IRT)',
-                desc: 'Fragen passen sich deinem Können an – echte CAT-Logik',
-                icon: Brain
-              },
-            ] satisfies { value: ExamMode; label: string; desc: string; icon: typeof BookOpen }[]).map(mode => (
-              <button
-                key={mode.value}
-                onClick={() => setSelectedMode(mode.value)}
-                className={cn(
-                  "flex items-center gap-4 p-4 rounded-xl border text-left transition-all",
-                  selectedMode === mode.value 
-                    ? "border-primary bg-primary/5" 
-                    : "border-border hover:border-primary/50"
-                )}
-              >
-                <mode.icon className={cn(
-                  "h-6 w-6",
-                  selectedMode === mode.value ? "text-primary" : "text-muted-foreground"
-                )} />
-                <div>
-                  <div className="font-medium">{mode.label}</div>
-                  <div className="text-sm text-muted-foreground">{mode.desc}</div>
-                </div>
-              </button>
-            ))}
-          </div>
+
+      <Card className="glass-card border-primary/40 shadow-elev-2">
+        <CardContent className="pt-6 space-y-4">
+          <Button
+            size="lg"
+            className="w-full"
+            data-testid="exam-sim-primary-cta"
+            onClick={() => onSelect(primary.id, selectedMode)}
+          >
+            <Play className="h-4 w-4 mr-2" />
+            Prüfungssimulation starten
+          </Button>
+          <p className="text-xs text-center text-muted-foreground">
+            Aktueller Modus: <span className="font-medium">{labelForMode(selectedMode)}</span>
+          </p>
         </CardContent>
       </Card>
-      
-      {/* Blueprint Selection */}
-      <div className="grid gap-4">
-        {blueprints.map(blueprint => (
-          <Card key={blueprint.id} className="glass-card hover:border-primary/50 transition-all">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle>{blueprint.title}</CardTitle>
-                  {blueprint.description && (
-                    <CardDescription className="mt-1">
-                      {blueprint.description}
-                    </CardDescription>
-                  )}
-                </div>
-                <Badge variant="secondary">{blueprint.total_questions} Fragen</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  {blueprint.time_limit_minutes} Minuten
-                </div>
-                <div className="flex items-center gap-1">
-                  <Target className="h-4 w-4" />
-                  {(blueprint.pass_threshold * 100).toFixed(0)}% zum Bestehen
-                </div>
-              </div>
-              {blueprint.difficulty_distribution?.easy != null && 
-               blueprint.difficulty_distribution?.medium != null && 
-               blueprint.difficulty_distribution?.hard != null && (
-                <div className="mt-3 flex gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {(blueprint.difficulty_distribution.easy * 100).toFixed(0)}% Leicht
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    {(blueprint.difficulty_distribution.medium * 100).toFixed(0)}% Mittel
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    {(blueprint.difficulty_distribution.hard * 100).toFixed(0)}% Schwer
-                  </Badge>
-                </div>
+
+      {/* Mode Selection — secondary */}
+      <details className="group" data-testid="exam-sim-mode-options">
+        <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+          Modus anpassen
+        </summary>
+        <div className="grid gap-3 mt-3">
+          {([
+            { value: 'simulation' as const, label: 'Simulation', desc: 'Ohne Zeitdruck, mit Feedback nach jeder Frage', icon: BookOpen },
+            { value: 'practice' as const, label: 'Übungsmodus', desc: 'Zeigt Erklärungen sofort an', icon: Target },
+            { value: 'timed_exam' as const, label: 'Prüfungsmodus', desc: 'Mit Zeitlimit wie in der echten Prüfung', icon: Clock },
+            { value: 'adaptive' as const, label: 'Adaptive Übung (IRT)', desc: 'Fragen passen sich deinem Können an', icon: Brain },
+          ]).map(mode => (
+            <button
+              key={mode.value}
+              onClick={() => setSelectedMode(mode.value)}
+              className={cn(
+                'flex items-center gap-4 p-4 rounded-xl border text-left transition-all',
+                selectedMode === mode.value
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/50'
               )}
-            </CardContent>
-            <CardFooter>
-              <Button 
-                className="w-full" 
-                onClick={() => onSelect(blueprint.id, selectedMode)}
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Prüfung starten
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+            >
+              <mode.icon className={cn('h-6 w-6', selectedMode === mode.value ? 'text-primary' : 'text-muted-foreground')} />
+              <div>
+                <div className="font-medium">{mode.label}</div>
+                <div className="text-sm text-muted-foreground">{mode.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </details>
+
+      {/* Weitere Optionen — tertiary blueprint list */}
+      {others.length > 0 && (
+        <details className="group" data-testid="exam-sim-other-blueprints">
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+            Weitere Prüfungen ({others.length})
+          </summary>
+          <div className="grid gap-4 mt-3">
+            {others.map(blueprint => (
+              <Card key={blueprint.id} className="glass-card">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-base">{blueprint.title}</CardTitle>
+                      {blueprint.description && (
+                        <CardDescription className="mt-1">{blueprint.description}</CardDescription>
+                      )}
+                    </div>
+                    <Badge variant="secondary">{blueprint.total_questions} Fragen</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-4 w-4" />
+                      {blueprint.time_limit_minutes} Minuten
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Target className="h-4 w-4" />
+                      {(blueprint.pass_threshold * 100).toFixed(0)}% zum Bestehen
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => onSelect(blueprint.id, selectedMode)}
+                  >
+                    Diese Variante starten
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
+}
+
+function labelForMode(mode: ExamMode): string {
+  switch (mode) {
+    case 'simulation': return 'Simulation';
+    case 'practice': return 'Übungsmodus';
+    case 'timed_exam': return 'Prüfungsmodus';
+    case 'adaptive': return 'Adaptive Übung';
+  }
 }
