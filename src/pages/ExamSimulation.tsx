@@ -165,6 +165,14 @@ export default function ExamSimulation() {
     
     return (
       <div className="container max-w-4xl py-8">
+        <RouteIdentityBlock
+          eyebrow="Prüfungssimulation"
+          title="Prüfungssimulation starten"
+          subtitle="Simuliere eine vollständige IHK-Prüfung unter realen Bedingungen — und erkenne, wo du heute stehst."
+          contextLine={beruf?.label ? `für ${beruf.label}` : undefined}
+          description="ExamFit Prüfungssimulation: IHK-nahe Simulation mit Auswertung, Schwächenanalyse und nächster Lernempfehlung."
+          testId="exam-sim-identity"
+        />
         {firstCurriculumId ? (
           <SimulationGateGuard curriculumId={firstCurriculumId}>
             <BlueprintSelector 
