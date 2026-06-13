@@ -635,7 +635,26 @@ function TrendIcon({ dir }: { dir: TrendDir }) {
 /* -------------------------------------------------------------------- */
 /* Tutor Whisper — Session-Memory                                        */
 /* -------------------------------------------------------------------- */
-function TutorWhisper() {
+function TutorWhisper({ reality }: { reality: LearnerRealitySnapshot }) {
+  const focus = reality.weak[0] ?? reality.partial[0];
+  const last = reality.lastActivity;
+  const headline = focus
+    ? `Letzte Schwäche · ${focus.field || "Kompetenz"}`
+    : last
+      ? "AI-Tutor liest deine Lernhistorie"
+      : "AI-Tutor bereit für deine Frage";
+  const meta = focus
+    ? `Score ${Math.round(focus.score)} / 100`
+    : last
+      ? `Letzte Aktivität: ${last.lessonTitle}`
+      : "Strict-RAG mit Quellen";
+  const body = focus
+    ? `Schwerpunkt liegt aktuell auf „${focus.title}". Eine fokussierte Erklärung kann diesen Bereich messbar drehen.`
+    : last
+      ? `Zuletzt: ${last.moduleTitle} → „${last.lessonTitle}". Tutor kann offene Punkte vertiefen.`
+      : "Stelle dem Tutor deine erste Frage zu deinem Curriculum.";
+  const tutorHref = focus ? `/app/tutor?focus=${encodeURIComponent(focus.id)}` : "/app/tutor";
+
   return (
     <section className="mb-6">
       <motion.div
@@ -656,25 +675,19 @@ function TutorWhisper() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-[11px] uppercase tracking-wider text-[var(--lp-text-3)]">
-              AI-Tutor · liest LF 5 · Rahmenplan
+              {headline}
             </span>
             <span className="h-1 w-1 rounded-full bg-[var(--lp-text-3)]" />
-            <span className="text-[11px] text-[var(--lp-text-3)]">3 Sessions analysiert</span>
+            <span className="text-[11px] text-[var(--lp-text-3)]">{meta}</span>
           </div>
-          <p className="mt-1.5 text-[14px] leading-relaxed text-[var(--lp-text-2)]">
-            Die Argumentationsstruktur war diesmal{" "}
-            <span className="text-[var(--lp-text)]">stabiler</span> — Fachbegriffe
-            sitzen, aber der Punktverlust liegt weiterhin bei{" "}
-            <span className="text-[var(--lp-text)]">Transferaufgaben</span>. Drei
-            Mikro-Sessions reichen, um das zu drehen.
-          </p>
-          <button
-            type="button"
+          <p className="mt-1.5 text-[14px] leading-relaxed text-[var(--lp-text-2)]">{body}</p>
+          <Link
+            to={tutorHref}
             className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-[var(--lp-aqua)] hover:text-[var(--lp-mint)] transition-colors"
           >
-            Analyse vertiefen
+            Tutor öffnen
             <ArrowRight className="h-3 w-3" />
-          </button>
+          </Link>
         </div>
       </motion.div>
     </section>
