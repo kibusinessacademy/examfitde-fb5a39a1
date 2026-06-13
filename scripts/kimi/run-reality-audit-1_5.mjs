@@ -262,7 +262,7 @@ const snapshots = [];
 for (const r of POST_LOGIN_ROUTES) {
   process.stdout.write(`  snap ${r} ... `);
   const snap = await snapshotRoute(ctx, r);
-  console.log(`url=${snap.final_url} auth_lost=${snap.auth_lost} text=${snap.snapshot.visible_text.length}b buttons=${snap.snapshot.buttons.length} links=${snap.snapshot.links.length} errs=${snap.snapshot.console_errors.length}`);
+  console.log(`url=${snap.final_url} auth_lost=${snap.auth_lost} text=${snap.snapshot.visible_text.length}b buttons=${snap.snapshot.buttons.length} links=${snap.snapshot.links.length} ctas=${snap.snapshot.cta_count} testids=${snap.snapshot.testids.length} errs=${snap.snapshot.console_errors.length}`);
   snapshots.push(snap);
 }
 await ctx.close();
