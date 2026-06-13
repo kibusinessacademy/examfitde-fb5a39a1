@@ -38,6 +38,7 @@ import { QuestionCard } from '@/components/exam/QuestionCard';
 import { ResultsScreen } from '@/components/exam/ResultsScreen';
 import { SimulationGateGuard } from '@/components/exam/SimulationGateGuard';
 import { RouteIdentityBlock } from '@/components/learner/RouteIdentityBlock';
+import { OutcomeHintBlock } from '@/components/learner/OutcomeHintBlock';
 import { useOsBeruf } from '@/lib/os/os-identity';
 import { ExamTimer } from '@/components/exam/ExamTimer';
 import { ConfidenceSlider } from '@/components/exam/ConfidenceSlider';
