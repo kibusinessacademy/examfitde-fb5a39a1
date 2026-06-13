@@ -292,6 +292,25 @@ export default function AppMiniCheckPage() {
       <BackgroundAura t={stateAfter?.risk ?? PROMPT.riskBefore} />
 
       <div className="relative mx-auto w-full max-w-2xl px-5 pt-8 pb-32">
+        <RouteIdentityBlock
+          eyebrow="MiniCheck · Diagnose"
+          title="MiniCheck"
+          subtitle="Kein Quiz, sondern ein diagnostischer Impuls: misst, wie stabil du eine prüfungsrelevante Kompetenz heute beherrschst."
+          contextLine={beruf?.label ? `für ${beruf.label}` : undefined}
+          description="ExamFit MiniCheck: kurze diagnostische Impulse, die deinen aktuellen Prüfungszustand re-evaluieren."
+          testId="minicheck-identity"
+        />
+        <OutcomeHintBlock
+          heading="Nach diesem Check:"
+          bullets={[
+            "Aktualisierter Prüfungszustand für diese Kompetenz",
+            "Empfehlung für den nächsten Lernschritt",
+            "Schwächen werden automatisch in deinen Lernpfad übernommen",
+          ]}
+          className="mb-4"
+          testId="minicheck-outcome-hint"
+        />
+
         {/* System-Strip */}
         <SystemStrip recalcPulse={recalcPulse} elapsed={elapsed} stage={stage} />
 
