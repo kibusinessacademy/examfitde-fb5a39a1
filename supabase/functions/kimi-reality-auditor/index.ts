@@ -39,7 +39,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const env = (k: string) => Deno.env.get(k) ?? "";
 
-type AuditMode = "reality" | "ux_text" | "next_action" | "qfaf";
+type AuditMode = "reality" | "ux_text" | "next_action" | "qfaf" | "journey";
 
 const FINDING_CONTRACT = `
 Antworte AUSSCHLIESSLICH als JSON-Objekt der Form:
