@@ -85,14 +85,18 @@ const SYSTEM_BY_MODE: Record<AuditMode, string> = {
   ].join("\n\n"),
   next_action: [
     "Du bist ein READ-ONLY Next-Action-Auditor. Regel (QFAF): Jede Seite muss eine Frage beantworten UND die nächste Aktion sichtbar machen.",
-    "Beurteile genau zwei Dimensionen je Route:",
-    "  1) Frage beantwortet? (orientation_clear: ja/nein)",
-    "  2) Nächste Aktion sichtbar? (next_action_visible: ja/nein)",
-    "Wenn next_action_visible=nein → Severity P0 (Sackgasse). kind='missing_next_action'.",
-    "Wenn orientation_clear=nein aber Aktion da → P1. kind='unclear_orientation'.",
-    "Wenn beides ja → finding NICHT zurückgeben.",
+    "Du erhältst strukturierte CTA-Felder: buttons_count, links_count, cta_count, cta_labels[], testids[].",
+    "CTAs umfassen <button>, [role=button] UND <a href>-Links mit sichtbarem Label — Links zählen als Aktion.",
+    "Regeln:",
+    "  - cta_count === 0  →  P0 'missing_next_action' (echte Sackgasse).",
+    "  - cta_count > 0 aber KEIN cta_label passt semantisch zum Nutzerziel (z.B. weiter lernen / Prüfung starten / Beruf auswählen / Lernpfad / Tutor starten) → P1 'unclear_next_action' (Aktion vorhanden, aber semantisch nicht offensichtlich).",
+    "  - cta_count > 0 UND mindestens ein semantisch passender Label/Testid vorhanden → KEIN Finding zurückgeben.",
+    "  - Mehrere identische CTAs (z.B. 5x 'Prüfung starten') → P1 'ambiguous_primary_cta', NICHT P0.",
+    "Wenn orientation_clear=nein aber Aktion da → P1 'unclear_orientation'.",
+    "Bestätige im evidence-Feld immer die cta_count UND nenne die geprüften cta_labels.",
     FINDING_CONTRACT,
   ].join("\n\n"),
+
 };
 
 function buildUserPrompt(input: {
