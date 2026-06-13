@@ -22,35 +22,73 @@ import { useExamPsychology } from "@/lib/system/ExamPsychology";
 import { DramaturgyChip } from "@/components/system/DramaturgyChip";
 import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
 import { ExaminerBiographyCard } from "@/components/system/ExaminerBiographyCard";
+import {
+  useLearnerRealityBridge,
+  type LearnerRealitySnapshot,
+} from "@/hooks/useLearnerRealityBridge";
 
 /**
- * /app/tutor — Phase 5.4: Tutor-Surface
- *
- * Der Tutor ist nicht der Chatbot. Er ist das Bewusstsein des Systems.
- * Er initiiert, interpretiert, priorisiert — er antwortet nicht primär.
- *
- * Identität:
- *  - kein Chatfenster, keine Message-Wall, kein „Wie kann ich helfen?“
- *  - diagnostischer Coach + strategischer Begleiter + Prüfungsbeobachter
- *  - System Memory ist die Erzählform — nicht Antworten, sondern Beobachtungen
+ * /app/tutor — P0-3 Sprint 1: DB-gebundener Tutor.
+ * Frage „Wobei brauche ich Hilfe?" → letzte Schwäche + letzte Aktivität + empfohlene Erklärung.
  */
 export default function AppTutorPage() {
+  const reality = useLearnerRealityBridge();
+
   return (
     <main className="lp-v2 min-h-screen w-full">
       <div className="relative mx-auto flex min-h-screen w-full max-w-[680px] flex-col px-5 pb-28 pt-8 sm:px-8 sm:pt-12">
         <BackgroundAura />
         <TutorHeader />
-        <TutorPresenceCard />
-        <ObservationStream />
-        <div className="mb-3"><DramaturgyChip /></div>
-        <div className="mb-3"><ExaminerLensCard /></div>
-        <div className="mb-3"><ExaminerBiographyCard /></div>
-        <RiskInterpretation />
-        <PrioritizedFocus />
-        <ExaminerLens />
-        <CalmAsk />
+        {reality.needsOnboarding ? (
+          <TutorOnboarding />
+        ) : reality.loading && !reality.hasData ? (
+          <TutorLoading />
+        ) : (
+          <>
+            <TutorPresenceCard />
+            <ObservationStream />
+            <div className="mb-3"><DramaturgyChip /></div>
+            <div className="mb-3"><ExaminerLensCard /></div>
+            <div className="mb-3"><ExaminerBiographyCard /></div>
+            <RiskInterpretation />
+            <PrioritizedFocus reality={reality} />
+            <ExaminerLens />
+            <CalmAsk />
+          </>
+        )}
       </div>
     </main>
+  );
+}
+
+function TutorOnboarding() {
+  return (
+    <section className="mt-8 rounded-2xl border border-white/[0.06] bg-[rgba(13,22,40,0.55)] p-6 text-center">
+      <h2 className="lp-display text-xl text-[color:var(--lp-text-primary,#e8ecf3)]">
+        Tutor wartet auf dein Curriculum
+      </h2>
+      <p className="mt-2 text-[14px] text-[color:var(--lp-text-secondary,#a8b3c2)]">
+        Wähle einen Beruf — danach kann der Tutor deine Schwächen erkennen.
+      </p>
+      <Link
+        to="/berufe"
+        className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium"
+        style={{ background: "linear-gradient(135deg, rgba(46,211,183,0.95), rgba(36,180,160,0.95))", color: "rgb(8,18,20)" }}
+      >
+        Beruf wählen
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+    </section>
+  );
+}
+
+function TutorLoading() {
+  return (
+    <div className="mt-8 space-y-3">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-24 animate-pulse rounded-2xl border border-white/[0.05] bg-white/[0.03]" />
+      ))}
+    </div>
   );
 }
 
