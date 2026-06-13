@@ -110,7 +110,8 @@ async function snapshotRoute(ctx, route) {
   page.on('pageerror', (e) => consoleErrors.push(String(e).slice(0, 300)));
 
   const target = BASE_URL + route;
-  let finalUrl = target, title = '', visible_text = '', buttons = [], links = [];
+  let finalUrl = target, title = '', visible_text = '';
+  let buttons = [], links = [], ctas = [], testids = [];
   let nav_error = null;
   try {
     await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -121,15 +122,41 @@ async function snapshotRoute(ctx, route) {
     title = await page.title().catch(() => '');
     const raw = (await page.locator('body').innerText().catch(() => '')) || '';
     visible_text = stripNoise(raw).slice(0, 8000);
+
     const rawButtons = await page.$$eval('button, [role="button"]', (els) =>
       els.map((e) => (e.textContent || '').trim()).filter(Boolean).slice(0, 60)
     ).catch(() => []);
     buttons = filterButtons(rawButtons).slice(0, 40);
+
     const rawLinks = await page.$$eval('a[href]', (els) =>
       els.map((e) => ({ text: (e.textContent || '').trim().slice(0, 80), href: e.getAttribute('href') || '' }))
          .filter((l) => l.text && l.href).slice(0, 60)
     ).catch(() => []);
     links = filterLinks(rawLinks).slice(0, 40);
+
+    // Unified CTA model: button + role=button + link with non-empty visible label.
+    // Anchors (href starting with #) excluded; cookie/legal noise filtered.
+    const rawCtas = await page.$$eval(
+      'button, [role="button"], a[href]',
+      (els) =>
+        els
+          .map((e) => {
+            const tag = e.tagName.toLowerCase();
+            const label = (e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 80);
+            const href = e.getAttribute('href') || '';
+            const role = e.getAttribute('role') || '';
+            const testid = e.getAttribute('data-testid') || '';
+            const type = tag === 'a' ? (href.startsWith('#') ? 'anchor' : 'link') : (role === 'button' ? 'role-button' : 'button');
+            return { tag, type, label, href, testid };
+          })
+          .filter((c) => c.label && c.type !== 'anchor')
+          .slice(0, 80),
+    ).catch(() => []);
+    ctas = rawCtas.filter((c) => !NOISE_PATTERNS.some((p) => p.test(`${c.label} ${c.href}`))).slice(0, 40);
+
+    testids = await page.$$eval('[data-testid]', (els) =>
+      Array.from(new Set(els.map((e) => e.getAttribute('data-testid')).filter(Boolean))).slice(0, 80),
+    ).catch(() => []);
   } catch (e) {
     nav_error = String(e).slice(0, 400);
   } finally {
@@ -143,7 +170,16 @@ async function snapshotRoute(ctx, route) {
     redirected: finalUrl !== target,
     auth_lost: /\/auth(\b|\/|\?)/.test(finalUrl),
     nav_error,
-    snapshot: { title, url: finalUrl, visible_text, buttons, links, console_errors: consoleErrors.slice(0, 20) },
+    snapshot: {
+      title, url: finalUrl, visible_text,
+      buttons, links, ctas,
+      cta_count: ctas.length,
+      cta_labels: ctas.map((c) => c.label),
+      buttons_count: buttons.length,
+      links_count: links.length,
+      testids,
+      console_errors: consoleErrors.slice(0, 20),
+    },
   };
 }
 
