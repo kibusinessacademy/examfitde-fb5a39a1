@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { RouteIdentityBlock } from "@/components/learner/RouteIdentityBlock";
+import { OutcomeHintBlock } from "@/components/learner/OutcomeHintBlock";
+import { useOsBeruf } from "@/lib/os/os-identity";
 import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 import { motion, AnimatePresence } from "framer-motion";
 import {
