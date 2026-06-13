@@ -232,7 +232,7 @@ for (const r of POST_LOGIN_ROUTES) {
 await ctx.close();
 await browser.close();
 
-const allEnriched = [];
+let allEnriched = [];
 const perCall = [];
 for (const snap of snapshots) {
   if (snap.auth_lost) {
