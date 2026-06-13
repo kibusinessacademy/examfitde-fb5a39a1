@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const kimiModel = String(body?.model ?? "kimi-k2-0905-preview");
+  const kimiModel = String(body?.model ?? "moonshot-v1-32k");
   const fallbackModel = String(body?.fallback_model ?? "openai/gpt-4o-mini");
 
   const gatewayUrl = `${env("SUPABASE_URL")}/functions/v1/vibeos-ai-gateway`;
