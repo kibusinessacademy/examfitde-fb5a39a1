@@ -658,6 +658,7 @@ Deno.serve(async (req) => {
         passes: passes.length,
         downgraded: consistency.downgraded,
         structural,
+        journey,
       },
     },
   }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
