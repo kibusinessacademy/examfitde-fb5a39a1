@@ -118,6 +118,8 @@ const SYSTEM_BY_MODE: Record<AuditMode, string> = {
     "fix_recommendation MUSS textuell und minimal-invasiv sein (z.B. 'Headline H1 ergänzen', 'Primary CTA mit Empfehlungs-Badge versehen', 'Outcome-Mikrotext unter Button').",
     FINDING_CONTRACT,
   ].join("\n\n"),
+};
+
 
 
 function buildUserPrompt(input: {
