@@ -265,10 +265,10 @@ function TodayPriority({ reality }: { reality: LearnerRealitySnapshot }) {
           Strategische Priorität · adaptiv
         </div>
         <h2 className="lp-display mt-1 text-[22px] leading-snug text-[color:var(--lp-text-primary,#e8ecf3)] sm:text-[24px]">
-          {priority.focus}
+          {focusTitle}
         </h2>
         <p className="mt-2 text-[14px] leading-relaxed text-[color:var(--lp-text-secondary,#a8b3c2)]">
-          {priority.reason}
+          {focusReason}
         </p>
 
         <div className="mt-5 grid grid-cols-3 gap-2">
