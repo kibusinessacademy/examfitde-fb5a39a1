@@ -204,7 +204,68 @@ function normalizeFinding(f: any, route: string, mode: AuditMode) {
     fix_recommendation: String(f?.fix_recommendation ?? "").slice(0, 1500),
     confidence: conf,
     audit_mode: mode,
+    verdict: "fail" as "fail" | "inconsistent",
+    inconsistency_reason: "" as string,
   };
+}
+
+/**
+ * KIMI.2.1 — Auditor-Consistency-Gate.
+ *
+ * Re-scores any finding whose evidence/impact text contradicts the implicit
+ * NEIN-verdict. If the auditor wrote "klar", "keine Änderung notwendig",
+ * "genau EINEN Primary CTA", "in einem Satz" etc. AND simultaneously emitted
+ * a finding (= NEIN), the verdict is structurally invalid and gets demoted
+ * from `fail` → `inconsistent` so the QFAF totals stop drowning in noise.
+ *
+ * We DO NOT silently drop the finding — we keep it visible under a separate
+ * status so KIMI's own reliability is measurable over time.
+ *
+ * Pure text heuristic, deterministic, no second LLM call.
+ */
+const POSITIVE_PATTERNS: RegExp[] = [
+  /\bkeine\s+(?:änderung|aenderung)\s+notwendig\b/i,
+  /\bnicht\s+notwendig\b/i,
+  /\bist\s+klar\b/i,
+  /\bist\s+eindeutig\b/i,
+  /\bklar\s+und\s+(?:beschreibt|benennt|eindeutig)\b/i,
+  /\bbeschreibt\s+die\s+seite\b/i,
+  /\bin\s+einem\s+satz\s+beschreiben\b/i,
+  /\bgenau\s+einen?\s+(?:primary\s+)?cta\b/i,
+  /\bdas\s+ziel\s+benennt\b/i,
+  /\bdirekt\s+erkennen\b/i,
+  /\bsofort\s+(?:erkennen|verständlich)\b/i,
+  /\bklarer\s+und\s+eindeutiger?\s+(?:primary\s+)?cta\b/i,
+];
+const SOFT_NEGATIVE_PATTERNS: RegExp[] = [
+  /\bnicht\b/i, /\bkein(?:e|en|er)?\b/i, /\bunklar\b/i, /\bfehlt\b/i,
+  /\bverloren\b/i, /\bverwirr/i, /\bzu\s+viele\b/i, /\bunsicher\b/i,
+  /\bmehrere\b/i, /\bambig/i, /\baber\b/i, /\bjedoch\b/i, /\bnur\s+/i,
+  /\bkönnte\s+nicht\b/i, /\bnicht\s+klar\b/i,
+];
+function isInconsistent(f: ReturnType<typeof normalizeFinding>): string | null {
+  const text = `${f.evidence}\n${f.user_impact}\n${f.fix_recommendation}`;
+  const positiveHits = POSITIVE_PATTERNS.filter((p) => p.test(text)).map((p) => p.source);
+  if (positiveHits.length === 0) return null;
+  // Count negative cues — if evidence ALSO contains real concerns, treat as fail.
+  const negativeHits = SOFT_NEGATIVE_PATTERNS.filter((p) => p.test(text)).length;
+  // High-confidence positive language with no offsetting concerns → inconsistent.
+  if (f.confidence >= 0.8 && negativeHits <= 1) {
+    return `Evidence enthält Positiv-Marker (${positiveHits.slice(0, 2).join(", ")}) bei Verdict=NEIN (confidence=${f.confidence}).`;
+  }
+  return null;
+}
+function applyConsistencyGate(findings: ReturnType<typeof normalizeFinding>[]) {
+  let downgraded = 0;
+  for (const f of findings) {
+    const reason = isInconsistent(f);
+    if (reason) {
+      f.verdict = "inconsistent";
+      f.inconsistency_reason = reason;
+      downgraded++;
+    }
+  }
+  return { downgraded };
 }
 
 Deno.serve(async (req) => {
