@@ -370,6 +370,12 @@ Deno.serve(async (req) => {
   const parsed = tryParseFindings(String(assistantText));
   const findings = parsed.map((f) => normalizeFinding(f, route, mode));
 
+  // KIMI.2.1 — Consistency-Gate: only applied for qfaf mode (other modes
+  // already have deterministic CTA rules and don't suffer the same bias).
+  const consistency = mode === "qfaf" ? applyConsistencyGate(findings) : { downgraded: 0 };
+  const realFails = findings.filter((f) => f.verdict === "fail");
+  const inconsistent = findings.filter((f) => f.verdict === "inconsistent");
+
   // Audit per finding (best-effort, never blocks response).
   try {
     const sb = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
@@ -381,7 +387,7 @@ Deno.serve(async (req) => {
     } else {
       for (const f of findings) {
         await sb.rpc("fn_emit_audit", {
-          _action_type: "kimi_reality_finding",
+          _action_type: f.verdict === "inconsistent" ? "kimi_reality_finding_inconsistent" : "kimi_reality_finding",
           _payload: { ...f, ms, model_in: `kimi/${kimiModel}` },
         });
       }
@@ -389,12 +395,21 @@ Deno.serve(async (req) => {
   } catch { /* ignore audit failures */ }
 
   return new Response(JSON.stringify({
-    findings,
+    findings,                  // back-compat: all findings (verdict-tagged)
+    real_findings: realFails,  // fail-only, what UI should count
+    inconsistencies: inconsistent,
     meta: {
       route, audit_mode: mode, ms,
       model_in: `kimi/${kimiModel}`,
       fallback_model: fallbackModel,
       raw_parse_ok: parsed.length > 0 || /"findings"\s*:\s*\[\s*\]/.test(assistantText),
+      consistency_gate: {
+        applied: mode === "qfaf",
+        emitted: findings.length,
+        fails: realFails.length,
+        inconsistent: inconsistent.length,
+        downgraded: consistency.downgraded,
+      },
     },
   }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
