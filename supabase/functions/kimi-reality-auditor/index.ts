@@ -515,6 +515,7 @@ Deno.serve(async (req) => {
         fails: realFails.length,
         inconsistent: inconsistent.length,
         downgraded: consistency.downgraded,
+        structural,
       },
     },
   }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
