@@ -697,7 +697,8 @@ function TutorWhisper({ reality }: { reality: LearnerRealitySnapshot }) {
 /* -------------------------------------------------------------------- */
 /* Secondary Stripe                                                      */
 /* -------------------------------------------------------------------- */
-function SecondaryStripe() {
+function SecondaryStripe({ reality }: { reality: LearnerRealitySnapshot }) {
+  void reality;
   const items = [
     {
       to: "/exam-trainer?mode=oral&from=app-start",
