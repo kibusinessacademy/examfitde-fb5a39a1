@@ -165,6 +165,42 @@ function buildUserPrompt(input: {
 }) {
   const s = input.snapshot ?? {};
   const ctx = input.context ?? {};
+
+  // Journey mode: snapshot.steps is an array of {route, title, headings, cta_labels, testids, visible_text}.
+  if (input.audit_mode === "journey" && Array.isArray(s.steps)) {
+    const lines: string[] = [];
+    lines.push(`Journey: ${input.route}`);
+    if (ctx.journey_name) lines.push(`Name: ${ctx.journey_name}`);
+    if (ctx.persona) lines.push(`Persona: ${ctx.persona}`);
+    if (ctx.goal) lines.push(`Nutzerziel: ${ctx.goal}`);
+    lines.push(`Schritte (N=${s.steps.length}): ${s.steps.map((x: any) => x?.route).join(' → ')}`);
+    s.steps.forEach((step: any, i: number) => {
+      const idx = i + 1;
+      lines.push('');
+      lines.push(`--- SCHRITT ${idx}/${s.steps.length} · Route: ${step?.route ?? '?'} ---`);
+      if (step?.title) lines.push(`Title: ${step.title}`);
+      if (Array.isArray(step?.headings) && step.headings.length) {
+        lines.push(`Headings: ${JSON.stringify(step.headings).slice(0, 600)}`);
+      }
+      const cc = Number(step?.cta_count ?? (Array.isArray(step?.cta_labels) ? step.cta_labels.length : 0));
+      lines.push(`CTA-Metrik: cta_count=${cc}`);
+      if (Array.isArray(step?.cta_labels) && step.cta_labels.length) {
+        lines.push(`CTA-Labels: ${JSON.stringify(step.cta_labels).slice(0, 1500)}`);
+      }
+      if (Array.isArray(step?.ctas) && step.ctas.length) {
+        lines.push(`CTA-Details (label/href/testid): ${JSON.stringify(step.ctas).slice(0, 1800)}`);
+      }
+      if (Array.isArray(step?.testids) && step.testids.length) {
+        lines.push(`Test-IDs: ${JSON.stringify(step.testids).slice(0, 800)}`);
+      }
+      const txt = String(step?.visible_text ?? "").slice(0, 2500);
+      lines.push(`VISIBLE TEXT (truncated 2.5k):\n${txt}`);
+    });
+    lines.push('');
+    lines.push(`Audit-Mode: journey. Bewerte ausschließlich die Übergänge und die Geschlossenheit. Antworte nur als JSON gemäß Vertrag.`);
+    return lines.join('\n');
+  }
+
   const lines: string[] = [];
   lines.push(`Route: ${input.route}`);
   if (ctx.persona) lines.push(`Persona: ${ctx.persona}`);
