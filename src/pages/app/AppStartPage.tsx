@@ -317,30 +317,31 @@ function DiagnosisHeadline({ reality }: { reality: LearnerRealitySnapshot }) {
 /* -------------------------------------------------------------------- */
 /* Readiness Score — adaptive Recalc                                     */
 /* -------------------------------------------------------------------- */
-function ReadinessScore() {
+function ReadinessScore({ reality }: { reality: LearnerRealitySnapshot }) {
+  const target = reality.readiness > 0 ? reality.readiness : 0;
   const [val, setVal] = useState(0);
-  const [target, setTarget] = useState(57);
-  const [delta, setDelta] = useState<number | null>(null);
 
   useEffect(() => {
-    const steps = [12, 24, 33, 41, 48, 53, 56, 57];
-    steps.forEach((v, i) => setTimeout(() => setVal(v), 350 + i * 110));
-  }, []);
+    // Smooth-in zum echten Zielwert
+    if (target <= 0) {
+      setVal(0);
+      return;
+    }
+    const start = 0;
+    const duration = 900;
+    const startTs = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - startTs) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setVal(Math.round(start + (target - start) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
 
-  useEffect(() => {
-    // Subtile Recalc alle ~22s: ±1, einmalig sichtbar
-    const tick = setInterval(() => {
-      const d = Math.random() > 0.5 ? 1 : -1;
-      setTarget((t) => {
-        const next = Math.max(54, Math.min(62, t + d));
-        setVal(next);
-        setDelta(next - t);
-        setTimeout(() => setDelta(null), 2600);
-        return next;
-      });
-    }, 22000);
-    return () => clearInterval(tick);
-  }, []);
+  const passLabel = readinessLabel(target);
 
   return (
     <section className="lp-card relative mb-6 overflow-hidden p-5 sm:p-6">
@@ -354,29 +355,10 @@ function ReadinessScore() {
               {val}
             </span>
             <span className="text-base text-[var(--lp-text-3)]">/100</span>
-            <AnimatePresence>
-              {delta !== null && (
-                <motion.span
-                  key={`delta-${target}`}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="ml-1 text-[11px] tabular-nums"
-                  style={{
-                    color: delta > 0 ? "var(--lp-aqua)" : "var(--lp-warn)",
-                  }}
-                >
-                  {delta > 0 ? "+" : ""}
-                  {delta}
-                </motion.span>
-              )}
-            </AnimatePresence>
           </div>
-          <div className="mt-1 text-[13px] text-[var(--lp-text-2)]">
-            Knappes Bestehen wahrscheinlich
-          </div>
+          <div className="mt-1 text-[13px] text-[var(--lp-text-2)]">{passLabel}</div>
         </div>
-        <RiskState />
+        <RiskState reality={reality} />
       </div>
 
       <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/[0.04]">
@@ -386,37 +368,54 @@ function ReadinessScore() {
             background:
               "linear-gradient(90deg, #f5b754 0%, #2ED3B7 60%, #59F0D0 100%)",
           }}
-          animate={{ width: `${val}%` }}
+          animate={{ width: `${Math.max(2, val)}%` }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         />
       </div>
 
       <div className="mt-3 flex items-center justify-between text-[11px] text-[var(--lp-text-3)]">
         <span>Bestehensschwelle 65</span>
-        <span className="text-[var(--lp-aqua)]">+8 Pkt / Woche im Pfad</span>
+        <Link
+          to={reality.nextStep.to}
+          className="text-[var(--lp-aqua)] hover:text-[var(--lp-mint)] transition-colors"
+        >
+          {reality.nextStep.label} →
+        </Link>
       </div>
     </section>
   );
 }
 
-/* Persistent risk-as-state badge (subtle, not alarmist) */
-function RiskState() {
+function RiskState({ reality }: { reality: LearnerRealitySnapshot }) {
+  const critical = reality.weak.length >= 2 || reality.readiness < 55;
+  const watch = reality.weak.length === 1 || reality.partial.length >= 2 || reality.readiness < 75;
+  const tone = critical ? "critical" : watch ? "watch" : "stable";
+  const color =
+    tone === "critical" ? "var(--lp-danger)" : tone === "watch" ? "var(--lp-warn)" : "var(--lp-aqua)";
+  const bg =
+    tone === "critical" ? "rgba(239,77,107,0.04)" : tone === "watch" ? "rgba(245,183,84,0.04)" : "rgba(46,211,183,0.04)";
+  const border =
+    tone === "critical" ? "rgba(239,77,107,0.24)" : tone === "watch" ? "rgba(245,183,84,0.24)" : "rgba(46,211,183,0.24)";
+  const label = tone === "critical" ? "Hohes Risiko" : tone === "watch" ? "Erhöhtes Risiko" : "Stabil";
+  const subline =
+    reality.daysSinceLast == null
+      ? "Erste Analyse"
+      : reality.daysSinceLast === 0
+        ? "heute aktualisiert"
+        : `vor ${reality.daysSinceLast} Tag${reality.daysSinceLast === 1 ? "" : "en"}`;
   return (
     <div
       className="flex flex-col items-end gap-1.5 rounded-xl border px-3 py-2"
-      style={{
-        borderColor: "rgba(245,183,84,0.24)",
-        background: "rgba(245,183,84,0.04)",
-      }}
+      style={{ borderColor: border, background: bg }}
     >
-      <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--lp-warn)]">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color }}>
         <AlertTriangle className="h-3 w-3" />
-        Erhöhtes Risiko
+        {label}
       </div>
       <span className="text-[10px] text-[var(--lp-text-3)] tabular-nums">
-        −14 Pkt erwartet
+        {reality.weak.length} kritisch · {reality.partial.length} beobachtet
       </span>
-      <span className="text-[10px] text-[var(--lp-text-3)]">stabil seit 2 Tagen</span>
+      <span className="text-[10px] text-[var(--lp-text-3)]">{subline}</span>
     </div>
   );
 }
