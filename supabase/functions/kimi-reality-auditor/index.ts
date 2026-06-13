@@ -100,22 +100,28 @@ const SYSTEM_BY_MODE: Record<AuditMode, string> = {
     "Du bist ein READ-ONLY Question-First + Action-First (QFAF) Comprehension-Auditor für Azubis (16–25, technisch nicht versiert).",
     "Persona: Authentifizierter Lernender, Ziel: Prüfung bestehen. Stell dir vor, er landet zum ERSTEN MAL auf dieser Seite und hat 5 Sekunden Zeit zum Verstehen.",
     "",
-    "Beantworte für die Seite verbindlich vier Fragen, JEDE mit ja/nein + kurzer Begründung aus dem Snapshot:",
-    "  Q1 ORIENTATION: Wo bin ich? Ist Seitentitel/Headline so klar, dass der Azubi ihn in einem Satz beschreiben könnte?",
-    "  Q2 STAKES: Was bedeutet diese Seite für meine Prüfung? Ist der Bezug zum Prüfungsziel sichtbar (auch implizit über Kontext-Text/Badges)?",
-    "  Q3 ACTION: Was ist der nächste sinnvolle Schritt? Gibt es genau EINEN klar erkennbaren Primary CTA, dessen Label das Ziel benennt?",
-    "  Q4 OUTCOME: Was passiert nach dem Klick? Ist die Folge des Klicks irgendwo angedeutet (Mikrotext, Hinweis, Sequenz-Stepper, 'Du erhältst danach …')?",
+    "Beantworte verbindlich vier Fragen, JEDE mit ja/nein + kurzer Begründung aus dem Snapshot:",
+    "  Q1 ORIENTATION: Wo bin ich? Ist Seitentitel/Headline so klar, dass der Azubi sie in einem Satz beschreiben könnte?",
+    "  Q2 STAKES: Was bedeutet diese Seite für meine Prüfung? Ist der Bezug zum Prüfungsziel sichtbar?",
+    "  Q3 ACTION: Was ist der nächste sinnvolle Schritt? Gibt es EINEN klar erkennbaren Primary CTA?",
+    "  Q4 OUTCOME: Was passiert nach dem Klick? Ist die Folge angedeutet (Mikrotext, Hinweis, Stepper)?",
     "",
-    "Erzeuge ein Finding NUR für jede Frage, die mit 'nein' beantwortet wird. Verwende kind=qfaf_q1_orientation | qfaf_q2_stakes | qfaf_q3_action | qfaf_q4_outcome.",
-    "Severity-Regel:",
-    "  - Q3 'nein' (kein klarer next step) → P0 wenn cta_count===0, sonst P1.",
-    "  - Q1 'nein' → P1 (Orientierungsverlust).",
-    "  - Q2 'nein' → P2 (Relevanz unklar, aber Aktion möglich).",
-    "  - Q4 'nein' → P2 (Outcome unklar, aber Klick möglich).",
-    "Mehrere identische CTAs → in Q3 als 'nein' werten (ambiguous_primary).",
-    "Wenn alle 4 Fragen mit 'ja' beantwortet werden → leere findings.",
-    "evidence MUSS für jedes Finding die konkrete Beobachtung aus dem Snapshot zitieren (Headline-Wortlaut, CTA-Label, fehlender Outcome-Hinweis).",
-    "fix_recommendation MUSS textuell und minimal-invasiv sein (z.B. 'Headline H1 ergänzen', 'Primary CTA mit Empfehlungs-Badge versehen', 'Outcome-Mikrotext unter Button').",
+    "STRENGE NICHT-FAIL-REGELN (KIMI.2.2):",
+    "  • Q1: Wenn Title, eine H1/H2 ODER ein RouteIdentityBlock die Seite eindeutig benennt UND deine Begründung positive Marker enthält ('klar', 'eindeutig', 'in einem Satz beschreiben'), MUSST du Q1='ja' setzen. Tu das nicht, kommt der Consistency-Gate.",
+    "  • Q3: Wenn EIN CTA-Label Marker wie 'Empfohlen', 'nächster Schritt', '— jetzt starten' enthält ODER ein data-testid mit '-primary-cta' / 'primary-cta' existiert ODER genau ein Primary-CTA klar dominanter ist als die anderen → Q3='ja'. Secondary-/Tertiary-CTAs (Link-style, 'zurück', 'mehr erfahren') zählen NICHT gleichwertig gegen den Primary.",
+    "  • Q4: Ein Outcome-Hint unter dem Primary CTA reicht. Es ist NICHT erforderlich, dass jeder Secondary-CTA seine eigene Outcome-Microcopy hat.",
+    "",
+    "Severity-Regel (NEU, hart):",
+    "  - Q3='nein' → P0 NUR wenn cta_count===0 (echte Sackgasse). Wenn ein Primary CTA existiert, maximal P1.",
+    "  - Q1='nein' → P1.",
+    "  - Q2='nein' → P2.",
+    "  - Q4='nein' → P2.",
+    "  - P0 ist Azubi-kann-Kernschritt-nicht-ausführen. Visuelle Mehrdeutigkeit allein ist NIE P0.",
+    "",
+    "Erzeuge ein Finding NUR für jede Frage mit 'nein'. Verwende kind=qfaf_q1_orientation | qfaf_q2_stakes | qfaf_q3_action | qfaf_q4_outcome.",
+    "Wenn alle 4 Fragen 'ja' → leere findings.",
+    "evidence MUSS konkret zitieren (Headline-Wortlaut, CTA-Label, Marker-Wort).",
+    "fix_recommendation MUSS textuell und minimal-invasiv sein.",
     FINDING_CONTRACT,
   ].join("\n\n"),
 };
@@ -268,6 +274,103 @@ function applyConsistencyGate(findings: ReturnType<typeof normalizeFinding>[]) {
   return { downgraded };
 }
 
+/**
+ * KIMI.2.2 — Structural Q-Gate.
+ *
+ * Uses the structured snapshot (title, headings, cta_labels, testids, cta_count)
+ * to deterministically reclassify findings the auditor produced against
+ * objective signals in the DOM. This is the inverse of the text-bias gate:
+ * here we trust the DOM, not the auditor's prose.
+ *
+ * Rules (mirror KIMI.2.2 doctrine):
+ *   Q1: title|H1|H2 non-empty AND not a sitewide brand only → Q1 cannot FAIL → inconsistent.
+ *   Q3: cta_count===1 OR any cta_label contains 'empfohlen'|'nächster schritt'|'jetzt starten'
+ *         OR any testid matches /primary-cta/i  → Q3 cannot FAIL → inconsistent.
+ *   Q4: at least one Outcome-Hint marker in visible_text ('nach dem start', 'nach auswahl',
+ *         'danach', 'route-outcome-hint' testid) → Q4 cannot FAIL → inconsistent.
+ *
+ * Severity caps (always applied, even if not demoted):
+ *   Q3 with cta_count > 0 → severity max P1 (never P0).
+ *   Q4 → severity max P2.
+ *   Q1 → severity max P1.
+ *   Q2 → severity max P2.
+ */
+const PRIMARY_LABEL_MARKERS = /(empfohlen|n[äa]chster\s+schritt|jetzt\s+starten|jetzt\s+(beginnen|loslegen))/i;
+const PRIMARY_TESTID_MARKER = /primary-cta/i;
+const OUTCOME_MARKERS = /(nach\s+dem\s+start|nach\s+auswahl|du\s+erh[äa]ltst\s+danach|danach\s+(siehst|kannst|wirst)|als\s+n[äa]chstes\b)/i;
+const OUTCOME_TESTID_MARKER = /route-outcome-hint/i;
+
+function capSeverity(f: ReturnType<typeof normalizeFinding>, max: "P1" | "P2") {
+  const rank = { P0: 0, P1: 1, P2: 2 } as Record<string, number>;
+  if (rank[f.severity] < rank[max]) {
+    f.severity = max;
+  }
+}
+
+function applyStructuralQGate(
+  findings: ReturnType<typeof normalizeFinding>[],
+  snapshot: any,
+) {
+  const stats = { q1_demoted: 0, q3_demoted: 0, q4_demoted: 0, severity_capped: 0 };
+  const title = String(snapshot?.title ?? "").trim();
+  const headings: string[] = Array.isArray(snapshot?.headings) ? snapshot.headings : [];
+  const ctaLabels: string[] = Array.isArray(snapshot?.cta_labels) ? snapshot.cta_labels : [];
+  const testids: string[] = Array.isArray(snapshot?.testids) ? snapshot.testids : [];
+  const ctaCount = Number(snapshot?.cta_count ?? 0);
+  const visibleText = String(snapshot?.visible_text ?? "");
+
+  // Q1 signal: has title AND ≥1 heading (route is named in DOM).
+  const q1Named = title.length > 0 && headings.some((h) => h && h.length >= 2);
+
+  // Q3 signal: structural primary present.
+  const hasPrimaryLabel = ctaLabels.some((l) => PRIMARY_LABEL_MARKERS.test(String(l)));
+  const hasPrimaryTestid = testids.some((t) => PRIMARY_TESTID_MARKER.test(String(t)));
+  const exactlyOneCta = ctaCount === 1;
+  const q3Primary = hasPrimaryLabel || hasPrimaryTestid || exactlyOneCta;
+
+  // Q4 signal: outcome hint present (component or text).
+  const hasOutcomeTestid = testids.some((t) => OUTCOME_TESTID_MARKER.test(String(t)));
+  const hasOutcomeText = OUTCOME_MARKERS.test(visibleText);
+  const q4Outcome = hasOutcomeTestid || hasOutcomeText;
+
+  for (const f of findings) {
+    if (f.verdict !== "fail") continue;
+
+    if (f.kind === "qfaf_q1_orientation") {
+      capSeverity(f, "P1"); stats.severity_capped++;
+      if (q1Named) {
+        f.verdict = "inconsistent";
+        f.inconsistency_reason = `Q1-Gate: title='${title.slice(0, 60)}' und headings=${JSON.stringify(headings.slice(0, 3))} benennen die Route eindeutig.`;
+        stats.q1_demoted++;
+      }
+    } else if (f.kind === "qfaf_q3_action") {
+      if (ctaCount > 0) { capSeverity(f, "P1"); stats.severity_capped++; }
+      if (q3Primary) {
+        f.verdict = "inconsistent";
+        const why = hasPrimaryTestid
+          ? `data-testid mit '*-primary-cta' im DOM`
+          : hasPrimaryLabel
+            ? `Primary-Marker in CTA-Label (${ctaLabels.find((l) => PRIMARY_LABEL_MARKERS.test(String(l)))})`
+            : `cta_count===1`;
+        f.inconsistency_reason = `Q3-Gate: ${why} — Primary CTA strukturell vorhanden.`;
+        stats.q3_demoted++;
+      }
+    } else if (f.kind === "qfaf_q4_outcome") {
+      capSeverity(f, "P2"); stats.severity_capped++;
+      if (q4Outcome) {
+        f.verdict = "inconsistent";
+        f.inconsistency_reason = hasOutcomeTestid
+          ? `Q4-Gate: route-outcome-hint Komponente im DOM.`
+          : `Q4-Gate: Outcome-Marker im visible_text.`;
+        stats.q4_demoted++;
+      }
+    } else if (f.kind === "qfaf_q2_stakes") {
+      capSeverity(f, "P2"); stats.severity_capped++;
+    }
+  }
+  return stats;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") {
@@ -370,9 +473,12 @@ Deno.serve(async (req) => {
   const parsed = tryParseFindings(String(assistantText));
   const findings = parsed.map((f) => normalizeFinding(f, route, mode));
 
-  // KIMI.2.1 — Consistency-Gate: only applied for qfaf mode (other modes
-  // already have deterministic CTA rules and don't suffer the same bias).
+  // KIMI.2.1 — text-bias Consistency-Gate (positive prose vs. NEIN verdict).
+  // KIMI.2.2 — structural Q-Gate (DOM signals: title/headings/CTAs/testids/outcome).
   const consistency = mode === "qfaf" ? applyConsistencyGate(findings) : { downgraded: 0 };
+  const structural = mode === "qfaf"
+    ? applyStructuralQGate(findings, body.snapshot)
+    : { q1_demoted: 0, q3_demoted: 0, q4_demoted: 0, severity_capped: 0 };
   const realFails = findings.filter((f) => f.verdict === "fail");
   const inconsistent = findings.filter((f) => f.verdict === "inconsistent");
 
@@ -409,6 +515,7 @@ Deno.serve(async (req) => {
         fails: realFails.length,
         inconsistent: inconsistent.length,
         downgraded: consistency.downgraded,
+        structural,
       },
     },
   }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
