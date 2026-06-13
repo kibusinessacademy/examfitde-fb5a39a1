@@ -28,13 +28,17 @@ const PASSWORD = process.env.REALITY_LEARNER_PASSWORD || process.env.E2E_TEST_US
 if (!SUPABASE_URL || !SRK) { console.error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY required'); process.exit(2); }
 if (!EMAIL || !PASSWORD) { console.error('Learner credentials missing'); process.exit(2); }
 
-const ROUTES = [
+const ALL_ROUTES = [
   '/dashboard',
   '/app/lernpfad',
   '/app/minicheck',
   '/app/tutor',
   '/app/exam-simulation',
 ];
+const routesArg = process.argv.find(a => a.startsWith('--routes='));
+const ROUTES = routesArg
+  ? routesArg.slice('--routes='.length).split(',').map(s => s.trim()).filter(Boolean)
+  : ALL_ROUTES;
 
 const OUT_DIR = '/mnt/documents/kimi';
 fs.mkdirSync(OUT_DIR, { recursive: true });
