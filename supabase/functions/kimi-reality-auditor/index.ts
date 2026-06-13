@@ -274,6 +274,103 @@ function applyConsistencyGate(findings: ReturnType<typeof normalizeFinding>[]) {
   return { downgraded };
 }
 
+/**
+ * KIMI.2.2 — Structural Q-Gate.
+ *
+ * Uses the structured snapshot (title, headings, cta_labels, testids, cta_count)
+ * to deterministically reclassify findings the auditor produced against
+ * objective signals in the DOM. This is the inverse of the text-bias gate:
+ * here we trust the DOM, not the auditor's prose.
+ *
+ * Rules (mirror KIMI.2.2 doctrine):
+ *   Q1: title|H1|H2 non-empty AND not a sitewide brand only → Q1 cannot FAIL → inconsistent.
+ *   Q3: cta_count===1 OR any cta_label contains 'empfohlen'|'nächster schritt'|'jetzt starten'
+ *         OR any testid matches /primary-cta/i  → Q3 cannot FAIL → inconsistent.
+ *   Q4: at least one Outcome-Hint marker in visible_text ('nach dem start', 'nach auswahl',
+ *         'danach', 'route-outcome-hint' testid) → Q4 cannot FAIL → inconsistent.
+ *
+ * Severity caps (always applied, even if not demoted):
+ *   Q3 with cta_count > 0 → severity max P1 (never P0).
+ *   Q4 → severity max P2.
+ *   Q1 → severity max P1.
+ *   Q2 → severity max P2.
+ */
+const PRIMARY_LABEL_MARKERS = /(empfohlen|n[äa]chster\s+schritt|jetzt\s+starten|jetzt\s+(beginnen|loslegen))/i;
+const PRIMARY_TESTID_MARKER = /primary-cta/i;
+const OUTCOME_MARKERS = /(nach\s+dem\s+start|nach\s+auswahl|du\s+erh[äa]ltst\s+danach|danach\s+(siehst|kannst|wirst)|als\s+n[äa]chstes\b)/i;
+const OUTCOME_TESTID_MARKER = /route-outcome-hint/i;
+
+function capSeverity(f: ReturnType<typeof normalizeFinding>, max: "P1" | "P2") {
+  const rank = { P0: 0, P1: 1, P2: 2 } as Record<string, number>;
+  if (rank[f.severity] < rank[max]) {
+    f.severity = max;
+  }
+}
+
+function applyStructuralQGate(
+  findings: ReturnType<typeof normalizeFinding>[],
+  snapshot: any,
+) {
+  const stats = { q1_demoted: 0, q3_demoted: 0, q4_demoted: 0, severity_capped: 0 };
+  const title = String(snapshot?.title ?? "").trim();
+  const headings: string[] = Array.isArray(snapshot?.headings) ? snapshot.headings : [];
+  const ctaLabels: string[] = Array.isArray(snapshot?.cta_labels) ? snapshot.cta_labels : [];
+  const testids: string[] = Array.isArray(snapshot?.testids) ? snapshot.testids : [];
+  const ctaCount = Number(snapshot?.cta_count ?? 0);
+  const visibleText = String(snapshot?.visible_text ?? "");
+
+  // Q1 signal: has title AND ≥1 heading (route is named in DOM).
+  const q1Named = title.length > 0 && headings.some((h) => h && h.length >= 2);
+
+  // Q3 signal: structural primary present.
+  const hasPrimaryLabel = ctaLabels.some((l) => PRIMARY_LABEL_MARKERS.test(String(l)));
+  const hasPrimaryTestid = testids.some((t) => PRIMARY_TESTID_MARKER.test(String(t)));
+  const exactlyOneCta = ctaCount === 1;
+  const q3Primary = hasPrimaryLabel || hasPrimaryTestid || exactlyOneCta;
+
+  // Q4 signal: outcome hint present (component or text).
+  const hasOutcomeTestid = testids.some((t) => OUTCOME_TESTID_MARKER.test(String(t)));
+  const hasOutcomeText = OUTCOME_MARKERS.test(visibleText);
+  const q4Outcome = hasOutcomeTestid || hasOutcomeText;
+
+  for (const f of findings) {
+    if (f.verdict !== "fail") continue;
+
+    if (f.kind === "qfaf_q1_orientation") {
+      capSeverity(f, "P1"); stats.severity_capped++;
+      if (q1Named) {
+        f.verdict = "inconsistent";
+        f.inconsistency_reason = `Q1-Gate: title='${title.slice(0, 60)}' und headings=${JSON.stringify(headings.slice(0, 3))} benennen die Route eindeutig.`;
+        stats.q1_demoted++;
+      }
+    } else if (f.kind === "qfaf_q3_action") {
+      if (ctaCount > 0) { capSeverity(f, "P1"); stats.severity_capped++; }
+      if (q3Primary) {
+        f.verdict = "inconsistent";
+        const why = hasPrimaryTestid
+          ? `data-testid mit '*-primary-cta' im DOM`
+          : hasPrimaryLabel
+            ? `Primary-Marker in CTA-Label (${ctaLabels.find((l) => PRIMARY_LABEL_MARKERS.test(String(l)))})`
+            : `cta_count===1`;
+        f.inconsistency_reason = `Q3-Gate: ${why} — Primary CTA strukturell vorhanden.`;
+        stats.q3_demoted++;
+      }
+    } else if (f.kind === "qfaf_q4_outcome") {
+      capSeverity(f, "P2"); stats.severity_capped++;
+      if (q4Outcome) {
+        f.verdict = "inconsistent";
+        f.inconsistency_reason = hasOutcomeTestid
+          ? `Q4-Gate: route-outcome-hint Komponente im DOM.`
+          : `Q4-Gate: Outcome-Marker im visible_text.`;
+        stats.q4_demoted++;
+      }
+    } else if (f.kind === "qfaf_q2_stakes") {
+      capSeverity(f, "P2"); stats.severity_capped++;
+    }
+  }
+  return stats;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") {
