@@ -186,14 +186,26 @@ function SystemHeader() {
 /* -------------------------------------------------------------------- */
 /* System Memory Strip — „Das System erinnert sich"                      */
 /* -------------------------------------------------------------------- */
-function SystemMemoryStrip() {
-  const memos = [
-    { label: "LF 5", state: "weiterhin kritisch", tone: "warn" as const },
-    { label: "Fachgespräch", state: "seit 3 Tagen stabilisiert", tone: "ok" as const },
-    { label: "Bewertungsaufgaben", state: "bleiben fehleranfällig", tone: "warn" as const },
-    { label: "Risiko", state: "leicht gesunken", tone: "ok" as const },
-    { label: "Antwortgeschwindigkeit", state: "verbessert", tone: "ok" as const },
-  ];
+function SystemMemoryStrip({ reality }: { reality: LearnerRealitySnapshot }) {
+  const memos: Array<{ label: string; state: string; tone: "warn" | "ok" }> = [];
+  if (reality.weak[0]) {
+    memos.push({ label: reality.weak[0].field || "Kompetenz", state: `${reality.weak[0].title} kritisch`, tone: "warn" });
+  }
+  if (reality.partial[0]) {
+    memos.push({ label: reality.partial[0].field || "Kompetenz", state: `${reality.partial[0].title} beobachtet`, tone: "warn" });
+  }
+  if (reality.mastered[0]) {
+    memos.push({ label: reality.mastered[0].field || "Kompetenz", state: `${reality.mastered[0].title} stabil`, tone: "ok" });
+  }
+  if (reality.streak > 0) {
+    memos.push({ label: "Streak", state: `${reality.streak} Tage in Folge`, tone: "ok" });
+  }
+  if (typeof reality.progressPercent === "number" && reality.progressPercent > 0) {
+    memos.push({ label: "Fortschritt", state: `${Math.round(reality.progressPercent)} % im Kurs`, tone: "ok" });
+  }
+  if (memos.length === 0) {
+    memos.push({ label: "System", state: "Analyse startet", tone: "ok" });
+  }
   return (
     <section className="mb-8 -mx-5 sm:-mx-8">
       <div
