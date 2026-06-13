@@ -63,7 +63,8 @@ function getAIMode(examMode: string): AIMode {
 export default function ExamSimulation() {
   const { sessionId } = useParams<{ sessionId?: string }>();
   const navigate = useNavigate();
-  
+  const beruf = useOsBeruf();
+
   const [examResult, setExamResult] = useState<ExamResult | null>(null);
   const [showFinishDialog, setShowFinishDialog] = useState(false);
   const [confidence, setConfidence] = useState(50);
