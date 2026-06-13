@@ -85,14 +85,18 @@ const SYSTEM_BY_MODE: Record<AuditMode, string> = {
   ].join("\n\n"),
   next_action: [
     "Du bist ein READ-ONLY Next-Action-Auditor. Regel (QFAF): Jede Seite muss eine Frage beantworten UND die nächste Aktion sichtbar machen.",
-    "Beurteile genau zwei Dimensionen je Route:",
-    "  1) Frage beantwortet? (orientation_clear: ja/nein)",
-    "  2) Nächste Aktion sichtbar? (next_action_visible: ja/nein)",
-    "Wenn next_action_visible=nein → Severity P0 (Sackgasse). kind='missing_next_action'.",
-    "Wenn orientation_clear=nein aber Aktion da → P1. kind='unclear_orientation'.",
-    "Wenn beides ja → finding NICHT zurückgeben.",
+    "Du erhältst strukturierte CTA-Felder: buttons_count, links_count, cta_count, cta_labels[], testids[].",
+    "CTAs umfassen <button>, [role=button] UND <a href>-Links mit sichtbarem Label — Links zählen als Aktion.",
+    "Regeln:",
+    "  - cta_count === 0  →  P0 'missing_next_action' (echte Sackgasse).",
+    "  - cta_count > 0 aber KEIN cta_label passt semantisch zum Nutzerziel (z.B. weiter lernen / Prüfung starten / Beruf auswählen / Lernpfad / Tutor starten) → P1 'unclear_next_action' (Aktion vorhanden, aber semantisch nicht offensichtlich).",
+    "  - cta_count > 0 UND mindestens ein semantisch passender Label/Testid vorhanden → KEIN Finding zurückgeben.",
+    "  - Mehrere identische CTAs (z.B. 5x 'Prüfung starten') → P1 'ambiguous_primary_cta', NICHT P0.",
+    "Wenn orientation_clear=nein aber Aktion da → P1 'unclear_orientation'.",
+    "Bestätige im evidence-Feld immer die cta_count UND nenne die geprüften cta_labels.",
     FINDING_CONTRACT,
   ].join("\n\n"),
+
 };
 
 function buildUserPrompt(input: {
@@ -109,6 +113,20 @@ function buildUserPrompt(input: {
   if (ctx.goal) lines.push(`Nutzerziel: ${ctx.goal}`);
   if (s.title) lines.push(`Title: ${s.title}`);
   if (s.url) lines.push(`URL: ${s.url}`);
+  // Structured CTA model (so the model doesn't have to infer "is a link a CTA?")
+  const ctaCount = Number(s.cta_count ?? (Array.isArray(s.ctas) ? s.ctas.length : 0));
+  const buttonsCount = Number(s.buttons_count ?? (Array.isArray(s.buttons) ? s.buttons.length : 0));
+  const linksCount = Number(s.links_count ?? (Array.isArray(s.links) ? s.links.length : 0));
+  lines.push(`CTA-Metrik: cta_count=${ctaCount}  buttons_count=${buttonsCount}  links_count=${linksCount}`);
+  if (Array.isArray(s.cta_labels) && s.cta_labels.length) {
+    lines.push(`CTA-Labels (unified, button+link+role=button): ${JSON.stringify(s.cta_labels).slice(0, 2000)}`);
+  }
+  if (Array.isArray(s.ctas) && s.ctas.length) {
+    lines.push(`CTA-Details: ${JSON.stringify(s.ctas).slice(0, 2500)}`);
+  }
+  if (Array.isArray(s.testids) && s.testids.length) {
+    lines.push(`Test-IDs (data-testid im DOM): ${JSON.stringify(s.testids).slice(0, 1500)}`);
+  }
   if (Array.isArray(s.buttons) && s.buttons.length) {
     lines.push(`Sichtbare Buttons: ${JSON.stringify(s.buttons).slice(0, 2000)}`);
   }
