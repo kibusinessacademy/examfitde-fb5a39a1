@@ -212,10 +212,15 @@ function SystemStatusStrip() {
 /* ------------------------------------------------------------------ */
 /* 2. Heutige Priorität — dominant, EIN Fokus                          */
 /* ------------------------------------------------------------------ */
-function TodayPriority() {
+function TodayPriority({ reality }: { reality: LearnerRealitySnapshot }) {
   const { priority } = useExamPsychology();
-  const isCritical = priority.tone === "critical";
-  const isWatch = priority.tone === "watch";
+  const top = reality.weak[0] ?? reality.partial[0];
+  const focusTitle = top ? top.title : priority.focus;
+  const focusReason = top
+    ? `Aktueller Score ${Math.round(top.score)} / 100 in ${top.field || "diesem Lernfeld"} — hier liegt der größte Hebel.`
+    : priority.reason;
+  const isCritical = (top ? top.status === "weak" : priority.tone === "critical");
+  const isWatch = (top ? top.status === "partial" : priority.tone === "watch");
   const badgeLabel = isCritical ? "Risiko hoch" : isWatch ? "Risiko beobachtet" : "Stabilisiert";
   const badgeColor = isCritical
     ? "rgb(232,150,150)"
