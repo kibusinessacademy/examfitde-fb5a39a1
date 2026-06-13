@@ -99,22 +99,45 @@ function TutorOnboarding() {
       <p className="mt-2 text-[14px] text-[color:var(--lp-text-secondary,#a8b3c2)]">
         Wähle einen Beruf — danach kann der Tutor deine Schwächen erkennen.
       </p>
-      <div className="mt-5 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
-        <Link
-          to="/berufe"
-          data-testid="tutor-onboarding-primary"
-          className="inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium"
-          style={{ background: "linear-gradient(135deg, rgba(46,211,183,0.95), rgba(36,180,160,0.95))", color: "rgb(8,18,20)" }}
-        >
-          Beruf auswählen
-          <ArrowRight className="h-4 w-4" />
-        </Link>
+
+      {/* Primary CTA — genau ein empfohlener nächster Schritt */}
+      <div className="mt-6 flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-2">
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            style={{
+              background: "rgba(46,211,183,0.14)",
+              color: "rgb(120,235,210)",
+              border: "1px solid rgba(46,211,183,0.32)",
+            }}
+          >
+            Empfohlen
+          </span>
+          <Link
+            to="/berufe"
+            data-testid="tutor-primary-cta"
+            aria-label="Beruf auswählen (empfohlener nächster Schritt)"
+            className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold shadow-lg shadow-[rgba(46,211,183,0.18)] transition-transform hover:scale-[1.02]"
+            style={{
+              background: "linear-gradient(135deg, rgba(46,211,183,0.98), rgba(36,180,160,0.98))",
+              color: "rgb(8,18,20)",
+            }}
+          >
+            Beruf auswählen
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <p className="max-w-sm text-[12.5px] leading-snug text-[color:var(--lp-text-secondary,#a8b3c2)]">
+            Wähle zuerst deinen Prüfungsberuf, damit der Tutor dein Curriculum und deine Schwächen kennt.
+          </p>
+        </div>
+
+        {/* Secondary — kleiner, ohne CTA-Gewicht */}
         <Link
           to="/app/lernpfad"
           data-testid="tutor-onboarding-secondary"
-          className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 text-sm font-medium text-white/85"
+          className="mt-1 text-[12.5px] font-medium text-white/55 underline-offset-4 transition-colors hover:text-white/80 hover:underline"
         >
-          Lernpfad starten
+          Oder direkt zum Lernpfad
         </Link>
       </div>
     </section>
