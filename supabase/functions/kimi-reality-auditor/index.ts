@@ -473,9 +473,12 @@ Deno.serve(async (req) => {
   const parsed = tryParseFindings(String(assistantText));
   const findings = parsed.map((f) => normalizeFinding(f, route, mode));
 
-  // KIMI.2.1 — Consistency-Gate: only applied for qfaf mode (other modes
-  // already have deterministic CTA rules and don't suffer the same bias).
+  // KIMI.2.1 — text-bias Consistency-Gate (positive prose vs. NEIN verdict).
+  // KIMI.2.2 — structural Q-Gate (DOM signals: title/headings/CTAs/testids/outcome).
   const consistency = mode === "qfaf" ? applyConsistencyGate(findings) : { downgraded: 0 };
+  const structural = mode === "qfaf"
+    ? applyStructuralQGate(findings, body.snapshot)
+    : { q1_demoted: 0, q3_demoted: 0, q4_demoted: 0, severity_capped: 0 };
   const realFails = findings.filter((f) => f.verdict === "fail");
   const inconsistent = findings.filter((f) => f.verdict === "inconsistent");
 
