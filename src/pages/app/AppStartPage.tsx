@@ -247,7 +247,26 @@ function SystemMemoryStrip({ reality }: { reality: LearnerRealitySnapshot }) {
 /* -------------------------------------------------------------------- */
 /* Diagnose-Headline                                                     */
 /* -------------------------------------------------------------------- */
-function DiagnosisHeadline() {
+function DiagnosisHeadline({ reality }: { reality: LearnerRealitySnapshot }) {
+  const weakCount = reality.weak.length;
+  const partialCount = reality.partial.length;
+  const headlineGap =
+    weakCount === 0 && partialCount === 0
+      ? "keine kritischen Lücken"
+      : weakCount === 1
+        ? "eine Kompetenzlücke"
+        : weakCount > 1
+          ? `${weakCount} Kompetenzlücken`
+          : `${partialCount} Kompetenz${partialCount === 1 ? "" : "en"} im Beobachtungsmodus`;
+  const headlinePrefix =
+    reality.readinessLevel === "ready"
+      ? "Prüfungsreif —"
+      : reality.readinessLevel === "almost_ready"
+        ? "Du bist nah dran — aber"
+        : "Aktuell unter Risiko —";
+  const focusField = reality.weak[0]?.field || reality.partial[0]?.field || "deine Schwerpunktthemen";
+  const focusTitle = reality.weak[0]?.title || reality.partial[0]?.title || "Transferaufgaben";
+
   return (
     <section className="mb-10">
       <motion.div
@@ -266,7 +285,7 @@ function DiagnosisHeadline() {
         transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
         className="lp-display text-[28px] font-semibold leading-[1.15] text-[var(--lp-text)] sm:text-[34px]"
       >
-        Du bist nah dran — aber{" "}
+        {headlinePrefix}{" "}
         <span
           style={{
             background: "linear-gradient(90deg, #2ED3B7 0%, #59F0D0 60%, #a78bfa 100%)",
@@ -274,9 +293,9 @@ function DiagnosisHeadline() {
             WebkitTextFillColor: "transparent",
           }}
         >
-          zwei Kompetenzlücken
+          {headlineGap}
         </span>{" "}
-        kosten dich aktuell die Prüfung.
+        bestimmen aktuell deinen Pfad.
       </motion.h1>
       <motion.p
         initial={{ opacity: 0 }}
@@ -284,10 +303,12 @@ function DiagnosisHeadline() {
         transition={{ duration: 0.7, delay: 0.35 }}
         className="mt-3 text-[15px] leading-relaxed text-[var(--lp-text-2)] sm:text-base"
       >
-        Typischer Punktverlust entsteht bei{" "}
-        <span className="text-[var(--lp-text)]">Bewertungsaufgaben</span> und in
-        der <span className="text-[var(--lp-text)]">Argumentationsstruktur des Fachgesprächs</span>.
-        Das System hat einen 21-Tage-Pfad rekalkuliert.
+        Fokus liegt aktuell auf{" "}
+        <span className="text-[var(--lp-text)]">{focusField}</span> — speziell{" "}
+        <span className="text-[var(--lp-text)]">{focusTitle}</span>.
+        {reality.totalLessons > 0
+          ? ` ${reality.masteredLessons} von ${reality.totalLessons} Lektionen gemeistert.`
+          : " Das System aktualisiert deinen Pfad nach jedem MiniCheck."}
       </motion.p>
     </section>
   );
