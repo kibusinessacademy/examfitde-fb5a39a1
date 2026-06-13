@@ -524,6 +524,7 @@ Deno.serve(async (req) => {
     : { q1_demoted: 0, q3_demoted: 0, q4_demoted: 0, severity_capped: 0 };
   const realFails = findings.filter((f) => f.verdict === "fail");
   const inconsistent = findings.filter((f) => f.verdict === "inconsistent");
+  const passes = findings.filter((f) => f.verdict === "pass");
 
   // Audit per finding (best-effort, never blocks response).
   try {
@@ -535,8 +536,12 @@ Deno.serve(async (req) => {
       });
     } else {
       for (const f of findings) {
+        const action =
+          f.verdict === "pass" ? "kimi_reality_finding_pass_override"
+          : f.verdict === "inconsistent" ? "kimi_reality_finding_inconsistent"
+          : "kimi_reality_finding";
         await sb.rpc("fn_emit_audit", {
-          _action_type: f.verdict === "inconsistent" ? "kimi_reality_finding_inconsistent" : "kimi_reality_finding",
+          _action_type: action,
           _payload: { ...f, ms, model_in: `kimi/${kimiModel}` },
         });
       }
@@ -547,6 +552,7 @@ Deno.serve(async (req) => {
     findings,                  // back-compat: all findings (verdict-tagged)
     real_findings: realFails,  // fail-only, what UI should count
     inconsistencies: inconsistent,
+    passes,                    // KIMI.2.4: gate-overridden findings (count as PASS)
     meta: {
       route, audit_mode: mode, ms,
       model_in: `kimi/${kimiModel}`,
@@ -557,6 +563,7 @@ Deno.serve(async (req) => {
         emitted: findings.length,
         fails: realFails.length,
         inconsistent: inconsistent.length,
+        passes: passes.length,
         downgraded: consistency.downgraded,
         structural,
       },
