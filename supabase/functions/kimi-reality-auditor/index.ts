@@ -276,30 +276,26 @@ function applyConsistencyGate(findings: ReturnType<typeof normalizeFinding>[]) {
 }
 
 /**
- * KIMI.2.2 — Structural Q-Gate.
+ * KIMI.2.4 — Structural Gate-Override.
  *
- * Uses the structured snapshot (title, headings, cta_labels, testids, cta_count)
- * to deterministically reclassify findings the auditor produced against
- * objective signals in the DOM. This is the inverse of the text-bias gate:
- * here we trust the DOM, not the auditor's prose.
+ * Doctrine: a structurally satisfied gate + positive evidence is a PASS,
+ * not an INCONS. INCONS is reserved for the residual case (gate satisfied,
+ * evidence neutral). A real FAIL requires gate violation AND negative evidence.
  *
- * Rules (mirror KIMI.2.2 doctrine):
- *   Q1: title|H1|H2 non-empty AND not a sitewide brand only → Q1 cannot FAIL → inconsistent.
- *   Q3: cta_count===1 OR any cta_label contains 'empfohlen'|'nächster schritt'|'jetzt starten'
- *         OR any testid matches /primary-cta/i  → Q3 cannot FAIL → inconsistent.
- *   Q4: at least one Outcome-Hint marker in visible_text ('nach dem start', 'nach auswahl',
- *         'danach', 'route-outcome-hint' testid) → Q4 cannot FAIL → inconsistent.
- *
- * Severity caps (always applied, even if not demoted):
- *   Q3 with cta_count > 0 → severity max P1 (never P0).
- *   Q4 → severity max P2.
- *   Q1 → severity max P1.
- *   Q2 → severity max P2.
+ * Rules:
+ *   1. Gate satisfied + positive evidence  → verdict = "pass"      (suppress, count as PASS)
+ *   2. Gate satisfied + neutral evidence   → verdict = "inconsistent"
+ *   3. Gate violated  + negative evidence  → verdict = "fail" (kept)
+ *   4. Gate violated  + neutral evidence   → verdict = "inconsistent"
+ *   5. fix_recommendation contains "Kein Fix notwendig" → verdict = "pass"
+ *   6. P0 only on real blockade: gate violated AND (cta_count===0 for Q3,
+ *      title empty for Q1, no outcome AND violating context for Q4).
  */
 const PRIMARY_LABEL_MARKERS = /(empfohlen|n[äa]chster\s+schritt|jetzt\s+starten|jetzt\s+(beginnen|loslegen))/i;
 const PRIMARY_TESTID_MARKER = /primary-cta/i;
 const OUTCOME_MARKERS = /(nach\s+dem\s+start|nach\s+auswahl|du\s+erh[äa]ltst\s+danach|danach\s+(siehst|kannst|wirst)|als\s+n[äa]chstes\b)/i;
 const OUTCOME_TESTID_MARKER = /route-outcome-hint/i;
+const NO_FIX_NEEDED = /\bkein(?:er|en)?\s+fix\s+(?:notwendig|n[öo]tig|erforderlich)\b/i;
 
 function capSeverity(f: ReturnType<typeof normalizeFinding>, max: "P1" | "P2") {
   const rank = { P0: 0, P1: 1, P2: 2 } as Record<string, number>;
@@ -308,11 +304,28 @@ function capSeverity(f: ReturnType<typeof normalizeFinding>, max: "P1" | "P2") {
   }
 }
 
+function hasPositiveEvidence(f: ReturnType<typeof normalizeFinding>): string | null {
+  const text = `${f.evidence}\n${f.user_impact}\n${f.fix_recommendation}`;
+  for (const p of POSITIVE_PATTERNS) {
+    if (p.test(text)) return p.source;
+  }
+  return null;
+}
+function hasNegativeEvidence(f: ReturnType<typeof normalizeFinding>): boolean {
+  const text = `${f.evidence}\n${f.user_impact}`;
+  const hits = SOFT_NEGATIVE_PATTERNS.filter((p) => p.test(text)).length;
+  return hits >= 2;
+}
+
 function applyStructuralQGate(
   findings: ReturnType<typeof normalizeFinding>[],
   snapshot: any,
 ) {
-  const stats = { q1_demoted: 0, q3_demoted: 0, q4_demoted: 0, severity_capped: 0 };
+  const stats = {
+    q1_passed: 0, q3_passed: 0, q4_passed: 0, q2_passed: 0,
+    q1_demoted: 0, q3_demoted: 0, q4_demoted: 0,
+    severity_capped: 0, no_fix_passed: 0, p0_capped: 0,
+  };
   const title = String(snapshot?.title ?? "").trim();
   const headings: string[] = Array.isArray(snapshot?.headings) ? snapshot.headings : [];
   const ctaLabels: string[] = Array.isArray(snapshot?.cta_labels) ? snapshot.cta_labels : [];
@@ -320,57 +333,86 @@ function applyStructuralQGate(
   const ctaCount = Number(snapshot?.cta_count ?? 0);
   const visibleText = String(snapshot?.visible_text ?? "");
 
-  // Q1 signal: has title AND ≥1 heading (route is named in DOM).
-  const q1Named = title.length > 0 && headings.some((h) => h && h.length >= 2);
-
-  // Q3 signal: structural primary present.
+  const q1Gate = title.length > 0 && headings.some((h) => h && h.length >= 2);
   const hasPrimaryLabel = ctaLabels.some((l) => PRIMARY_LABEL_MARKERS.test(String(l)));
   const hasPrimaryTestid = testids.some((t) => PRIMARY_TESTID_MARKER.test(String(t)));
-  const exactlyOneCta = ctaCount === 1;
-  const q3Primary = hasPrimaryLabel || hasPrimaryTestid || exactlyOneCta;
-
-  // Q4 signal: outcome hint present (component or text).
-  const hasOutcomeTestid = testids.some((t) => OUTCOME_TESTID_MARKER.test(String(t)));
-  const hasOutcomeText = OUTCOME_MARKERS.test(visibleText);
-  const q4Outcome = hasOutcomeTestid || hasOutcomeText;
+  const q3Gate = hasPrimaryLabel || hasPrimaryTestid || ctaCount === 1;
+  const q4Gate = testids.some((t) => OUTCOME_TESTID_MARKER.test(String(t))) || OUTCOME_MARKERS.test(visibleText);
+  const q2Gate = visibleText.length > 200; // page has substantive content → stakes can be inferred
 
   for (const f of findings) {
     if (f.verdict !== "fail") continue;
 
+    // Rule 5: "Kein Fix notwendig" → auto-pass.
+    if (NO_FIX_NEEDED.test(f.fix_recommendation)) {
+      f.verdict = "pass";
+      f.override_reason = `Gate-Override: Fix-Hinweis ist "Kein Fix notwendig" — kein Produktfehler.`;
+      stats.no_fix_passed++;
+      continue;
+    }
+
+    let gate = false;
+    let gateName = "";
+    let p0Allowed = false;
     if (f.kind === "qfaf_q1_orientation") {
+      gate = q1Gate; gateName = "Q1";
       capSeverity(f, "P1"); stats.severity_capped++;
-      if (q1Named) {
-        f.verdict = "inconsistent";
-        f.inconsistency_reason = `Q1-Gate: title='${title.slice(0, 60)}' und headings=${JSON.stringify(headings.slice(0, 3))} benennen die Route eindeutig.`;
-        stats.q1_demoted++;
-      }
+      p0Allowed = false; // title kann fehlen, aber ist kein Hard-Blocker
     } else if (f.kind === "qfaf_q3_action") {
+      gate = q3Gate; gateName = "Q3";
       if (ctaCount > 0) { capSeverity(f, "P1"); stats.severity_capped++; }
-      if (q3Primary) {
-        f.verdict = "inconsistent";
-        const why = hasPrimaryTestid
-          ? `data-testid mit '*-primary-cta' im DOM`
-          : hasPrimaryLabel
-            ? `Primary-Marker in CTA-Label (${ctaLabels.find((l) => PRIMARY_LABEL_MARKERS.test(String(l)))})`
-            : `cta_count===1`;
-        f.inconsistency_reason = `Q3-Gate: ${why} — Primary CTA strukturell vorhanden.`;
-        stats.q3_demoted++;
-      }
+      p0Allowed = ctaCount === 0; // echter Blocker: kein CTA überhaupt
     } else if (f.kind === "qfaf_q4_outcome") {
+      gate = q4Gate; gateName = "Q4";
       capSeverity(f, "P2"); stats.severity_capped++;
-      if (q4Outcome) {
-        f.verdict = "inconsistent";
-        f.inconsistency_reason = hasOutcomeTestid
-          ? `Q4-Gate: route-outcome-hint Komponente im DOM.`
-          : `Q4-Gate: Outcome-Marker im visible_text.`;
-        stats.q4_demoted++;
-      }
+      p0Allowed = false;
     } else if (f.kind === "qfaf_q2_stakes") {
+      gate = q2Gate; gateName = "Q2";
       capSeverity(f, "P2"); stats.severity_capped++;
+      p0Allowed = false;
+    } else {
+      continue; // unbekannter kind — gate-Logik nicht anwenden
+    }
+
+    // Rule 6: P0 nur bei echter Blockade.
+    if (f.severity === "P0" && !p0Allowed) {
+      f.severity = "P1";
+      stats.p0_capped++;
+    }
+
+    const posMarker = hasPositiveEvidence(f);
+    const negMarker = hasNegativeEvidence(f);
+
+    if (gate) {
+      if (posMarker) {
+        // Rule 1: gate + positive evidence → PASS
+        f.verdict = "pass";
+        f.override_reason = `${gateName}-Gate erfüllt (DOM-Beweis) + positive Evidence-Marker (${posMarker.slice(0, 40)}) → strukturell PASS.`;
+        if (f.kind === "qfaf_q1_orientation") stats.q1_passed++;
+        else if (f.kind === "qfaf_q3_action") stats.q3_passed++;
+        else if (f.kind === "qfaf_q4_outcome") stats.q4_passed++;
+        else if (f.kind === "qfaf_q2_stakes") stats.q2_passed++;
+      } else {
+        // Rule 2: gate + neutral evidence → INCONS
+        f.verdict = "inconsistent";
+        f.inconsistency_reason = `${gateName}-Gate strukturell erfüllt, aber Evidence neutral/unklar — Auditor-Unsicherheit, kein Produktfehler.`;
+        if (f.kind === "qfaf_q1_orientation") stats.q1_demoted++;
+        else if (f.kind === "qfaf_q3_action") stats.q3_demoted++;
+        else if (f.kind === "qfaf_q4_outcome") stats.q4_demoted++;
+      }
+    } else {
+      // Gate violated.
+      if (!negMarker) {
+        // Rule 4: gate violated + no clear negative evidence → INCONS
+        f.verdict = "inconsistent";
+        f.inconsistency_reason = `${gateName}-Gate verletzt, aber Evidence nicht eindeutig negativ — als INCONS klassifiziert.`;
+      }
+      // else: Rule 3 — keep as fail.
     }
   }
   return stats;
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
