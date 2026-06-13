@@ -191,9 +191,18 @@ export function BlueprintSelector({ blueprints, isLoading, onSelect }: Blueprint
 
 function labelForMode(mode: ExamMode): string {
   switch (mode) {
-    case 'simulation': return 'Simulation';
-    case 'practice': return 'Übungsmodus';
-    case 'timed_exam': return 'Prüfungsmodus';
+    case 'simulation': return 'Realistische Simulation';
+    case 'practice': return 'Üben mit Erklärungen';
+    case 'timed_exam': return 'Ernstfall mit Zeitlimit';
     case 'adaptive': return 'Adaptive Übung';
+  }
+}
+
+function descForMode(mode: ExamMode): string {
+  switch (mode) {
+    case 'simulation': return 'wie die echte Prüfung, mit Feedback';
+    case 'practice': return 'Erklärungen direkt sichtbar';
+    case 'timed_exam': return 'volles Zeitlimit, keine Hilfen';
+    case 'adaptive': return 'Schwierigkeit passt sich an';
   }
 }
