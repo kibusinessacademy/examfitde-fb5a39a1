@@ -533,30 +533,51 @@ function Tag({ children }: { children: React.ReactNode }) {
 /* Competency Trend List — System-Memory pro Kompetenz                   */
 /* -------------------------------------------------------------------- */
 type TrendDir = "up" | "down" | "flat";
-function CompetencyTrendList() {
-  const items: Array<{
-    label: string;
-    state: string;
-    dir: TrendDir;
-    score: number;
-  }> = [
-    { label: "Fachgespräch · Struktur", state: "mündlich stabil", dir: "up", score: 71 },
-    { label: "Transferaufgaben", state: "schriftlich instabil", dir: "down", score: 48 },
-    { label: "Fachbegriffe · Rechnungswesen", state: "leicht verbessert", dir: "up", score: 64 },
-    { label: "Bewertungsaufgaben", state: "häufige Fehlerquelle", dir: "flat", score: 41 },
-  ];
+function CompetencyTrendList({ reality }: { reality: LearnerRealitySnapshot }) {
+  const mapDir = (c: RealityCompetency): TrendDir =>
+    c.status === "mastered" ? "up" : c.status === "weak" ? "down" : "flat";
+  const mapState = (c: RealityCompetency) =>
+    c.status === "mastered"
+      ? "gemeistert"
+      : c.status === "weak"
+        ? "kritisch"
+        : c.status === "partial"
+          ? "beobachtet"
+          : "noch nicht erfasst";
+
+  const items = [...reality.weak, ...reality.partial, ...reality.mastered]
+    .slice(0, 6)
+    .map((c) => ({
+      label: `${c.field || "Kompetenz"} · ${c.title}`,
+      state: mapState(c),
+      dir: mapDir(c),
+      score: Math.round(c.score),
+    }));
+
+  if (items.length === 0) {
+    return (
+      <section className="mb-6">
+        <div className="rounded-2xl border border-[var(--lp-border)] bg-[var(--lp-elev)]/60 p-4 text-center text-[12px] text-[var(--lp-text-3)]">
+          Noch keine Kompetenz-Daten — starte deinen ersten MiniCheck.
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mb-6">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--lp-text-3)]">
-          Kompetenzentwicklung · letzte 7 Tage
+          Kompetenzentwicklung · aktueller Stand
         </span>
+        <Link to="/app/lernpfad" className="text-[11px] text-[var(--lp-aqua)]">
+          Alle ansehen
+        </Link>
       </div>
       <ul className="overflow-hidden rounded-2xl border border-[var(--lp-border)] bg-[var(--lp-elev)]/60">
         {items.map((it, i) => (
           <motion.li
-            key={it.label}
+            key={it.label + i}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.5 + i * 0.05 }}
@@ -564,7 +585,7 @@ function CompetencyTrendList() {
           >
             <TrendIcon dir={it.dir} />
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] text-[var(--lp-text)]">{it.label}</div>
+              <div className="truncate text-[13px] text-[var(--lp-text)]">{it.label}</div>
               <div className="text-[11px] text-[var(--lp-text-3)]">{it.state}</div>
             </div>
             <span
