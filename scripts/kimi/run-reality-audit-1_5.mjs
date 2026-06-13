@@ -271,6 +271,16 @@ for (const snap of snapshots) {
   }
 }
 
+// Dedup: gleiche (route, kind, severity) → ein Finding (höchste confidence gewinnt).
+// Verhindert dass z.B. /app/exam-simulation als 3 P0s gezählt wird (reality + ux_text + next_action).
+const dedupMap = new Map();
+for (const f of allEnriched) {
+  const key = `${f.route}::${f.kind}::${f.severity}`;
+  const prev = dedupMap.get(key);
+  if (!prev || (f.confidence ?? 0) > (prev.confidence ?? 0)) dedupMap.set(key, f);
+}
+allEnriched = Array.from(dedupMap.values());
+
 allEnriched.sort((a, b) => {
   const sa = a.severity === 'P0' ? 0 : a.severity === 'P1' ? 1 : 2;
   const sb = b.severity === 'P0' ? 0 : b.severity === 'P1' ? 1 : 2;
