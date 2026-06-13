@@ -19,25 +19,164 @@ import {
 } from "lucide-react";
 import "@/components/landing/v2/lp-v2-theme.css";
 import { RecoveryPlanCard } from "@/components/recovery/RecoveryPlanCard";
+import {
+  useLearnerRealityBridge,
+  type LearnerRealitySnapshot,
+  type RealityCompetency,
+} from "@/hooks/useLearnerRealityBridge";
 
 /**
- * /app/kompetenz/:competencyId — Phase 5.5: Diagnostischer Kompetenzraum
- *
- * Kein Kapitel. Keine Lerninhaltseite. Keine Wissenssammlung.
- *
- * Leitfrage:
- *   „Wie gefährlich ist diese Kompetenz aktuell für deine Prüfung?“
- *
- * Aufbau:
- *   1. Risk-Headline + Prüfungszustand (zuerst Zustand, dann Inhalt)
- *   2. Verlauf (Stabilität über Zeit)
- *   3. Typische Punktverluste
- *   4. Prüfungsrelevanz (schriftlich + mündlich)
- *   5. Tutor-Beobachtungen (Brücke zum Tutor)
- *   6. Stabilisierungs-Hebel (ein Schritt, kein Optionsmenü)
+ * /app/kompetenz/:competencyId — diagnostischer Kompetenzraum.
+ * /app/kompetenz (ohne id) — P0-3 Sprint 1: DB-gebundene Kompetenz-Liste,
+ * beantwortet „Welche Kompetenzen verhindern aktuell mein Bestehen?".
  */
 export default function AppKompetenzPage() {
   const { competencyId } = useParams();
+  const reality = useLearnerRealityBridge();
+
+  if (!competencyId) {
+    return <KompetenzListView reality={reality} />;
+  }
+
+  return <KompetenzDetailView competencyId={competencyId} />;
+}
+
+function KompetenzListView({ reality }: { reality: LearnerRealitySnapshot }) {
+  if (reality.needsOnboarding) {
+    return (
+      <main className="lp-v2 min-h-screen w-full">
+        <div className="mx-auto max-w-[680px] px-5 py-16 text-center">
+          <h1 className="lp-display text-2xl text-[color:var(--lp-text-primary,#e8ecf3)]">
+            Noch keine Kompetenzen verfügbar
+          </h1>
+          <p className="mt-2 text-[14px] text-[color:var(--lp-text-secondary,#a8b3c2)]">
+            Wähle deinen Beruf — danach werden Kompetenzen erfasst.
+          </p>
+          <Link
+            to="/berufe"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium"
+            style={{ background: "linear-gradient(135deg, rgba(46,211,183,0.95), rgba(36,180,160,0.95))", color: "rgb(8,18,20)" }}
+          >
+            Beruf wählen
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </main>
+    );
+  }
+  if (reality.loading && !reality.hasData) {
+    return (
+      <main className="lp-v2 min-h-screen w-full">
+        <div className="mx-auto max-w-[680px] space-y-3 px-5 py-12">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl border border-white/[0.05] bg-white/[0.03]" />
+          ))}
+        </div>
+      </main>
+    );
+  }
+
+  const groups: Array<{
+    label: string;
+    items: RealityCompetency[];
+    color: string;
+    bg: string;
+    border: string;
+  }> = [
+    { label: "Kritisch", items: reality.weak, color: "rgb(232,150,150)", bg: "rgba(220,90,90,0.06)", border: "rgba(220,90,90,0.22)" },
+    { label: "Beobachtet", items: reality.partial, color: "rgb(255,184,108)", bg: "rgba(255,184,108,0.06)", border: "rgba(255,184,108,0.24)" },
+    { label: "Gemeistert", items: reality.mastered, color: "rgb(46,211,183)", bg: "rgba(46,211,183,0.06)", border: "rgba(46,211,183,0.22)" },
+  ];
+
+  const total = reality.weak.length + reality.partial.length + reality.mastered.length;
+
+  return (
+    <main className="lp-v2 min-h-screen w-full">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[680px] flex-col px-5 pb-28 pt-8 sm:px-8 sm:pt-12">
+        <header className="mb-6 flex items-center justify-between">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--lp-text-tertiary,#7a8696)]">
+              Kompetenzen
+            </div>
+            <h1 className="lp-display mt-1 text-[22px] text-[color:var(--lp-text-primary,#e8ecf3)]">
+              Welche Kompetenzen verhindern aktuell mein Bestehen?
+            </h1>
+            <p className="mt-1 text-[12px] text-[color:var(--lp-text-tertiary,#7a8696)]">
+              {total} erfasste Kompetenz{total === 1 ? "" : "en"} · Score-sortiert
+            </p>
+          </div>
+          <Link to="/app/start" className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--lp-text-tertiary,#7a8696)]">
+            zurück
+          </Link>
+        </header>
+
+        {total === 0 ? (
+          <div className="rounded-xl border border-white/[0.05] bg-white/[0.03] p-6 text-center text-[13px] text-[color:var(--lp-text-tertiary,#7a8696)]">
+            Noch keine Kompetenzdaten — starte deinen ersten MiniCheck.
+            <div className="mt-3">
+              <Link
+                to={reality.nextStep.to}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-medium"
+                style={{ background: "rgba(46,211,183,0.16)", border: "1px solid rgba(46,211,183,0.35)", color: "rgb(46,211,183)" }}
+              >
+                {reality.nextStep.label}
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+          </div>
+        ) : (
+          groups
+            .filter((g) => g.items.length > 0)
+            .map((group) => (
+              <section key={group.label} className="mb-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--lp-text-tertiary,#7a8696)]">
+                    {group.label}
+                  </span>
+                  <span className="text-[11px] tabular-nums text-[color:var(--lp-text-tertiary,#7a8696)]">
+                    {group.items.length}
+                  </span>
+                </div>
+                <ul className="space-y-2">
+                  {group.items.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex items-center gap-3 rounded-xl px-3 py-3"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--lp-text-tertiary,#7a8696)]">
+                          {c.field || "Kompetenz"}
+                        </div>
+                        <Link
+                          to={`/app/kompetenz/${c.id}`}
+                          className="block truncate text-[14px] text-[color:var(--lp-text-primary,#e8ecf3)] hover:underline"
+                        >
+                          {c.title}
+                        </Link>
+                        <div className="text-[11px] text-[color:var(--lp-text-tertiary,#7a8696)]">
+                          Score {Math.round(c.score)} / 100
+                        </div>
+                      </div>
+                      <Link
+                        to={`/app/minicheck/${c.id}`}
+                        className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium"
+                        style={{ color: group.color, background: group.bg, border: `1px solid ${group.border}` }}
+                      >
+                        Kompetenz trainieren
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))
+        )}
+      </div>
+    </main>
+  );
+}
+
+function KompetenzDetailView({ competencyId }: { competencyId: string }) {
   const data = useMemo(() => deriveCompetency(competencyId), [competencyId]);
   const system = useSystemConsciousness();
   const wroteRef = useRef<string | null>(null);
@@ -58,8 +197,6 @@ export default function AppKompetenzPage() {
     );
     system.recalc("Kompetenz erneut bewertet");
   }, [data, system]);
-
-
 
   return (
     <main className="lp-v2 min-h-screen w-full">
