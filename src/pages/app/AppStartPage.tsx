@@ -16,29 +16,85 @@ import {
   Quote,
 } from "lucide-react";
 import "@/components/landing/v2/lp-v2-theme.css";
+import {
+  useLearnerRealityBridge,
+  type LearnerRealitySnapshot,
+  type RealityCompetency,
+} from "@/hooks/useLearnerRealityBridge";
+import { readinessLabel } from "@/lib/system/SystemConsciousness";
 
 /**
- * /app/start — Continuity of Belief (Phase 4) + System-OS (Phase 5)
- *
- * Übergang Landingpage → Produkt. Kein Dashboard, keine Kachelwüste.
- * Phase 5 erweitert: System-Memory, adaptive Recalculation, Tutor-Continuity,
- * Risiko-als-Zustand, Prüfersprache. Mobile-first, ruhig, prüfungsnah.
+ * /app/start — P0-3 Sprint 1: DB-gebunden, QFAF-konform.
+ * Frage „Wo stehe ich?" → Readiness + Priorität + nächster Schritt.
  */
 export default function AppStartPage() {
+  const reality = useLearnerRealityBridge();
+
   return (
     <main className="lp-v2 min-h-screen w-full">
       <div className="relative mx-auto flex min-h-screen w-full max-w-[680px] flex-col px-5 pb-24 pt-8 sm:px-8 sm:pt-12">
         <BackgroundAura />
         <SystemHeader />
-        <SystemMemoryStrip />
-        <DiagnosisHeadline />
-        <ReadinessScore />
-        <PriorityCompetency />
-        <CompetencyTrendList />
-        <TutorWhisper />
-        <SecondaryStripe />
+        {reality.needsOnboarding ? (
+          <OnboardingEmptyState />
+        ) : reality.loading && !reality.hasData ? (
+          <LoadingState />
+        ) : (
+          <>
+            <SystemMemoryStrip reality={reality} />
+            <DiagnosisHeadline reality={reality} />
+            <ReadinessScore reality={reality} />
+            <PriorityCompetency reality={reality} />
+            <CompetencyTrendList reality={reality} />
+            <TutorWhisper reality={reality} />
+            <SecondaryStripe reality={reality} />
+          </>
+        )}
       </div>
     </main>
+  );
+}
+
+function OnboardingEmptyState() {
+  return (
+    <section className="mt-8 rounded-2xl border border-[var(--lp-border)] bg-[var(--lp-elev)]/60 p-6 text-center">
+      <div
+        className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl"
+        style={{ background: "rgba(46,211,183,0.08)", border: "1px solid var(--lp-border-emerald)" }}
+      >
+        <Sparkles className="h-5 w-5" style={{ color: "var(--lp-emerald)" }} />
+      </div>
+      <h1 className="lp-display text-xl font-semibold text-[var(--lp-text)]">
+        Noch kein Beruf gewählt
+      </h1>
+      <p className="mt-2 text-[14px] text-[var(--lp-text-2)]">
+        Wähle deinen Beruf, damit das System deinen Prüfungszustand analysieren kann.
+      </p>
+      <Link
+        to="/berufe"
+        className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-medium"
+        style={{
+          background: "linear-gradient(180deg, var(--lp-emerald), #1fb89e)",
+          color: "#04221C",
+        }}
+      >
+        Beruf wählen
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+    </section>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="mt-8 space-y-4">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-28 animate-pulse rounded-2xl border border-[var(--lp-border)] bg-[var(--lp-elev)]/40"
+        />
+      ))}
+    </div>
   );
 }
 
