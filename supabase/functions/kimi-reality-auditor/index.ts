@@ -495,6 +495,148 @@ function applyStructuralQGate(
   return stats;
 }
 
+/**
+ * KIMI.3 — Structural Journey Gate.
+ *
+ * Operates on `mode='journey'` findings. Uses snapshot.steps[] (route, cta_labels, ctas, headings)
+ * to verify what the auditor claimed about transitions. Doctrine identical to KIMI.2.4:
+ *
+ *   - Structural gate satisfied + positive evidence  → verdict = "pass"
+ *   - Structural gate satisfied + neutral evidence   → "inconsistent"
+ *   - Structural gate violated  + negative evidence  → keep as "fail"
+ *   - Structural gate violated  + neutral evidence   → "inconsistent"
+ *
+ * Gate definitions per kind:
+ *   journey_handoff_mismatch:
+ *     gate(N→N+1) = step[N] has a CTA whose href contains step[N+1].route segment
+ *                   OR a CTA label semantically referencing the next step name.
+ *   journey_dead_end:
+ *     gate(N) = step[N].cta_count > 0 AND at least one CTA is forward-leading
+ *               (not pure return: 'zurück', 'beenden', 'hilfe', 'mehr erfahren').
+ *   journey_orientation_loss:
+ *     gate(N+1) = title/headings/visible_text references prior step (Stepper/Breadcrumb/"Du kommst von"/Fortsetzen).
+ *   journey_no_recommendation:
+ *     gate = LAST step has at least one forward-leading CTA (see dead_end gate).
+ */
+const RETURN_ONLY_PATTERNS = /^(zurück|zurueck|abbrechen|beenden|schließen|schliessen|hilfe|mehr\s+erfahren|kontakt|impressum|datenschutz|agb|logout|abmelden)$/i;
+const ORIENTATION_REF_PATTERNS = /(fortsetzen|weiter\s+mit|du\s+kommst\s+von|zurück\s+zu|schritt\s+\d+\s+von\s+\d+|stepper|breadcrumb)/i;
+
+function stepForwardCtas(step: any): string[] {
+  const labels: string[] = Array.isArray(step?.cta_labels) ? step.cta_labels : [];
+  return labels.filter((l) => l && !RETURN_ONLY_PATTERNS.test(String(l).trim()));
+}
+
+function ctaMatchesNextRoute(step: any, nextRoute: string): boolean {
+  if (!nextRoute) return false;
+  // Take last meaningful segment of next route, e.g. /app/tutor → 'tutor'.
+  const seg = nextRoute.split('/').filter(Boolean).pop() || '';
+  if (!seg) return false;
+  const segRe = new RegExp(seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  const ctas: any[] = Array.isArray(step?.ctas) ? step.ctas : [];
+  for (const c of ctas) {
+    const href = String(c?.href ?? '');
+    const label = String(c?.label ?? '');
+    if (href && href.includes(seg)) return true;
+    if (label && segRe.test(label)) return true;
+  }
+  const labels: string[] = Array.isArray(step?.cta_labels) ? step.cta_labels : [];
+  return labels.some((l) => segRe.test(String(l)));
+}
+
+function applyStructuralJourneyGate(
+  findings: ReturnType<typeof normalizeFinding>[],
+  snapshot: any,
+) {
+  const stats = {
+    handoff_passed: 0, deadend_passed: 0,
+    loop_passed: 0, orientation_passed: 0,
+  };
+  const steps: any[] = Array.isArray(snapshot?.steps) ? snapshot.steps : [];
+  if (steps.length < 2) return stats;
+  const lastStep = steps[steps.length - 1];
+
+  for (const f of findings) {
+    if (f.verdict === "pass") continue;
+    if (NO_FIX_NEEDED.test(f.fix_recommendation)) {
+      f.verdict = "pass";
+      f.override_reason = `Gate-Override: "Kein Fix notwendig" → kein Journey-Defekt.`;
+      continue;
+    }
+
+    // Identify step index from file_hint / evidence if possible.
+    const evidenceText = `${f.evidence}\n${(Array.isArray(f.file_hint) ? f.file_hint.join(' ') : '')}`;
+    let stepIdx = -1;
+    steps.forEach((s, i) => {
+      if (s?.route && evidenceText.includes(String(s.route))) {
+        stepIdx = i;
+      }
+    });
+
+    let gate = false;
+    let gateName = "";
+
+    if (f.kind === "journey_dead_end") {
+      gateName = "DEAD_END";
+      const candidates = stepIdx >= 0 ? [steps[stepIdx]] : steps;
+      gate = candidates.every((s) => stepForwardCtas(s).length > 0);
+      // P0 only if a real cul-de-sac exists.
+      if (f.severity === "P0" && gate) {
+        f.severity = "P1";
+      }
+      if (gate) stats.deadend_passed++;
+    } else if (f.kind === "journey_handoff_mismatch") {
+      gateName = "HANDOFF";
+      if (stepIdx >= 0 && stepIdx < steps.length - 1) {
+        gate = ctaMatchesNextRoute(steps[stepIdx], steps[stepIdx + 1]?.route);
+      } else {
+        // Unknown transition — verify any consecutive pair matches.
+        gate = steps.slice(0, -1).some((s, i) => ctaMatchesNextRoute(s, steps[i + 1]?.route));
+      }
+      if (gate) stats.handoff_passed++;
+    } else if (f.kind === "journey_orientation_loss") {
+      gateName = "ORIENTATION";
+      const candidates = stepIdx >= 0 ? [steps[stepIdx]] : steps.slice(1);
+      gate = candidates.some((s) =>
+        ORIENTATION_REF_PATTERNS.test(String(s?.visible_text ?? '')) ||
+        ORIENTATION_REF_PATTERNS.test(String(s?.title ?? '')) ||
+        (Array.isArray(s?.headings) && s.headings.some((h: any) => ORIENTATION_REF_PATTERNS.test(String(h))))
+      );
+      if (f.severity === "P0") f.severity = "P2";
+      if (gate) stats.orientation_passed++;
+    } else if (f.kind === "journey_no_recommendation") {
+      gateName = "LOOP";
+      gate = stepForwardCtas(lastStep).length > 0;
+      if (f.severity === "P0") f.severity = "P1";
+      if (gate) stats.loop_passed++;
+    } else {
+      continue;
+    }
+
+    const posMarker = hasPositiveEvidence(f);
+    const negMarker = hasNegativeEvidence(f);
+
+    if (gate) {
+      if (posMarker || !negMarker) {
+        f.verdict = "pass";
+        f.override_reason = `${gateName}-Gate erfüllt (DOM/Route-Beweis) → PASS.`;
+      } else {
+        f.verdict = "inconsistent";
+        f.inconsistency_reason = `${gateName}-Gate strukturell erfüllt, aber Evidence enthält substantielle Negativ-Marker.`;
+      }
+    } else {
+      if (!negMarker) {
+        f.verdict = "inconsistent";
+        f.inconsistency_reason = `${gateName}-Gate verletzt, aber Evidence nicht eindeutig negativ.`;
+      }
+      // else: keep as fail.
+    }
+  }
+  return stats;
+}
+
+
+
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
