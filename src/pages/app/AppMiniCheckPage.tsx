@@ -295,17 +295,17 @@ export default function AppMiniCheckPage() {
         <RouteIdentityBlock
           eyebrow="MiniCheck · Diagnose"
           title="MiniCheck"
-          subtitle="Kein Quiz, sondern ein diagnostischer Impuls: misst, wie stabil du eine prüfungsrelevante Kompetenz heute beherrschst."
+          subtitle="Der MiniCheck misst in wenigen Minuten, wie stabil du eine prüfungsrelevante Kompetenz heute beherrschst — und macht so deine Prüfungsreife konkret messbar."
           contextLine={beruf?.label ? `für ${beruf.label}` : undefined}
           description="ExamFit MiniCheck: kurze diagnostische Impulse, die deinen aktuellen Prüfungszustand re-evaluieren."
           testId="minicheck-identity"
         />
         <OutcomeHintBlock
-          heading="Nach diesem Check:"
+          heading="Nach dem Start:"
           bullets={[
-            "Aktualisierter Prüfungszustand für diese Kompetenz",
-            "Empfehlung für den nächsten Lernschritt",
-            "Schwächen werden automatisch in deinen Lernpfad übernommen",
+            "Du prüfst dein Wissen in einem kurzen, diagnostischen Impuls",
+            "Du erhältst sofort eine konkrete Lernempfehlung für den nächsten Schritt",
+            "Erkannte Schwächen wandern automatisch in deinen Lernpfad",
           ]}
           className="mb-4"
           testId="minicheck-outcome-hint"

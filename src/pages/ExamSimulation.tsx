@@ -38,6 +38,7 @@ import { QuestionCard } from '@/components/exam/QuestionCard';
 import { ResultsScreen } from '@/components/exam/ResultsScreen';
 import { SimulationGateGuard } from '@/components/exam/SimulationGateGuard';
 import { RouteIdentityBlock } from '@/components/learner/RouteIdentityBlock';
+import { OutcomeHintBlock } from '@/components/learner/OutcomeHintBlock';
 import { useOsBeruf } from '@/lib/os/os-identity';
 import { ExamTimer } from '@/components/exam/ExamTimer';
 import { ConfidenceSlider } from '@/components/exam/ConfidenceSlider';
@@ -168,10 +169,20 @@ export default function ExamSimulation() {
         <RouteIdentityBlock
           eyebrow="Prüfungssimulation"
           title="Prüfungssimulation starten"
-          subtitle="Simuliere eine vollständige IHK-Prüfung unter realen Bedingungen — und erkenne, wo du heute stehst."
+          subtitle="Die Simulation stellt dir eine vollständige IHK-Prüfung unter realen Bedingungen — so weißt du vor dem Prüfungstag, wo du wirklich stehst und wo du noch nachschärfen musst."
           contextLine={beruf?.label ? `für ${beruf.label}` : undefined}
           description="ExamFit Prüfungssimulation: IHK-nahe Simulation mit Auswertung, Schwächenanalyse und nächster Lernempfehlung."
           testId="exam-sim-identity"
+        />
+        <OutcomeHintBlock
+          heading="Nach dem Start:"
+          bullets={[
+            "Du bearbeitest eine vollständige IHK-nahe Prüfung unter Zeitdruck",
+            "Du erhältst direkt im Anschluss eine ehrliche Auswertung deiner Prüfungsreife",
+            "Erkannte Schwächen werden automatisch zu nächsten Lernschritten im Lernpfad",
+          ]}
+          className="mb-4"
+          testId="exam-sim-outcome-hint"
         />
         {firstCurriculumId ? (
           <SimulationGateGuard curriculumId={firstCurriculumId}>

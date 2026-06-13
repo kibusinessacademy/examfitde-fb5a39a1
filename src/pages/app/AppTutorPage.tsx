@@ -45,7 +45,7 @@ export default function AppTutorPage() {
         <TutorHeader />
         <RouteIdentityBlock
           title="AI Tutor"
-          subtitle="Dein persönlicher Prüfungscoach — erkennt deine Schwächen und führt dich gezielt zur nächsten Übung."
+          subtitle="Der Tutor erklärt deine Schwächen anhand deines IHK-Curriculums und bereitet dich gezielt auf echte Prüfungsfragen vor."
           contextLine={beruf?.label ? `für ${beruf.label}` : undefined}
           description="ExamFit AI Tutor: erkennt deine Schwächen, erklärt Prüfungsmuster und schlägt den nächsten Lernschritt vor."
           testId="tutor-identity"
@@ -53,9 +53,9 @@ export default function AppTutorPage() {
         <OutcomeHintBlock
           heading="Nach dem Start:"
           bullets={[
-            "Schwächen erkennen — Tutor analysiert deine letzten Antworten",
-            "Lernempfehlungen erhalten — passend zu deinem Beruf",
-            "Gezielt auf die Prüfung vorbereiten — Schritt für Schritt",
+            "Der Tutor analysiert deine letzten Antworten und benennt deine größte prüfungsrelevante Schwäche",
+            "Du bekommst eine konkrete Lernempfehlung, passend zu deinem Beruf",
+            "Danach führst du genau die nächste Übung aus, die deine Prüfungsreife erhöht",
           ]}
           className="mb-5"
           testId="tutor-outcome-hint"

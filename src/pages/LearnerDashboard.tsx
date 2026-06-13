@@ -112,7 +112,7 @@ export default function LearnerDashboard() {
         <RouteIdentityBlock
           eyebrow={`Hallo, ${user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Lernende:r'}`}
           title="Dashboard"
-          subtitle="Hier steuerst du deine komplette Prüfungsvorbereitung."
+          subtitle="Hier steuerst du deine komplette IHK-Prüfungsvorbereitung — Lernpfad, Tutor und Prüfungssimulation an einem Ort, damit du jeden Tag näher an die bestandene Prüfung kommst."
           contextLine={beruf?.label ? `Aktiver Beruf: ${beruf.label}` : 'Wähle deinen Beruf, um Lernpfad, Tutor und Prüfungssimulation zu aktivieren.'}
           description="ExamFit Dashboard: dein zentraler Lern-Hub für IHK-Prüfungsvorbereitung mit Lernpfad, Tutor und Prüfungssimulation."
           testId="dashboard-identity"
