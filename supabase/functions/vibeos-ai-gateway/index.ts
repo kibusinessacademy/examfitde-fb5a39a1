@@ -228,19 +228,20 @@ Deno.serve(async (req) => {
         openai: Boolean(KEYS.OPENAI),
         anthropic: Boolean(KEYS.ANTHROPIC),
         google: Boolean(KEYS.GOOGLE),
+        kimi: Boolean(KEYS.KIMI),
       },
+      kimi_code_agent_enabled: KIMI_FLAG_ENABLED,
+      kimi_allowed_lanes: Array.from(KIMI_ALLOWED_LANES),
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
   if (req.method !== "POST") return badRequest("method not allowed");
 
-  // Auth — prefer dedicated header so edge-to-edge callers can pass the Supabase
-  // platform JWT in Authorization for the router without confusing the gateway.
+  // Auth
   const auth = req.headers.get("vibeos-gateway-key")
     ?? req.headers.get("authorization")?.replace(/^Bearer\s+/i, "")
     ?? "";
   if (!KEYS.GATEWAY) return bridgeError(500, "VIBEOS_AI_GATEWAY_KEY not configured");
-  // constant-time compare
   const a = new TextEncoder().encode(auth);
   const b = new TextEncoder().encode(KEYS.GATEWAY);
   if (a.length !== b.length) return unauthorized("invalid gateway key");
@@ -250,24 +251,96 @@ Deno.serve(async (req) => {
 
   let body: any;
   try { body = await req.json(); } catch { return badRequest("invalid json"); }
+
+  // Lane / task_type metadata (header oder body — header gewinnt)
+  const lane = (req.headers.get("x-vibeos-lane") || body?.lane || body?.x_lane || "").toString().trim();
+  const taskType = (req.headers.get("x-vibeos-task-type") || body?.task_type || "").toString().trim();
+  const fallbackModel = (body?.fallback_model || "").toString().trim();
+
   const parsed = parseModel(body?.model ?? "");
-  if (!parsed) return badRequest("model must be '<provider>/<model_id>' with provider in {openai,anthropic,google}");
+  if (!parsed) return badRequest("model must be '<provider>/<model_id>' with provider in {openai,anthropic,google,kimi}");
+
+  // ── Kimi-Gate ─────────────────────────────────────────────────────
+  let effective = parsed;
+  let kimiDowngraded = false;
+  let kimiDowngradeReason: string | null = null;
+
+  if (parsed.provider === "kimi") {
+    // Hard-Block für verbotene Lanes — auch wenn Flag jemals on ist.
+    if (lane && KIMI_FORBIDDEN_LANES.has(lane)) {
+      await audit("kimi_route_blocked", {
+        reason: "lane_forbidden", lane, task_type: taskType, model_in: body?.model,
+      });
+      return forbidden(`Kimi darf für lane='${lane}' nicht genutzt werden`);
+    }
+    if (!lane || !KIMI_ALLOWED_LANES.has(lane)) {
+      await audit("kimi_route_blocked", {
+        reason: "lane_not_allowed", lane: lane || null, task_type: taskType, model_in: body?.model,
+      });
+      return forbidden(`Kimi nur für Code-Lanes: ${Array.from(KIMI_ALLOWED_LANES).join(", ")}`);
+    }
+    if (!KIMI_FLAG_ENABLED) {
+      // Fallback auf bestehenden Provider
+      const fb = parseModel(fallbackModel);
+      if (!fb || fb.provider === "kimi") {
+        await audit("kimi_route_blocked", {
+          reason: "flag_disabled_no_fallback", lane, task_type: taskType, model_in: body?.model,
+        });
+        return bridgeError(503, "Kimi disabled (KIMI_CODE_AGENT_ENABLED=false) and no valid fallback_model provided");
+      }
+      kimiDowngraded = true;
+      kimiDowngradeReason = "flag_disabled";
+      effective = fb;
+      await audit("kimi_route_fallback", {
+        lane, task_type: taskType, model_in: body?.model, fallback_to: fallbackModel,
+      });
+    }
+  }
 
   const t0 = Date.now();
   let res: Response;
   try {
-    if (parsed.provider === "openai") res = await routeOpenAI(parsed.modelId, body);
-    else if (parsed.provider === "anthropic") res = await routeAnthropic(parsed.modelId, body);
-    else res = await routeGoogle(parsed.modelId, body);
+    if (effective.provider === "openai") res = await routeOpenAI(effective.modelId, body);
+    else if (effective.provider === "anthropic") res = await routeAnthropic(effective.modelId, body);
+    else if (effective.provider === "google") res = await routeGoogle(effective.modelId, body);
+    else res = await routeKimi(effective.modelId, body);
   } catch (e: any) {
     res = bridgeError(502, "proxy exception", String(e?.message ?? e));
   }
-  audit({
-    provider: parsed.provider,
+  const ms = Date.now() - t0;
+
+  // Audit: route_resolved (alle Provider)
+  audit("vibeos_gateway_route_resolved", {
+    provider: effective.provider,
     model_in: body?.model,
-    model_out: parsed.modelId,
-    ms: Date.now() - t0,
+    model_out: effective.modelId,
+    lane: lane || null,
+    task_type: taskType || null,
+    ms,
     status: res.status,
+    kimi_downgraded: kimiDowngraded,
+    kimi_downgrade_reason: kimiDowngradeReason,
   });
+
+  // Kimi-spezifischer Audit-Event mit Token/Cost (best-effort, body wird konsumiert via clone)
+  if (effective.provider === "kimi") {
+    let usage: any = null;
+    try {
+      const clone = res.clone();
+      const data = await clone.json();
+      usage = data?.usage ?? null;
+    } catch { /* nicht-JSON oder Stream → ignore */ }
+    audit("kimi_route_invoked", {
+      lane, task_type: taskType || null,
+      model: effective.modelId,
+      success: res.status >= 200 && res.status < 300,
+      status: res.status,
+      ms,
+      prompt_tokens: usage?.prompt_tokens ?? null,
+      completion_tokens: usage?.completion_tokens ?? null,
+      total_tokens: usage?.total_tokens ?? null,
+    });
+  }
   return res;
 });
+
