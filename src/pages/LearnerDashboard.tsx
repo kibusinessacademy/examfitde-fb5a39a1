@@ -59,6 +59,8 @@ export default function LearnerDashboard() {
   const navigate = useNavigate();
   const { data: dashboard, isLoading: loading } = useDashboardSummary();
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const beruf = useOsBeruf();
 
   const enrollments = dashboard?.enrollments || [];
   const activeCurriculumId = dashboard?.active_curriculum_id || null;
