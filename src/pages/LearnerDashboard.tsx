@@ -50,6 +50,9 @@ import {
   resolveDashboardNextStep,
   type ResolverEnrollment,
 } from '@/features/activation/resolveDashboardNextStep';
+import { RouteIdentityBlock } from '@/components/learner/RouteIdentityBlock';
+import { OutcomeHintBlock } from '@/components/learner/OutcomeHintBlock';
+import { useOsBeruf } from '@/lib/os/os-identity';
 
 export default function LearnerDashboard() {
   const { user, isAdmin } = useAuth();
