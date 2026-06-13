@@ -28,6 +28,9 @@ import {
   useLearnerRealityBridge,
   type LearnerRealitySnapshot,
 } from "@/hooks/useLearnerRealityBridge";
+import { RouteIdentityBlock } from "@/components/learner/RouteIdentityBlock";
+import { OutcomeHintBlock } from "@/components/learner/OutcomeHintBlock";
+import { useOsBeruf } from "@/lib/os/os-identity";
 
 /**
  * /app/lernpfad — P0-3 Sprint 1: DB-gebundene Prüfungsstrategie.
