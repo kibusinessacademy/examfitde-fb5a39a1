@@ -38,6 +38,7 @@ Agent-OS Architecture Freeze (2026-05-30): SAFE_TOOL_RUNTIME, AGENT_FAILURE_CLUS
 **FUNNEL FREEZE (2026-06-04): Customer Reality Gate (12 Journeys, <10/12=BLOCK) ist das einzige Release-Gate. Bis 3 konsekutive RELEASE-Tage: KEINE neuen Councils/Heal/Cron/Analytics/SEO-Wellen/Workflows/Tabellen/Edge-Functions außer P0-Funnel-Reparatur, Gate-Stabilität, Security. Jede Änderung muss einen P0-Finding schließen oder ein journey-pass von fail→pass heben. Detail: mem://constraints/funnel-freeze-until-cors-green-v1.**
 ProductScope BerufOS/VibeOS hart getrennt (Host-Allowlist + Bundle-Guard + Post-Deploy-Curl-Guard). VibeOS-Public-Routen → NotFound auf berufos.com. Details: mem://architektur/separation/product-scope-v1, mem://architektur/qa/post-deploy-vibeos-separation-v1.
 Root-Route `/` rendert BerufOSHub EAGER (kein lazy/Suspense) — verhindert Hydration-Drift-P0 (Hero-CTA „Prüfung starten" sichtbar ab erstem Paint).
+Question-First + Action-First: Feature gilt erst als fertig, wenn 6 Fragen Ja: Frage/Orientierung/Interaktivität/Workflow/Unterstützung/Ergebnis. Detail: mem://constraints/question-first-action-first-v1.
 
 
 
