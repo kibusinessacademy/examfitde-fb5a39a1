@@ -210,8 +210,9 @@ function normalizeFinding(f: any, route: string, mode: AuditMode) {
     fix_recommendation: String(f?.fix_recommendation ?? "").slice(0, 1500),
     confidence: conf,
     audit_mode: mode,
-    verdict: "fail" as "fail" | "inconsistent",
+    verdict: "fail" as "fail" | "inconsistent" | "pass",
     inconsistency_reason: "" as string,
+    override_reason: "" as string,
   };
 }
 
