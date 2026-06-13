@@ -39,7 +39,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const env = (k: string) => Deno.env.get(k) ?? "";
 
-type AuditMode = "reality" | "ux_text" | "next_action";
+type AuditMode = "reality" | "ux_text" | "next_action" | "qfaf";
 
 const FINDING_CONTRACT = `
 Antworte AUSSCHLIESSLICH als JSON-Objekt der Form:
@@ -96,8 +96,31 @@ const SYSTEM_BY_MODE: Record<AuditMode, string> = {
     "Bestätige im evidence-Feld immer die cta_count UND nenne die geprüften cta_labels.",
     FINDING_CONTRACT,
   ].join("\n\n"),
-
+  qfaf: [
+    "Du bist ein READ-ONLY Question-First + Action-First (QFAF) Comprehension-Auditor für Azubis (16–25, technisch nicht versiert).",
+    "Persona: Authentifizierter Lernender, Ziel: Prüfung bestehen. Stell dir vor, er landet zum ERSTEN MAL auf dieser Seite und hat 5 Sekunden Zeit zum Verstehen.",
+    "",
+    "Beantworte für die Seite verbindlich vier Fragen, JEDE mit ja/nein + kurzer Begründung aus dem Snapshot:",
+    "  Q1 ORIENTATION: Wo bin ich? Ist Seitentitel/Headline so klar, dass der Azubi ihn in einem Satz beschreiben könnte?",
+    "  Q2 STAKES: Was bedeutet diese Seite für meine Prüfung? Ist der Bezug zum Prüfungsziel sichtbar (auch implizit über Kontext-Text/Badges)?",
+    "  Q3 ACTION: Was ist der nächste sinnvolle Schritt? Gibt es genau EINEN klar erkennbaren Primary CTA, dessen Label das Ziel benennt?",
+    "  Q4 OUTCOME: Was passiert nach dem Klick? Ist die Folge des Klicks irgendwo angedeutet (Mikrotext, Hinweis, Sequenz-Stepper, 'Du erhältst danach …')?",
+    "",
+    "Erzeuge ein Finding NUR für jede Frage, die mit 'nein' beantwortet wird. Verwende kind=qfaf_q1_orientation | qfaf_q2_stakes | qfaf_q3_action | qfaf_q4_outcome.",
+    "Severity-Regel:",
+    "  - Q3 'nein' (kein klarer next step) → P0 wenn cta_count===0, sonst P1.",
+    "  - Q1 'nein' → P1 (Orientierungsverlust).",
+    "  - Q2 'nein' → P2 (Relevanz unklar, aber Aktion möglich).",
+    "  - Q4 'nein' → P2 (Outcome unklar, aber Klick möglich).",
+    "Mehrere identische CTAs → in Q3 als 'nein' werten (ambiguous_primary).",
+    "Wenn alle 4 Fragen mit 'ja' beantwortet werden → leere findings.",
+    "evidence MUSS für jedes Finding die konkrete Beobachtung aus dem Snapshot zitieren (Headline-Wortlaut, CTA-Label, fehlender Outcome-Hinweis).",
+    "fix_recommendation MUSS textuell und minimal-invasiv sein (z.B. 'Headline H1 ergänzen', 'Primary CTA mit Empfehlungs-Badge versehen', 'Outcome-Mikrotext unter Button').",
+    FINDING_CONTRACT,
+  ].join("\n\n"),
 };
+
+
 
 function buildUserPrompt(input: {
   audit_mode: AuditMode;
@@ -200,7 +223,7 @@ Deno.serve(async (req) => {
   }
 
   const mode = String(body?.audit_mode ?? "reality") as AuditMode;
-  if (!["reality", "ux_text", "next_action"].includes(mode)) {
+  if (!["reality", "ux_text", "next_action", "qfaf"].includes(mode)) {
     return new Response(JSON.stringify({ error: "invalid audit_mode" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
