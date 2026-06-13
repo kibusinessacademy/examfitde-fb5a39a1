@@ -236,6 +236,7 @@ const POSITIVE_PATTERNS: RegExp[] = [
   /\bist\s+klar\b/i,
   /\bist\s+eindeutig\b/i,
   /\bklar\s+und\s+(?:beschreibt|benennt|eindeutig)\b/i,
+  /\bklar\s+erkennbar/i,
   /\bbeschreibt\s+die\s+seite\b/i,
   /\bin\s+einem\s+satz\s+beschreiben\b/i,
   /\bgenau\s+einen?\s+(?:primary\s+)?cta\b/i,
@@ -243,6 +244,13 @@ const POSITIVE_PATTERNS: RegExp[] = [
   /\bdirekt\s+erkennen\b/i,
   /\bsofort\s+(?:erkennen|verständlich)\b/i,
   /\bklarer\s+und\s+eindeutiger?\s+(?:primary\s+)?cta\b/i,
+  /\bgibt\s+einen\s+hinweis\b/i,
+  /\b(?:einen|der)\s+primary\s+cta\b/i,
+  /\bals\s+n[äa]chster\s+schritt\s+markiert\b/i,
+  /\bweist\s+auf\s+das\s+ergebnis\b/i,
+  /\boutcome[- ]hint\b/i,
+  /\bbenennt\s+die\s+(?:seite|route)\b/i,
+  /\bist\s+sichtbar\b/i,
 ];
 const SOFT_NEGATIVE_PATTERNS: RegExp[] = [
   /\bnicht\b/i, /\bkein(?:e|en|er)?\b/i, /\bunklar\b/i, /\bfehlt\b/i,
