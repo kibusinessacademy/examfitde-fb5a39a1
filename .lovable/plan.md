@@ -1,96 +1,97 @@
-## Ausgangslage
+# Sprint 1 — P0-3 Learner DB Binding
 
-Customer Reality Gate: **BLOCK, Score 4/12, 47 P0-Findings** aus diesem Run.
-Guard verhält sich korrekt — der Block ist Realität, nicht Artefakt. Vier Cluster, in dieser Reihenfolge zu fixen, weil sie aufeinander aufbauen:
+Ziel: Die vier Learner-Leitstellen erfüllen QFAF (Frage, Orientierung, Interaktivität, Workflow, Unterstützung, Ergebnis), indem sie reale Daten aus Curriculum/Competencies/Mastery/Progress/Readiness laden statt aus `SystemConsciousness` (LocalStorage-Defaults).
+
+## Strategie
+
+Nicht die Pages umschreiben — stattdessen einen **DB-Bridge-Layer** zwischen vorhandenen Hooks (`useDashboardSummary`, `useCourseProgress`, `useExamReadiness`, `useReEntryState`, `useRecoveryPlan`, `fetchWeaknessMap`, `computeReadiness`) und `useSystemConsciousness` einziehen. Damit bleiben alle 2.633 Zeilen Page-Code stabil, aber die Werte sind real.
 
 ```text
-P0.1 Domain-Drift   →   P0.2 Cold-Load   →   P0.3 Dashboard-CTA   →   P0.4 MiniCheck/Tutor/Oral
-(Mess-Hygiene)         (Public-Funnel)      (Logged-In Funnel)        (Lern-Surfaces)
+DB ──► useLearnerRealityBridge ──► hydrate(SystemConsciousness)
+                                 └► expose normalized snapshot { readiness, weakKompetenzen, nextStep, lastActivity }
 ```
 
-Reihenfolge ist nicht verhandelbar: solange P0.1 nicht sitzt, mischt der Gate Preview- und Prod-Findings und P0.2–P0.4 sind nicht sauber messbar.
+## Schritte
 
----
+### 1. Neuer Hook: `src/hooks/useLearnerRealityBridge.ts`
+- Liest `useDashboardSummary` → active_curriculum_id
+- Liest `useExamReadiness(curriculumId)` → `overall_readiness`, `weak_competencies`, `readiness_level`
+- Liest `useCourseProgress(courseId)` → `progress_percent`, `next_lesson`, `last_activity`
+- Liest `useReEntryState(curriculumId)` → `suggested_action`, `days_since_last`, `streak_current`
+- Liest `fetchWeaknessMap(userId, curriculumId)` → top weak/partial/mastered
+- Mapped Werte in `SystemConsciousness` via `setReadiness`, `updateRisk`, `recalc`
+- Liefert Snapshot `{ ready, hasData, curriculumId, courseId, readiness, weak, mastered, partial, nextStep, lastActivity, reEntry }`
 
-## P0.1 — Domain-/Base-URL-Drift entfernen  *(Mess-Hygiene)*
+### 2. Mount-Punkt
+- `useLearnerRealityBridge()` einmal in `AppLayout` (App-Shell) oder pro Seite einbauen, damit `SystemConsciousness` für alle 4 Pages hydratisiert ist.
 
-**Symptom**: Gate-Run gegen `examfitde.lovable.app`, Findings landen auf `https://berufos.com/...`.
+### 3. Pro Page: minimal-invasive Ersetzung der Hardcoded-Strings
+Jede Page bekommt am Anfang `const reality = useLearnerRealityBridge()` und ersetzt nur die hardcoded Werte (Prozent, Kompetenz-Namen, CTA-Ziel) — restliche UI bleibt.
 
-**Ursachenkandidaten** (zu verifizieren):
-1. Prod-Redirect `examfitde.lovable.app → berufos.com` (HTTP 301) zieht jeden Cold-Load auf die Authority.
-2. Build mit `VITE_FORCE_AUTHORITY_CTAS=true` rendert absolute `https://berufos.com/...` Hrefs in SafeCta + Pre-Hydration-Anchors in `index.html`.
-3. Hartverdrahtete `https://berufos.com/...` Hrefs in einzelnen Pages (Verticals/Suites/Hub).
+**`/app/start`**
+- ReadinessScore: `reality.readiness`
+- PriorityCompetency: `reality.weak[0]`
+- CompetencyTrendList: `reality.weak ∪ partial ∪ mastered` (top 5)
+- Primärer CTA: `reality.nextStep.deeplink` ("MiniCheck starten" / "Lektion fortsetzen")
+- Empty-state wenn `!reality.hasData`: Onboarding-CTA zu `/app/lernpfad`
 
-**Fix (deterministisch)**:
-- Parity-Guard ist bereits auf `berufos.com` als Test-Base gepinnt → wir **testen nur noch gegen Prod-Authority**. Damit ist „Mischung" strukturell ausgeschlossen.
-- Build-Flag `VITE_FORCE_AUTHORITY_CTAS` aus CI entfernen, falls gesetzt — Authority-Force soll nur Notbremse sein, kein Default.
-- Grep über `https://berufos.com` außerhalb von `seo/`-Canonicals: jeden Treffer auf relative SPA-Routen umstellen (außer `share-utils`, Open-Graph, JSON-LD).
+**`/app/kompetenz`** (Liste, ohne `:competencyId`)
+- Zeigt `weak | partial | mastered` aus `fetchWeaknessMap`
+- CTA pro Zeile: "Kompetenz trainieren" → `/app/kompetenz/<id>`
 
-**Done-Kriterium**: Reality-Run gegen `berufos.com` produziert **0 Findings mit Host-Mismatch**. `findings/*.json` Detail-String enthält nie einen Host, der nicht gleich `BASE_URL` ist.
+**`/app/tutor`** (Entry-Surface)
+- "Letzte Schwäche": `reality.weak[0]` → Tutor-Deeplink `/app/tutor?focus=<competencyId>`
+- "Letzter Fehler": `reality.lastActivity` (Lesson + status)
+- Empty-state wenn keine Schwächen: generischer Einstieg
 
----
+**`/app/lernpfad`**
+- Priorisierte Kompetenzliste = `reality.weak` (sortiert nach `score` asc)
+- "Nächster Schritt" = `reality.nextStep` (von `next_lesson` oder `suggested_action`)
+- CTA: "Lernschritt öffnen" → Deeplink
 
-## P0.2 — Public-Routen cold-load-fähig  *(Public-Funnel)*
+### 4. Empty-/Loading-States (QFAF Pflicht)
+- Loading: Skeleton-Karten (keine fake Werte)
+- Kein Curriculum aktiv: CTA "Beruf wählen" → `/berufe`
+- Curriculum ohne Progress: CTA "Erste Lektion starten" → `next_lesson`
 
-**Symptome** (aus Run): `P02_find_beruf links=0`, `P03_open_course url=NONE`, `P04_pricing hasPrice=false`, `P05_cta_click no-course`. Mehrere `/berufe/<slug>` mit Body=0 chars.
+### 5. Audit-Hook
+- Beim Hydrate ein Event in `tracking_events` schreiben: `learner_reality_hydrated { curriculum_id, readiness, weak_count, surface }` — Vorbereitung für Sprint 2.
+- Bei `!hasData` ein `auto_heal_log`-Eintrag `learner_reality_empty` (für Repair-Backlog).
 
-**Routen, die ohne JS-Hydration sichtbaren Inhalt liefern müssen**:
-- `/berufe` → Berufsliste mit ≥3 Links auf `/berufe/:slug` im initialen HTML.
-- `/berufe/:slug` → Berufstitel + Conversion-CTA im SSR/Prerender-Output.
-- `/preise` → mindestens ein `€`-Wert + Kauf-CTA im initialen HTML.
+### 6. QFAF-Abnahme pro Page
+Checkliste in PR-Body: 6/6 Fragen mit „Ja". Wenn ein „Nein" bleibt → Repair-Task in `auto_heal_log`.
 
-**Fix-Pfade**:
-- Prerender-Pipeline (Vercel) muss diese Routen erzeugen. Sitemap-Audit: liefern `/berufe`, `/berufe/:slug`, `/preise` per-route HTML statt SPA-Shell? `scripts/seo/verify-authority-live.mjs` als Probe-Vorlage nutzen.
-- `PreisePage` rendert Preise heute hinter Data-Loader → Pricing-SSOT statisch in den ersten Paint ziehen (Compile-time Konstanten aus `src/config/verticalPricing.ts`).
-- `BerufOSHub` / Verticals-Hub: Liste der Berufe statisch in den initialen Paint (kein async fetch im Render-Path) — bestehende `src/content/seoRoutes.ts` als SSOT verwenden.
+## Nicht-Ziele Sprint 1
+- Kein neues Event-Schema-Sweep (Sprint 2)
+- Kein Admin-Hardening (Sprint 3)
+- Keine neuen DB-Tabellen — alle RPCs existieren bereits
+- Kein Redesign der 4 Pages — nur Daten-Substitution
 
-**Done-Kriterium**: `cold-load-verify.mjs` erweitert um `/berufe`, `/berufe/:slug` (mind. 1 Sample), `/preise`. Alle 4 Specs `P02–P05` grün im Reality-Run.
+## Technische Details
 
----
+**Geänderte Dateien (~6)**
+- `src/hooks/useLearnerRealityBridge.ts` (neu)
+- `src/pages/app/AppStartPage.tsx`
+- `src/pages/app/AppLernpfadPage.tsx`
+- `src/pages/app/AppTutorPage.tsx`
+- `src/pages/app/AppKompetenzPage.tsx`
+- `src/lib/system/SystemConsciousness.tsx` (kleiner `hydrate()`-Helper)
 
-## P0.3 — Dashboard Next-Step-CTA  *(Logged-In Funnel)*
+**RPCs (alle vorhanden):**
+`get_dashboard_summary`, `calculate_exam_readiness`, `get_course_progress`, `learner_get_re_entry_state`, `compute_readiness`, `fetchWeaknessMap` (v_user_weakness_map).
 
-**Symptom**: `/dashboard` ohne sichtbaren Primary-CTA. Onboarding bricht mit „no next-step cta" ab.
+**Verifikation:**
+- Manueller Smoke per `browser--view_preview` auf `/app/start`, `/app/lernpfad`, `/app/tutor`, `/app/kompetenz` als Test-Learner.
+- Reality-Test ergänzen: `tests/customer-reality/learner/13-reality-bridge.spec.ts` prüft, dass keine der 4 Pages den Default-Wert `readiness=50` aus `SystemConsciousness` zeigt.
 
-**Fix**:
-- In `src/pages/LearnerDashboard.tsx` einen deterministischen **Next-Step-Resolver** ergänzen, der genau eine sichtbare `SafeCta data-testid="dashboard-next-step"` rendert mit fester Hierarchie:
-  1. Aktiver Kurs + offene Lektion → „Weiter lernen"
-  2. Kein Fortschritt, MiniCheck verfügbar → „MiniCheck starten"
-  3. Kein Kurs aktiv → „Kurs öffnen" (auf `/berufe`)
-  4. Fallback (kein State) → „Prüfung simulieren"
-- Resolver darf nie `null` zurückgeben → garantiert sichtbarer CTA, auch in leerem State.
-- Unit-Test `LearnerDashboard.next-step.test.tsx`: 4 State-Permutationen, jeweils ein sichtbarer CTA mit erwartetem `to`.
+## Reihenfolge
+1. Bridge-Hook + SystemConsciousness `hydrate()`
+2. `/app/start` (einfachster Page-Patch, Validierung des Pattern)
+3. `/app/lernpfad`
+4. `/app/kompetenz`
+5. `/app/tutor`
+6. Reality-Spec + QFAF-Checkliste im Plan-Report
 
-**Done-Kriterium**: Reality-Learner-Spec `04-onboarding` grün, `data-testid="dashboard-next-step"` immer im DOM.
+Geschätzter Umfang: 1 großer Commit, ~600 LOC netto (Bridge + Patches).
 
----
-
-## P0.4 — MiniCheck / Tutor / Oral Surface  *(Lern-Surfaces)*
-
-**Symptome**: MiniCheck `no question reached`, Tutor `no input`, `/muendliche-pruefung` White Screen.
-
-**Fix-Pfade**:
-- **MiniCheck**: Entry-Component muss synchron mind. einen Fallback-Frame mit Frage 1 oder explizitem „Keine Frage verfügbar — zurück zum Kurs"-CTA rendern statt Spinner-Loop. Loader-Timeout (5s) → Recovery-Surface mit Link zurück.
-- **AI Tutor**: `TutorEntryPage` muss `<textarea data-testid="tutor-input">` schon vor Backend-Bootstrap rendern (Input darf nicht hinter Auth-Check verschwinden — disabled-State mit Hint statt unmount).
-- **Oral Exam** (`OralExamTrainer.tsx`): White-Screen-Ursache wahrscheinlich Error-Boundary-Schluck oder fehlender Top-Level-Fallback. Error-Boundary + immer-sichtbares Heading „Mündliche Prüfung" + Mic-Permission-CTA als Skeleton im ersten Paint.
-
-**Done-Kriterium**: Learner-Specs `05-learning` (MiniCheck), `07-ai-tutor`, `09-oral-exam` grün. Cold-Load-Verify zeigt für jede der drei Routen Body > 1 KB sichtbaren Text.
-
----
-
-## Abnahmekette (sequenziell)
-
-1. P0.1 implementieren → Reality-Gate lokal/Nightly laufen lassen → Hostnamen aller Findings ≡ Base-URL. **STOP hier zur Abnahme.**
-2. P0.2 implementieren → Cold-Load-Verify erweitern → P02–P05 grün. **STOP.**
-3. P0.3 implementieren → Learner-Onboarding grün. **STOP.**
-4. P0.4 implementieren → MiniCheck/Tutor/Oral grün → Gate-Verdict ≥ `REVIEW_REQUIRED` (Ziel `PASS ≥ 10/12`).
-
-Jeder STOP ist ein expliziter Commit + Reality-Run + dein Sign-off, bevor der nächste P0 startet. Kein „big bang" — Architecture-Freeze + Funnel-Freeze-Constraint bleibt respektiert.
-
-## Was diese Sequenz NICHT anfasst
-
-- Keine neuen Core-Komponenten (Agent-OS Freeze).
-- Keine neuen Routen, Tabellen, Migrations — nur Render-Path-Fixes und CTA-Verdrahtung.
-- Keine Test-Reduktion: alle bestehenden Specs bleiben aktiv und werden als Done-Kriterium genutzt.
-
-**Bestätige die Reihenfolge oder priorisiere um — dann starte ich mit P0.1.**
+Bestätige, dann fange ich mit Schritt 1 (Bridge-Hook) an.

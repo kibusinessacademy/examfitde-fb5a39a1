@@ -24,40 +24,87 @@ import { ExaminerLensCard } from "@/components/system/ExaminerLensCard";
 import { ExaminerBiographyCard } from "@/components/system/ExaminerBiographyCard";
 import { LearnerRecommendationStrip } from "@/components/recommendations/LearnerRecommendationStrip";
 import { RecoveryPlanCard } from "@/components/recovery/RecoveryPlanCard";
+import {
+  useLearnerRealityBridge,
+  type LearnerRealitySnapshot,
+} from "@/hooks/useLearnerRealityBridge";
 
 /**
- * /app/lernpfad — Phase 5.3: Risiko-orientierte Prüfungsstrategie
- *
- * Pure presentation. Kein Kursplan, keine Modul-Liste, kein LMS.
- * Das System steuert Prüfungsreife — der Nutzer folgt der Priorisierung.
+ * /app/lernpfad — P0-3 Sprint 1: DB-gebundene Prüfungsstrategie.
+ * Frage „Was sollte ich als Nächstes lernen?" → priorisierte Kompetenzen + nächster Schritt.
  */
 export default function AppLernpfadPage() {
+  const reality = useLearnerRealityBridge();
+
   return (
     <main className="lp-v2 min-h-screen w-full">
       <div className="relative mx-auto flex min-h-screen w-full max-w-[680px] flex-col px-5 pb-24 pt-8 sm:px-8 sm:pt-12">
         <BackgroundAura />
         <StrategyHeader />
-        <SystemStatusStrip />
-        <div className="mb-3"><DramaturgyChip /></div>
-        <div className="mb-3"><ExaminerLensCard /></div>
-        <div className="mb-3"><ExaminerBiographyCard /></div>
-        <TodayPriority />
-        <StrategyTimeline />
-        <CompetencyStates />
-        <RecoveryPlanCard
-          sourceEntityKind="app_lernpfad"
-          sourceEntitySlug="lernpfad_recovery"
-          limit={4}
-        />
-        <LearnerRecommendationStrip
-          sourceEntityKind="app_lernpfad"
-          sourceEntitySlug="lernpfad_strategy"
-          limit={4}
-        />
-        <StrategistTutor />
-        <RecalcStripe />
+        {reality.needsOnboarding ? (
+          <LernpfadOnboarding />
+        ) : reality.loading && !reality.hasData ? (
+          <LernpfadLoading />
+        ) : (
+          <>
+            <SystemStatusStrip />
+            <div className="mb-3"><DramaturgyChip /></div>
+            <div className="mb-3"><ExaminerLensCard /></div>
+            <div className="mb-3"><ExaminerBiographyCard /></div>
+            <TodayPriority reality={reality} />
+            <StrategyTimeline />
+            <CompetencyStates reality={reality} />
+            <RecoveryPlanCard
+              sourceEntityKind="app_lernpfad"
+              sourceEntitySlug="lernpfad_recovery"
+              limit={4}
+            />
+            <LearnerRecommendationStrip
+              sourceEntityKind="app_lernpfad"
+              sourceEntitySlug="lernpfad_strategy"
+              limit={4}
+            />
+            <StrategistTutor />
+            <RecalcStripe />
+          </>
+        )}
       </div>
     </main>
+  );
+}
+
+function LernpfadOnboarding() {
+  return (
+    <section className="mt-8 rounded-2xl border border-white/[0.06] bg-[rgba(13,22,40,0.55)] p-6 text-center">
+      <h2 className="lp-display text-xl text-[color:var(--lp-text-primary,#e8ecf3)]">
+        Wähle deinen Beruf, um den Lernpfad zu starten
+      </h2>
+      <p className="mt-2 text-[14px] text-[color:var(--lp-text-secondary,#a8b3c2)]">
+        Sobald ein Curriculum aktiv ist, priorisiert das System deine Kompetenzen.
+      </p>
+      <Link
+        to="/berufe"
+        className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium"
+        style={{
+          background: "linear-gradient(180deg, rgba(46,211,183,0.16), rgba(46,211,183,0.08))",
+          border: "1px solid rgba(46,211,183,0.35)",
+          color: "rgb(46,211,183)",
+        }}
+      >
+        Beruf wählen
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+    </section>
+  );
+}
+
+function LernpfadLoading() {
+  return (
+    <div className="mt-8 space-y-3">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="h-20 animate-pulse rounded-xl border border-white/[0.05] bg-white/[0.03]" />
+      ))}
+    </div>
   );
 }
 
@@ -165,10 +212,15 @@ function SystemStatusStrip() {
 /* ------------------------------------------------------------------ */
 /* 2. Heutige Priorität — dominant, EIN Fokus                          */
 /* ------------------------------------------------------------------ */
-function TodayPriority() {
+function TodayPriority({ reality }: { reality: LearnerRealitySnapshot }) {
   const { priority } = useExamPsychology();
-  const isCritical = priority.tone === "critical";
-  const isWatch = priority.tone === "watch";
+  const top = reality.weak[0] ?? reality.partial[0];
+  const focusTitle = top ? top.title : priority.focus;
+  const focusReason = top
+    ? `Aktueller Score ${Math.round(top.score)} / 100 in ${top.field || "diesem Lernfeld"} — hier liegt der größte Hebel.`
+    : priority.reason;
+  const isCritical = (top ? top.status === "weak" : priority.tone === "critical");
+  const isWatch = (top ? top.status === "partial" : priority.tone === "watch");
   const badgeLabel = isCritical ? "Risiko hoch" : isWatch ? "Risiko beobachtet" : "Stabilisiert";
   const badgeColor = isCritical
     ? "rgb(232,150,150)"
@@ -213,10 +265,10 @@ function TodayPriority() {
           Strategische Priorität · adaptiv
         </div>
         <h2 className="lp-display mt-1 text-[22px] leading-snug text-[color:var(--lp-text-primary,#e8ecf3)] sm:text-[24px]">
-          {priority.focus}
+          {focusTitle}
         </h2>
         <p className="mt-2 text-[14px] leading-relaxed text-[color:var(--lp-text-secondary,#a8b3c2)]">
-          {priority.reason}
+          {focusReason}
         </p>
 
         <div className="mt-5 grid grid-cols-3 gap-2">
@@ -251,7 +303,8 @@ function TodayPriority() {
           ))}
         </div>
 
-        <button
+        <Link
+          to={top ? `/app/minicheck/${top.id}` : reality.nextStep.to}
           className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition"
           style={{
             background:
@@ -260,9 +313,9 @@ function TodayPriority() {
             color: "rgb(46,211,183)",
           }}
         >
-          Einheit starten
+          {top ? "MiniCheck starten · diese Kompetenz" : reality.nextStep.label}
           <ArrowRight className="h-4 w-4" />
-        </button>
+        </Link>
       </div>
     </section>
   );
@@ -505,7 +558,23 @@ const STATE_TONE: Record<CompetencyState, { color: string; bg: string; border: s
   },
 };
 
-function CompetencyStates() {
+function CompetencyStates({ reality }: { reality: LearnerRealitySnapshot }) {
+  const items = [
+    ...reality.weak.map((c) => ({ ...c, state: "kritisch" as const, trend: "flat" as const })),
+    ...reality.partial.map((c) => ({ ...c, state: "instabil" as const, trend: "up" as const })),
+    ...reality.mastered.map((c) => ({ ...c, state: "prüfungsreif" as const, trend: "up" as const })),
+  ].slice(0, 6);
+
+  if (items.length === 0) {
+    return (
+      <section className="mb-6">
+        <div className="rounded-xl border border-white/[0.05] bg-white/[0.03] p-4 text-center text-[12px] text-[color:var(--lp-text-tertiary,#7a8696)]">
+          Noch keine Kompetenzdaten — starte den ersten MiniCheck, um den Pfad zu kalibrieren.
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="mb-6">
       <div className="mb-2 flex items-center justify-between">
@@ -513,15 +582,15 @@ function CompetencyStates() {
           Beobachtete Kompetenzen
         </span>
         <span className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--lp-text-tertiary,#7a8696)]">
-          Top 5 · risikogewichtet
+          {items.length} · risikogewichtet
         </span>
       </div>
       <ul className="space-y-2">
-        {COMPS.map((c) => {
+        {items.map((c) => {
           const tone = STATE_TONE[c.state];
           return (
             <li
-              key={c.title}
+              key={c.id}
               className="flex items-center gap-3 rounded-xl px-3 py-3"
               style={{
                 background: "rgba(255,255,255,0.03)",
@@ -530,17 +599,21 @@ function CompetencyStates() {
             >
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] uppercase tracking-[0.12em] text-[color:var(--lp-text-tertiary,#7a8696)]">
-                  {c.area}
+                  {c.field || "Kompetenz"}
                 </div>
-                <div className="truncate text-[14px] text-[color:var(--lp-text-primary,#e8ecf3)]">
+                <Link
+                  to={`/app/kompetenz/${c.id}`}
+                  className="block truncate text-[14px] text-[color:var(--lp-text-primary,#e8ecf3)] hover:underline"
+                >
                   {c.title}
-                </div>
+                </Link>
                 <div className="text-[11px] text-[color:var(--lp-text-tertiary,#7a8696)]">
-                  {c.memory}
+                  Score {Math.round(c.score)} / 100
                 </div>
               </div>
               <TrendArrow trend={c.trend} />
-              <div
+              <Link
+                to={`/app/minicheck/${c.id}`}
                 className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium"
                 style={{
                   color: tone.color,
@@ -549,7 +622,7 @@ function CompetencyStates() {
                 }}
               >
                 {c.state}
-              </div>
+              </Link>
             </li>
           );
         })}

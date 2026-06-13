@@ -16,29 +16,85 @@ import {
   Quote,
 } from "lucide-react";
 import "@/components/landing/v2/lp-v2-theme.css";
+import {
+  useLearnerRealityBridge,
+  type LearnerRealitySnapshot,
+  type RealityCompetency,
+} from "@/hooks/useLearnerRealityBridge";
+import { readinessLabel } from "@/lib/system/SystemConsciousness";
 
 /**
- * /app/start — Continuity of Belief (Phase 4) + System-OS (Phase 5)
- *
- * Übergang Landingpage → Produkt. Kein Dashboard, keine Kachelwüste.
- * Phase 5 erweitert: System-Memory, adaptive Recalculation, Tutor-Continuity,
- * Risiko-als-Zustand, Prüfersprache. Mobile-first, ruhig, prüfungsnah.
+ * /app/start — P0-3 Sprint 1: DB-gebunden, QFAF-konform.
+ * Frage „Wo stehe ich?" → Readiness + Priorität + nächster Schritt.
  */
 export default function AppStartPage() {
+  const reality = useLearnerRealityBridge();
+
   return (
     <main className="lp-v2 min-h-screen w-full">
       <div className="relative mx-auto flex min-h-screen w-full max-w-[680px] flex-col px-5 pb-24 pt-8 sm:px-8 sm:pt-12">
         <BackgroundAura />
         <SystemHeader />
-        <SystemMemoryStrip />
-        <DiagnosisHeadline />
-        <ReadinessScore />
-        <PriorityCompetency />
-        <CompetencyTrendList />
-        <TutorWhisper />
-        <SecondaryStripe />
+        {reality.needsOnboarding ? (
+          <OnboardingEmptyState />
+        ) : reality.loading && !reality.hasData ? (
+          <LoadingState />
+        ) : (
+          <>
+            <SystemMemoryStrip reality={reality} />
+            <DiagnosisHeadline reality={reality} />
+            <ReadinessScore reality={reality} />
+            <PriorityCompetency reality={reality} />
+            <CompetencyTrendList reality={reality} />
+            <TutorWhisper reality={reality} />
+            <SecondaryStripe reality={reality} />
+          </>
+        )}
       </div>
     </main>
+  );
+}
+
+function OnboardingEmptyState() {
+  return (
+    <section className="mt-8 rounded-2xl border border-[var(--lp-border)] bg-[var(--lp-elev)]/60 p-6 text-center">
+      <div
+        className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl"
+        style={{ background: "rgba(46,211,183,0.08)", border: "1px solid var(--lp-border-emerald)" }}
+      >
+        <Sparkles className="h-5 w-5" style={{ color: "var(--lp-emerald)" }} />
+      </div>
+      <h1 className="lp-display text-xl font-semibold text-[var(--lp-text)]">
+        Noch kein Beruf gewählt
+      </h1>
+      <p className="mt-2 text-[14px] text-[var(--lp-text-2)]">
+        Wähle deinen Beruf, damit das System deinen Prüfungszustand analysieren kann.
+      </p>
+      <Link
+        to="/berufe"
+        className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-medium"
+        style={{
+          background: "linear-gradient(180deg, var(--lp-emerald), #1fb89e)",
+          color: "#04221C",
+        }}
+      >
+        Beruf wählen
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+    </section>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="mt-8 space-y-4">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-28 animate-pulse rounded-2xl border border-[var(--lp-border)] bg-[var(--lp-elev)]/40"
+        />
+      ))}
+    </div>
   );
 }
 
@@ -130,14 +186,26 @@ function SystemHeader() {
 /* -------------------------------------------------------------------- */
 /* System Memory Strip — „Das System erinnert sich"                      */
 /* -------------------------------------------------------------------- */
-function SystemMemoryStrip() {
-  const memos = [
-    { label: "LF 5", state: "weiterhin kritisch", tone: "warn" as const },
-    { label: "Fachgespräch", state: "seit 3 Tagen stabilisiert", tone: "ok" as const },
-    { label: "Bewertungsaufgaben", state: "bleiben fehleranfällig", tone: "warn" as const },
-    { label: "Risiko", state: "leicht gesunken", tone: "ok" as const },
-    { label: "Antwortgeschwindigkeit", state: "verbessert", tone: "ok" as const },
-  ];
+function SystemMemoryStrip({ reality }: { reality: LearnerRealitySnapshot }) {
+  const memos: Array<{ label: string; state: string; tone: "warn" | "ok" }> = [];
+  if (reality.weak[0]) {
+    memos.push({ label: reality.weak[0].field || "Kompetenz", state: `${reality.weak[0].title} kritisch`, tone: "warn" });
+  }
+  if (reality.partial[0]) {
+    memos.push({ label: reality.partial[0].field || "Kompetenz", state: `${reality.partial[0].title} beobachtet`, tone: "warn" });
+  }
+  if (reality.mastered[0]) {
+    memos.push({ label: reality.mastered[0].field || "Kompetenz", state: `${reality.mastered[0].title} stabil`, tone: "ok" });
+  }
+  if (reality.streak > 0) {
+    memos.push({ label: "Streak", state: `${reality.streak} Tage in Folge`, tone: "ok" });
+  }
+  if (typeof reality.progressPercent === "number" && reality.progressPercent > 0) {
+    memos.push({ label: "Fortschritt", state: `${Math.round(reality.progressPercent)} % im Kurs`, tone: "ok" });
+  }
+  if (memos.length === 0) {
+    memos.push({ label: "System", state: "Analyse startet", tone: "ok" });
+  }
   return (
     <section className="mb-8 -mx-5 sm:-mx-8">
       <div
@@ -179,7 +247,26 @@ function SystemMemoryStrip() {
 /* -------------------------------------------------------------------- */
 /* Diagnose-Headline                                                     */
 /* -------------------------------------------------------------------- */
-function DiagnosisHeadline() {
+function DiagnosisHeadline({ reality }: { reality: LearnerRealitySnapshot }) {
+  const weakCount = reality.weak.length;
+  const partialCount = reality.partial.length;
+  const headlineGap =
+    weakCount === 0 && partialCount === 0
+      ? "keine kritischen Lücken"
+      : weakCount === 1
+        ? "eine Kompetenzlücke"
+        : weakCount > 1
+          ? `${weakCount} Kompetenzlücken`
+          : `${partialCount} Kompetenz${partialCount === 1 ? "" : "en"} im Beobachtungsmodus`;
+  const headlinePrefix =
+    reality.readinessLevel === "ready"
+      ? "Prüfungsreif —"
+      : reality.readinessLevel === "almost_ready"
+        ? "Du bist nah dran — aber"
+        : "Aktuell unter Risiko —";
+  const focusField = reality.weak[0]?.field || reality.partial[0]?.field || "deine Schwerpunktthemen";
+  const focusTitle = reality.weak[0]?.title || reality.partial[0]?.title || "Transferaufgaben";
+
   return (
     <section className="mb-10">
       <motion.div
@@ -198,7 +285,7 @@ function DiagnosisHeadline() {
         transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
         className="lp-display text-[28px] font-semibold leading-[1.15] text-[var(--lp-text)] sm:text-[34px]"
       >
-        Du bist nah dran — aber{" "}
+        {headlinePrefix}{" "}
         <span
           style={{
             background: "linear-gradient(90deg, #2ED3B7 0%, #59F0D0 60%, #a78bfa 100%)",
@@ -206,9 +293,9 @@ function DiagnosisHeadline() {
             WebkitTextFillColor: "transparent",
           }}
         >
-          zwei Kompetenzlücken
+          {headlineGap}
         </span>{" "}
-        kosten dich aktuell die Prüfung.
+        bestimmen aktuell deinen Pfad.
       </motion.h1>
       <motion.p
         initial={{ opacity: 0 }}
@@ -216,10 +303,12 @@ function DiagnosisHeadline() {
         transition={{ duration: 0.7, delay: 0.35 }}
         className="mt-3 text-[15px] leading-relaxed text-[var(--lp-text-2)] sm:text-base"
       >
-        Typischer Punktverlust entsteht bei{" "}
-        <span className="text-[var(--lp-text)]">Bewertungsaufgaben</span> und in
-        der <span className="text-[var(--lp-text)]">Argumentationsstruktur des Fachgesprächs</span>.
-        Das System hat einen 21-Tage-Pfad rekalkuliert.
+        Fokus liegt aktuell auf{" "}
+        <span className="text-[var(--lp-text)]">{focusField}</span> — speziell{" "}
+        <span className="text-[var(--lp-text)]">{focusTitle}</span>.
+        {reality.totalLessons > 0
+          ? ` ${reality.masteredLessons} von ${reality.totalLessons} Lektionen gemeistert.`
+          : " Das System aktualisiert deinen Pfad nach jedem MiniCheck."}
       </motion.p>
     </section>
   );
@@ -228,30 +317,31 @@ function DiagnosisHeadline() {
 /* -------------------------------------------------------------------- */
 /* Readiness Score — adaptive Recalc                                     */
 /* -------------------------------------------------------------------- */
-function ReadinessScore() {
+function ReadinessScore({ reality }: { reality: LearnerRealitySnapshot }) {
+  const target = reality.readiness > 0 ? reality.readiness : 0;
   const [val, setVal] = useState(0);
-  const [target, setTarget] = useState(57);
-  const [delta, setDelta] = useState<number | null>(null);
 
   useEffect(() => {
-    const steps = [12, 24, 33, 41, 48, 53, 56, 57];
-    steps.forEach((v, i) => setTimeout(() => setVal(v), 350 + i * 110));
-  }, []);
+    // Smooth-in zum echten Zielwert
+    if (target <= 0) {
+      setVal(0);
+      return;
+    }
+    const start = 0;
+    const duration = 900;
+    const startTs = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - startTs) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setVal(Math.round(start + (target - start) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
 
-  useEffect(() => {
-    // Subtile Recalc alle ~22s: ±1, einmalig sichtbar
-    const tick = setInterval(() => {
-      const d = Math.random() > 0.5 ? 1 : -1;
-      setTarget((t) => {
-        const next = Math.max(54, Math.min(62, t + d));
-        setVal(next);
-        setDelta(next - t);
-        setTimeout(() => setDelta(null), 2600);
-        return next;
-      });
-    }, 22000);
-    return () => clearInterval(tick);
-  }, []);
+  const passLabel = readinessLabel(target);
 
   return (
     <section className="lp-card relative mb-6 overflow-hidden p-5 sm:p-6">
@@ -265,29 +355,10 @@ function ReadinessScore() {
               {val}
             </span>
             <span className="text-base text-[var(--lp-text-3)]">/100</span>
-            <AnimatePresence>
-              {delta !== null && (
-                <motion.span
-                  key={`delta-${target}`}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="ml-1 text-[11px] tabular-nums"
-                  style={{
-                    color: delta > 0 ? "var(--lp-aqua)" : "var(--lp-warn)",
-                  }}
-                >
-                  {delta > 0 ? "+" : ""}
-                  {delta}
-                </motion.span>
-              )}
-            </AnimatePresence>
           </div>
-          <div className="mt-1 text-[13px] text-[var(--lp-text-2)]">
-            Knappes Bestehen wahrscheinlich
-          </div>
+          <div className="mt-1 text-[13px] text-[var(--lp-text-2)]">{passLabel}</div>
         </div>
-        <RiskState />
+        <RiskState reality={reality} />
       </div>
 
       <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/[0.04]">
@@ -297,37 +368,54 @@ function ReadinessScore() {
             background:
               "linear-gradient(90deg, #f5b754 0%, #2ED3B7 60%, #59F0D0 100%)",
           }}
-          animate={{ width: `${val}%` }}
+          animate={{ width: `${Math.max(2, val)}%` }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         />
       </div>
 
       <div className="mt-3 flex items-center justify-between text-[11px] text-[var(--lp-text-3)]">
         <span>Bestehensschwelle 65</span>
-        <span className="text-[var(--lp-aqua)]">+8 Pkt / Woche im Pfad</span>
+        <Link
+          to={reality.nextStep.to}
+          className="text-[var(--lp-aqua)] hover:text-[var(--lp-mint)] transition-colors"
+        >
+          {reality.nextStep.label} →
+        </Link>
       </div>
     </section>
   );
 }
 
-/* Persistent risk-as-state badge (subtle, not alarmist) */
-function RiskState() {
+function RiskState({ reality }: { reality: LearnerRealitySnapshot }) {
+  const critical = reality.weak.length >= 2 || reality.readiness < 55;
+  const watch = reality.weak.length === 1 || reality.partial.length >= 2 || reality.readiness < 75;
+  const tone = critical ? "critical" : watch ? "watch" : "stable";
+  const color =
+    tone === "critical" ? "var(--lp-danger)" : tone === "watch" ? "var(--lp-warn)" : "var(--lp-aqua)";
+  const bg =
+    tone === "critical" ? "rgba(239,77,107,0.04)" : tone === "watch" ? "rgba(245,183,84,0.04)" : "rgba(46,211,183,0.04)";
+  const border =
+    tone === "critical" ? "rgba(239,77,107,0.24)" : tone === "watch" ? "rgba(245,183,84,0.24)" : "rgba(46,211,183,0.24)";
+  const label = tone === "critical" ? "Hohes Risiko" : tone === "watch" ? "Erhöhtes Risiko" : "Stabil";
+  const subline =
+    reality.daysSinceLast == null
+      ? "Erste Analyse"
+      : reality.daysSinceLast === 0
+        ? "heute aktualisiert"
+        : `vor ${reality.daysSinceLast} Tag${reality.daysSinceLast === 1 ? "" : "en"}`;
   return (
     <div
       className="flex flex-col items-end gap-1.5 rounded-xl border px-3 py-2"
-      style={{
-        borderColor: "rgba(245,183,84,0.24)",
-        background: "rgba(245,183,84,0.04)",
-      }}
+      style={{ borderColor: border, background: bg }}
     >
-      <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--lp-warn)]">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color }}>
         <AlertTriangle className="h-3 w-3" />
-        Erhöhtes Risiko
+        {label}
       </div>
       <span className="text-[10px] text-[var(--lp-text-3)] tabular-nums">
-        −14 Pkt erwartet
+        {reality.weak.length} kritisch · {reality.partial.length} beobachtet
       </span>
-      <span className="text-[10px] text-[var(--lp-text-3)]">stabil seit 2 Tagen</span>
+      <span className="text-[10px] text-[var(--lp-text-3)]">{subline}</span>
     </div>
   );
 }
@@ -335,14 +423,44 @@ function RiskState() {
 /* -------------------------------------------------------------------- */
 /* Priority Competency — eine Haupthandlung + Prüfersprache              */
 /* -------------------------------------------------------------------- */
-function PriorityCompetency() {
+function PriorityCompetency({ reality }: { reality: LearnerRealitySnapshot }) {
+  const top = reality.weak[0] ?? reality.partial[0];
+  const total = reality.weak.length + reality.partial.length;
+  const tone: "critical" | "watch" | "stable" = reality.weak.length > 0 ? "critical" : reality.partial.length > 0 ? "watch" : "stable";
+  const toneLabel = tone === "critical" ? "Kritisch" : tone === "watch" ? "Beobachtet" : "Stabil";
+  const toneColor = tone === "critical" ? "var(--lp-danger)" : tone === "watch" ? "var(--lp-warn)" : "var(--lp-aqua)";
+  const toneBg = tone === "critical" ? "rgba(239,77,107,0.10)" : tone === "watch" ? "rgba(245,183,84,0.10)" : "rgba(46,211,183,0.10)";
+
+  if (!top) {
+    return (
+      <section className="mb-6">
+        <div className="lp-card p-5 sm:p-6">
+          <div className="text-[11px] uppercase tracking-wider text-[var(--lp-emerald)]">
+            Alle Kompetenzen aktuell stabil
+          </div>
+          <h2 className="lp-display mt-1 text-lg font-semibold text-[var(--lp-text)]">
+            Bereit für eine Prüfungssimulation?
+          </h2>
+          <Link
+            to="/app/exam-trainer"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-medium"
+            style={{ background: "linear-gradient(180deg, var(--lp-emerald), #1fb89e)", color: "#04221C" }}
+          >
+            Prüfung starten
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="mb-6">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--lp-text-3)]">
           Höchste Priorität · vom System gewählt
         </span>
-        <span className="text-[11px] text-[var(--lp-text-3)]">1 / 8</span>
+        <span className="text-[11px] text-[var(--lp-text-3)]">1 / {Math.max(1, total)}</span>
       </div>
 
       <motion.div
@@ -352,55 +470,38 @@ function PriorityCompetency() {
         className="lp-card relative overflow-hidden p-5 sm:p-6"
         style={{
           borderColor: "var(--lp-border-emerald)",
-          boxShadow:
-            "0 0 0 1px rgba(46,211,183,0.18), 0 24px 60px -32px rgba(46,211,183,0.35)",
+          boxShadow: "0 0 0 1px rgba(46,211,183,0.18), 0 24px 60px -32px rgba(46,211,183,0.35)",
         }}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-wider text-[var(--lp-emerald)]">
-              Kompetenz · LF 5
+              Kompetenz · {top.field || "Lernfeld"}
             </div>
             <h2 className="lp-display mt-1 text-lg font-semibold text-[var(--lp-text)] sm:text-xl">
-              Bewertungsaufgaben sicher strukturieren
+              {top.title}
             </h2>
           </div>
           <span
             className="shrink-0 rounded-md px-2 py-1 text-[10px] font-medium uppercase tracking-wider"
-            style={{
-              background: "rgba(239,77,107,0.10)",
-              color: "var(--lp-danger)",
-              border: "1px solid rgba(239,77,107,0.25)",
-            }}
+            style={{ background: toneBg, color: toneColor, border: `1px solid ${toneColor}40` }}
           >
-            Kritisch
+            {toneLabel}
           </span>
         </div>
 
         <ul className="mb-4 space-y-2 text-[13px] text-[var(--lp-text-2)]">
-          <Tag>Relevant für schriftlich & mündlich</Tag>
-          <Tag>Typischer Punktverlust ≈ 9 Pkt</Tag>
-          <Tag>Bewertungskriterium · Argumentationsstruktur</Tag>
+          <Tag>Aktueller Score · {Math.round(top.score)} / 100</Tag>
+          <Tag>{reality.weak.length} kritische · {reality.partial.length} beobachtete Kompetenz{(reality.weak.length + reality.partial.length) === 1 ? "" : "en"}</Tag>
+          {reality.lastActivity ? (
+            <Tag>Zuletzt aktiv · {reality.lastActivity.lessonTitle}</Tag>
+          ) : (
+            <Tag>Bewertungskriterium · Argumentationsstruktur</Tag>
+          )}
         </ul>
 
-        {/* Examiner micro-quote */}
-        <div
-          className="mb-5 flex gap-2.5 rounded-lg p-3"
-          style={{
-            background: "rgba(255,255,255,0.025)",
-            border: "1px solid var(--lp-border)",
-          }}
-        >
-          <Quote className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[var(--lp-text-3)]" />
-          <p className="text-[12px] leading-relaxed italic text-[var(--lp-text-2)]">
-            „Hier würde ein Prüfer nach der{" "}
-            <span className="not-italic text-[var(--lp-text)]">Begründung</span>{" "}
-            fragen — nicht nach der Lösung."
-          </p>
-        </div>
-
         <Link
-          to="/exam-trainer?mode=competency&priority=1&from=app-start"
+          to={`/app/minicheck/${top.id}`}
           className="group flex w-full items-center justify-between rounded-xl px-5 py-4 text-[15px] font-medium transition-transform active:scale-[0.99]"
           style={{
             background: "linear-gradient(180deg, var(--lp-emerald), #1fb89e)",
@@ -408,7 +509,7 @@ function PriorityCompetency() {
             boxShadow: "0 12px 30px -12px rgba(46,211,183,0.55)",
           }}
         >
-          <span>Diese Kompetenz jetzt trainieren · 22 Min</span>
+          <span>MiniCheck starten · diese Kompetenz</span>
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </motion.div>
@@ -432,30 +533,51 @@ function Tag({ children }: { children: React.ReactNode }) {
 /* Competency Trend List — System-Memory pro Kompetenz                   */
 /* -------------------------------------------------------------------- */
 type TrendDir = "up" | "down" | "flat";
-function CompetencyTrendList() {
-  const items: Array<{
-    label: string;
-    state: string;
-    dir: TrendDir;
-    score: number;
-  }> = [
-    { label: "Fachgespräch · Struktur", state: "mündlich stabil", dir: "up", score: 71 },
-    { label: "Transferaufgaben", state: "schriftlich instabil", dir: "down", score: 48 },
-    { label: "Fachbegriffe · Rechnungswesen", state: "leicht verbessert", dir: "up", score: 64 },
-    { label: "Bewertungsaufgaben", state: "häufige Fehlerquelle", dir: "flat", score: 41 },
-  ];
+function CompetencyTrendList({ reality }: { reality: LearnerRealitySnapshot }) {
+  const mapDir = (c: RealityCompetency): TrendDir =>
+    c.status === "mastered" ? "up" : c.status === "weak" ? "down" : "flat";
+  const mapState = (c: RealityCompetency) =>
+    c.status === "mastered"
+      ? "gemeistert"
+      : c.status === "weak"
+        ? "kritisch"
+        : c.status === "partial"
+          ? "beobachtet"
+          : "noch nicht erfasst";
+
+  const items = [...reality.weak, ...reality.partial, ...reality.mastered]
+    .slice(0, 6)
+    .map((c) => ({
+      label: `${c.field || "Kompetenz"} · ${c.title}`,
+      state: mapState(c),
+      dir: mapDir(c),
+      score: Math.round(c.score),
+    }));
+
+  if (items.length === 0) {
+    return (
+      <section className="mb-6">
+        <div className="rounded-2xl border border-[var(--lp-border)] bg-[var(--lp-elev)]/60 p-4 text-center text-[12px] text-[var(--lp-text-3)]">
+          Noch keine Kompetenz-Daten — starte deinen ersten MiniCheck.
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="mb-6">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--lp-text-3)]">
-          Kompetenzentwicklung · letzte 7 Tage
+          Kompetenzentwicklung · aktueller Stand
         </span>
+        <Link to="/app/lernpfad" className="text-[11px] text-[var(--lp-aqua)]">
+          Alle ansehen
+        </Link>
       </div>
       <ul className="overflow-hidden rounded-2xl border border-[var(--lp-border)] bg-[var(--lp-elev)]/60">
         {items.map((it, i) => (
           <motion.li
-            key={it.label}
+            key={it.label + i}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.5 + i * 0.05 }}
@@ -463,7 +585,7 @@ function CompetencyTrendList() {
           >
             <TrendIcon dir={it.dir} />
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] text-[var(--lp-text)]">{it.label}</div>
+              <div className="truncate text-[13px] text-[var(--lp-text)]">{it.label}</div>
               <div className="text-[11px] text-[var(--lp-text-3)]">{it.state}</div>
             </div>
             <span
@@ -513,7 +635,26 @@ function TrendIcon({ dir }: { dir: TrendDir }) {
 /* -------------------------------------------------------------------- */
 /* Tutor Whisper — Session-Memory                                        */
 /* -------------------------------------------------------------------- */
-function TutorWhisper() {
+function TutorWhisper({ reality }: { reality: LearnerRealitySnapshot }) {
+  const focus = reality.weak[0] ?? reality.partial[0];
+  const last = reality.lastActivity;
+  const headline = focus
+    ? `Letzte Schwäche · ${focus.field || "Kompetenz"}`
+    : last
+      ? "AI-Tutor liest deine Lernhistorie"
+      : "AI-Tutor bereit für deine Frage";
+  const meta = focus
+    ? `Score ${Math.round(focus.score)} / 100`
+    : last
+      ? `Letzte Aktivität: ${last.lessonTitle}`
+      : "Strict-RAG mit Quellen";
+  const body = focus
+    ? `Schwerpunkt liegt aktuell auf „${focus.title}". Eine fokussierte Erklärung kann diesen Bereich messbar drehen.`
+    : last
+      ? `Zuletzt: ${last.moduleTitle} → „${last.lessonTitle}". Tutor kann offene Punkte vertiefen.`
+      : "Stelle dem Tutor deine erste Frage zu deinem Curriculum.";
+  const tutorHref = focus ? `/app/tutor?focus=${encodeURIComponent(focus.id)}` : "/app/tutor";
+
   return (
     <section className="mb-6">
       <motion.div
@@ -534,25 +675,19 @@ function TutorWhisper() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-[11px] uppercase tracking-wider text-[var(--lp-text-3)]">
-              AI-Tutor · liest LF 5 · Rahmenplan
+              {headline}
             </span>
             <span className="h-1 w-1 rounded-full bg-[var(--lp-text-3)]" />
-            <span className="text-[11px] text-[var(--lp-text-3)]">3 Sessions analysiert</span>
+            <span className="text-[11px] text-[var(--lp-text-3)]">{meta}</span>
           </div>
-          <p className="mt-1.5 text-[14px] leading-relaxed text-[var(--lp-text-2)]">
-            Die Argumentationsstruktur war diesmal{" "}
-            <span className="text-[var(--lp-text)]">stabiler</span> — Fachbegriffe
-            sitzen, aber der Punktverlust liegt weiterhin bei{" "}
-            <span className="text-[var(--lp-text)]">Transferaufgaben</span>. Drei
-            Mikro-Sessions reichen, um das zu drehen.
-          </p>
-          <button
-            type="button"
+          <p className="mt-1.5 text-[14px] leading-relaxed text-[var(--lp-text-2)]">{body}</p>
+          <Link
+            to={tutorHref}
             className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-[var(--lp-aqua)] hover:text-[var(--lp-mint)] transition-colors"
           >
-            Analyse vertiefen
+            Tutor öffnen
             <ArrowRight className="h-3 w-3" />
-          </button>
+          </Link>
         </div>
       </motion.div>
     </section>
@@ -562,7 +697,8 @@ function TutorWhisper() {
 /* -------------------------------------------------------------------- */
 /* Secondary Stripe                                                      */
 /* -------------------------------------------------------------------- */
-function SecondaryStripe() {
+function SecondaryStripe({ reality }: { reality: LearnerRealitySnapshot }) {
+  void reality;
   const items = [
     {
       to: "/exam-trainer?mode=oral&from=app-start",
