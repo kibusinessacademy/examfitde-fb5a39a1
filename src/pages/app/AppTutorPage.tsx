@@ -102,34 +102,32 @@ function TutorOnboarding() {
 
       {/* Primary CTA — genau ein empfohlener nächster Schritt */}
       <div className="mt-6 flex flex-col items-center gap-3">
-        <div className="flex flex-col items-center gap-2">
+        <Link
+          to="/berufe"
+          data-testid="tutor-primary-cta"
+          aria-label="Empfohlen: Beruf auswählen (empfohlener nächster Schritt)"
+          className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold shadow-lg shadow-[rgba(46,211,183,0.18)] transition-transform hover:scale-[1.02]"
+          style={{
+            background: "linear-gradient(135deg, rgba(46,211,183,0.98), rgba(36,180,160,0.98))",
+            color: "rgb(8,18,20)",
+          }}
+        >
           <span
-            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
             style={{
-              background: "rgba(46,211,183,0.14)",
-              color: "rgb(120,235,210)",
-              border: "1px solid rgba(46,211,183,0.32)",
+              background: "rgba(8,18,20,0.18)",
+              color: "rgb(8,18,20)",
             }}
           >
             Empfohlen
           </span>
-          <Link
-            to="/berufe"
-            data-testid="tutor-primary-cta"
-            aria-label="Beruf auswählen (empfohlener nächster Schritt)"
-            className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold shadow-lg shadow-[rgba(46,211,183,0.18)] transition-transform hover:scale-[1.02]"
-            style={{
-              background: "linear-gradient(135deg, rgba(46,211,183,0.98), rgba(36,180,160,0.98))",
-              color: "rgb(8,18,20)",
-            }}
-          >
-            Beruf auswählen
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-          <p className="max-w-sm text-[12.5px] leading-snug text-[color:var(--lp-text-secondary,#a8b3c2)]">
-            Wähle zuerst deinen Prüfungsberuf, damit der Tutor dein Curriculum und deine Schwächen kennt.
-          </p>
-        </div>
+          Beruf auswählen — nächster Schritt
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+        <p className="max-w-sm text-[12.5px] leading-snug text-[color:var(--lp-text-secondary,#a8b3c2)]">
+          Danach kennt der Tutor dein Prüfungs-Curriculum und deine Schwächen → du startest direkt mit deiner ersten Erklärung.
+        </p>
+
 
         {/* Secondary — kleiner, ohne CTA-Gewicht */}
         <Link
