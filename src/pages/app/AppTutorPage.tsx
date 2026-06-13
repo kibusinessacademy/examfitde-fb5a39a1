@@ -422,7 +422,18 @@ function RiskInterpretation() {
 /* ------------------------------------------------------------------ */
 /* Prioritized Focus — nicht Optionen, sondern Priorisierung           */
 /* ------------------------------------------------------------------ */
-function PrioritizedFocus() {
+function PrioritizedFocus({ reality }: { reality: LearnerRealitySnapshot }) {
+  const focus = reality.weak[0] ?? reality.partial[0];
+  const focusTitle = focus
+    ? `Begründungs-Drill · ${focus.title}`
+    : "Bereit für die nächste Prüfungssimulation";
+  const focusReason = focus
+    ? `Aktueller Score ${Math.round(focus.score)} / 100 in ${focus.field || "diesem Lernfeld"}. Eine fokussierte Mikro-Session adressiert direkt diesen Punkt.`
+    : reality.lastActivity
+      ? `Letzte Aktivität: ${reality.lastActivity.lessonTitle} (${reality.lastActivity.moduleTitle}).`
+      : "Kein offenes Schwächemuster — gute Voraussetzungen für einen Vollsimulation-Lauf.";
+  const primaryHref = focus ? `/app/tutor?focus=${encodeURIComponent(focus.id)}` : reality.nextStep.to;
+  const primaryLabel = focus ? "Tutor starten · diese Kompetenz" : reality.nextStep.label;
   return (
     <section className="mb-6">
       <SectionHeader
