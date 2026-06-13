@@ -303,7 +303,8 @@ function TodayPriority({ reality }: { reality: LearnerRealitySnapshot }) {
           ))}
         </div>
 
-        <button
+        <Link
+          to={top ? `/app/minicheck/${top.id}` : reality.nextStep.to}
           className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition"
           style={{
             background:
@@ -312,9 +313,9 @@ function TodayPriority({ reality }: { reality: LearnerRealitySnapshot }) {
             color: "rgb(46,211,183)",
           }}
         >
-          Einheit starten
+          {top ? "MiniCheck starten · diese Kompetenz" : reality.nextStep.label}
           <ArrowRight className="h-4 w-4" />
-        </button>
+        </Link>
       </div>
     </section>
   );
