@@ -128,9 +128,14 @@ async function callQfaf(route, snap) {
     }),
   });
   const txt = await res.text();
-  if (!res.ok) return { ok: false, status: res.status, error: txt.slice(0, 400), findings: [] };
-  try { const j = JSON.parse(txt); return { ok: true, findings: j.findings || [], meta: j.meta }; }
-  catch { return { ok: false, error: 'parse', findings: [] }; }
+  if (!res.ok) return { ok: false, status: res.status, error: txt.slice(0, 400), findings: [], inconsistencies: [] };
+  try {
+    const j = JSON.parse(txt);
+    const all = j.findings || [];
+    const real = j.real_findings || all.filter((f) => f.verdict !== 'inconsistent');
+    const inc  = j.inconsistencies || all.filter((f) => f.verdict === 'inconsistent');
+    return { ok: true, findings: real, inconsistencies: inc, all, meta: j.meta };
+  } catch { return { ok: false, error: 'parse', findings: [], inconsistencies: [] }; }
 }
 
 const Q_LABEL = {
@@ -140,15 +145,18 @@ const Q_LABEL = {
   qfaf_q4_outcome:     'Q4 OUTCOME     — Was passiert nach dem Klick?',
 };
 
-function scorecard(route, findings) {
+function scorecard(route, findings, inconsistencies = []) {
   const failed = new Set(findings.map(f => f.kind));
+  const incons = new Set(inconsistencies.map(f => f.kind));
+  const status = (kind) => failed.has(kind) ? 'FAIL' : (incons.has(kind) ? 'INCONS' : 'PASS');
   return {
     route,
-    q1: failed.has('qfaf_q1_orientation') ? 'NEIN' : 'ja',
-    q2: failed.has('qfaf_q2_stakes') ? 'NEIN' : 'ja',
-    q3: failed.has('qfaf_q3_action') ? 'NEIN' : 'ja',
-    q4: failed.has('qfaf_q4_outcome') ? 'NEIN' : 'ja',
-    passed: 4 - failed.size,
+    q1: status('qfaf_q1_orientation'),
+    q2: status('qfaf_q2_stakes'),
+    q3: status('qfaf_q3_action'),
+    q4: status('qfaf_q4_outcome'),
+    passed: 4 - failed.size - incons.size,
+    inconsistent: incons.size,
   };
 }
 
@@ -166,24 +174,27 @@ for (const r of ROUTES) {
   process.stdout.write(`  snap ${r} ... `);
   const s = await snapshot(ctx, r);
   console.log(`url=${s.final_url} auth_lost=${s.auth_lost} text=${s.snapshot.visible_text.length}b ctas=${s.snapshot.cta_count} testids=${s.snapshot.testids.length}`);
-  if (s.auth_lost) { results.push({ snap: s, findings: [{ severity: 'P0', kind: 'auth_lost_post_login', user_impact: 'Learner wird auf /auth zurückgeworfen', evidence: `→ ${s.final_url}`, fix_recommendation: 'Auth-Gate prüfen', confidence: 1 }], audit_meta: null }); continue; }
-  if (s.nav_error) { results.push({ snap: s, findings: [{ severity: 'P0', kind: 'broken_route', user_impact: 'Route lädt nicht', evidence: s.nav_error, fix_recommendation: 'Route prüfen', confidence: 1 }], audit_meta: null }); continue; }
+  if (s.auth_lost) { results.push({ snap: s, findings: [{ severity: 'P0', kind: 'auth_lost_post_login', user_impact: 'Learner wird auf /auth zurückgeworfen', evidence: `→ ${s.final_url}`, fix_recommendation: 'Auth-Gate prüfen', confidence: 1 }], inconsistencies: [], audit_meta: null }); continue; }
+  if (s.nav_error) { results.push({ snap: s, findings: [{ severity: 'P0', kind: 'broken_route', user_impact: 'Route lädt nicht', evidence: s.nav_error, fix_recommendation: 'Route prüfen', confidence: 1 }], inconsistencies: [], audit_meta: null }); continue; }
   process.stdout.write(`  qfaf ${r} ... `);
   const res = await callQfaf(r, s.snapshot);
-  console.log(res.ok ? `${res.findings.length} fails (${res.meta?.ms}ms)` : `ERR ${res.status} ${res.error?.slice(0,80)}`);
-  results.push({ snap: s, findings: res.findings, audit_meta: res.meta });
+  console.log(res.ok ? `${res.findings.length} fails / ${res.inconsistencies.length} inconsistent (${res.meta?.ms}ms)` : `ERR ${res.status} ${res.error?.slice(0,80)}`);
+  results.push({ snap: s, findings: res.findings, inconsistencies: res.inconsistencies, audit_meta: res.meta });
 }
 
 await ctx.close();
 await browser.close();
 
 // --- Reporting ----------------------------------------------------------
-const cards = results.map(r => scorecard(r.snap.route, r.findings));
+const cards = results.map(r => scorecard(r.snap.route, r.findings, r.inconsistencies));
 const totals = {
   routes: results.length,
   pass4of4: cards.filter(c => c.passed === 4).length,
   pass3of4: cards.filter(c => c.passed === 3).length,
   pass_le2: cards.filter(c => c.passed <= 2).length,
+  PASS:    cards.reduce((a, c) => a + ['q1','q2','q3','q4'].filter(k => c[k] === 'PASS').length, 0),
+  FAIL:    cards.reduce((a, c) => a + ['q1','q2','q3','q4'].filter(k => c[k] === 'FAIL').length, 0),
+  INCONS:  cards.reduce((a, c) => a + ['q1','q2','q3','q4'].filter(k => c[k] === 'INCONS').length, 0),
   P0: results.flatMap(r => r.findings).filter(f => f.severity === 'P0').length,
   P1: results.flatMap(r => r.findings).filter(f => f.severity === 'P1').length,
   P2: results.flatMap(r => r.findings).filter(f => f.severity === 'P2').length,
@@ -191,7 +202,7 @@ const totals = {
 
 const jsonPath = path.join(OUT_DIR, 'qfaf-pilot-2_0.json');
 fs.writeFileSync(jsonPath, JSON.stringify({
-  meta: { base_url: BASE_URL, ts: new Date().toISOString(), sprint: '2.0_qfaf_pilot', totals },
+  meta: { base_url: BASE_URL, ts: new Date().toISOString(), sprint: '2.1_consistency_gate', totals },
   scorecards: cards,
   results: results.map(r => ({
     route: r.snap.route,
@@ -199,18 +210,19 @@ fs.writeFileSync(jsonPath, JSON.stringify({
     headings: r.snap.snapshot.headings,
     cta_count: r.snap.snapshot.cta_count,
     findings: r.findings,
+    inconsistencies: r.inconsistencies,
     audit_meta: r.audit_meta,
   })),
 }, null, 2));
 
 const md = [];
-md.push(`# KIMI.2 — QFAF Comprehension Pilot`);
+md.push(`# KIMI.2.1 — QFAF Re-Run mit Consistency-Gate`);
 md.push(`_Generated ${new Date().toISOString()} · Base ${BASE_URL} · Learner ${EMAIL}_`);
 md.push('');
-md.push(`## Scorecard (Question-First + Action-First, 4 Fragen pro Seite)`);
-md.push('| Route | Q1 Orientation | Q2 Stakes | Q3 Action | Q4 Outcome | Passed |');
-md.push('|---|---|---|---|---|---|');
-for (const c of cards) md.push(`| \`${c.route}\` | ${c.q1} | ${c.q2} | ${c.q3} | ${c.q4} | **${c.passed}/4** |`);
+md.push(`## Scorecard (Status: PASS · FAIL · INCONS)`);
+md.push('| Route | Q1 | Q2 | Q3 | Q4 | Passed | Inconsistent |');
+md.push('|---|---|---|---|---|---|---|');
+for (const c of cards) md.push(`| \`${c.route}\` | ${c.q1} | ${c.q2} | ${c.q3} | ${c.q4} | **${c.passed}/4** | ${c.inconsistent} |`);
 md.push('');
 md.push(`## Totals`);
 md.push('```\n' + JSON.stringify(totals, null, 2) + '\n```');
@@ -220,13 +232,19 @@ for (const r of results) {
   md.push(`### \`${r.snap.route}\``);
   md.push(`- final: ${r.snap.final_url}  ·  ctas=${r.snap.snapshot.cta_count}  ·  testids=${r.snap.snapshot.testids.length}`);
   md.push(`- headings: ${JSON.stringify(r.snap.snapshot.headings).slice(0, 300)}`);
-  if (!r.findings.length) { md.push(`- ✅ alle 4 QFAF-Fragen mit "ja" beantwortet`); md.push(''); continue; }
+  if (!r.findings.length && !r.inconsistencies.length) { md.push(`- ✅ alle 4 QFAF-Fragen mit "ja" beantwortet`); md.push(''); continue; }
   for (const f of r.findings) {
     const q = Q_LABEL[f.kind] || f.kind;
-    md.push(`- **[${f.severity}] ${q}**  (conf ${f.confidence})`);
+    md.push(`- **[FAIL ${f.severity}] ${q}**  (conf ${f.confidence})`);
     md.push(`  - User-Impact: ${f.user_impact || '—'}`);
     md.push(`  - Evidence:    ${f.evidence || '—'}`);
     md.push(`  - Fix:         ${f.fix_recommendation || '—'}`);
+  }
+  for (const f of r.inconsistencies) {
+    const q = Q_LABEL[f.kind] || f.kind;
+    md.push(`- **[INCONS ${f.severity}] ${q}**  (conf ${f.confidence})  ⚠️ Auditor-Bias`);
+    md.push(`  - Reason:      ${f.inconsistency_reason || '—'}`);
+    md.push(`  - Evidence:    ${f.evidence || '—'}`);
   }
   md.push('');
 }
@@ -234,5 +252,5 @@ for (const r of results) {
 const mdPath = path.join(OUT_DIR, 'qfaf-pilot-2_0.md');
 fs.writeFileSync(mdPath, md.join('\n'));
 
-console.log(`\n[kimi.2 qfaf] DONE → ${mdPath}`);
-console.log(`[kimi.2 qfaf] routes=${totals.routes}  4/4=${totals.pass4of4}  3/4=${totals.pass3of4}  ≤2/4=${totals.pass_le2}  P0=${totals.P0} P1=${totals.P1} P2=${totals.P2}`);
+console.log(`\n[kimi.2.1] DONE → ${mdPath}`);
+console.log(`[kimi.2.1] routes=${totals.routes}  PASS=${totals.PASS} FAIL=${totals.FAIL} INCONS=${totals.INCONS}  P0=${totals.P0} P1=${totals.P1} P2=${totals.P2}`);
