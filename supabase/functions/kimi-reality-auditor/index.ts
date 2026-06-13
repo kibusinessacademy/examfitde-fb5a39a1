@@ -349,7 +349,10 @@ function applyStructuralQGate(
   const q2Gate = visibleText.length > 200; // page has substantive content → stakes can be inferred
 
   for (const f of findings) {
-    if (f.verdict !== "fail") continue;
+    // KIMI.2.4: process both "fail" AND "inconsistent" — the older KIMI.2.1
+    // text-bias gate may have already demoted, but structural gate can still
+    // promote those to PASS when DOM proof is present.
+    if (f.verdict === "pass") continue;
 
     // Rule 5: "Kein Fix notwendig" → auto-pass.
     if (NO_FIX_NEEDED.test(f.fix_recommendation)) {
@@ -365,11 +368,11 @@ function applyStructuralQGate(
     if (f.kind === "qfaf_q1_orientation") {
       gate = q1Gate; gateName = "Q1";
       capSeverity(f, "P1"); stats.severity_capped++;
-      p0Allowed = false; // title kann fehlen, aber ist kein Hard-Blocker
+      p0Allowed = false;
     } else if (f.kind === "qfaf_q3_action") {
       gate = q3Gate; gateName = "Q3";
       if (ctaCount > 0) { capSeverity(f, "P1"); stats.severity_capped++; }
-      p0Allowed = ctaCount === 0; // echter Blocker: kein CTA überhaupt
+      p0Allowed = ctaCount === 0;
     } else if (f.kind === "qfaf_q4_outcome") {
       gate = q4Gate; gateName = "Q4";
       capSeverity(f, "P2"); stats.severity_capped++;
@@ -379,7 +382,7 @@ function applyStructuralQGate(
       capSeverity(f, "P2"); stats.severity_capped++;
       p0Allowed = false;
     } else {
-      continue; // unbekannter kind — gate-Logik nicht anwenden
+      continue;
     }
 
     // Rule 6: P0 nur bei echter Blockade.
@@ -392,18 +395,24 @@ function applyStructuralQGate(
     const negMarker = hasNegativeEvidence(f);
 
     if (gate) {
-      if (posMarker) {
-        // Rule 1: gate + positive evidence → PASS
+      // Rule 1 (expanded): gate satisfied + (positive evidence OR no clear
+      // negative critique) → PASS. The DOM proves the user-visible truth; if
+      // the auditor cannot produce a substantive negative critique, the NEIN
+      // is auditor noise, not a product fact.
+      if (posMarker || !negMarker) {
         f.verdict = "pass";
-        f.override_reason = `${gateName}-Gate erfüllt (DOM-Beweis) + positive Evidence-Marker (${posMarker.slice(0, 40)}) → strukturell PASS.`;
+        f.override_reason = posMarker
+          ? `${gateName}-Gate erfüllt (DOM-Beweis) + positive Evidence-Marker (${posMarker.slice(0, 40)}) → PASS.`
+          : `${gateName}-Gate erfüllt (DOM-Beweis) + keine substantielle Negativ-Evidence → PASS.`;
         if (f.kind === "qfaf_q1_orientation") stats.q1_passed++;
         else if (f.kind === "qfaf_q3_action") stats.q3_passed++;
         else if (f.kind === "qfaf_q4_outcome") stats.q4_passed++;
         else if (f.kind === "qfaf_q2_stakes") stats.q2_passed++;
       } else {
-        // Rule 2: gate + neutral evidence → INCONS
+        // Rule 2: gate satisfied + substantive negative evidence → INCONS
+        // (DOM says ok, auditor says concrete concern — keep visible).
         f.verdict = "inconsistent";
-        f.inconsistency_reason = `${gateName}-Gate strukturell erfüllt, aber Evidence neutral/unklar — Auditor-Unsicherheit, kein Produktfehler.`;
+        f.inconsistency_reason = `${gateName}-Gate strukturell erfüllt, aber Evidence enthält substantielle Negativ-Marker — Auditor-Diskrepanz.`;
         if (f.kind === "qfaf_q1_orientation") stats.q1_demoted++;
         else if (f.kind === "qfaf_q3_action") stats.q3_demoted++;
         else if (f.kind === "qfaf_q4_outcome") stats.q4_demoted++;
