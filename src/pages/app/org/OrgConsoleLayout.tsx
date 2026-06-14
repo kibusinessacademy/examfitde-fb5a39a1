@@ -34,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useOrgConsoleContext } from "@/hooks/useOrgConsole";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import PublicEnterpriseLanding from "@/components/org/PublicEnterpriseLanding";
 
 const NAV = [
   { title: "Übersicht", path: "", end: true, icon: LayoutDashboard },
