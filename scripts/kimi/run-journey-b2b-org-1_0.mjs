@@ -43,10 +43,10 @@ const JOURNEYS = {
     freshFor: new Set(),
   },
   b2b_invite_landing: {
-    label: 'B2B Invite Landing (invalid token)',
+    label: 'B2B Invite Landing (invalid token → recovery path)',
     requiresAuth: false,
-    steps: [`/org/einladung/${DUMMY_INVITE_TOKEN}`],
-    freshFor: new Set([`/org/einladung/${DUMMY_INVITE_TOKEN}`]),
+    steps: [`/org/einladung/${DUMMY_INVITE_TOKEN}`, '/auth', '/'],
+    freshFor: new Set([`/org/einladung/${DUMMY_INVITE_TOKEN}`, '/auth', '/']),
   },
 };
 
