@@ -84,11 +84,18 @@ async function learnerLogin(ctx) {
   } finally { await page.close(); }
 }
 
-async function snapshot(ctx, route) {
-  const page = await ctx.newPage();
+async function snapshot(ctx, route, opts = {}) {
+  // opts.fresh = open in a brand-new (logged-out) context for this snap only
+  let useCtx = ctx, ownCtx = null;
+  if (opts.fresh) {
+    ownCtx = await ctx.browser().newContext({ viewport: { width: 1280, height: 900 } });
+    useCtx = ownCtx;
+  }
+  const page = await useCtx.newPage();
   const target = BASE_URL + route;
   let finalUrl = target, title = '', text = '';
   let ctas = [], testids = [], headings = [];
+  let orientation_markers = [];
   let nav_error = null;
   try {
     await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -111,15 +118,48 @@ async function snapshot(ctx, route) {
     }).filter(c => c.label && c.type !== 'anchor').slice(0, 60)).catch(() => []);
     ctas = filterNoise(rc, c => `${c.label} ${c.href}`).slice(0, 30);
     testids = await page.$$eval('[data-testid]', els => Array.from(new Set(els.map(e => e.getAttribute('data-testid')).filter(Boolean))).slice(0, 60)).catch(() => []);
+    // Orientation markers (KIMI.3.1 harness extension): explicit, machine-readable
+    // signals that this page tells the user where they are in the journey.
+    orientation_markers = await page.evaluate(() => {
+      const out = [];
+      // 1. JourneyStepper component (data-testid="journey-stepper")
+      document.querySelectorAll('[data-testid="journey-stepper"]').forEach(el => {
+        const t = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+        if (t) out.push(`stepper:${t}`);
+      });
+      // 2. aria-current="step" → which step is active
+      document.querySelectorAll('[aria-current="step"]').forEach(el => {
+        const t = (el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 80);
+        if (t) out.push(`active-step:${t}`);
+      });
+      // 3. Breadcrumb nav
+      document.querySelectorAll('nav[aria-label*="readcrumb" i], [data-testid*="breadcrumb" i]').forEach(el => {
+        const t = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+        if (t) out.push(`breadcrumb:${t}`);
+      });
+      return out.slice(0, 8);
+    }).catch(() => []);
   } catch (e) { nav_error = String(e).slice(0, 400); }
-  finally { await page.close(); }
+  finally {
+    await page.close();
+    if (ownCtx) await ownCtx.close().catch(() => {});
+  }
+  // Surface orientation markers explicitly to the auditor by prefixing
+  // visible_text — the structural gate already reads ctas/testids, but
+  // the LLM only sees visible_text/title/headings.
+  const orientPrefix = orientation_markers.length
+    ? `[ORIENTATION_MARKERS] ${orientation_markers.join(' | ')}\n\n`
+    : '';
   return {
     route, requested_url: target, final_url: finalUrl,
     auth_lost: /\/auth(\b|\/|\?)/.test(finalUrl) && route !== '/auth',
     nav_error,
-    title, visible_text: text, headings,
+    title,
+    visible_text: (orientPrefix + text).slice(0, 4200),
+    headings,
     ctas, cta_labels: ctas.map(c => c.label),
     cta_count: ctas.length, testids,
+    orientation_markers,
   };
 }
 
