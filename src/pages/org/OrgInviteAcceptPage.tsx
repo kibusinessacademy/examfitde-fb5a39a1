@@ -112,14 +112,40 @@ export default function OrgInviteAcceptPage() {
             <div className="text-center">
               <XCircle className="h-10 w-10 mx-auto mb-3 text-status-danger" />
               <h1 className="text-xl font-semibold text-text-primary mb-2">
-                Einladung ungültig
+                Einladung ungültig oder abgelaufen
               </h1>
-              <p className="text-sm text-text-secondary mb-6">
+              <p className="text-sm text-text-secondary mb-2">
                 {previewError ?? "Kein Token vorhanden."}
               </p>
-              <Button asChild variant="outline">
-                <Link to="/">Zur Startseite</Link>
-              </Button>
+              <p className="text-sm text-text-tertiary mb-6">
+                Mögliche Ursachen: der Link wurde bereits eingelöst, ist abgelaufen, wurde widerrufen
+                oder enthält einen Tippfehler. Bitte den Absender um eine neue Einladung — oder
+                melde dich an, falls du bereits einen Account besitzt.
+              </p>
+              <div className="space-y-2 text-left bg-surface-1 border border-border rounded-lg p-4 mb-6">
+                <p className="text-xs font-semibold text-text-primary">Was du jetzt tun kannst:</p>
+                <ul className="text-xs text-text-secondary space-y-1 list-disc list-inside">
+                  <li>Prüfe, ob du den vollständigen Link aus der Original-Mail kopiert hast.</li>
+                  <li>Bitte den Org-Owner oder Admin, dir eine neue Einladung zu senden.</li>
+                  <li>Falls du bereits Mitglied bist, melde dich direkt in deiner Konsole an.</li>
+                  <li>Für Enterprise-Anfragen kontaktiere unser Vertriebs-Team.</li>
+                </ul>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button asChild>
+                  <Link to="/auth">
+                    <LogIn className="h-4 w-4 mr-2" /> Zum Login
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link to="/org/enterprise">Enterprise-Konsole entdecken</Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm">
+                  <a href="mailto:enterprise@berufos.com?subject=Einladung%20ungültig%20%E2%80%93%20BerufOS">
+                    Vertrieb kontaktieren
+                  </a>
+                </Button>
+              </div>
             </div>
           ) : !preview ? (
             <div className="text-center space-y-3">
