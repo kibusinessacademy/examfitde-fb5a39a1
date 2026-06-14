@@ -50,17 +50,6 @@ const selected = journeysArg
 const OUT_DIR = '/mnt/documents/kimi';
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
-const NOISE = [/cookie/i, /consent/i, /datenschutz/i, /privacy/i, /impressum/i, /agb/i, /akzeptieren/i, /alle erlauben/i, /ablehnen/i, /usercentrics/i, /borlabs/i];
-const stripNoise = (t) => !t ? t : t.split('\n').filter(l => { const s = l.trim(); if (!s) return false; if (s.length < 80 && NOISE.some(p => p.test(s))) return false; return true; }).join('\n');
-const filterNoise = (arr, keyer) => arr.filter(x => !NOISE.some(p => p.test(keyer(x))));
-
-async function dismissCookies(page) {
-  for (const re of [/akzeptieren/i, /alle erlauben/i, /accept/i]) {
-    const btn = page.getByRole('button', { name: re }).first();
-    if (await btn.isVisible().catch(() => false)) { await btn.click().catch(() => {}); await page.waitForTimeout(400); return; }
-  }
-}
-
 async function learnerLogin(ctx) {
   const page = await ctx.newPage();
   try {
@@ -77,75 +66,8 @@ async function learnerLogin(ctx) {
   } finally { await page.close(); }
 }
 
-async function snapshot(ctx, route, opts = {}) {
-  let useCtx = ctx, ownCtx = null;
-  if (opts.fresh) {
-    ownCtx = await ctx.browser().newContext({ viewport: { width: 1280, height: 900 } });
-    useCtx = ownCtx;
-  }
-  const page = await useCtx.newPage();
-  const target = BASE_URL + route;
-  let finalUrl = target, title = '', text = '';
-  let ctas = [], testids = [], headings = [];
-  let orientation_markers = [];
-  let nav_error = null;
-  try {
-    await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.waitForTimeout(2500);
-    await dismissCookies(page);
-    await page.waitForTimeout(500);
-    finalUrl = page.url();
-    title = await page.title().catch(() => '');
-    const raw = (await page.locator('body').innerText().catch(() => '')) || '';
-    text = stripNoise(raw).slice(0, 4000);
-    headings = await page.$$eval('h1, h2', els => els.map(e => (e.textContent || '').trim()).filter(Boolean).slice(0, 10)).catch(() => []);
-    const rc = await page.$$eval('button, [role="button"], a[href]', els => els.map(e => {
-      const tag = e.tagName.toLowerCase();
-      const label = (e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 80);
-      const href = e.getAttribute('href') || '';
-      const role = e.getAttribute('role') || '';
-      const testid = e.getAttribute('data-testid') || '';
-      const type = tag === 'a' ? (href.startsWith('#') ? 'anchor' : 'link') : (role === 'button' ? 'role-button' : 'button');
-      return { tag, type, label, href, testid };
-    }).filter(c => c.label && c.type !== 'anchor').slice(0, 60)).catch(() => []);
-    ctas = filterNoise(rc, c => `${c.label} ${c.href}`).slice(0, 30);
-    testids = await page.$$eval('[data-testid]', els => Array.from(new Set(els.map(e => e.getAttribute('data-testid')).filter(Boolean))).slice(0, 60)).catch(() => []);
-    orientation_markers = await page.evaluate(() => {
-      const out = [];
-      document.querySelectorAll('[data-testid="journey-stepper"]').forEach(el => {
-        const t = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 240);
-        if (t) out.push(`stepper:${t}`);
-      });
-      document.querySelectorAll('[aria-current="step"], [aria-current="page"]').forEach(el => {
-        const t = (el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 80);
-        if (t) out.push(`active:${t}`);
-      });
-      document.querySelectorAll('nav[aria-label*="readcrumb" i], [data-testid*="breadcrumb" i]').forEach(el => {
-        const t = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200);
-        if (t) out.push(`breadcrumb:${t}`);
-      });
-      return out.slice(0, 8);
-    }).catch(() => []);
-  } catch (e) { nav_error = String(e).slice(0, 400); }
-  finally {
-    await page.close();
-    if (ownCtx) await ownCtx.close().catch(() => {});
-  }
-  const orientPrefix = orientation_markers.length
-    ? `[ORIENTATION_MARKERS] ${orientation_markers.join(' | ')}\n\n`
-    : '';
-  return {
-    route, requested_url: target, final_url: finalUrl,
-    auth_lost: /\/auth(\b|\/|\?)/.test(finalUrl) && route !== '/auth',
-    nav_error,
-    title,
-    visible_text: (orientPrefix + text).slice(0, 4200),
-    headings,
-    ctas, cta_labels: ctas.map(c => c.label),
-    cta_count: ctas.length, testids,
-    orientation_markers,
-  };
-}
+const snapshot = (ctx, route, opts = {}) =>
+  spaSnapshot(ctx, route, { baseUrl: BASE_URL, fresh: !!opts.fresh });
 
 async function callJourney(name, steps) {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/kimi-reality-auditor`, {
