@@ -371,9 +371,10 @@ export default function BerufePage() {
                                   )}
                                   {entry.dqrNiveau && <span>DQR {entry.dqrNiveau}</span>}
                                 </div>
-                                <span className="text-sm text-primary flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                  Zum Kurs <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                                <span className="text-sm text-primary flex items-center font-medium opacity-90 group-hover:opacity-100 transition-opacity">
+                                  Lernpfad starten <ArrowRight className="ml-1 h-3.5 w-3.5" />
                                 </span>
+
                               </div>
                             </CardContent>
                           </Card>
