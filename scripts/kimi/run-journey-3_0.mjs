@@ -219,8 +219,12 @@ for (const jname of selected) {
   const stepSnaps = [];
   for (const r of J.steps) {
     process.stdout.write(`  snap ${r} ... `);
-    const s = await snapshot(ctx, r);
-    console.log(`url=${s.final_url} auth_lost=${s.auth_lost} text=${s.visible_text.length}b ctas=${s.cta_count}`);
+    // For the onboarding journey, the /auth step must be snapped in a
+    // logged-out context — otherwise it just redirects to / and we never
+    // see the real auth screen.
+    const fresh = jname === 'onboarding' && r === '/auth';
+    const s = await snapshot(ctx, r, { fresh });
+    console.log(`url=${s.final_url} auth_lost=${s.auth_lost} text=${s.visible_text.length}b ctas=${s.cta_count} orient=${s.orientation_markers.length}${fresh ? ' [fresh]' : ''}`);
     stepSnaps.push(s);
   }
   process.stdout.write(`  audit journey:${jname} ... `);
