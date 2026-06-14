@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { RouteIdentityBlock } from "@/components/learner/RouteIdentityBlock";
 import { OutcomeHintBlock } from "@/components/learner/OutcomeHintBlock";
+import { JourneyStepper, IN_APP_LEARNING_LOOP } from "@/components/journey/JourneyStepper";
+
 import { useOsBeruf } from "@/lib/os/os-identity";
 import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 import { motion, AnimatePresence } from "framer-motion";
