@@ -89,6 +89,11 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
+      name: 'b2b-render',
+      testMatch: /b2b-route-render\.spec\.ts/,
+      timeout: 60_000,
+    },
+    {
       name: 'mobile-screenshots',
       testMatch: /mobile-funnel-screenshots\.spec\.ts/,
       timeout: 180_000,
