@@ -709,15 +709,16 @@ function applyStructuralJourneyGate(
       normalizeFinding({
         kind: "journey_handoff_mismatch",
         severity: "P0",
-        verdict: "fail",
         confidence: 0.99,
         user_impact: `Kaltbesucher auf ${route} wird unerwartet zu /auth umgeleitet — B2B-Funnel ist blockiert.`,
         evidence: `auth_lost=true auf ${route} (final_url=${s.final_url})`,
         fix_recommendation: `Route ${route} muss für nicht-eingeloggte Besucher eine öffentliche Landing/CTA-Variante rendern.`,
         file_hint: [route],
-        override_reason: "synthetic: auth_lost hard-fail injection (KIMI.3.4)",
-      }) as any,
+      }, route, "journey") as any,
     );
+    const inj = findings[findings.length - 1] as any;
+    inj.verdict = "fail";
+    inj.override_reason = "synthetic: auth_lost hard-fail injection (KIMI.3.4)";
   }
   return stats;
 }
