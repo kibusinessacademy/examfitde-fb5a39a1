@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { BookOpen, GraduationCap, Loader2, Wand2 } from 'lucide-react';
+import { JourneyStepper, MAIN_LEARNER_JOURNEY } from '@/components/journey/JourneyStepper';
+
 import { z } from 'zod';
 import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
 import MagicLinkForm from '@/components/auth/MagicLinkForm';
@@ -241,6 +243,13 @@ export default function Auth() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative z-10">
         <div className="glass-strong rounded-3xl w-full max-w-md animate-fade-in">
           <div className="p-8">
+            {/* KIMI.3.1 ORIENTATION — zeigt, wo der Nutzer in der Journey steht */}
+            <JourneyStepper
+              steps={MAIN_LEARNER_JOURNEY}
+              currentIndex={1}
+              className="mb-6"
+              testId="auth-journey-stepper"
+            />
             <div className="text-center mb-8">
               <div className="flex justify-center mb-6 lg:hidden">
                 <div className="p-4 rounded-2xl gradient-primary shadow-glow">
@@ -251,11 +260,12 @@ export default function Auth() {
                 {isLogin ? 'Anmelden' : 'Registrieren'}
               </h2>
               <p className="text-muted-foreground">
-                {isLogin 
-                  ? 'Willkommen zurück! Bitte melden Sie sich an.'
-                  : 'Erstellen Sie ein Konto, um zu beginnen.'}
+                {isLogin
+                  ? 'Beruf gewählt ✓ — melde dich an, damit dein Lernpfad startet.'
+                  : 'Beruf gewählt ✓ — erstelle dein Konto, danach startet dein persönlicher Lernpfad.'}
               </p>
             </div>
+
             
             <form onSubmit={handleSubmit} className="space-y-5">
               {isRegister && (

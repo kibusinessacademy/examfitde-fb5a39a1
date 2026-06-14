@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { RouteIdentityBlock } from "@/components/learner/RouteIdentityBlock";
 import { OutcomeHintBlock } from "@/components/learner/OutcomeHintBlock";
+import { JourneyStepper, IN_APP_LEARNING_LOOP } from "@/components/journey/JourneyStepper";
+
 import { useOsBeruf } from "@/lib/os/os-identity";
 import { useSystemConsciousness } from "@/lib/system/SystemConsciousness";
 import { motion, AnimatePresence } from "framer-motion";
@@ -292,6 +294,14 @@ export default function AppMiniCheckPage() {
       <BackgroundAura t={stateAfter?.risk ?? PROMPT.riskBefore} />
 
       <div className="relative mx-auto w-full max-w-2xl px-5 pt-8 pb-32">
+        {/* KIMI.3.1 ORIENTATION — Lern-Loop-Position für Tutor→MiniCheck Übergang */}
+        <JourneyStepper
+          steps={IN_APP_LEARNING_LOOP}
+          currentIndex={2}
+          className="mb-6"
+          testId="minicheck-journey-stepper"
+        />
+
         <RouteIdentityBlock
           eyebrow="MiniCheck · Diagnose"
           title="MiniCheck"

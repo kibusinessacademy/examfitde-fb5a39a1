@@ -193,10 +193,18 @@ export default function BerufePage() {
                 <br />
                 Alle Prüfungstrainings
               </h1>
-              <p className="text-lg text-muted-foreground mb-4">
+              <p className="text-lg text-muted-foreground mb-2">
                 {counts.published} veröffentlichte Kurse sofort verfügbar · {counts.upcoming} weitere in Vorbereitung.
                 <br />Dein Kurs fehlt? Jetzt anfragen!
               </p>
+              {/* KIMI.3.1 HANDOFF microcopy — macht den Übergang zum Lernpfad explizit */}
+              <p
+                data-testid="berufe-handoff-microcopy"
+                className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs text-primary"
+              >
+                Nach der Auswahl startet dein persönlicher Lernpfad.
+              </p>
+
 
               {/* Search */}
               <div className="relative max-w-xl">
@@ -363,9 +371,10 @@ export default function BerufePage() {
                                   )}
                                   {entry.dqrNiveau && <span>DQR {entry.dqrNiveau}</span>}
                                 </div>
-                                <span className="text-sm text-primary flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                  Zum Kurs <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                                <span className="text-sm text-primary flex items-center font-medium opacity-90 group-hover:opacity-100 transition-opacity">
+                                  Lernpfad starten <ArrowRight className="ml-1 h-3.5 w-3.5" />
                                 </span>
+
                               </div>
                             </CardContent>
                           </Card>
