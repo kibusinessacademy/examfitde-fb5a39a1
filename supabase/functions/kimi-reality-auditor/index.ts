@@ -531,7 +531,7 @@ function ctaMatchesNextRoute(step: any, nextRoute: string): boolean {
   // Take last meaningful segment of next route, e.g. /app/tutor → 'tutor'.
   const seg = nextRoute.split('/').filter(Boolean).pop() || '';
   if (!seg) return false;
-  const segRe = new RegExp(seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  const segRe = new RegExp(`\\b${seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
   const ctas: any[] = Array.isArray(step?.ctas) ? step.ctas : [];
   for (const c of ctas) {
     const href = String(c?.href ?? '');
@@ -540,7 +540,13 @@ function ctaMatchesNextRoute(step: any, nextRoute: string): boolean {
     if (label && segRe.test(label)) return true;
   }
   const labels: string[] = Array.isArray(step?.cta_labels) ? step.cta_labels : [];
-  return labels.some((l) => segRe.test(String(l)));
+  if (labels.some((l) => segRe.test(String(l)))) return true;
+  // KIMI.3.2: snapshots cap structured CTAs (e.g. 30 of 335 course cards on
+  // /berufe). DOM-derived visible_text is still structural evidence — if the
+  // segment word appears there, treat it as a proven handoff target.
+  const visible = String(step?.visible_text ?? '');
+  if (segRe.test(visible)) return true;
+  return false;
 }
 
 /**
