@@ -17,6 +17,7 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spaSnapshot, dismissCookies } from './_spa-snapshot.mjs';
 
 const BASE_URL = process.env.KIMI_AUDIT_BASE_URL || 'https://berufos.com';
 const SUPABASE_URL = process.env.SUPABASE_URL;
