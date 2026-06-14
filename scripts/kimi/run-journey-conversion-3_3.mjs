@@ -129,7 +129,7 @@ for (const jname of selected) {
     process.stdout.write(`  snap ${r} ... `);
     const fresh = J.freshFor.has(r);
     const s = await snapshot(ctx, r, { fresh });
-    console.log(`url=${s.final_url} auth_lost=${s.auth_lost} text=${s.visible_text.length}b ctas=${s.cta_count} orient=${s.orientation_markers.length}${fresh ? ' [fresh]' : ''}`);
+    console.log(`url=${s.final_url} auth_lost=${s.auth_lost} text=${s.visible_text.length}b ctas=${s.cta_count} orient=${s.orientation_markers.length} hyd=${s.hydration_state}/${s.hydration_ms}ms${fresh ? ' [fresh]' : ''}`);
     stepSnaps.push(s);
   }
   process.stdout.write(`  audit journey:${jname} ... `);
