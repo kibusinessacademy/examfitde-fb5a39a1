@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrgConsoleContext, OrgListItem } from '@/hooks/useOrgConsole';
 import { Loader2, Building2, ChevronDown, School, Landmark, Handshake } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import PublicEnterpriseLanding from './PublicEnterpriseLanding';
 import {
   DropdownMenu,
   DropdownMenuContent,
