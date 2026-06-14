@@ -34,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useOrgConsoleContext } from "@/hooks/useOrgConsole";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import PublicEnterpriseLanding from "@/components/org/PublicEnterpriseLanding";
 
 const NAV = [
   { title: "Übersicht", path: "", end: true, icon: LayoutDashboard },
@@ -124,36 +125,16 @@ export default function OrgConsoleLayout() {
   const { data, isLoading } = useOrgConsoleContext();
   const orgs = data?.orgs ?? [];
 
-  // No orgId → pick first or empty state
+  // No orgId → pick first or render full B2B onboarding entry.
   if (!orgIdParam) {
-    if (isLoading) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <Skeleton className="h-12 w-48" />
-        </div>
-      );
-    }
-    if (orgs.length > 0) {
-      return <Navigate to={`/app/org/${orgs[0].id}`} replace />;
-    }
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-background">
-        <Card className="max-w-md w-full p-8 text-center shadow-elev-2 border-border">
-          <Building2 className="h-12 w-12 mx-auto mb-4 text-text-tertiary" />
-          <h2 className="text-xl font-semibold mb-2 text-text-primary">Keine Organisation</h2>
-          <p className="text-sm text-text-secondary mb-6">
-            Du bist noch nicht Mitglied einer Unternehmens-Organisation. Sobald du eine Lizenz für dein
-            Unternehmen kaufst oder eingeladen wirst, erscheint sie hier.
-          </p>
-          <Button asChild>
-            <a href="/berufski/corporate">Unternehmens-Lizenz kaufen</a>
-          </Button>
-        </Card>
-      </div>
-    );
+    // KIMI.3.6 — never show a skeleton-only loader; render the public
+    // B2B landing as a contentful fallback (≥ 3KB text, ≥ 2 CTAs).
+    if (isLoading) return <PublicEnterpriseLanding reason="no_org" />;
+    if (orgs.length > 0) return <Navigate to={`/app/org/${orgs[0].id}`} replace />;
+    return <PublicEnterpriseLanding reason="no_org" />;
   }
 
-  // orgId given but user has no access
+  // orgId given but user has no access → keep dedicated UX, with two CTAs.
   const current = orgs.find((o) => o.id === orgIdParam);
   if (!isLoading && !current) {
     return (
@@ -162,11 +143,17 @@ export default function OrgConsoleLayout() {
           <Building2 className="h-12 w-12 mx-auto mb-4 text-status-warning" />
           <h2 className="text-xl font-semibold mb-2 text-text-primary">Kein Zugriff</h2>
           <p className="text-sm text-text-secondary mb-6">
-            Du hast keine Berechtigung für diese Organisation.
+            Du hast keine Berechtigung für diese Organisation. Bitte den Owner oder Admin um eine
+            Einladung, oder wechsle zurück zur Org-Übersicht.
           </p>
-          <Button asChild variant="outline">
-            <a href="/app/org">Zurück zur Org-Übersicht</a>
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button asChild variant="outline">
+              <a href="/app/org">Zurück zur Org-Übersicht</a>
+            </Button>
+            <Button asChild variant="ghost">
+              <a href="/org/enterprise">Enterprise-Konsole entdecken</a>
+            </Button>
+          </div>
         </Card>
       </div>
     );
