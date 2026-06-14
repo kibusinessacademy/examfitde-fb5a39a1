@@ -56,7 +56,8 @@ const DEMO_DATA = [
 ];
 
 export default function EnterpriseDemoPage() {
-  const demoBookingUrl = '#demo-booking';
+  const demoBookingMail = 'mailto:enterprise@berufos.com?subject=Demo-Termin%20%E2%80%93%20BerufOS%20Enterprise&body=Hallo%20BerufOS-Team%2C%0A%0Aich%20m%C3%B6chte%20einen%205-Minuten%20Demo-Termin%20vereinbaren.%0A%0AFirma%3A%0AAnzahl%20Azubis%3A%0AWunschtermin%3A%0A';
+  const contactMail = 'mailto:enterprise@berufos.com?subject=Anfrage%20%E2%80%93%20BerufOS%20Enterprise';
 
   return (
     <>
@@ -90,10 +91,13 @@ export default function EnterpriseDemoPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
               <Button size="lg" className="gap-2 text-base rounded-xl px-8" asChild>
-                <a href={demoBookingUrl}><Play className="h-5 w-5" /> 5-Minuten Demo buchen</a>
+                <a href={demoBookingMail}><Play className="h-5 w-5" /> 5-Minuten Demo buchen</a>
               </Button>
               <Button size="lg" variant="outline" className="gap-2 text-base rounded-xl px-8" asChild>
-                <a href="#features"><BarChart3 className="h-5 w-5" /> Features entdecken</a>
+                <a href={contactMail}><BarChart3 className="h-5 w-5" /> Kontakt aufnehmen</a>
+              </Button>
+              <Button size="lg" variant="outline" className="gap-2 text-base rounded-xl px-8" asChild>
+                <Link to="/preise"><ChevronRight className="h-5 w-5" /> Preise ansehen</Link>
               </Button>
             </div>
 
