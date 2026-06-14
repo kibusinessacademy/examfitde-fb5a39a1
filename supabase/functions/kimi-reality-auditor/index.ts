@@ -531,7 +531,7 @@ function ctaMatchesNextRoute(step: any, nextRoute: string): boolean {
   // Take last meaningful segment of next route, e.g. /app/tutor → 'tutor'.
   const seg = nextRoute.split('/').filter(Boolean).pop() || '';
   if (!seg) return false;
-  const segRe = new RegExp(seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  const segRe = new RegExp(`\\b${seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
   const ctas: any[] = Array.isArray(step?.ctas) ? step.ctas : [];
   for (const c of ctas) {
     const href = String(c?.href ?? '');
@@ -540,7 +540,43 @@ function ctaMatchesNextRoute(step: any, nextRoute: string): boolean {
     if (label && segRe.test(label)) return true;
   }
   const labels: string[] = Array.isArray(step?.cta_labels) ? step.cta_labels : [];
-  return labels.some((l) => segRe.test(String(l)));
+  if (labels.some((l) => segRe.test(String(l)))) return true;
+  // KIMI.3.2: snapshots cap structured CTAs (e.g. 30 of 335 course cards on
+  // /berufe). DOM-derived visible_text is still structural evidence — if the
+  // segment word appears there, treat it as a proven handoff target.
+  const visible = String(step?.visible_text ?? '');
+  if (segRe.test(visible)) return true;
+  return false;
+}
+
+/**
+ * KIMI.3.2 — hard journey negatives.
+ *
+ * Override decisions are based on snapshot DOM reality, not on the LLM's
+ * sentiment about the evidence text. A transition only counts as "really
+ * broken" when one of these is true on the relevant step(s):
+ *   - auth_lost: true              (kicked back to /auth unexpectedly)
+ *   - nav_error present            (navigation failed)
+ *   - visible_text shorter than 50 chars (white screen / empty body)
+ *   - title or body contains 404 / "not found" / "page not found" /
+ *     "seite nicht gefunden" / "white screen" / fatal console marker
+ *   - cta_count === 0 on a non-terminal step
+ */
+const HARD_NEGATIVE_BODY = /(404\b|not\s+found|page\s+not\s+found|seite\s+nicht\s+gefunden|white\s+screen|fatal\s+error|uncaught\s+exception)/i;
+
+function stepHasHardNegative(step: any, opts: { terminal?: boolean } = {}): { hit: boolean; reason?: string } {
+  if (!step) return { hit: false };
+  if (step.auth_lost === true) return { hit: true, reason: "auth_lost=true" };
+  if (step.nav_error) return { hit: true, reason: `nav_error: ${String(step.nav_error).slice(0, 80)}` };
+  const text = String(step.visible_text ?? "");
+  if (text.replace(/\s+/g, "").length < 50) return { hit: true, reason: "empty body / white screen" };
+  if (HARD_NEGATIVE_BODY.test(text) || HARD_NEGATIVE_BODY.test(String(step.title ?? ""))) {
+    return { hit: true, reason: "404 / not-found marker" };
+  }
+  if (!opts.terminal && Number(step.cta_count ?? 0) === 0) {
+    return { hit: true, reason: "cta_count=0 on non-terminal step" };
+  }
+  return { hit: false };
 }
 
 function applyStructuralJourneyGate(
@@ -554,6 +590,7 @@ function applyStructuralJourneyGate(
   const steps: any[] = Array.isArray(snapshot?.steps) ? snapshot.steps : [];
   if (steps.length < 2) return stats;
   const lastStep = steps[steps.length - 1];
+  const lastIdx = steps.length - 1;
 
   for (const f of findings) {
     if (f.verdict === "pass") continue;
@@ -574,61 +611,79 @@ function applyStructuralJourneyGate(
 
     let gate = false;
     let gateName = "";
+    // Which steps are relevant for the hard-negative check?
+    let relevantSteps: { step: any; terminal: boolean }[] = [];
 
     if (f.kind === "journey_dead_end") {
       gateName = "DEAD_END";
-      const candidates = stepIdx >= 0 ? [steps[stepIdx]] : steps;
-      gate = candidates.every((s) => stepForwardCtas(s).length > 0);
-      // P0 only if a real cul-de-sac exists.
-      if (f.severity === "P0" && gate) {
-        f.severity = "P1";
-      }
+      const candidates = stepIdx >= 0 ? [{ idx: stepIdx, s: steps[stepIdx] }] : steps.map((s, i) => ({ idx: i, s }));
+      gate = candidates.every(({ s, idx }) => idx === lastIdx ? true : stepForwardCtas(s).length > 0);
+      relevantSteps = candidates.map(({ s, idx }) => ({ step: s, terminal: idx === lastIdx }));
+      if (f.severity === "P0" && gate) f.severity = "P1";
       if (gate) stats.deadend_passed++;
     } else if (f.kind === "journey_handoff_mismatch") {
       gateName = "HANDOFF";
-      if (stepIdx >= 0 && stepIdx < steps.length - 1) {
+      if (stepIdx >= 0 && stepIdx < lastIdx) {
         gate = ctaMatchesNextRoute(steps[stepIdx], steps[stepIdx + 1]?.route);
+        relevantSteps = [
+          { step: steps[stepIdx], terminal: false },
+          { step: steps[stepIdx + 1], terminal: stepIdx + 1 === lastIdx },
+        ];
       } else {
-        // Unknown transition — verify any consecutive pair matches.
         gate = steps.slice(0, -1).some((s, i) => ctaMatchesNextRoute(s, steps[i + 1]?.route));
+        relevantSteps = steps.map((s, i) => ({ step: s, terminal: i === lastIdx }));
       }
       if (gate) stats.handoff_passed++;
     } else if (f.kind === "journey_orientation_loss") {
       gateName = "ORIENTATION";
-      const candidates = stepIdx >= 0 ? [steps[stepIdx]] : steps.slice(1);
-      gate = candidates.some((s) =>
+      const candidates = stepIdx >= 0 ? [{ idx: stepIdx, s: steps[stepIdx] }] : steps.slice(1).map((s, i) => ({ idx: i + 1, s }));
+      gate = candidates.some(({ s }) =>
         ORIENTATION_REF_PATTERNS.test(String(s?.visible_text ?? '')) ||
         ORIENTATION_REF_PATTERNS.test(String(s?.title ?? '')) ||
+        (Array.isArray(s?.orientation_markers) && s.orientation_markers.length > 0) ||
         (Array.isArray(s?.headings) && s.headings.some((h: any) => ORIENTATION_REF_PATTERNS.test(String(h))))
       );
+      relevantSteps = candidates.map(({ s, idx }) => ({ step: s, terminal: idx === lastIdx }));
       if (f.severity === "P0") f.severity = "P2";
       if (gate) stats.orientation_passed++;
     } else if (f.kind === "journey_no_recommendation") {
       gateName = "LOOP";
       gate = stepForwardCtas(lastStep).length > 0;
+      relevantSteps = [{ step: lastStep, terminal: true }];
       if (f.severity === "P0") f.severity = "P1";
       if (gate) stats.loop_passed++;
     } else {
       continue;
     }
 
-    const posMarker = hasPositiveEvidence(f);
-    const negMarker = hasNegativeEvidence(f);
+    // Hard negative check on the relevant step(s).
+    let hardNeg: { hit: boolean; reason?: string } = { hit: false };
+    for (const rs of relevantSteps) {
+      const h = stepHasHardNegative(rs.step, { terminal: rs.terminal });
+      if (h.hit) { hardNeg = h; break; }
+    }
 
     if (gate) {
-      if (posMarker || !negMarker) {
+      // KIMI.3.2 Rule 1+2+3: structural gate satisfied + no hard negative
+      // markers → PASS. Soft LLM negativity is not enough to demote.
+      if (!hardNeg.hit) {
         f.verdict = "pass";
-        f.override_reason = `${gateName}-Gate erfüllt (DOM/Route-Beweis) → PASS.`;
+        f.override_reason = `${gateName}-Gate erfüllt (DOM/Route-Beweis), keine harten Negativ-Marker → PASS.`;
       } else {
         f.verdict = "inconsistent";
-        f.inconsistency_reason = `${gateName}-Gate strukturell erfüllt, aber Evidence enthält substantielle Negativ-Marker.`;
+        f.inconsistency_reason = `${gateName}-Gate strukturell erfüllt, aber harter Negativ-Marker am Step: ${hardNeg.reason}.`;
       }
     } else {
-      if (!negMarker) {
+      // Gate violated.
+      if (hardNeg.hit) {
+        // Real defect on the step → keep as fail.
+        f.inconsistency_reason = undefined;
+        if (f.verdict !== "fail") f.verdict = "fail";
+      } else {
+        // Structurally not provable, but no hard negative either → INCONS.
         f.verdict = "inconsistent";
-        f.inconsistency_reason = `${gateName}-Gate verletzt, aber Evidence nicht eindeutig negativ.`;
+        f.inconsistency_reason = `${gateName}-Gate nicht beweisbar, aber kein harter Negativ-Marker am Step → INCONS.`;
       }
-      // else: keep as fail.
     }
   }
   return stats;
