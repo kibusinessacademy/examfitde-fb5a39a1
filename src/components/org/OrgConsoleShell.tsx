@@ -47,15 +47,13 @@ export default function OrgConsoleShell({ children }: OrgConsoleShellProps) {
   const [selectedOrgId, setSelectedOrgId] = useState<string | undefined>();
   const { data, isLoading } = useOrgConsoleContext(selectedOrgId);
 
-  if (authLoading || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
+  // KIMI.3.5 — Cold visitors and crawlers must see real content immediately.
+  // Never block the entire route on a full-screen spinner: render the public
+  // landing as the default surface and only swap to the console once we know
+  // the user is authenticated AND has an accessible org.
+  if (authLoading) return <PublicEnterpriseLanding reason="unauthenticated" />;
   if (!user) return <PublicEnterpriseLanding reason="unauthenticated" />;
+  if (isLoading) return <PublicEnterpriseLanding reason="no_org" />;
 
   const orgs = data?.orgs || [];
   const selected = data?.selected;
