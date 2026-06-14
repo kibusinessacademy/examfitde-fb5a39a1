@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { BookOpen, GraduationCap, Loader2, Wand2 } from 'lucide-react';
+import { JourneyStepper, MAIN_LEARNER_JOURNEY } from '@/components/journey/JourneyStepper';
+
 import { z } from 'zod';
 import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
 import MagicLinkForm from '@/components/auth/MagicLinkForm';
