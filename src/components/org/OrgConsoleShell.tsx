@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrgConsoleContext, OrgListItem } from '@/hooks/useOrgConsole';
 import { Loader2, Building2, ChevronDown, School, Landmark, Handshake } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import PublicEnterpriseLanding from './PublicEnterpriseLanding';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +55,7 @@ export default function OrgConsoleShell({ children }: OrgConsoleShellProps) {
     );
   }
 
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <PublicEnterpriseLanding reason="unauthenticated" />;
 
   const orgs = data?.orgs || [];
   const selected = data?.selected;
@@ -63,7 +63,7 @@ export default function OrgConsoleShell({ children }: OrgConsoleShellProps) {
   const accessibleOrgs = orgs.filter(o => managementRoles.includes((o.my_role || '').toUpperCase()));
 
   if (accessibleOrgs.length === 0) {
-    return <Navigate to="/" replace />;
+    return <PublicEnterpriseLanding reason="no_org" />;
   }
 
   const orgId = selected?.org?.id || accessibleOrgs[0]?.id || '';

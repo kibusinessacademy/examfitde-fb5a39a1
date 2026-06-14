@@ -663,9 +663,19 @@ function applyStructuralJourneyGate(
       if (h.hit) { hardNeg = h; break; }
     }
 
+    // KIMI.3.4 — auth_lost on a non-/auth step is ALWAYS a hard FAIL.
+    const authLostHard = relevantSteps.some(
+      (rs) => rs.step?.auth_lost === true && rs.step?.route !== "/auth",
+    );
+    if (authLostHard) {
+      f.verdict = "fail";
+      f.inconsistency_reason = undefined;
+      if (f.severity !== "P0") f.severity = "P0";
+      f.override_reason = `${gateName}-Gate: auth_lost=true auf nicht-/auth Route → harter Funnel-Blocker (FAIL).`;
+      continue;
+    }
+
     if (gate) {
-      // KIMI.3.2 Rule 1+2+3: structural gate satisfied + no hard negative
-      // markers → PASS. Soft LLM negativity is not enough to demote.
       if (!hardNeg.hit) {
         f.verdict = "pass";
         f.override_reason = `${gateName}-Gate erfüllt (DOM/Route-Beweis), keine harten Negativ-Marker → PASS.`;
@@ -674,17 +684,41 @@ function applyStructuralJourneyGate(
         f.inconsistency_reason = `${gateName}-Gate strukturell erfüllt, aber harter Negativ-Marker am Step: ${hardNeg.reason}.`;
       }
     } else {
-      // Gate violated.
       if (hardNeg.hit) {
-        // Real defect on the step → keep as fail.
         f.inconsistency_reason = undefined;
         if (f.verdict !== "fail") f.verdict = "fail";
       } else {
-        // Structurally not provable, but no hard negative either → INCONS.
         f.verdict = "inconsistent";
         f.inconsistency_reason = `${gateName}-Gate nicht beweisbar, aber kein harter Negativ-Marker am Step → INCONS.`;
       }
     }
+  }
+
+  // KIMI.3.4 — synthetic injection: any step with auth_lost on non-/auth
+  // route must surface as P0 FAIL even if no LLM finding mentions it.
+  const allSteps: any[] = Array.isArray(snapshot?.steps) ? snapshot.steps : [];
+  for (const s of allSteps) {
+    if (s?.auth_lost !== true) continue;
+    if (s?.route === "/auth") continue;
+    const route = String(s.route ?? "");
+    const already = findings.some(
+      (f) => f.verdict === "fail" && (f.evidence || "").includes(route),
+    );
+    if (already) continue;
+    findings.push(
+      normalizeFinding({
+        kind: "journey_handoff_mismatch",
+        severity: "P0",
+        confidence: 0.99,
+        user_impact: `Kaltbesucher auf ${route} wird unerwartet zu /auth umgeleitet — B2B-Funnel ist blockiert.`,
+        evidence: `auth_lost=true auf ${route} (final_url=${s.final_url})`,
+        fix_recommendation: `Route ${route} muss für nicht-eingeloggte Besucher eine öffentliche Landing/CTA-Variante rendern.`,
+        file_hint: [route],
+      }, route, "journey") as any,
+    );
+    const inj = findings[findings.length - 1] as any;
+    inj.verdict = "fail";
+    inj.override_reason = "synthetic: auth_lost hard-fail injection (KIMI.3.4)";
   }
   return stats;
 }

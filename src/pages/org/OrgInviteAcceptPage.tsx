@@ -122,11 +122,17 @@ export default function OrgInviteAcceptPage() {
               </Button>
             </div>
           ) : !preview ? (
-            <div className="space-y-3">
-              <Skeleton className="h-6 w-3/4 mx-auto" />
+            <div className="text-center space-y-3">
+              <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary" />
+              <h1 className="text-xl font-semibold text-text-primary">Einladung wird geladen…</h1>
+              <p className="text-sm text-text-secondary">
+                Wir prüfen deinen Einladungslink für die Organisation. Das dauert nur einen Augenblick.
+              </p>
               <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
-              <Skeleton className="h-10 w-full mt-4" />
+              <Skeleton className="h-4 w-5/6 mx-auto" />
+              <Button asChild variant="ghost" className="mt-2">
+                <Link to="/">Abbrechen und zur Startseite</Link>
+              </Button>
             </div>
           ) : accepted ? (
             <div className="text-center">
