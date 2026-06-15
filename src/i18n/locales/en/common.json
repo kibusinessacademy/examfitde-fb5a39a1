@@ -1,0 +1,40 @@
+{
+  "nav": {
+    "berufe": "Professions",
+    "package": "Full bundle",
+    "knowledge": "Insights",
+    "pricing": "Pricing",
+    "dashboard": "Dashboard",
+    "enterprise": "Enterprise"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "signUp": "Sign up",
+    "account": "Account"
+  },
+  "actions": {
+    "start": "Get started",
+    "learnMore": "Learn more",
+    "tryFree": "Try for free",
+    "continue": "Continue",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "install": "Install app"
+  },
+  "language": {
+    "label": "Language",
+    "switch": "Change language"
+  },
+  "course": {
+    "translationPending": "Translation in progress — showing original text.",
+    "translatedBy": "AI-translated"
+  },
+  "footer": {
+    "imprint": "Imprint",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "contact": "Contact"
+  }
+}

@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT 'de' CHECK (preferred_language IN ('de','en','tr','ar','uk','ru'));

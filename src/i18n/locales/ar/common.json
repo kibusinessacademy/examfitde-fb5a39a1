@@ -1,0 +1,40 @@
+{
+  "nav": {
+    "berufe": "المهن",
+    "package": "الحزمة الكاملة",
+    "knowledge": "المعرفة",
+    "pricing": "الأسعار",
+    "dashboard": "لوحة التحكم",
+    "enterprise": "الشركات"
+  },
+  "auth": {
+    "signIn": "تسجيل الدخول",
+    "signOut": "تسجيل الخروج",
+    "signUp": "إنشاء حساب",
+    "account": "الحساب"
+  },
+  "actions": {
+    "start": "ابدأ الآن",
+    "learnMore": "اعرف المزيد",
+    "tryFree": "جرّب مجانًا",
+    "continue": "متابعة",
+    "back": "رجوع",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "install": "تثبيت التطبيق"
+  },
+  "language": {
+    "label": "اللغة",
+    "switch": "تغيير اللغة"
+  },
+  "course": {
+    "translationPending": "تتم الترجمة — يتم عرض النص الأصلي.",
+    "translatedBy": "ترجمة بالذكاء الاصطناعي"
+  },
+  "footer": {
+    "imprint": "بيانات الناشر",
+    "privacy": "الخصوصية",
+    "terms": "الشروط",
+    "contact": "اتصل بنا"
+  }
+}
