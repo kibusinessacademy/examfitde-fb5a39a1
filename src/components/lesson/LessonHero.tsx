@@ -2,8 +2,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle2, GraduationCap, Target } from 'lucide-react';
 import { STEP_CONFIG, STEP_ORDER } from '@/lib/step-config';
+import { useTranslatedLesson } from '@/hooks/i18n/useTranslatedContent';
+import { TranslationBadge } from '@/components/i18n/TranslationBadge';
 
 interface LessonHeroProps {
+  /** Lesson UUID (enables i18n resolver). */
+  lessonId?: string | null;
   /** Raw lesson title, e.g. "LF06-K01: Grundlagen von …" */
   rawTitle: string;
   /** Raw lesson content JSONB (may be null/string/object). */
@@ -25,6 +29,7 @@ interface LessonHeroProps {
   isCompleted: boolean;
 }
 
+
 /**
  * SSOT-respecting reformulation of the lesson header.
  * - Reads ONLY from existing lesson/competency data (no hardcoded copy).
@@ -32,6 +37,7 @@ interface LessonHeroProps {
  * - Surfaces objectives + exam relevance from lesson.content.
  */
 export default function LessonHero({
+  lessonId,
   rawTitle,
   content,
   competencyCode,
@@ -46,9 +52,14 @@ export default function LessonHero({
   const stepInfo = STEP_CONFIG[step] || STEP_CONFIG.einstieg;
   const StepIcon = stepInfo.icon;
 
+  // i18n: resolve translated title (falls back to rawTitle when missing).
+  const translated = useTranslatedLesson(lessonId ?? null, { title: rawTitle });
+  const sourceTitle = translated.data?.title || rawTitle;
+
   // Derive learner-facing H1: strip "LFxx-Kyy:" prefix → fall back to competency title → fall back to raw title.
-  const cleanedFromTitle = rawTitle.replace(/^\s*LF\d+\s*[-·.]?\s*K?\d*\s*:\s*/i, '').trim();
-  const h1 = cleanedFromTitle || competencyTitle || rawTitle;
+  const cleanedFromTitle = sourceTitle.replace(/^\s*LF\d+\s*[-·.]?\s*K?\d*\s*:\s*/i, '').trim();
+  const h1 = cleanedFromTitle || competencyTitle || sourceTitle;
+
 
   // Code line: "LF06 · Kompetenz K01" derived from competency.code "LF06-K01"
   let codeLine: string | null = null;
@@ -129,7 +140,11 @@ export default function LessonHero({
       <h1 className="text-2xl md:text-3xl font-display font-bold leading-tight" data-testid="lesson-hero-h1">
         {h1}
       </h1>
+      {translated.data && (
+        <TranslationBadge state={translated.data} className="mt-2" />
+      )}
       <p className="text-muted-foreground mt-2">{stepInfo.description}</p>
+
 
       {/* Lernziele — only when content provides them */}
       {objectives.length > 0 && (

@@ -36,5 +36,12 @@
     "privacy": "Gizlilik",
     "terms": "Şartlar",
     "contact": "İletişim"
+  },
+  "i18n": {
+    "badge": {
+      "pending": "Çeviri hazırlanıyor",
+      "fallback": "Orijinal (DE)",
+      "stale": "Güncelleniyor"
+    }
   }
 }

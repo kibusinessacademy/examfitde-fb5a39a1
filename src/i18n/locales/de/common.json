@@ -31,6 +31,13 @@
     "translationPending": "Übersetzung wird vorbereitet — Originaltext wird angezeigt.",
     "translatedBy": "Übersetzt mit KI"
   },
+  "i18n": {
+    "badge": {
+      "pending": "Übersetzung folgt",
+      "fallback": "Original (DE)",
+      "stale": "Aktualisierung läuft"
+    }
+  },
   "footer": {
     "imprint": "Impressum",
     "privacy": "Datenschutz",

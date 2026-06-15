@@ -36,5 +36,12 @@
     "privacy": "Privacy",
     "terms": "Terms",
     "contact": "Contact"
+  },
+  "i18n": {
+    "badge": {
+      "pending": "Translation coming",
+      "fallback": "Original (DE)",
+      "stale": "Updating"
+    }
   }
 }
