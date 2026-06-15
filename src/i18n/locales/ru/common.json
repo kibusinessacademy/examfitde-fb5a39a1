@@ -1,0 +1,40 @@
+{
+  "nav": {
+    "berufe": "Профессии",
+    "package": "Полный пакет",
+    "knowledge": "Знания",
+    "pricing": "Цены",
+    "dashboard": "Панель",
+    "enterprise": "Для компаний"
+  },
+  "auth": {
+    "signIn": "Войти",
+    "signOut": "Выйти",
+    "signUp": "Регистрация",
+    "account": "Аккаунт"
+  },
+  "actions": {
+    "start": "Начать",
+    "learnMore": "Узнать больше",
+    "tryFree": "Попробовать бесплатно",
+    "continue": "Далее",
+    "back": "Назад",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "install": "Установить приложение"
+  },
+  "language": {
+    "label": "Язык",
+    "switch": "Сменить язык"
+  },
+  "course": {
+    "translationPending": "Перевод готовится — показан оригинал.",
+    "translatedBy": "Перевод ИИ"
+  },
+  "footer": {
+    "imprint": "Выходные данные",
+    "privacy": "Конфиденциальность",
+    "terms": "Условия",
+    "contact": "Контакты"
+  }
+}

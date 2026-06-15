@@ -1,0 +1,40 @@
+{
+  "nav": {
+    "berufe": "Berufe",
+    "package": "Komplettpaket",
+    "knowledge": "Wissen",
+    "pricing": "Preise",
+    "dashboard": "Dashboard",
+    "enterprise": "Enterprise"
+  },
+  "auth": {
+    "signIn": "Anmelden",
+    "signOut": "Abmelden",
+    "signUp": "Registrieren",
+    "account": "Konto"
+  },
+  "actions": {
+    "start": "Jetzt starten",
+    "learnMore": "Mehr erfahren",
+    "tryFree": "Kostenlos testen",
+    "continue": "Weiter",
+    "back": "Zurück",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "install": "App installieren"
+  },
+  "language": {
+    "label": "Sprache",
+    "switch": "Sprache wechseln"
+  },
+  "course": {
+    "translationPending": "Übersetzung wird vorbereitet — Originaltext wird angezeigt.",
+    "translatedBy": "Übersetzt mit KI"
+  },
+  "footer": {
+    "imprint": "Impressum",
+    "privacy": "Datenschutz",
+    "terms": "AGB",
+    "contact": "Kontakt"
+  }
+}

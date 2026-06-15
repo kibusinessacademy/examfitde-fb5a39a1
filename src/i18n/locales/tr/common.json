@@ -1,0 +1,40 @@
+{
+  "nav": {
+    "berufe": "Meslekler",
+    "package": "Tam paket",
+    "knowledge": "Bilgi",
+    "pricing": "Fiyatlar",
+    "dashboard": "Panel",
+    "enterprise": "Kurumsal"
+  },
+  "auth": {
+    "signIn": "Giriş yap",
+    "signOut": "Çıkış yap",
+    "signUp": "Kayıt ol",
+    "account": "Hesap"
+  },
+  "actions": {
+    "start": "Hemen başla",
+    "learnMore": "Daha fazla bilgi",
+    "tryFree": "Ücretsiz dene",
+    "continue": "Devam",
+    "back": "Geri",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "install": "Uygulamayı yükle"
+  },
+  "language": {
+    "label": "Dil",
+    "switch": "Dili değiştir"
+  },
+  "course": {
+    "translationPending": "Çeviri hazırlanıyor — orijinal metin gösteriliyor.",
+    "translatedBy": "Yapay zekâ ile çevrildi"
+  },
+  "footer": {
+    "imprint": "Künye",
+    "privacy": "Gizlilik",
+    "terms": "Şartlar",
+    "contact": "İletişim"
+  }
+}

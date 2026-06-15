@@ -1,0 +1,40 @@
+{
+  "nav": {
+    "berufe": "Професії",
+    "package": "Повний пакет",
+    "knowledge": "Знання",
+    "pricing": "Ціни",
+    "dashboard": "Панель",
+    "enterprise": "Для компаній"
+  },
+  "auth": {
+    "signIn": "Увійти",
+    "signOut": "Вийти",
+    "signUp": "Зареєструватися",
+    "account": "Акаунт"
+  },
+  "actions": {
+    "start": "Почати",
+    "learnMore": "Дізнатися більше",
+    "tryFree": "Спробувати безкоштовно",
+    "continue": "Далі",
+    "back": "Назад",
+    "save": "Зберегти",
+    "cancel": "Скасувати",
+    "install": "Встановити застосунок"
+  },
+  "language": {
+    "label": "Мова",
+    "switch": "Змінити мову"
+  },
+  "course": {
+    "translationPending": "Переклад готується — показано оригінал.",
+    "translatedBy": "Переклад ШІ"
+  },
+  "footer": {
+    "imprint": "Вихідні дані",
+    "privacy": "Конфіденційність",
+    "terms": "Умови",
+    "contact": "Контакти"
+  }
+}
