@@ -450,6 +450,7 @@ export default function LessonPlayer() {
         <StepIndicator currentStep={lesson.step} />
 
         <LessonHero
+          lessonId={lesson.id}
           rawTitle={lesson.title}
           content={lesson.content}
           competencyCode={competency.code}
