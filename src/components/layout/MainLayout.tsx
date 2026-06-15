@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { GraduationCap, LogOut, User, Menu, X, Download } from 'lucide-react';
 import { useState } from 'react';
+import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 
 import { useNativeApp } from '@/hooks/useNativeApp';
 import { BerufOSPlatformBadge } from '@/components/berufos/BerufOSPlatformBadge';
@@ -63,7 +64,9 @@ export default function MainLayout() {
 
           {/* Auth & Utils Buttons */}
           <div className="hidden md:flex items-center gap-2">
+            <LanguageSwitcher />
             <ThemeToggle />
+
             
             <Link to="/installieren" className="hidden lg:flex">
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1">
@@ -98,6 +101,7 @@ export default function MainLayout() {
 
           {/* Mobile: Theme Toggle + (Logout if user) + Menu */}
           <div className="flex md:hidden items-center gap-2">
+            <LanguageSwitcher compact />
             <ThemeToggle />
             {!loading && user && (
               <Button
