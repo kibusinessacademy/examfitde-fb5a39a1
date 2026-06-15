@@ -560,6 +560,7 @@ const AppRoutes = () => {
         <Route path="/org/structure" element={<OrgStructurePage />} />
         <Route path="/admin/setup-wizards" element={<SetupWizardsPage />} />
         <Route path="/admin/activation-os" element={<ActivationOSPage />} />
+        <Route path="/admin/i18n" element={<I18nBackfillPage />} />
 
 
         {/* Legacy /berufski/* → 410 Gone */}
