@@ -99,19 +99,27 @@ export default function QualityIntelligencePage() {
   const [running, setRunning] = useState<ModuleKey | null>(null);
   const [autoApplying, setAutoApplying] = useState(false);
   const [autoProgress, setAutoProgress] = useState<{ done: number; total: number; ok: number; failed: number; skipped: number } | null>(null);
+  const [policy, setPolicy] = useState<any | null>(null);
+  const [lastRun, setLastRun] = useState<any | null>(null);
+  const [triggeringCron, setTriggeringCron] = useState(false);
+  const [togglingPolicy, setTogglingPolicy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [s, f, r, c] = await Promise.all([
+    const [s, f, r, c, p, lr] = await Promise.all([
       supabase.from("quality_intelligence_snapshots").select("*").order("started_at", { ascending: false }).limit(40),
       supabase.from("quality_intelligence_findings").select("*").order("created_at", { ascending: false }).limit(100),
       supabase.from("quality_intelligence_recommendations").select("*").in("status", ["pending", "approved"]).order("priority").limit(200),
       supabase.from("v_qil_repair_conversion_summary" as any).select("*").maybeSingle(),
+      supabase.from("quality_intelligence_auto_apply_policy" as any).select("*").eq("id", 1).maybeSingle(),
+      supabase.from("quality_intelligence_auto_apply_runs" as any).select("*").order("triggered_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (s.data) setSnapshots(s.data as any);
     if (f.data) setFindings(f.data as any);
     if (r.data) setRecs(r.data as any);
     if (c.data) setConv(c.data as any);
+    if (p.data) setPolicy(p.data);
+    if (lr.data) setLastRun(lr.data);
     setLoading(false);
   }, []);
 
@@ -203,6 +211,47 @@ export default function QualityIntelligencePage() {
     await load();
   };
 
+  const triggerAutoApplyCron = async () => {
+    setTriggeringCron(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("kimi-auto-apply-wave1", {
+        body: { triggered_by: "manual_admin" },
+      });
+      if (error) throw error;
+      const r: any = (data as any)?.result ?? data;
+      toast({
+        title: "Auto-Apply Lauf abgeschlossen",
+        description: r?.reason
+          ? `reason=${r.reason}`
+          : `ok=${r?.applied_ok ?? 0} · fail=${r?.applied_fail ?? 0} · skip=${r?.skipped ?? 0} · seen=${r?.candidates_seen ?? 0}`,
+        variant: (r?.applied_fail ?? 0) > 0 ? "destructive" : "default",
+      });
+      await load();
+    } catch (e: any) {
+      toast({ title: "Auto-Apply Lauf fehlgeschlagen", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setTriggeringCron(false);
+    }
+  };
+
+  const togglePolicy = async () => {
+    if (!policy) return;
+    setTogglingPolicy(true);
+    const { error } = await supabase
+      .from("quality_intelligence_auto_apply_policy" as any)
+      .update({ enabled: !policy.enabled, updated_at: new Date().toISOString() })
+      .eq("id", 1);
+    setTogglingPolicy(false);
+    if (error) {
+      toast({ title: "Policy-Update fehlgeschlagen", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `Auto-Apply ${!policy.enabled ? "aktiviert" : "pausiert"}` });
+    await load();
+  };
+
+
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between">
@@ -248,6 +297,66 @@ export default function QualityIntelligencePage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Card className={policy?.enabled ? "border-emerald-500/40 bg-emerald-500/5" : "border-muted bg-muted/10"}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Brain className="h-4 w-4 text-primary" /> Auto-Apply Policy (KIMI.INTELLIGENCE.1b)
+            <Badge variant={policy?.enabled ? "default" : "secondary"} className="ml-2">
+              {policy?.enabled ? "AKTIV" : "PAUSIERT"}
+            </Badge>
+            {lastRun?.cooldown_active && (
+              <Badge variant="destructive" className="ml-1">COOLDOWN</Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {policy ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div><div className="text-xs text-muted-foreground">Min Confidence</div><div className="font-semibold">{policy.min_confidence}</div></div>
+              <div><div className="text-xs text-muted-foreground">Daily Cap</div><div className="font-semibold">{policy.max_auto_apply_per_day}</div></div>
+              <div><div className="text-xs text-muted-foreground">Per-Kind Cap</div><div className="font-semibold">{policy.max_per_action_kind_per_day}</div></div>
+              <div><div className="text-xs text-muted-foreground">Cooldown @ Fail %</div><div className="font-semibold">{Math.round(Number(policy.cooldown_failure_rate) * 100)}%</div></div>
+              <div className="col-span-2 md:col-span-4">
+                <div className="text-xs text-muted-foreground mb-1">Erlaubt (repair-jobs only)</div>
+                <div className="flex flex-wrap gap-1">
+                  {(policy.allowed_action_kinds ?? []).map((k: string) => (
+                    <Badge key={k} variant="outline" className="text-xs font-mono">{k}</Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted-foreground">Policy nicht geladen.</div>
+          )}
+
+          {lastRun && (
+            <div className="border-t pt-3">
+              <div className="text-xs text-muted-foreground mb-1">Letzter Lauf · {new Date(lastRun.triggered_at).toLocaleString("de-DE")} · {lastRun.triggered_by}</div>
+              <div className="flex flex-wrap gap-3 text-xs">
+                <span>seen <strong>{lastRun.candidates_seen}</strong></span>
+                <span className="text-emerald-600">ok <strong>{lastRun.applied_ok}</strong></span>
+                <span className="text-red-600">fail <strong>{lastRun.applied_fail}</strong></span>
+                <span className="text-amber-600">skipped <strong>{lastRun.skipped}</strong></span>
+                {lastRun.failure_rate != null && <span>fail-rate <strong>{Math.round(Number(lastRun.failure_rate) * 100)}%</strong></span>}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" variant="outline" onClick={togglePolicy} disabled={togglingPolicy || !policy}>
+              {policy?.enabled ? "Pausieren" : "Aktivieren"}
+            </Button>
+            <Button size="sm" onClick={triggerAutoApplyCron} disabled={triggeringCron}>
+              {triggeringCron ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+              Jetzt ausführen
+            </Button>
+            <span className="text-xs text-muted-foreground self-center ml-2">Cron alle 15 min</span>
+          </div>
+        </CardContent>
+      </Card>
+
+
 
       {conv && (
         <Card className="border-emerald-500/40">
