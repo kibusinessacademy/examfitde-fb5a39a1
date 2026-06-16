@@ -235,9 +235,13 @@ export default function LessonContent({
 
   // Text/HTML content
   if (contentData.type === 'text' && (contentData.html != null || contentData.sections != null)) {
+    const localizedContent = translatedHtml
+      ? { ...contentData, html: translatedHtml, sections: undefined }
+      : contentData;
     return (
       <div className="space-y-4">
-        <LessonSections content={contentData} />
+        {i18nBadge}
+        <LessonSections content={localizedContent} />
         {/* Answer check for Einstieg/Anwenden steps */}
         {answerKey && lessonId && (
           <LessonAnswerCheck
