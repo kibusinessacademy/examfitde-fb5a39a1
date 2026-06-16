@@ -211,6 +211,47 @@ export default function QualityIntelligencePage() {
     await load();
   };
 
+  const triggerAutoApplyCron = async () => {
+    setTriggeringCron(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("kimi-auto-apply-wave1", {
+        body: { triggered_by: "manual_admin" },
+      });
+      if (error) throw error;
+      const r: any = (data as any)?.result ?? data;
+      toast({
+        title: "Auto-Apply Lauf abgeschlossen",
+        description: r?.reason
+          ? `reason=${r.reason}`
+          : `ok=${r?.applied_ok ?? 0} · fail=${r?.applied_fail ?? 0} · skip=${r?.skipped ?? 0} · seen=${r?.candidates_seen ?? 0}`,
+        variant: (r?.applied_fail ?? 0) > 0 ? "destructive" : "default",
+      });
+      await load();
+    } catch (e: any) {
+      toast({ title: "Auto-Apply Lauf fehlgeschlagen", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setTriggeringCron(false);
+    }
+  };
+
+  const togglePolicy = async () => {
+    if (!policy) return;
+    setTogglingPolicy(true);
+    const { error } = await supabase
+      .from("quality_intelligence_auto_apply_policy" as any)
+      .update({ enabled: !policy.enabled, updated_at: new Date().toISOString() })
+      .eq("id", 1);
+    setTogglingPolicy(false);
+    if (error) {
+      toast({ title: "Policy-Update fehlgeschlagen", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `Auto-Apply ${!policy.enabled ? "aktiviert" : "pausiert"}` });
+    await load();
+  };
+
+
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between">
