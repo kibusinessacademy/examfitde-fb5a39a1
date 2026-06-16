@@ -10,7 +10,7 @@ import { useLessonAnswerKey } from '@/hooks/useLessonAnswerKey';
 import LessonAnswerCheck from './LessonAnswerCheck';
 import LessonSections from './sections/LessonSections';
 import { useTranslatedLesson } from '@/hooks/i18n/useTranslatedContent';
-import TranslationBadge from '@/components/i18n/TranslationBadge';
+import { TranslationBadge } from '@/components/i18n/TranslationBadge';
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
 interface LessonContentProps {
