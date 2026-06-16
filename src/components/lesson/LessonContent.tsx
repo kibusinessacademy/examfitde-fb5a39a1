@@ -147,10 +147,12 @@ export default function LessonContent({
   const i18nBadge = tLesson && lessonId ? (
     <div className="mb-3">
       <TranslationBadge
-        isFallback={tLesson.isFallback}
-        isPending={tLesson.isPending}
-        isStale={tLesson.isStale}
-        language={tLesson.language}
+        state={{
+          isFallback: tLesson.isFallback,
+          isPending: tLesson.isPending,
+          isStale: tLesson.isStale,
+          language: tLesson.language,
+        }}
       />
     </div>
   ) : null;
