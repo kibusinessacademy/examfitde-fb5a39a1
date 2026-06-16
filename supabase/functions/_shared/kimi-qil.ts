@@ -7,7 +7,7 @@
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-export const KIMI_MODEL = "anthropic/claude-sonnet-4.5";
+export const KIMI_MODEL = "google/gemini-3.1-pro-preview";
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 export const corsHeaders = {
