@@ -106,16 +106,20 @@ export default function QualityIntelligencePage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [s, f, r, c] = await Promise.all([
+    const [s, f, r, c, p, lr] = await Promise.all([
       supabase.from("quality_intelligence_snapshots").select("*").order("started_at", { ascending: false }).limit(40),
       supabase.from("quality_intelligence_findings").select("*").order("created_at", { ascending: false }).limit(100),
       supabase.from("quality_intelligence_recommendations").select("*").in("status", ["pending", "approved"]).order("priority").limit(200),
       supabase.from("v_qil_repair_conversion_summary" as any).select("*").maybeSingle(),
+      supabase.from("quality_intelligence_auto_apply_policy" as any).select("*").eq("id", 1).maybeSingle(),
+      supabase.from("quality_intelligence_auto_apply_runs" as any).select("*").order("triggered_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (s.data) setSnapshots(s.data as any);
     if (f.data) setFindings(f.data as any);
     if (r.data) setRecs(r.data as any);
     if (c.data) setConv(c.data as any);
+    if (p.data) setPolicy(p.data);
+    if (lr.data) setLastRun(lr.data);
     setLoading(false);
   }, []);
 
