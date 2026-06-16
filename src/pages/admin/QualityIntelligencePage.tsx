@@ -147,8 +147,9 @@ export default function QualityIntelligencePage() {
     if (error) { toast({ title: "Apply fehlgeschlagen", description: error.message, variant: "destructive" }); return; }
     const d: any = data;
     if (d?.ok) {
-      toast({ title: "Repair-Job enqueued", description: `${d.reason_code} · job_id=${d.job_id?.slice?.(0,8) ?? d.job_id}` });
+      toast({ title: "Repair-Jobs enqueued", description: `${d.reason_code} · enqueued=${d.enqueued ?? 1} reused=${d.reused ?? 0} skipped=${d.skipped ?? 0}` });
       setRecs((prev) => prev.filter((r) => r.id !== id));
+      await load();
     } else {
       toast({ title: "Apply blockiert", description: `${d?.reason_code}${d?.action_kind ? ` · ${d.action_kind}` : ""}`, variant: "destructive" });
     }
