@@ -106,7 +106,9 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
     } finally {
       setIsLoading(false);
     }
-  }, [curriculumId, mode, totalQuestions, toast]);
+  }, [curriculumId, mode, totalQuestions, toast, targetLang]);
+
+
 
   const submitAnswer = useCallback(async (answer: string) => {
     if (!currentQuestion) return;
