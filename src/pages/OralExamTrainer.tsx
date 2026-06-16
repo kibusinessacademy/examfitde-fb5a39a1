@@ -246,7 +246,7 @@ export default function OralExamTrainer() {
       try { rec.abort(); } catch { /* noop */ }
       window.speechSynthesis?.cancel();
     };
-  }, [stopRecordingHard, stopNoSpeechWatchdog, toast]);
+  }, [stopRecordingHard, stopNoSpeechWatchdog, toast, speechLocale]);
 
   const { data: curricula } = useQuery({
     queryKey: ['curricula-for-oral-exam'],
