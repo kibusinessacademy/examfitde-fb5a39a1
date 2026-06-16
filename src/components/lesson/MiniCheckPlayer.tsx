@@ -92,6 +92,27 @@ export default function MiniCheckPlayer({
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
 
+  // i18n PR-3: translate currently visible question (single hook → stable order)
+  const { data: tQuestion } = useTranslatedQuestion(currentQuestion?.id, {
+    question_text: currentQuestion?.text,
+    options: currentQuestion?.options,
+  });
+  const localizedText = tQuestion && !tQuestion.isFallback && !tQuestion.isPending
+    ? tQuestion.question_text
+    : currentQuestion?.text;
+  const localizedOptions = useMemo(() => {
+    if (!currentQuestion) return [];
+    if (tQuestion && !tQuestion.isFallback && !tQuestion.isPending && Array.isArray(tQuestion.options)) {
+      // Translation table stores options as JSON array of { id, text }
+      const translated = tQuestion.options as Array<{ id?: number | string; text?: string }>;
+      return currentQuestion.options.map((opt, idx) => ({
+        ...opt,
+        text: translated[idx]?.text ?? opt.text,
+      }));
+    }
+    return currentQuestion.options;
+  }, [currentQuestion, tQuestion]);
+
   const handleSelectOption = (index: number) => {
     if (hasAnswered) return;
     setSelectedIndex(index);
