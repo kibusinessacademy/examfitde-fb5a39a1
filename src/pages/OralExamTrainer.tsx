@@ -170,7 +170,7 @@ export default function OralExamTrainer() {
     const rec = new SpeechRecognitionAPI();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = 'de-DE';
+    rec.lang = speechLocale;
 
     rec.onstart = () => {
       lastTranscriptAtRef.current = Date.now();
