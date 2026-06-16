@@ -453,7 +453,7 @@ async function enhanceLeadQuestion(
       chain.map(c => ({ provider: c.provider, model: c.model })),
       {
         messages: [
-          { role: "system", content: buildSystemPrompt(professionName, mode as any) },
+          { role: "system", content: buildSystemPrompt(professionName, mode as any, lang) },
           {
             role: "user",
             content: JSON.stringify({
@@ -496,7 +496,7 @@ async function generateFromScenario(
       chain2.map(c => ({ provider: c.provider, model: c.model })),
       {
         messages: [
-          { role: "system", content: buildSystemPrompt(professionName, mode as any) },
+          { role: "system", content: buildSystemPrompt(professionName, mode as any, lang) },
           {
             role: "user",
             content: JSON.stringify({
@@ -630,7 +630,7 @@ async function evaluateAnswer(sbUser: any, sbAdmin: any, userId: string, params:
     evalChain.map(c => ({ provider: c.provider, model: c.model })),
     {
       messages: [
-        { role: "system", content: buildSystemPrompt(professionName, session.mode || "practice") },
+        { role: "system", content: buildSystemPrompt(professionName, session.mode || "practice", lang) },
         {
           role: "user",
           content: JSON.stringify({
