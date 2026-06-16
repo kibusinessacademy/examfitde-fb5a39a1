@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import DOMPurify from 'dompurify';
 import { Loader2, BookOpen, PlayCircle, AlertCircle, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,8 @@ import { useLessonMiniChecks } from '@/hooks/useLessonMiniChecks';
 import { useLessonAnswerKey } from '@/hooks/useLessonAnswerKey';
 import LessonAnswerCheck from './LessonAnswerCheck';
 import LessonSections from './sections/LessonSections';
+import { useTranslatedLesson } from '@/hooks/i18n/useTranslatedContent';
+import TranslationBadge from '@/components/i18n/TranslationBadge';
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
 interface LessonContentProps {
