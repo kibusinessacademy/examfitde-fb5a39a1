@@ -91,7 +91,7 @@ export default function QualityIntelligencePage() {
     const [s, f, r] = await Promise.all([
       supabase.from("quality_intelligence_snapshots").select("*").order("started_at", { ascending: false }).limit(40),
       supabase.from("quality_intelligence_findings").select("*").order("created_at", { ascending: false }).limit(100),
-      supabase.from("quality_intelligence_recommendations").select("*").eq("status", "pending").order("priority").limit(100),
+      supabase.from("quality_intelligence_recommendations").select("*").in("status", ["pending", "approved"]).order("priority").limit(200),
     ]);
     if (s.data) setSnapshots(s.data as any);
     if (f.data) setFindings(f.data as any);
