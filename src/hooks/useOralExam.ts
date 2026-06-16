@@ -160,7 +160,8 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
       const { data, error } = await supabase.functions.invoke('oral-exam', {
         body: {
           action: 'generate_question',
-          session_id: session.id
+          session_id: session.id,
+          lang: targetLang,
         }
       });
 
