@@ -219,6 +219,36 @@ export default function QualityIntelligencePage() {
         </div>
       </div>
 
+      <Card className="border-primary/40 bg-primary/5">
+        <CardContent className="p-4 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="font-semibold flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-primary" /> Wave-1 Auto-Apply
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Approved und enqueued alle P0/P1-Empfehlungen mit erlaubten action_kinds in einem Durchgang.
+              Aktuell: <strong>{wave1Candidates.length}</strong> Kandidaten.
+            </p>
+            {autoProgress && (
+              <p className="text-xs mt-2">
+                Fortschritt: {autoProgress.done}/{autoProgress.total} ·{" "}
+                <span className="text-emerald-600">{autoProgress.ok} ok</span> ·{" "}
+                <span className="text-amber-600">{autoProgress.skipped} skipped</span> ·{" "}
+                <span className="text-red-600">{autoProgress.failed} failed</span>
+              </p>
+            )}
+          </div>
+          <Button
+            onClick={autoApplyWave1}
+            disabled={autoApplying || wave1Candidates.length === 0}
+            size="lg"
+          >
+            {autoApplying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Rocket className="h-4 w-4 mr-2" />}
+            {autoApplying ? `Läuft… ${autoProgress?.done ?? 0}/${autoProgress?.total ?? 0}` : `Auto-Apply (${wave1Candidates.length})`}
+          </Button>
+        </CardContent>
+      </Card>
+
       {conv && (
         <Card className="border-emerald-500/40">
           <CardHeader className="pb-2">
