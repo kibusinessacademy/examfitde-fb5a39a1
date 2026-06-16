@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Shield, ArrowRight, Play, CheckCircle2, RotateCcw } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { CouncilPreBriefNote } from '@/components/admin/quality-intelligence/CouncilPreBriefNote';
 
 function CouncilPackageItem({ pkg, onAction, busy }: {
   pkg: AdminPackageSSOT;
@@ -75,6 +76,8 @@ function CouncilPackageItem({ pkg, onAction, busy }: {
           Fragen: {pkg.approved_questions}/{pkg.total_questions} approved ({Math.round(pkg.approved_questions / pkg.total_questions * 100)}%)
         </div>
       )}
+
+      <CouncilPreBriefNote packageId={pkg.package_id} />
 
       {/* Diagnosis */}
       {isCompleteNotApproved && (
