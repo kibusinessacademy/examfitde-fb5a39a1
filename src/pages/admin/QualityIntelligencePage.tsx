@@ -97,6 +97,8 @@ export default function QualityIntelligencePage() {
   const [conv, setConv] = useState<ConversionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<ModuleKey | null>(null);
+  const [autoApplying, setAutoApplying] = useState(false);
+  const [autoProgress, setAutoProgress] = useState<{ done: number; total: number; ok: number; failed: number; skipped: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
