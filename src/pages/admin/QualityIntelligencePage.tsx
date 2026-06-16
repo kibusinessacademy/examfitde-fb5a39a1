@@ -5,7 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, Sparkles, AlertTriangle, TrendingDown, GitBranch, Gavel, Loader2 } from "lucide-react";
+import { Brain, Sparkles, AlertTriangle, TrendingDown, GitBranch, Gavel, Loader2, Play, Lock } from "lucide-react";
+
+const APPLY_ALLOWED = new Set(["expand_question_pool", "enqueue_coverage_repair", "enqueue_integrity_check"]);
 
 type ModuleKey = "failure" | "coverage" | "drift" | "council";
 
