@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, Sparkles, AlertTriangle, TrendingDown, GitBranch, Gavel, Loader2, Play, Lock } from "lucide-react";
+import { Brain, Sparkles, AlertTriangle, TrendingDown, GitBranch, Gavel, Loader2, Play, Lock, Rocket } from "lucide-react";
 
 const APPLY_ALLOWED = new Set(["expand_question_pool", "enqueue_coverage_repair", "enqueue_integrity_check"]);
+const WAVE1_PRIORITIES = new Set(["P0", "P1"]);
 
 type ModuleKey = "failure" | "coverage" | "drift" | "council";
 
@@ -96,6 +97,8 @@ export default function QualityIntelligencePage() {
   const [conv, setConv] = useState<ConversionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<ModuleKey | null>(null);
+  const [autoApplying, setAutoApplying] = useState(false);
+  const [autoProgress, setAutoProgress] = useState<{ done: number; total: number; ok: number; failed: number; skipped: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -155,6 +158,51 @@ export default function QualityIntelligencePage() {
     }
   };
 
+  const wave1Candidates = recs.filter(
+    (r) => WAVE1_PRIORITIES.has(r.priority) && APPLY_ALLOWED.has(r.action_kind) && r.status !== "rejected"
+  );
+
+  const autoApplyWave1 = async () => {
+    const candidates = [...wave1Candidates];
+    if (candidates.length === 0) {
+      toast({ title: "Keine Wave-1-Kandidaten", description: "Es gibt aktuell keine P0/P1-Empfehlungen mit erlaubten action_kinds." });
+      return;
+    }
+    setAutoApplying(true);
+    setAutoProgress({ done: 0, total: candidates.length, ok: 0, failed: 0, skipped: 0 });
+    let ok = 0, failed = 0, skipped = 0;
+    for (let i = 0; i < candidates.length; i++) {
+      const rec = candidates[i];
+      try {
+        if (rec.status !== "approved") {
+          const { error: upErr } = await supabase
+            .from("quality_intelligence_recommendations")
+            .update({ status: "approved", decided_at: new Date().toISOString() })
+            .eq("id", rec.id);
+          if (upErr) throw upErr;
+        }
+        const { data, error } = await supabase.rpc(
+          "admin_apply_quality_intelligence_recommendation" as any,
+          { p_recommendation_id: rec.id }
+        );
+        if (error) throw error;
+        const d: any = data;
+        if (d?.ok) ok++;
+        else skipped++;
+      } catch (e) {
+        failed++;
+      }
+      setAutoProgress({ done: i + 1, total: candidates.length, ok, failed, skipped });
+    }
+    setAutoApplying(false);
+    toast({
+      title: "Wave-1 Auto-Apply fertig",
+      description: `${ok} enqueued · ${skipped} skipped · ${failed} failed (von ${candidates.length})`,
+      variant: failed > 0 ? "destructive" : "default",
+    });
+    await load();
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between">
@@ -170,6 +218,36 @@ export default function QualityIntelligencePage() {
           </p>
         </div>
       </div>
+
+      <Card className="border-primary/40 bg-primary/5">
+        <CardContent className="p-4 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="font-semibold flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-primary" /> Wave-1 Auto-Apply
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Approved und enqueued alle P0/P1-Empfehlungen mit erlaubten action_kinds in einem Durchgang.
+              Aktuell: <strong>{wave1Candidates.length}</strong> Kandidaten.
+            </p>
+            {autoProgress && (
+              <p className="text-xs mt-2">
+                Fortschritt: {autoProgress.done}/{autoProgress.total} ·{" "}
+                <span className="text-emerald-600">{autoProgress.ok} ok</span> ·{" "}
+                <span className="text-amber-600">{autoProgress.skipped} skipped</span> ·{" "}
+                <span className="text-red-600">{autoProgress.failed} failed</span>
+              </p>
+            )}
+          </div>
+          <Button
+            onClick={autoApplyWave1}
+            disabled={autoApplying || wave1Candidates.length === 0}
+            size="lg"
+          >
+            {autoApplying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Rocket className="h-4 w-4 mr-2" />}
+            {autoApplying ? `Läuft… ${autoProgress?.done ?? 0}/${autoProgress?.total ?? 0}` : `Auto-Apply (${wave1Candidates.length})`}
+          </Button>
+        </CardContent>
+      </Card>
 
       {conv && (
         <Card className="border-emerald-500/40">
