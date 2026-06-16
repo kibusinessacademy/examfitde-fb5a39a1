@@ -119,7 +119,8 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
         body: {
           action: 'evaluate_answer',
           question_id: currentQuestion.id,
-          user_answer: answer
+          user_answer: answer,
+          lang: targetLang,
         }
       });
 
