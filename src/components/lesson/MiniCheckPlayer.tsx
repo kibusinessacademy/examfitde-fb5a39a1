@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { SurfaceHumorCard } from '@/components/humor/SurfaceHumorCard';
 import { CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import MiniCheckTutorFeedback, {
   type MiniCheckWrongItem,
 } from './MiniCheckTutorFeedback';
 import LearningRecoveryLoop from './LearningRecoveryLoop';
+import { useTranslatedQuestion } from '@/hooks/i18n/useTranslatedContent';
+import { TranslationBadge } from '@/components/i18n/TranslationBadge';
 
 export interface MiniCheckQuestion {
   id: string;
@@ -89,6 +91,27 @@ export default function MiniCheckPlayer({
   const passingScore = content.passing_score ?? 70;
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
+
+  // i18n PR-3: translate currently visible question (single hook → stable order)
+  const { data: tQuestion } = useTranslatedQuestion(currentQuestion?.id, {
+    question_text: currentQuestion?.text,
+    options: currentQuestion?.options,
+  });
+  const localizedText = tQuestion && !tQuestion.isFallback && !tQuestion.isPending
+    ? tQuestion.question_text
+    : currentQuestion?.text;
+  const localizedOptions = useMemo(() => {
+    if (!currentQuestion) return [];
+    if (tQuestion && !tQuestion.isFallback && !tQuestion.isPending && Array.isArray(tQuestion.options)) {
+      // Translation table stores options as JSON array of { id, text }
+      const translated = tQuestion.options as Array<{ id?: number | string; text?: string }>;
+      return currentQuestion.options.map((opt, idx) => ({
+        ...opt,
+        text: translated[idx]?.text ?? opt.text,
+      }));
+    }
+    return currentQuestion.options;
+  }, [currentQuestion, tQuestion]);
 
   const handleSelectOption = (index: number) => {
     if (hasAnswered) return;
@@ -363,13 +386,23 @@ export default function MiniCheckPlayer({
       {/* Question */}
       <Card className="glass-card">
         <CardContent className="p-6 space-y-6">
+          {tQuestion && (
+            <TranslationBadge
+              state={{
+                isFallback: tQuestion.isFallback,
+                isPending: tQuestion.isPending,
+                isStale: tQuestion.isStale,
+                language: tQuestion.language,
+              }}
+            />
+          )}
           <h3 className="text-lg font-medium leading-relaxed" data-testid="question-text">
-            {currentQuestion.text}
+            {localizedText}
           </h3>
 
           {/* Options */}
           <div className="space-y-3">
-            {currentQuestion.options.map((option, idx) => {
+            {localizedOptions.map((option, idx) => {
               const isSelected = selectedIndex === idx;
               const showResult = hasAnswered && answerResult;
               const isCorrectOption = showResult && answerResult.correct_index === idx;

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import DOMPurify from 'dompurify';
 import { Loader2, BookOpen, PlayCircle, AlertCircle, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,8 @@ import { useLessonMiniChecks } from '@/hooks/useLessonMiniChecks';
 import { useLessonAnswerKey } from '@/hooks/useLessonAnswerKey';
 import LessonAnswerCheck from './LessonAnswerCheck';
 import LessonSections from './sections/LessonSections';
+import { useTranslatedLesson } from '@/hooks/i18n/useTranslatedContent';
+import { TranslationBadge } from '@/components/i18n/TranslationBadge';
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
 interface LessonContentProps {
@@ -135,6 +137,28 @@ export default function LessonContent({
   // Fetch answer key for interactive Einstieg/Anwenden steps
   const { data: answerKey } = useLessonAnswerKey(lessonId);
 
+  // i18n PR-3 wiring: resolve translated lesson body if available.
+  const sourceHtml = useMemo(() => {
+    const c = content as ContentData | null;
+    return typeof c?.html === 'string' ? c.html : null;
+  }, [content]);
+  const { data: tLesson } = useTranslatedLesson(lessonId, { content: sourceHtml });
+  const translatedHtml = tLesson && !tLesson.isFallback && !tLesson.isPending ? tLesson.content : null;
+  const i18nBadge = tLesson && lessonId ? (
+    <div className="mb-3">
+      <TranslationBadge
+        state={{
+          isFallback: tLesson.isFallback,
+          isPending: tLesson.isPending,
+          isStale: tLesson.isStale,
+          language: tLesson.language,
+        }}
+      />
+    </div>
+  ) : null;
+
+
+
   // If there's a direct h5p_content_id on the lesson, use that
   if (h5pContentId) {
     return (
@@ -211,9 +235,13 @@ export default function LessonContent({
 
   // Text/HTML content
   if (contentData.type === 'text' && (contentData.html != null || contentData.sections != null)) {
+    const localizedContent = translatedHtml
+      ? { ...contentData, html: translatedHtml, sections: undefined }
+      : contentData;
     return (
       <div className="space-y-4">
-        <LessonSections content={contentData} />
+        {i18nBadge}
+        <LessonSections content={localizedContent} />
         {/* Answer check for Einstieg/Anwenden steps */}
         {answerKey && lessonId && (
           <LessonAnswerCheck

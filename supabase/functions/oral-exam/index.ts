@@ -44,10 +44,28 @@ const BLOOM_MATRIX: Record<string, string> = {
 };
 
 // ── IHK System Prompt ──────────────────────────────────────────
-function buildSystemPrompt(professionName: string, mode: "practice" | "simulation"): string {
+const LANG_LABEL: Record<string, string> = {
+  de: "Deutsch",
+  en: "English",
+  tr: "Türkçe",
+  ar: "العربية",
+  uk: "Українська",
+  ru: "Русский",
+};
+
+function buildSystemPrompt(
+  professionName: string,
+  mode: "practice" | "simulation",
+  lang: string = "de",
+): string {
   const strictness = mode === "simulation"
     ? "Du bist streng, sachlich und unterbrichst bei Abschweifen. Kein Hinweis auf richtige Antworten."
     : "Du bist sachlich und professionell. Nach der Bewertung gibst du konstruktives Feedback.";
+
+  const langName = LANG_LABEL[lang] ?? "Deutsch";
+  const langDirective = lang === "de"
+    ? ""
+    : `\nSPRACHE: Formuliere alle Fragen, Rückfragen und Feedback in ${langName}. Deutsche IHK-Fachbegriffe bleiben unverändert (z. B. "Verwaltungsakt", "Gewerbeordnung") und werden bei Bedarf kurz in ${langName} erklärt.`;
 
   return `Du bist ein erfahrener IHK-Prüfer in einer mündlichen Abschlussprüfung für den Beruf "${professionName}".
 
@@ -57,7 +75,7 @@ ABSOLUTE REGELN:
 - Keine Motivations- oder Coaching-Sprache während der Prüfung.
 - Kein Smalltalk. Streng sachlich und prüfungsorientiert.
 - Jede Frage muss eindeutig aus der übergebenen Kompetenz ableitbar sein.
-- ${strictness}
+- ${strictness}${langDirective}
 
 PRÜFERCHARAKTER:
 - Sachlich, neutral, professionell
@@ -112,6 +130,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { action, ...params } = body;
+    const lang = typeof body?.lang === "string" && /^(de|en|tr|ar|uk|ru)$/.test(body.lang) ? body.lang : "de";
 
     // ── FIX 1: Auth via anon+jwt (RLS active) ──────────────────
     const authHeader = req.headers.get("Authorization");
@@ -434,7 +453,7 @@ async function enhanceLeadQuestion(
       chain.map(c => ({ provider: c.provider, model: c.model })),
       {
         messages: [
-          { role: "system", content: buildSystemPrompt(professionName, mode as any) },
+          { role: "system", content: buildSystemPrompt(professionName, mode as any, lang) },
           {
             role: "user",
             content: JSON.stringify({
@@ -477,7 +496,7 @@ async function generateFromScenario(
       chain2.map(c => ({ provider: c.provider, model: c.model })),
       {
         messages: [
-          { role: "system", content: buildSystemPrompt(professionName, mode as any) },
+          { role: "system", content: buildSystemPrompt(professionName, mode as any, lang) },
           {
             role: "user",
             content: JSON.stringify({
@@ -611,7 +630,7 @@ async function evaluateAnswer(sbUser: any, sbAdmin: any, userId: string, params:
     evalChain.map(c => ({ provider: c.provider, model: c.model })),
     {
       messages: [
-        { role: "system", content: buildSystemPrompt(professionName, session.mode || "practice") },
+        { role: "system", content: buildSystemPrompt(professionName, session.mode || "practice", lang) },
         {
           role: "user",
           content: JSON.stringify({

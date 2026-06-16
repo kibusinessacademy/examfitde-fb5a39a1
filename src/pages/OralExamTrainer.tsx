@@ -45,6 +45,7 @@ import {
   reportEntryFallbackView,
   reportEntryFallbackCtaClick,
 } from '@/lib/monitoring/entryFallbackSignal';
+import { useTargetLanguage, STT_TTS_LOCALE } from '@/hooks/i18n/useTranslatedContent';
 
 type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
 
@@ -101,6 +102,8 @@ export default function OralExamTrainer() {
   const [phase, setPhase] = useState<ExamPhase>('setup');
   const [selectedCurriculum, setSelectedCurriculum] = useState<string | null>(() => searchParams.get('curriculum'));
   const { t, isAcademic } = useTerminology(selectedCurriculum);
+  const targetLang = useTargetLanguage();
+  const speechLocale = STT_TTS_LOCALE[targetLang];
   const [answer, setAnswer] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(180);
   const [isTimerActive, setIsTimerActive] = useState(false);
@@ -167,7 +170,7 @@ export default function OralExamTrainer() {
     const rec = new SpeechRecognitionAPI();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = 'de-DE';
+    rec.lang = speechLocale;
 
     rec.onstart = () => {
       lastTranscriptAtRef.current = Date.now();
@@ -243,7 +246,7 @@ export default function OralExamTrainer() {
       try { rec.abort(); } catch { /* noop */ }
       window.speechSynthesis?.cancel();
     };
-  }, [stopRecordingHard, stopNoSpeechWatchdog, toast]);
+  }, [stopRecordingHard, stopNoSpeechWatchdog, toast, speechLocale]);
 
   const { data: curricula } = useQuery({
     queryKey: ['curricula-for-oral-exam'],
@@ -315,14 +318,14 @@ export default function OralExamTrainer() {
     }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'de-DE';
+    utterance.lang = speechLocale;
     utterance.rate = 0.95;
     utterance.pitch = 1.0;
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => { setIsSpeaking(false); onEnd?.(); };
     utterance.onerror = () => { setIsSpeaking(false); onEnd?.(); };
     window.speechSynthesis.speak(utterance);
-  }, []);
+  }, [speechLocale]);
 
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis?.cancel();

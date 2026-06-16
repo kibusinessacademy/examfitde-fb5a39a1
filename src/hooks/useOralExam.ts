@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTargetLanguage } from '@/hooks/i18n/useTranslatedContent';
 
 export interface OralExamSession {
   id: string;
@@ -72,6 +73,7 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const targetLang = useTargetLanguage();
 
   const startSession = useCallback(async () => {
     setIsLoading(true);
@@ -81,7 +83,8 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
           action: 'start_session',
           curriculum_id: curriculumId,
           mode,
-          total_questions: totalQuestions
+          total_questions: totalQuestions,
+          lang: targetLang,
         }
       });
 
@@ -103,7 +106,9 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
     } finally {
       setIsLoading(false);
     }
-  }, [curriculumId, mode, totalQuestions, toast]);
+  }, [curriculumId, mode, totalQuestions, toast, targetLang]);
+
+
 
   const submitAnswer = useCallback(async (answer: string) => {
     if (!currentQuestion) return;
@@ -114,7 +119,8 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
         body: {
           action: 'evaluate_answer',
           question_id: currentQuestion.id,
-          user_answer: answer
+          user_answer: answer,
+          lang: targetLang,
         }
       });
 
@@ -142,7 +148,7 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
     } finally {
       setIsLoading(false);
     }
-  }, [currentQuestion, session, toast]);
+  }, [currentQuestion, session, toast, targetLang]);
 
   const nextQuestion = useCallback(async () => {
     if (!session) return;
@@ -154,7 +160,8 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
       const { data, error } = await supabase.functions.invoke('oral-exam', {
         body: {
           action: 'generate_question',
-          session_id: session.id
+          session_id: session.id,
+          lang: targetLang,
         }
       });
 
@@ -173,7 +180,7 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
     } finally {
       setIsLoading(false);
     }
-  }, [session, toast]);
+  }, [session, toast, targetLang]);
 
   const finishSession = useCallback(async () => {
     if (!session) return;
@@ -183,7 +190,8 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
       const { data, error } = await supabase.functions.invoke('oral-exam', {
         body: {
           action: 'finish_session',
-          session_id: session.id
+          session_id: session.id,
+          lang: targetLang,
         }
       });
 
