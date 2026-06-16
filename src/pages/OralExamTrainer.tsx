@@ -318,14 +318,14 @@ export default function OralExamTrainer() {
     }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'de-DE';
+    utterance.lang = speechLocale;
     utterance.rate = 0.95;
     utterance.pitch = 1.0;
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => { setIsSpeaking(false); onEnd?.(); };
     utterance.onerror = () => { setIsSpeaking(false); onEnd?.(); };
     window.speechSynthesis.speak(utterance);
-  }, []);
+  }, [speechLocale]);
 
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis?.cancel();
