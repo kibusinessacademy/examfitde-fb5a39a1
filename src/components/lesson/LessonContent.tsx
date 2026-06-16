@@ -137,6 +137,26 @@ export default function LessonContent({
   // Fetch answer key for interactive Einstieg/Anwenden steps
   const { data: answerKey } = useLessonAnswerKey(lessonId);
 
+  // i18n PR-3 wiring: resolve translated lesson body if available.
+  const sourceHtml = useMemo(() => {
+    const c = content as ContentData | null;
+    return typeof c?.html === 'string' ? c.html : null;
+  }, [content]);
+  const { data: tLesson } = useTranslatedLesson(lessonId, { content: sourceHtml });
+  const translatedHtml = tLesson && !tLesson.isFallback && !tLesson.isPending ? tLesson.content : null;
+  const i18nBadge = tLesson && lessonId ? (
+    <div className="mb-3">
+      <TranslationBadge
+        isFallback={tLesson.isFallback}
+        isPending={tLesson.isPending}
+        isStale={tLesson.isStale}
+        language={tLesson.language}
+      />
+    </div>
+  ) : null;
+
+
+
   // If there's a direct h5p_content_id on the lesson, use that
   if (h5pContentId) {
     return (
