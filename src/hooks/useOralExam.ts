@@ -73,6 +73,7 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const targetLang = useTargetLanguage();
 
   const startSession = useCallback(async () => {
     setIsLoading(true);
