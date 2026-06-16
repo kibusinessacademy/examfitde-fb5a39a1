@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAITutor, AI_MODES, AI_ROLES, type AIRole } from '@/hooks/useAITutor';
+import { useTargetLanguage } from '@/hooks/i18n/useTranslatedContent';
 import { cn } from '@/lib/utils';
 
 /**
