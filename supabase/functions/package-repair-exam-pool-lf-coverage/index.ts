@@ -391,7 +391,7 @@ Deno.serve(async (req) => {
         decision: "no_effect_after_children",
       }, 422);
     }
-  }
+
 
   // ── GUARD 1: Eligibility (fail-closed for automation) ──
   const eligibility = await isRepairActionEligible(
