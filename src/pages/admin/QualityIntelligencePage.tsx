@@ -158,6 +158,51 @@ export default function QualityIntelligencePage() {
     }
   };
 
+  const wave1Candidates = recs.filter(
+    (r) => WAVE1_PRIORITIES.has(r.priority) && APPLY_ALLOWED.has(r.action_kind) && r.status !== "rejected"
+  );
+
+  const autoApplyWave1 = async () => {
+    const candidates = [...wave1Candidates];
+    if (candidates.length === 0) {
+      toast({ title: "Keine Wave-1-Kandidaten", description: "Es gibt aktuell keine P0/P1-Empfehlungen mit erlaubten action_kinds." });
+      return;
+    }
+    setAutoApplying(true);
+    setAutoProgress({ done: 0, total: candidates.length, ok: 0, failed: 0, skipped: 0 });
+    let ok = 0, failed = 0, skipped = 0;
+    for (let i = 0; i < candidates.length; i++) {
+      const rec = candidates[i];
+      try {
+        if (rec.status !== "approved") {
+          const { error: upErr } = await supabase
+            .from("quality_intelligence_recommendations")
+            .update({ status: "approved", decided_at: new Date().toISOString() })
+            .eq("id", rec.id);
+          if (upErr) throw upErr;
+        }
+        const { data, error } = await supabase.rpc(
+          "admin_apply_quality_intelligence_recommendation" as any,
+          { p_recommendation_id: rec.id }
+        );
+        if (error) throw error;
+        const d: any = data;
+        if (d?.ok) ok++;
+        else skipped++;
+      } catch (e) {
+        failed++;
+      }
+      setAutoProgress({ done: i + 1, total: candidates.length, ok, failed, skipped });
+    }
+    setAutoApplying(false);
+    toast({
+      title: "Wave-1 Auto-Apply fertig",
+      description: `${ok} enqueued · ${skipped} skipped · ${failed} failed (von ${candidates.length})`,
+      variant: failed > 0 ? "destructive" : "default",
+    });
+    await load();
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between">
