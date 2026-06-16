@@ -180,7 +180,7 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
     } finally {
       setIsLoading(false);
     }
-  }, [session, toast]);
+  }, [session, toast, targetLang]);
 
   const finishSession = useCallback(async () => {
     if (!session) return;
