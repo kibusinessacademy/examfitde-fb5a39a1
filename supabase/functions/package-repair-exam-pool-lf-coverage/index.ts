@@ -214,15 +214,18 @@ Deno.serve(async (req) => {
       // Branch 1: still working → re-park
       if (pendingLike.length > 0) {
         const reparkAfter = new Date(Date.now() + 90_000).toISOString();
+        // C1: reset attempts so awaiting-children cycles don't burn MAX_ATTEMPTS budget.
         await sb.from("job_queue").update({
           status: "pending",
+          attempts: 0,
           started_at: null,
           last_heartbeat_at: null,
           run_after: reparkAfter,
           last_error_code: "PARKED_AWAITING_CHILDREN",
           last_error: `awaiting ${pendingLike.length}/${children.length} children`,
-          meta: { ...parentMeta, phase: "parked_awaiting_children", reconciler_last_check_at: new Date().toISOString(), child_status_breakdown: byStatus },
+          meta: { ...parentMeta, phase: "parked_awaiting_children", reconciler_last_check_at: new Date().toISOString(), child_status_breakdown: byStatus, attempts_reset_for_park: true },
         }).eq("id", jobId).in("status", ["processing", "pending"]);
+
         await sb.from("auto_heal_log").insert({
           action_type: "lf_repair_parent_waiting_children",
           target_type: "job",
