@@ -148,7 +148,7 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
     } finally {
       setIsLoading(false);
     }
-  }, [currentQuestion, session, toast]);
+  }, [currentQuestion, session, toast, targetLang]);
 
   const nextQuestion = useCallback(async () => {
     if (!session) return;
