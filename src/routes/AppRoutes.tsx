@@ -347,6 +347,7 @@ const BackgroundAgentRuntimePage = lazyRetry(() => import('@/pages/admin/governa
 const BerufOSGraphPage = lazyRetry(() => import('@/pages/admin/BerufOSGraphPage'));
 const PlatformConsciencePage = lazyRetry(() => import('@/pages/admin/PlatformConsciencePage'));
 const QualityIntelligencePage = lazyRetry(() => import('@/pages/admin/QualityIntelligencePage'));
+const OperationsVisibilityPage = lazyRetry(() => import('@/pages/admin/OperationsVisibilityPage'));
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 
 import { PathAwareLoadingFallback } from '@/components/seo/PathAwareLoadingFallback';
@@ -855,7 +856,9 @@ const AppRoutes = () => {
           <Route path="runtime" element={<RuntimeCommandCenterPage />} />
           <Route path="platform-conscience" element={<PlatformConsciencePage />} />
           <Route path="intelligence/quality" element={<QualityIntelligencePage />} />
+          <Route path="ops/visibility" element={<OperationsVisibilityPage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
+
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
           <Route path="berufs-ki/quality" element={<BerufsKIQualityPage />} />
           <Route path="berufs-ki/review" element={<BerufsKIReviewPage />} />
