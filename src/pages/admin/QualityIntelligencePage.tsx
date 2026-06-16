@@ -171,6 +171,35 @@ export default function QualityIntelligencePage() {
         </div>
       </div>
 
+      {conv && (
+        <Card className="border-emerald-500/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Play className="h-4 w-4 text-emerald-600" /> Repair Conversion (KIMI.INTELLIGENCE.1a)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
+              <div><div className="text-muted-foreground text-xs">Applied</div><div className="text-2xl font-semibold">{conv.applied_repairs}</div></div>
+              <div><div className="text-muted-foreground text-xs">Jobs ok</div><div className="text-2xl font-semibold text-emerald-600">{conv.jobs_completed}</div></div>
+              <div><div className="text-muted-foreground text-xs">Jobs failed</div><div className="text-2xl font-semibold text-red-600">{conv.jobs_failed}</div></div>
+              <div><div className="text-muted-foreground text-xs">Publishable</div><div className="text-2xl font-semibold">{conv.publishable_reached}</div></div>
+              <div><div className="text-muted-foreground text-xs">Published</div><div className="text-2xl font-semibold">{conv.published_reached}</div></div>
+              <div>
+                <div className="text-muted-foreground text-xs">Conversion</div>
+                <div className="text-2xl font-semibold">
+                  {conv.publishable_conversion_pct ?? 0}% / {conv.published_conversion_pct ?? 0}%
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Beweiskette: applied → job ok → publishable → published. Erst eine echte Conversion macht KIMI zum Produktionshebel.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {(Object.keys(MODULE_META) as ModuleKey[]).map((m) => {
           const meta = MODULE_META[m];
