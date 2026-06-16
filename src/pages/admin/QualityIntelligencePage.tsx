@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Brain, Sparkles, AlertTriangle, TrendingDown, GitBranch, Gavel, Loader2, Play, Lock, Rocket } from "lucide-react";
+import { RepairConversionProofWidget } from "@/components/admin/quality-intelligence/RepairConversionProofWidget";
 
 const APPLY_ALLOWED = new Set(["expand_question_pool", "enqueue_coverage_repair", "enqueue_integrity_check"]);
 const WAVE1_PRIORITIES = new Set(["P0", "P1"]);
@@ -355,6 +356,10 @@ export default function QualityIntelligencePage() {
           </div>
         </CardContent>
       </Card>
+
+      <RepairConversionProofWidget />
+
+
 
 
 
