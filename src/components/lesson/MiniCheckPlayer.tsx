@@ -386,13 +386,23 @@ export default function MiniCheckPlayer({
       {/* Question */}
       <Card className="glass-card">
         <CardContent className="p-6 space-y-6">
+          {tQuestion && (
+            <TranslationBadge
+              state={{
+                isFallback: tQuestion.isFallback,
+                isPending: tQuestion.isPending,
+                isStale: tQuestion.isStale,
+                language: tQuestion.language,
+              }}
+            />
+          )}
           <h3 className="text-lg font-medium leading-relaxed" data-testid="question-text">
-            {currentQuestion.text}
+            {localizedText}
           </h3>
 
           {/* Options */}
           <div className="space-y-3">
-            {currentQuestion.options.map((option, idx) => {
+            {localizedOptions.map((option, idx) => {
               const isSelected = selectedIndex === idx;
               const showResult = hasAnswered && answerResult;
               const isCorrectOption = showResult && answerResult.correct_index === idx;
