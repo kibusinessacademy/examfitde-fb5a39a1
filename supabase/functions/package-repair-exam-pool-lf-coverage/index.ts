@@ -187,8 +187,18 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ── Load parent job row for reconciler phase detection ──
+  let parentRow: { meta: Record<string, unknown> | null } | null = null;
+  if (jobId) {
+    const { data: prRaw } = await sb.from("job_queue")
+      .select("meta")
+      .eq("id", jobId)
+      .maybeSingle();
+    parentRow = (prRaw ?? null) as { meta: Record<string, unknown> | null } | null;
+  }
 
     const parentMeta = (parentRow?.meta ?? {}) as Record<string, unknown>;
+
     const phase = parentMeta.phase as string | undefined;
     const childIds = Array.isArray(parentMeta.child_job_ids)
       ? (parentMeta.child_job_ids as string[]).filter((x) => typeof x === "string")
