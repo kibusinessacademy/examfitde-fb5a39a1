@@ -99,6 +99,7 @@ export function hasSufficientTutorContext(ctx: LessonTutorBoxContext): boolean {
 export default function LessonTutorBox({ context, className }: LessonTutorBoxProps) {
   const [open, setOpen] = useState(false);
   const [activeAction, setActiveAction] = useState<ActionKey | null>(null);
+  const targetLang = useTargetLanguage();
 
   const sufficient = useMemo(() => hasSufficientTutorContext(context), [context]);
 
@@ -125,11 +126,14 @@ export default function LessonTutorBox({ context, className }: LessonTutorBoxPro
     if (!sufficient || isLoading) return;
     setActiveAction(action.key);
     setRole(action.role);
+    const langDirective = targetLang !== 'de'
+      ? `\n\n[language: respond in ${targetLang}]`
+      : '';
     const tagged =
-      `${action.prompt}\n\n[lesson_context: lesson_id=${context.lessonId} ` +
+      `${action.prompt}${langDirective}\n\n[lesson_context: lesson_id=${context.lessonId} ` +
       `competency_id=${context.competencyId} step=${context.stepKey ?? '-'}` +
       (context.sectionKey ? ` section=${context.sectionKey}` : '') +
-      `]`;
+      ` ui_lang=${targetLang}]`;
     sendMessage(tagged);
   };
 
