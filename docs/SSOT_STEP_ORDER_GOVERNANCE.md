@@ -94,15 +94,30 @@ If any step is skipped, CI must fail.
 ## Operational Queries
 
 ### Unknown steps in DB (should be 0)
+SSOT: `supabase/functions/_shared/job-map.ts` → `FULL_STEP_ORDER` (29 Steps).
+Wenn dieser Query Werte zurückgibt: entweder neuen Step in `FULL_STEP_ORDER` + diesem Query aufnehmen, oder DB bereinigen.
+
 ```sql
 SELECT DISTINCT step_key
 FROM package_steps
 WHERE step_key IS NOT NULL
   AND step_key NOT IN (
-    'scaffold_learning_course','generate_glossary','generate_learning_content',
-    'validate_learning_content','auto_seed_exam_blueprints','validate_blueprints',
-    'generate_exam_pool','validate_exam_pool','build_ai_tutor_index','validate_tutor_index',
-    'generate_oral_exam','validate_oral_exam','generate_lesson_minichecks','validate_lesson_minichecks',
-    'generate_handbook','validate_handbook','elite_harden','run_integrity_check','quality_council','auto_publish'
+    -- Phase 1: Learning Content (Steps 1–6)
+    'scaffold_learning_course','generate_glossary','fanout_learning_content',
+    'generate_learning_content','finalize_learning_content','validate_learning_content',
+    -- Phase 2: Exam Pool (Steps 7–14)
+    'auto_seed_exam_blueprints','validate_blueprints',
+    'generate_blueprint_variants','validate_blueprint_variants','promote_blueprint_variants',
+    'generate_exam_pool','validate_exam_pool','repair_exam_pool_quality',
+    -- Phase 3: Tutor & Oral (Steps 15–18)
+    'build_ai_tutor_index','validate_tutor_index',
+    'generate_oral_exam','validate_oral_exam',
+    -- Phase 4: Minichecks & Handbook (Steps 19–25)
+    'generate_lesson_minichecks','validate_lesson_minichecks',
+    'generate_handbook','validate_handbook',
+    'enqueue_handbook_expand','expand_handbook','validate_handbook_depth',
+    -- Phase 5: Gates & Publish (Steps 26–29)
+    'elite_harden','run_integrity_check','quality_council','auto_publish'
   );
 ```
+

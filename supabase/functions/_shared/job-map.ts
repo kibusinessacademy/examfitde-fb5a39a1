@@ -333,7 +333,7 @@ export const JOB_DEFINITIONS: Record<string, JobDefinition> = {
   package_run_integrity_check:       { pool: "default", edgeFunction: "package-run-integrity-check" },
   package_quality_council:           { pool: "default", edgeFunction: "package-quality-council" },
   package_auto_publish:              { pool: "default", edgeFunction: "package-auto-publish" },
-  package_seo_pillar_ensure:         { pool: "growth",  edgeFunction: "package-seo-pillar-ensure" },
+  package_seo_pillar_ensure:         { pool: "default", edgeFunction: "package-seo-pillar-ensure" },
 
   // ── legacy / utility ────────────────────────────────────────
   extract_curriculum:                { pool: "default", edgeFunction: "extract-curriculum" },
