@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Brain, Sparkles, AlertTriangle, TrendingDown, GitBranch, Gavel, Loader2, Play, Lock, Rocket } from "lucide-react";
 import { RepairConversionProofWidget } from "@/components/admin/quality-intelligence/RepairConversionProofWidget";
+import { ExamfitUxIntelligencePanel } from "@/components/admin/quality-intelligence/ExamfitUxIntelligencePanel";
 
 const APPLY_ALLOWED = new Set(["expand_question_pool", "enqueue_coverage_repair", "enqueue_integrity_check"]);
 const WAVE1_PRIORITIES = new Set(["P0", "P1"]);
@@ -436,7 +437,12 @@ export default function QualityIntelligencePage() {
           <TabsTrigger value="recommendations">Empfehlungen ({recs.length})</TabsTrigger>
           <TabsTrigger value="findings">Findings ({findings.length})</TabsTrigger>
           <TabsTrigger value="snapshots">Läufe ({snapshots.length})</TabsTrigger>
+          <TabsTrigger value="ux">UX & Product Council</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="ux" className="space-y-3">
+          <ExamfitUxIntelligencePanel />
+        </TabsContent>
 
         <TabsContent value="recommendations" className="space-y-3">
           {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
