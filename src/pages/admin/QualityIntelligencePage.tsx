@@ -298,6 +298,66 @@ export default function QualityIntelligencePage() {
         </CardContent>
       </Card>
 
+      <Card className={policy?.enabled ? "border-emerald-500/40 bg-emerald-500/5" : "border-muted bg-muted/10"}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Brain className="h-4 w-4 text-primary" /> Auto-Apply Policy (KIMI.INTELLIGENCE.1b)
+            <Badge variant={policy?.enabled ? "default" : "secondary"} className="ml-2">
+              {policy?.enabled ? "AKTIV" : "PAUSIERT"}
+            </Badge>
+            {lastRun?.cooldown_active && (
+              <Badge variant="destructive" className="ml-1">COOLDOWN</Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {policy ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div><div className="text-xs text-muted-foreground">Min Confidence</div><div className="font-semibold">{policy.min_confidence}</div></div>
+              <div><div className="text-xs text-muted-foreground">Daily Cap</div><div className="font-semibold">{policy.max_auto_apply_per_day}</div></div>
+              <div><div className="text-xs text-muted-foreground">Per-Kind Cap</div><div className="font-semibold">{policy.max_per_action_kind_per_day}</div></div>
+              <div><div className="text-xs text-muted-foreground">Cooldown @ Fail %</div><div className="font-semibold">{Math.round(Number(policy.cooldown_failure_rate) * 100)}%</div></div>
+              <div className="col-span-2 md:col-span-4">
+                <div className="text-xs text-muted-foreground mb-1">Erlaubt (repair-jobs only)</div>
+                <div className="flex flex-wrap gap-1">
+                  {(policy.allowed_action_kinds ?? []).map((k: string) => (
+                    <Badge key={k} variant="outline" className="text-xs font-mono">{k}</Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted-foreground">Policy nicht geladen.</div>
+          )}
+
+          {lastRun && (
+            <div className="border-t pt-3">
+              <div className="text-xs text-muted-foreground mb-1">Letzter Lauf · {new Date(lastRun.triggered_at).toLocaleString("de-DE")} · {lastRun.triggered_by}</div>
+              <div className="flex flex-wrap gap-3 text-xs">
+                <span>seen <strong>{lastRun.candidates_seen}</strong></span>
+                <span className="text-emerald-600">ok <strong>{lastRun.applied_ok}</strong></span>
+                <span className="text-red-600">fail <strong>{lastRun.applied_fail}</strong></span>
+                <span className="text-amber-600">skipped <strong>{lastRun.skipped}</strong></span>
+                {lastRun.failure_rate != null && <span>fail-rate <strong>{Math.round(Number(lastRun.failure_rate) * 100)}%</strong></span>}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" variant="outline" onClick={togglePolicy} disabled={togglingPolicy || !policy}>
+              {policy?.enabled ? "Pausieren" : "Aktivieren"}
+            </Button>
+            <Button size="sm" onClick={triggerAutoApplyCron} disabled={triggeringCron}>
+              {triggeringCron ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+              Jetzt ausführen
+            </Button>
+            <span className="text-xs text-muted-foreground self-center ml-2">Cron alle 15 min</span>
+          </div>
+        </CardContent>
+      </Card>
+
+
+
       {conv && (
         <Card className="border-emerald-500/40">
           <CardHeader className="pb-2">
