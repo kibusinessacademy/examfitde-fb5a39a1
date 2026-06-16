@@ -78,24 +78,37 @@ const PRIORITY_COLOR: Record<string, string> = {
   P3: "bg-gray-400 text-white",
 };
 
+interface ConversionSummary {
+  applied_repairs: number;
+  jobs_completed: number;
+  jobs_failed: number;
+  publishable_reached: number;
+  published_reached: number;
+  publishable_conversion_pct: number | null;
+  published_conversion_pct: number | null;
+}
+
 export default function QualityIntelligencePage() {
   const { toast } = useToast();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [recs, setRecs] = useState<Recommendation[]>([]);
+  const [conv, setConv] = useState<ConversionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<ModuleKey | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [s, f, r] = await Promise.all([
+    const [s, f, r, c] = await Promise.all([
       supabase.from("quality_intelligence_snapshots").select("*").order("started_at", { ascending: false }).limit(40),
       supabase.from("quality_intelligence_findings").select("*").order("created_at", { ascending: false }).limit(100),
       supabase.from("quality_intelligence_recommendations").select("*").in("status", ["pending", "approved"]).order("priority").limit(200),
+      supabase.from("v_qil_repair_conversion_summary" as any).select("*").maybeSingle(),
     ]);
     if (s.data) setSnapshots(s.data as any);
     if (f.data) setFindings(f.data as any);
     if (r.data) setRecs(r.data as any);
+    if (c.data) setConv(c.data as any);
     setLoading(false);
   }, []);
 
@@ -134,8 +147,9 @@ export default function QualityIntelligencePage() {
     if (error) { toast({ title: "Apply fehlgeschlagen", description: error.message, variant: "destructive" }); return; }
     const d: any = data;
     if (d?.ok) {
-      toast({ title: "Repair-Job enqueued", description: `${d.reason_code} · job_id=${d.job_id?.slice?.(0,8) ?? d.job_id}` });
+      toast({ title: "Repair-Jobs enqueued", description: `${d.reason_code} · enqueued=${d.enqueued ?? 1} reused=${d.reused ?? 0} skipped=${d.skipped ?? 0}` });
       setRecs((prev) => prev.filter((r) => r.id !== id));
+      await load();
     } else {
       toast({ title: "Apply blockiert", description: `${d?.reason_code}${d?.action_kind ? ` · ${d.action_kind}` : ""}`, variant: "destructive" });
     }
@@ -156,6 +170,35 @@ export default function QualityIntelligencePage() {
           </p>
         </div>
       </div>
+
+      {conv && (
+        <Card className="border-emerald-500/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Play className="h-4 w-4 text-emerald-600" /> Repair Conversion (KIMI.INTELLIGENCE.1a)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
+              <div><div className="text-muted-foreground text-xs">Applied</div><div className="text-2xl font-semibold">{conv.applied_repairs}</div></div>
+              <div><div className="text-muted-foreground text-xs">Jobs ok</div><div className="text-2xl font-semibold text-emerald-600">{conv.jobs_completed}</div></div>
+              <div><div className="text-muted-foreground text-xs">Jobs failed</div><div className="text-2xl font-semibold text-red-600">{conv.jobs_failed}</div></div>
+              <div><div className="text-muted-foreground text-xs">Publishable</div><div className="text-2xl font-semibold">{conv.publishable_reached}</div></div>
+              <div><div className="text-muted-foreground text-xs">Published</div><div className="text-2xl font-semibold">{conv.published_reached}</div></div>
+              <div>
+                <div className="text-muted-foreground text-xs">Conversion</div>
+                <div className="text-2xl font-semibold">
+                  {conv.publishable_conversion_pct ?? 0}% / {conv.published_conversion_pct ?? 0}%
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Beweiskette: applied → job ok → publishable → published. Erst eine echte Conversion macht KIMI zum Produktionshebel.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {(Object.keys(MODULE_META) as ModuleKey[]).map((m) => {
