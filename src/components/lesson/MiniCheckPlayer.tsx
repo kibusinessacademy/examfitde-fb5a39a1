@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { SurfaceHumorCard } from '@/components/humor/SurfaceHumorCard';
 import { CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import MiniCheckTutorFeedback, {
   type MiniCheckWrongItem,
 } from './MiniCheckTutorFeedback';
 import LearningRecoveryLoop from './LearningRecoveryLoop';
+import { useTranslatedQuestion } from '@/hooks/i18n/useTranslatedContent';
+import { TranslationBadge } from '@/components/i18n/TranslationBadge';
 
 export interface MiniCheckQuestion {
   id: string;
