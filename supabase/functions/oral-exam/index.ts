@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { action, ...params } = body;
+    const lang = typeof body?.lang === "string" && /^(de|en|tr|ar|uk|ru)$/.test(body.lang) ? body.lang : "de";
 
     // ── FIX 1: Auth via anon+jwt (RLS active) ──────────────────
     const authHeader = req.headers.get("Authorization");
