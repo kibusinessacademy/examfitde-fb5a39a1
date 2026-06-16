@@ -99,6 +99,10 @@ export default function QualityIntelligencePage() {
   const [running, setRunning] = useState<ModuleKey | null>(null);
   const [autoApplying, setAutoApplying] = useState(false);
   const [autoProgress, setAutoProgress] = useState<{ done: number; total: number; ok: number; failed: number; skipped: number } | null>(null);
+  const [policy, setPolicy] = useState<any | null>(null);
+  const [lastRun, setLastRun] = useState<any | null>(null);
+  const [triggeringCron, setTriggeringCron] = useState(false);
+  const [togglingPolicy, setTogglingPolicy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
