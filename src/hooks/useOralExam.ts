@@ -83,7 +83,8 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
           action: 'start_session',
           curriculum_id: curriculumId,
           mode,
-          total_questions: totalQuestions
+          total_questions: totalQuestions,
+          lang: targetLang,
         }
       });
 
