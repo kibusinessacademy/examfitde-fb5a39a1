@@ -180,11 +180,10 @@ export async function callKimi(
         role: "user",
         content:
           "Analysiere die folgenden Pipeline-Daten und antworte AUSSCHLIESSLICH mit gültigem JSON, " +
-          "das exakt dem im System-Prompt definierten Schema entspricht.\n\nDATEN:\n" +
+          "das exakt dem im System-Prompt definierten Schema entspricht. Kein Markdown, kein Fließtext, nur JSON.\n\nDATEN:\n" +
           JSON.stringify(userPayload, null, 2),
       },
     ],
-    response_format: { type: "json_object" },
     temperature: 0.2,
   };
 
@@ -203,18 +202,34 @@ export async function callKimi(
   }
 
   const json = await res.json();
-  const content = json?.choices?.[0]?.message?.content ?? "{}";
+  const rawContent: string = json?.choices?.[0]?.message?.content ?? "";
   const usage = json?.usage ?? {};
+
+  console.log(`[kimi] tokens=${usage.prompt_tokens ?? 0}/${usage.completion_tokens ?? 0} content_len=${rawContent.length}`);
+
+  // Strip ```json ... ``` or ``` ... ``` wrappers
+  let cleaned = rawContent.trim();
+  const fenceMatch = cleaned.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+  if (fenceMatch) cleaned = fenceMatch[1].trim();
+
+  // Fallback: extract first {...} block
+  if (!cleaned.startsWith("{")) {
+    const idx = cleaned.indexOf("{");
+    const last = cleaned.lastIndexOf("}");
+    if (idx >= 0 && last > idx) cleaned = cleaned.slice(idx, last + 1);
+  }
 
   let parsed: KimiAnalysisResult;
   try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new Error(`Kimi returned non-JSON: ${content.slice(0, 300)}`);
+    parsed = JSON.parse(cleaned);
+  } catch (e) {
+    console.error("[kimi] parse failed, raw content head:", rawContent.slice(0, 800));
+    throw new Error(`Kimi returned non-JSON: ${rawContent.slice(0, 300)}`);
   }
 
   if (!parsed.findings || !Array.isArray(parsed.findings)) {
-    parsed = { findings: [], summary: parsed.summary ?? "no findings" };
+    console.warn("[kimi] no findings array in response, keys:", Object.keys(parsed ?? {}));
+    parsed = { findings: [], summary: (parsed as any)?.summary ?? "no findings" };
   }
 
   return {
