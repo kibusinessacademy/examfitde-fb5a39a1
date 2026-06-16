@@ -78,24 +78,37 @@ const PRIORITY_COLOR: Record<string, string> = {
   P3: "bg-gray-400 text-white",
 };
 
+interface ConversionSummary {
+  applied_repairs: number;
+  jobs_completed: number;
+  jobs_failed: number;
+  publishable_reached: number;
+  published_reached: number;
+  publishable_conversion_pct: number | null;
+  published_conversion_pct: number | null;
+}
+
 export default function QualityIntelligencePage() {
   const { toast } = useToast();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [recs, setRecs] = useState<Recommendation[]>([]);
+  const [conv, setConv] = useState<ConversionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<ModuleKey | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [s, f, r] = await Promise.all([
+    const [s, f, r, c] = await Promise.all([
       supabase.from("quality_intelligence_snapshots").select("*").order("started_at", { ascending: false }).limit(40),
       supabase.from("quality_intelligence_findings").select("*").order("created_at", { ascending: false }).limit(100),
       supabase.from("quality_intelligence_recommendations").select("*").in("status", ["pending", "approved"]).order("priority").limit(200),
+      supabase.from("v_qil_repair_conversion_summary" as any).select("*").maybeSingle(),
     ]);
     if (s.data) setSnapshots(s.data as any);
     if (f.data) setFindings(f.data as any);
     if (r.data) setRecs(r.data as any);
+    if (c.data) setConv(c.data as any);
     setLoading(false);
   }, []);
 
