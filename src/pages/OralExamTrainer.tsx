@@ -45,6 +45,7 @@ import {
   reportEntryFallbackView,
   reportEntryFallbackCtaClick,
 } from '@/lib/monitoring/entryFallbackSignal';
+import { useTargetLanguage, STT_TTS_LOCALE } from '@/hooks/i18n/useTranslatedContent';
 
 type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
 
