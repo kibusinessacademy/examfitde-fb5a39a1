@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useTargetLanguage } from '@/hooks/i18n/useTranslatedContent';
 
 export interface OralExamSession {
   id: string;
