@@ -59,7 +59,7 @@ export default function EdgeFnHealthPage() {
         .select('*')
         .order('bytes', { ascending: false });
       if (error) setError(error.message);
-      else setRows((data ?? []) as Row[]);
+      else setRows(((data ?? []) as unknown) as Row[]);
       setLoading(false);
     })();
   }, []);
