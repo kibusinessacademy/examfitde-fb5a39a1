@@ -350,6 +350,7 @@ const QualityIntelligencePage = lazyRetry(() => import('@/pages/admin/QualityInt
 const OperationsVisibilityPage = lazyRetry(() => import('@/pages/admin/OperationsVisibilityPage'));
 const GovernanceLeitzentralePage = lazyRetry(() => import('@/pages/admin/GovernanceLeitzentralePage'));
 const EdgeFnHealthPage = lazyRetry(() => import('@/pages/admin/EdgeFnHealthPage'));
+const WorkflowSimulatorPage = lazyRetry(() => import('@/pages/admin/WorkflowSimulatorPage'));
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 
 import { PathAwareLoadingFallback } from '@/components/seo/PathAwareLoadingFallback';
@@ -861,6 +862,7 @@ const AppRoutes = () => {
           <Route path="ops/visibility" element={<OperationsVisibilityPage />} />
           <Route path="governance/leitzentrale" element={<GovernanceLeitzentralePage />} />
           <Route path="governance/edge-fn-health" element={<EdgeFnHealthPage />} />
+          <Route path="governance/workflow-simulator" element={<WorkflowSimulatorPage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
 
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
