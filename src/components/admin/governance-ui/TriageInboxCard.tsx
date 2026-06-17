@@ -46,7 +46,7 @@ export function TriageInboxCard() {
         .select("id,source_kind,source_id,package_id,rule_key,severity,composite_score,confidence,rationale,created_at")
         .order("created_at", { ascending: false })
         .limit(200);
-      if (severityFilter !== "all") q = q.eq("severity", severityFilter);
+      if (severityFilter !== "all") q = q.eq("severity", severityFilter as any);
       const { data, error } = await q;
       if (error) throw error;
       const rows = (data ?? []) as Score[];

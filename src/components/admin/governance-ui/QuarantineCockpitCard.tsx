@@ -22,8 +22,9 @@ type Q = {
 type AuditRow = {
   id: string;
   action_type: string;
-  package_id: string | null;
-  details: any;
+  target_id: string | null;
+  target_type: string | null;
+  metadata: any;
   created_at: string;
 };
 
@@ -48,7 +49,7 @@ export function QuarantineCockpitCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("auto_heal_log")
-        .select("id,action_type,package_id,details,created_at")
+        .select("id,action_type,target_id,target_type,metadata,created_at")
         .ilike("action_type", "%quarantine%")
         .order("created_at", { ascending: false })
         .limit(20);
@@ -141,9 +142,9 @@ export function QuarantineCockpitCard() {
               {audit.map((a) => (
                 <li key={a.id} className="flex items-start gap-2 border-b pb-1">
                   <Badge variant="outline">{a.action_type}</Badge>
-                  {a.package_id && (
+                  {a.target_id && (
                     <span className="font-mono text-muted-foreground">
-                      {a.package_id.slice(0, 8)}
+                      {a.target_type ?? "ref"}:{String(a.target_id).slice(0, 8)}
                     </span>
                   )}
                   <span className="ml-auto text-muted-foreground">
