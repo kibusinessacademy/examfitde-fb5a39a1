@@ -162,13 +162,16 @@ export default function StorageRealityPage() {
   const [topByClass, setTopByClass] = useState<TopByClass[]>([]);
   const [lastRun, setLastRun] = useState<LastRun | null>(null);
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
+  const [attackClasses, setAttackClasses] = useState<AttackClass[]>([]);
+  const [byClassRows, setByClassRows] = useState<ByClassRow[]>([]);
   const [running, setRunning] = useState(false);
   const [attacking, setAttacking] = useState(false);
+  const [attackingP2, setAttackingP2] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [bRes, fRes, rRes, kRes, akRes, arRes, pRes, tRes, lRes] = await Promise.all([
+    const [bRes, fRes, rRes, kRes, akRes, arRes, pRes, tRes, lRes, acRes, bcRes] = await Promise.all([
       (supabase as any).from("v_admin_storage_bucket_maturity").select("*"),
       (supabase as any).from("storage_rls_audit_findings").select("*").order("created_at", { ascending: false }).limit(200),
       (supabase as any).from("storage_audit_runs").select("*").order("started_at", { ascending: false }).limit(20),
@@ -178,6 +181,8 @@ export default function StorageRealityPage() {
       (supabase as any).from("storage_attack_policies").select("*").limit(1).maybeSingle(),
       (supabase as any).from("v_admin_storage_attack_top_findings_by_class").select("*"),
       (supabase as any).from("v_admin_storage_attack_last_run").select("*").maybeSingle(),
+      (supabase as any).from("storage_attack_classes").select("*").order("class_key"),
+      (supabase as any).from("v_admin_storage_attack_by_class").select("*"),
     ]);
     if (!bRes.error) setBuckets(bRes.data ?? []);
     if (!fRes.error) setFindings(fRes.data ?? []);
@@ -188,6 +193,8 @@ export default function StorageRealityPage() {
     if (!pRes.error) setPolicy(pRes.data ?? null);
     if (!tRes.error) setTopByClass(tRes.data ?? []);
     if (!lRes.error) setLastRun(lRes.data ?? null);
+    if (!acRes.error) setAttackClasses(acRes.data ?? []);
+    if (!bcRes.error) setByClassRows(bcRes.data ?? []);
     setLoading(false);
   }
 
