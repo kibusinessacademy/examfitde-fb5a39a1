@@ -353,6 +353,7 @@ const EdgeFnHealthPage = lazyRetry(() => import('@/pages/admin/EdgeFnHealthPage'
 const WorkflowSimulatorPage = lazyRetry(() => import('@/pages/admin/WorkflowSimulatorPage'));
 const CronHealthFullPage = lazyRetry(() => import('@/pages/admin/CronHealthFullPage'));
 const GithubWorkflowsPage = lazyRetry(() => import('@/pages/admin/GithubWorkflowsPage'));
+const SsotGuardPage = lazyRetry(() => import('@/pages/admin/SsotGuardPage'));
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 
 import { PathAwareLoadingFallback } from '@/components/seo/PathAwareLoadingFallback';
