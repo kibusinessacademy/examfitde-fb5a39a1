@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ShieldCheck, Loader2, RefreshCcw, Lock } from "lucide-react";
+import { ShieldCheck, Loader2, RefreshCcw, Lock, Swords, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 type Bucket = {
   bucket_id: string;
@@ -76,17 +77,54 @@ const matColor: Record<string, string> = {
   platinum: "default",
 };
 
+type AttackKpis = {
+  total_attack_runs: number;
+  total_attack_results: number;
+  total_leaks: number;
+  critical_leaks: number;
+  buckets_with_leaks: number;
+  last_attack_run_at: string | null;
+};
+
+type AttackResultRow = {
+  id: string;
+  run_id: string;
+  bucket_id: string;
+  attack_type: string;
+  result: string;
+  severity: string;
+  content_class: string;
+  synthetic_tenant: string | null;
+  target_path: string | null;
+  evidence: any;
+  created_at: string;
+};
+
+type AttackPolicy = {
+  id: string;
+  enabled: boolean;
+  synthetic_prefix: string;
+  allowed_buckets: string[];
+  excluded_buckets: string[];
+  max_objects_per_bucket: number;
+  notes: string | null;
+};
+
 export default function StorageRealityPage() {
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [kpis, setKpis] = useState<Kpis | null>(null);
+  const [attackKpis, setAttackKpis] = useState<AttackKpis | null>(null);
+  const [attackResults, setAttackResults] = useState<AttackResultRow[]>([]);
+  const [policy, setPolicy] = useState<AttackPolicy | null>(null);
   const [running, setRunning] = useState(false);
+  const [attacking, setAttacking] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [bRes, fRes, rRes, kRes] = await Promise.all([
+    const [bRes, fRes, rRes, kRes, akRes, arRes, pRes] = await Promise.all([
       (supabase as any).from("v_admin_storage_bucket_maturity").select("*"),
       (supabase as any)
         .from("storage_rls_audit_findings")
@@ -99,11 +137,21 @@ export default function StorageRealityPage() {
         .order("started_at", { ascending: false })
         .limit(20),
       (supabase as any).from("v_admin_storage_audit_kpis").select("*").maybeSingle(),
+      (supabase as any).from("v_admin_storage_attack_kpis").select("*").maybeSingle(),
+      (supabase as any)
+        .from("storage_attack_run_results")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      (supabase as any).from("storage_attack_policies").select("*").limit(1).maybeSingle(),
     ]);
     if (!bRes.error) setBuckets(bRes.data ?? []);
     if (!fRes.error) setFindings(fRes.data ?? []);
     if (!rRes.error) setRuns(rRes.data ?? []);
     if (!kRes.error) setKpis(kRes.data ?? null);
+    if (!akRes.error) setAttackKpis(akRes.data ?? null);
+    if (!arRes.error) setAttackResults(arRes.data ?? []);
+    if (!pRes.error) setPolicy(pRes.data ?? null);
     setLoading(false);
   }
 
@@ -129,6 +177,36 @@ export default function StorageRealityPage() {
     }
   }
 
+  async function runAttack() {
+    if (!policy?.enabled) {
+      toast.error("Kill-Switch ist aus. Erst Attack-Simulation aktivieren.");
+      return;
+    }
+    if (!confirm("Synthetische Attack-Simulation starten? Schreibt nur unter __storage_audit__/<run_id>/ und räumt am Ende auf.")) return;
+    setAttacking(true);
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("storage-attack-simulator", { body: {} });
+      if (error) throw error;
+      toast.success(`Attack fertig — ${data.attacks_run} Angriffe, ${data.leaks} Leaks, ${data.cleaned} Objekte aufgeräumt`);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Attack-Simulation fehlgeschlagen");
+    } finally {
+      setAttacking(false);
+    }
+  }
+
+  async function toggleKillSwitch(next: boolean) {
+    if (!policy) return;
+    const { error } = await (supabase as any)
+      .from("storage_attack_policies")
+      .update({ enabled: next, updated_at: new Date().toISOString() })
+      .eq("id", policy.id);
+    if (error) { toast.error(error.message); return; }
+    setPolicy({ ...policy, enabled: next });
+    toast.success(next ? "Attack-Simulation aktiviert" : "Attack-Simulation deaktiviert");
+  }
+
   const score = (() => {
     if (buckets.length === 0) return 0;
     const weight = { bronze: 0, silver: 50, gold: 80, platinum: 100 } as Record<string, number>;
@@ -143,17 +221,21 @@ export default function StorageRealityPage() {
           <div>
             <h1 className="text-2xl font-semibold">Storage Reality Audit</h1>
             <p className="text-sm text-muted-foreground">
-              Phase 0 — read-only Inventar & Diagnose. Keine Bucket-/Object-/Policy-Änderungen.
+              Phase 0 read-only Inventar · Phase 1 synthetische Attack-Simulation (kill-switch).
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="gap-1">
-            <Lock className="h-3 w-3" /> read-only
+            <Lock className="h-3 w-3" /> {policy?.enabled ? "attacks armed" : "read-only"}
           </Badge>
-          <Button onClick={runAudit} disabled={running}>
+          <Button variant="outline" onClick={runAudit} disabled={running}>
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
             <span className="ml-2">Audit starten</span>
+          </Button>
+          <Button onClick={runAttack} disabled={attacking || !policy?.enabled} variant={policy?.enabled ? "destructive" : "secondary"}>
+            {attacking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-4 w-4" />}
+            <span className="ml-2">Attack starten</span>
           </Button>
         </div>
       </header>
@@ -187,6 +269,12 @@ export default function StorageRealityPage() {
           <TabsTrigger value="buckets">Buckets</TabsTrigger>
           <TabsTrigger value="findings">Findings</TabsTrigger>
           <TabsTrigger value="runs">Runs</TabsTrigger>
+          <TabsTrigger value="attacks">
+            Attacks
+            {attackKpis && attackKpis.total_leaks > 0 && (
+              <Badge variant="destructive" className="ml-2">{attackKpis.total_leaks}</Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
 
@@ -330,6 +418,92 @@ export default function StorageRealityPage() {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="attacks" className="space-y-4">
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    Synthetic Attack Kill-Switch
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Schreibt nur unter <code className="font-mono">{policy?.synthetic_prefix ?? "__storage_audit__"}/&lt;run_id&gt;/</code> · garantiertes Cleanup · keine Policy-/Bucket-Änderungen.
+                  </div>
+                </div>
+                <Switch
+                  checked={policy?.enabled ?? false}
+                  onCheckedChange={toggleKillSwitch}
+                  disabled={!policy}
+                />
+              </div>
+              {attackKpis && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
+                  <Stat label="Attack Runs" value={attackKpis.total_attack_runs} />
+                  <Stat label="Ergebnisse" value={attackKpis.total_attack_results} />
+                  <Stat label="Leaks" value={attackKpis.total_leaks} accent={attackKpis.total_leaks > 0} />
+                  <Stat label="High/Critical Leaks" value={attackKpis.critical_leaks} accent={attackKpis.critical_leaks > 0} />
+                  <Stat label="Buckets mit Leaks" value={attackKpis.buckets_with_leaks} accent={attackKpis.buckets_with_leaks > 0} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-left text-muted-foreground">
+                  <tr className="border-b">
+                    <th className="p-2">Zeit</th>
+                    <th className="p-2">Bucket</th>
+                    <th className="p-2">Content</th>
+                    <th className="p-2">Attack</th>
+                    <th className="p-2">Ergebnis</th>
+                    <th className="p-2">Severity</th>
+                    <th className="p-2">Tenant</th>
+                    <th className="p-2">Pfad</th>
+                    <th className="p-2">Evidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attackResults.map((a) => (
+                    <tr key={a.id} className="border-b align-top hover:bg-muted/40">
+                      <td className="p-2 whitespace-nowrap">{new Date(a.created_at).toLocaleString()}</td>
+                      <td className="p-2 font-mono">{a.bucket_id}</td>
+                      <td className="p-2">
+                        <Badge variant={["learner_data","certificate","assessment","exam_content"].includes(a.content_class) ? "destructive" : "secondary"}>
+                          {a.content_class}
+                        </Badge>
+                      </td>
+                      <td className="p-2">{a.attack_type}</td>
+                      <td className="p-2">
+                        <Badge variant={a.result === "leak" ? "destructive" : a.result === "pass" ? "default" : "secondary"}>
+                          {a.result}
+                        </Badge>
+                      </td>
+                      <td className="p-2">
+                        <Badge variant={(sevColor[a.severity] as any) ?? "outline"}>{a.severity}</Badge>
+                      </td>
+                      <td className="p-2">{a.synthetic_tenant ?? "—"}</td>
+                      <td className="p-2 font-mono break-all max-w-[260px]">{a.target_path ?? "—"}</td>
+                      <td className="p-2 max-w-[280px] font-mono text-[10px] break-all">
+                        {a.evidence ? JSON.stringify(a.evidence) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                  {!loading && attackResults.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="p-6 text-center text-muted-foreground">
+                        Noch keine Attack-Ergebnisse. Kill-Switch aktivieren und „Attack starten".
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </CardContent>
