@@ -43,13 +43,6 @@ type Finding = {
   bucket_id: string;
   finding_type: string;
   severity: string;
-  path_sample: string | null;
-  evidence: any;
-type Finding = {
-  id: string;
-  bucket_id: string;
-  finding_type: string;
-  severity: string;
   content_class: string;
   path_sample: string | null;
   evidence: any;
