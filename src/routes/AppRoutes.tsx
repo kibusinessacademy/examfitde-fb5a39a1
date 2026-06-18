@@ -354,6 +354,7 @@ const WorkflowSimulatorPage = lazyRetry(() => import('@/pages/admin/WorkflowSimu
 const CronHealthFullPage = lazyRetry(() => import('@/pages/admin/CronHealthFullPage'));
 const GithubWorkflowsPage = lazyRetry(() => import('@/pages/admin/GithubWorkflowsPage'));
 const SsotGuardPage = lazyRetry(() => import('@/pages/admin/SsotGuardPage'));
+const StorageRealityPage = lazyRetry(() => import('@/pages/admin/StorageRealityPage'));
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 
 import { PathAwareLoadingFallback } from '@/components/seo/PathAwareLoadingFallback';
@@ -869,6 +870,7 @@ const AppRoutes = () => {
           <Route path="governance/cron-health" element={<CronHealthFullPage />} />
           <Route path="governance/github-workflows" element={<GithubWorkflowsPage />} />
           <Route path="governance/ssot-guard" element={<SsotGuardPage />} />
+          <Route path="governance/storage-reality" element={<StorageRealityPage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
 
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
