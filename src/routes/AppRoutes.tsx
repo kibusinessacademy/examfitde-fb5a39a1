@@ -870,6 +870,7 @@ const AppRoutes = () => {
           <Route path="governance/cron-health" element={<CronHealthFullPage />} />
           <Route path="governance/github-workflows" element={<GithubWorkflowsPage />} />
           <Route path="governance/ssot-guard" element={<SsotGuardPage />} />
+          <Route path="governance/storage-reality" element={<StorageRealityPage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
 
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
