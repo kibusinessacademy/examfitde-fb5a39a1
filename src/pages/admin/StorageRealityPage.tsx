@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ShieldCheck, Loader2, RefreshCcw, Lock, Swords, AlertTriangle } from "lucide-react";
+import { ShieldCheck, Loader2, RefreshCcw, Lock, Swords, AlertTriangle, Download, FileJson, FileSpreadsheet, ShieldAlert, Unlock } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 type Bucket = {
@@ -57,24 +57,26 @@ type Run = {
   status: string;
   buckets_scanned: number | null;
   objects_sampled: number | null;
+  objects_planned: number | null;
+  cleanup_count: number | null;
+  cleanup_ok: boolean | null;
   findings_count: number | null;
   started_at: string;
   finished_at: string | null;
   source: string;
+  run_kind?: string | null;
+  allowed_buckets?: string[] | null;
+  excluded_buckets?: string[] | null;
+  blocked_reason?: string | null;
+  run_log?: any;
+  summary?: any;
 };
 
 const sevColor: Record<string, string> = {
-  critical: "destructive",
-  high: "destructive",
-  medium: "default",
-  low: "secondary",
-  info: "outline",
+  critical: "destructive", high: "destructive", medium: "default", low: "secondary", info: "outline",
 };
 const matColor: Record<string, string> = {
-  bronze: "destructive",
-  silver: "secondary",
-  gold: "default",
-  platinum: "default",
+  bronze: "destructive", silver: "secondary", gold: "default", platinum: "default",
 };
 
 type AttackKpis = {
@@ -110,6 +112,21 @@ type AttackPolicy = {
   notes: string | null;
 };
 
+type TopByClass = {
+  content_class: string;
+  leak_count: number;
+  buckets_affected: number;
+  objects_affected: number;
+  risk_score: number;
+  last_seen_at: string;
+  bucket_ids: string[];
+  attack_types: string[];
+};
+
+type LastRun = Run & { block_next_full_run: boolean };
+
+const SENSITIVE = ["learner_data", "certificate", "assessment", "exam_content"];
+
 export default function StorageRealityPage() {
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -118,32 +135,25 @@ export default function StorageRealityPage() {
   const [attackKpis, setAttackKpis] = useState<AttackKpis | null>(null);
   const [attackResults, setAttackResults] = useState<AttackResultRow[]>([]);
   const [policy, setPolicy] = useState<AttackPolicy | null>(null);
+  const [topByClass, setTopByClass] = useState<TopByClass[]>([]);
+  const [lastRun, setLastRun] = useState<LastRun | null>(null);
+  const [expandedRun, setExpandedRun] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [attacking, setAttacking] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [bRes, fRes, rRes, kRes, akRes, arRes, pRes] = await Promise.all([
+    const [bRes, fRes, rRes, kRes, akRes, arRes, pRes, tRes, lRes] = await Promise.all([
       (supabase as any).from("v_admin_storage_bucket_maturity").select("*"),
-      (supabase as any)
-        .from("storage_rls_audit_findings")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200),
-      (supabase as any)
-        .from("storage_audit_runs")
-        .select("*")
-        .order("started_at", { ascending: false })
-        .limit(20),
+      (supabase as any).from("storage_rls_audit_findings").select("*").order("created_at", { ascending: false }).limit(200),
+      (supabase as any).from("storage_audit_runs").select("*").order("started_at", { ascending: false }).limit(20),
       (supabase as any).from("v_admin_storage_audit_kpis").select("*").maybeSingle(),
       (supabase as any).from("v_admin_storage_attack_kpis").select("*").maybeSingle(),
-      (supabase as any)
-        .from("storage_attack_run_results")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200),
+      (supabase as any).from("storage_attack_run_results").select("*").order("created_at", { ascending: false }).limit(500),
       (supabase as any).from("storage_attack_policies").select("*").limit(1).maybeSingle(),
+      (supabase as any).from("v_admin_storage_attack_top_findings_by_class").select("*"),
+      (supabase as any).from("v_admin_storage_attack_last_run").select("*").maybeSingle(),
     ]);
     if (!bRes.error) setBuckets(bRes.data ?? []);
     if (!fRes.error) setFindings(fRes.data ?? []);
@@ -152,34 +162,29 @@ export default function StorageRealityPage() {
     if (!akRes.error) setAttackKpis(akRes.data ?? null);
     if (!arRes.error) setAttackResults(arRes.data ?? []);
     if (!pRes.error) setPolicy(pRes.data ?? null);
+    if (!tRes.error) setTopByClass(tRes.data ?? []);
+    if (!lRes.error) setLastRun(lRes.data ?? null);
     setLoading(false);
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   async function runAudit() {
     setRunning(true);
     try {
-      const { data, error } = await (supabase as any).functions.invoke("storage-reality-audit", {
-        body: { sample_size: 50 },
-      });
+      const { data, error } = await (supabase as any).functions.invoke("storage-reality-audit", { body: { sample_size: 50 } });
       if (error) throw error;
-      toast.success(
-        `Audit fertig — ${data.buckets_scanned} Buckets, ${data.objects_sampled} Objekte, ${data.findings} Findings`,
-      );
+      toast.success(`Audit fertig — ${data.buckets_scanned} Buckets, ${data.objects_sampled} Objekte, ${data.findings} Findings`);
       await load();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Audit fehlgeschlagen");
-    } finally {
-      setRunning(false);
-    }
+    } catch (e: any) { toast.error(e?.message ?? "Audit fehlgeschlagen"); }
+    finally { setRunning(false); }
   }
 
   async function runAttack() {
-    if (!policy?.enabled) {
-      toast.error("Kill-Switch ist aus. Erst Attack-Simulation aktivieren.");
+    if (!policy?.enabled) { toast.error("Kill-Switch ist aus. Erst Attack-Simulation aktivieren."); return; }
+    const isFull = (policy.allowed_buckets?.length ?? 0) === 0;
+    if (isFull && lastRun?.block_next_full_run) {
+      toast.error("Voll-Lauf blockiert — letzter Run hatte Cleanup-Mismatch. Erst freigeben.");
       return;
     }
     if (!confirm("Synthetische Attack-Simulation starten? Schreibt nur unter __storage_audit__/<run_id>/ und räumt am Ende auf.")) return;
@@ -187,24 +192,55 @@ export default function StorageRealityPage() {
     try {
       const { data, error } = await (supabase as any).functions.invoke("storage-attack-simulator", { body: {} });
       if (error) throw error;
-      toast.success(`Attack fertig — ${data.attacks_run} Angriffe, ${data.leaks} Leaks, ${data.cleaned} Objekte aufgeräumt`);
+      toast.success(`Attack fertig — ${data.attacks_run} Angriffe, ${data.leaks} Leaks, ${data.cleaned}/${data.objects_planned} Objekte aufgeräumt`);
       await load();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Attack-Simulation fehlgeschlagen");
-    } finally {
-      setAttacking(false);
-    }
+    } catch (e: any) { toast.error(e?.message ?? "Attack-Simulation fehlgeschlagen"); }
+    finally { setAttacking(false); }
   }
 
   async function toggleKillSwitch(next: boolean) {
     if (!policy) return;
-    const { error } = await (supabase as any)
-      .from("storage_attack_policies")
-      .update({ enabled: next, updated_at: new Date().toISOString() })
-      .eq("id", policy.id);
+    const { error } = await (supabase as any).from("storage_attack_policies")
+      .update({ enabled: next, updated_at: new Date().toISOString() }).eq("id", policy.id);
     if (error) { toast.error(error.message); return; }
     setPolicy({ ...policy, enabled: next });
     toast.success(next ? "Attack-Simulation aktiviert" : "Attack-Simulation deaktiviert");
+  }
+
+  async function clearBlock() {
+    if (!lastRun) return;
+    const note = prompt("Notiz zur manuellen Freigabe (z.B. 'Synth-Reste manuell gelöscht'):") ?? "";
+    const { error } = await (supabase as any).rpc("admin_storage_attack_clear_block", { _run_id: lastRun.id, _note: note });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Block aufgehoben");
+    await load();
+  }
+
+  function downloadRunJson(run: Run) {
+    const results = attackResults.filter((r) => r.run_id === run.id);
+    const payload = { run, results };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    triggerDownload(blob, `storage-attack-${run.id}.json`);
+  }
+
+  function downloadRunCsv(run: Run) {
+    const results = attackResults.filter((r) => r.run_id === run.id);
+    const header = ["created_at","bucket_id","content_class","attack_type","result","severity","synthetic_tenant","target_path","evidence"];
+    const rows = results.map((r) => [
+      r.created_at, r.bucket_id, r.content_class, r.attack_type, r.result, r.severity,
+      r.synthetic_tenant ?? "", r.target_path ?? "", JSON.stringify(r.evidence ?? {}),
+    ]);
+    const csv = [header, ...rows].map((row) =>
+      row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")
+    ).join("\n");
+    triggerDownload(new Blob([csv], { type: "text/csv" }), `storage-attack-${run.id}.csv`);
+  }
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   const score = (() => {
@@ -213,6 +249,10 @@ export default function StorageRealityPage() {
     return Math.round(buckets.reduce((s, b) => s + (weight[b.maturity] ?? 0), 0) / buckets.length);
   })();
 
+  const attackRuns = runs.filter((r) => (r as any).run_kind === "attack" || r.source === "admin_ui_attack");
+  const isFullRunMode = (policy?.allowed_buckets?.length ?? 0) === 0;
+  const blocked = isFullRunMode && lastRun?.block_next_full_run;
+
   return (
     <div className="container py-6 space-y-6">
       <header className="flex items-center justify-between gap-3">
@@ -220,9 +260,7 @@ export default function StorageRealityPage() {
           <ShieldCheck className="h-7 w-7 text-primary" />
           <div>
             <h1 className="text-2xl font-semibold">Storage Reality Audit</h1>
-            <p className="text-sm text-muted-foreground">
-              Phase 0 read-only Inventar · Phase 1 synthetische Attack-Simulation (kill-switch).
-            </p>
+            <p className="text-sm text-muted-foreground">Phase 0 read-only Inventar · Phase 1.1 Attack-Simulation mit Cleanup-Blocker & Export.</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -233,7 +271,7 @@ export default function StorageRealityPage() {
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
             <span className="ml-2">Audit starten</span>
           </Button>
-          <Button onClick={runAttack} disabled={attacking || !policy?.enabled} variant={policy?.enabled ? "destructive" : "secondary"}>
+          <Button onClick={runAttack} disabled={attacking || !policy?.enabled || !!blocked} variant={policy?.enabled ? "destructive" : "secondary"}>
             {attacking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-4 w-4" />}
             <span className="ml-2">Attack starten</span>
           </Button>
@@ -251,19 +289,6 @@ export default function StorageRealityPage() {
         <Stat label="Maturity-Score" value={`${score}/100`} />
       </section>
 
-      {kpis?.findings_by_content_class && Object.keys(kpis.findings_by_content_class).length > 0 && (
-        <section>
-          <div className="text-xs text-muted-foreground mb-2">Open Findings nach Content-Klasse</div>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(kpis.findings_by_content_class).map(([cls, n]) => (
-              <Badge key={cls} variant={["learner_data","certificate","assessment","exam_content"].includes(cls) ? "destructive" : "secondary"}>
-                {cls}: {n}
-              </Badge>
-            ))}
-          </div>
-        </section>
-      )}
-
       <Tabs defaultValue="buckets">
         <TabsList>
           <TabsTrigger value="buckets">Buckets</TabsTrigger>
@@ -271,239 +296,243 @@ export default function StorageRealityPage() {
           <TabsTrigger value="runs">Runs</TabsTrigger>
           <TabsTrigger value="attacks">
             Attacks
-            {attackKpis && attackKpis.total_leaks > 0 && (
-              <Badge variant="destructive" className="ml-2">{attackKpis.total_leaks}</Badge>
-            )}
+            {attackKpis && attackKpis.total_leaks > 0 && (<Badge variant="destructive" className="ml-2">{attackKpis.total_leaks}</Badge>)}
+            {blocked && (<Badge variant="destructive" className="ml-2 gap-1"><ShieldAlert className="h-3 w-3" />blocked</Badge>)}
           </TabsTrigger>
         </TabsList>
 
-
         <TabsContent value="buckets">
-          <Card>
-            <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="text-left text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="p-2">Bucket</th>
-                    <th className="p-2">Tenant-Modell</th>
-                    <th className="p-2">Content-Klasse</th>
-                    <th className="p-2">Public</th>
-                    <th className="p-2">Objekte</th>
-                    <th className="p-2">Open</th>
-                    <th className="p-2">High</th>
-                    <th className="p-2">Maturity</th>
-                    <th className="p-2">Zuletzt gesehen</th>
+          <Card><CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-left text-muted-foreground"><tr className="border-b">
+                <th className="p-2">Bucket</th><th className="p-2">Tenant-Modell</th><th className="p-2">Content-Klasse</th>
+                <th className="p-2">Public</th><th className="p-2">Objekte</th><th className="p-2">Open</th>
+                <th className="p-2">High</th><th className="p-2">Maturity</th><th className="p-2">Zuletzt gesehen</th>
+              </tr></thead>
+              <tbody>
+                {buckets.map((b) => (
+                  <tr key={b.bucket_id} className="border-b hover:bg-muted/40">
+                    <td className="p-2 font-mono">{b.bucket_id}</td>
+                    <td className="p-2">{b.tenant_model}</td>
+                    <td className="p-2"><Badge variant={SENSITIVE.includes(b.content_class) ? "destructive" : "secondary"}>{b.content_class}</Badge></td>
+                    <td className="p-2">{b.is_public ? <Badge variant="destructive">public</Badge> : <Badge variant="outline">private</Badge>}</td>
+                    <td className="p-2">{b.observed_object_count ?? "—"}</td>
+                    <td className="p-2">{b.open_findings}</td>
+                    <td className="p-2">{b.high_open_findings}</td>
+                    <td className="p-2"><Badge variant={(matColor[b.maturity] as any) ?? "outline"}>{b.maturity}</Badge></td>
+                    <td className="p-2 whitespace-nowrap">{b.last_seen_at ? new Date(b.last_seen_at).toLocaleString() : "—"}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {buckets.map((b) => (
-                    <tr key={b.bucket_id} className="border-b hover:bg-muted/40">
-                      <td className="p-2 font-mono">{b.bucket_id}</td>
-                      <td className="p-2">{b.tenant_model}</td>
-                      <td className="p-2">
-                        <Badge variant={["learner_data","certificate","assessment","exam_content"].includes(b.content_class) ? "destructive" : "secondary"}>
-                          {b.content_class}
-                        </Badge>
-                      </td>
-                      <td className="p-2">
-                        {b.is_public ? (
-                          <Badge variant="destructive">public</Badge>
-                        ) : (
-                          <Badge variant="outline">private</Badge>
-                        )}
-                      </td>
-                      <td className="p-2">{b.observed_object_count ?? "—"}</td>
-                      <td className="p-2">{b.open_findings}</td>
-                      <td className="p-2">{b.high_open_findings}</td>
-                      <td className="p-2">
-                        <Badge variant={(matColor[b.maturity] as any) ?? "outline"}>{b.maturity}</Badge>
-                      </td>
-                      <td className="p-2 whitespace-nowrap">
-                        {b.last_seen_at ? new Date(b.last_seen_at).toLocaleString() : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                  {!loading && buckets.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="p-6 text-center text-muted-foreground">
-                        Noch kein Audit gelaufen. Klick „Audit starten".
-                      </td>
-                    </tr>
-                  )}
-
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+                ))}
+                {!loading && buckets.length === 0 && (<tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Noch kein Audit gelaufen.</td></tr>)}
+              </tbody>
+            </table>
+          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="findings">
-          <Card>
-            <CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="text-left text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="p-2">Zeit</th>
-                    <th className="p-2">Bucket</th>
-                    <th className="p-2">Content</th>
-                    <th className="p-2">Typ</th>
-                    <th className="p-2">Severity</th>
-                    <th className="p-2">Status</th>
-                    <th className="p-2">Pfad-Sample</th>
-                    <th className="p-2">Empfehlung</th>
+          <Card><CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-left text-muted-foreground"><tr className="border-b">
+                <th className="p-2">Zeit</th><th className="p-2">Bucket</th><th className="p-2">Content</th><th className="p-2">Typ</th>
+                <th className="p-2">Severity</th><th className="p-2">Status</th><th className="p-2">Pfad-Sample</th><th className="p-2">Empfehlung</th>
+              </tr></thead>
+              <tbody>
+                {findings.map((f) => (
+                  <tr key={f.id} className="border-b align-top hover:bg-muted/40">
+                    <td className="p-2 whitespace-nowrap">{new Date(f.created_at).toLocaleString()}</td>
+                    <td className="p-2 font-mono">{f.bucket_id}</td>
+                    <td className="p-2"><Badge variant={SENSITIVE.includes(f.content_class) ? "destructive" : "secondary"}>{f.content_class}</Badge></td>
+                    <td className="p-2">{f.finding_type}</td>
+                    <td className="p-2"><Badge variant={(sevColor[f.severity] as any) ?? "outline"}>{f.severity}</Badge></td>
+                    <td className="p-2">{f.status}</td>
+                    <td className="p-2 font-mono break-all max-w-[260px]">{f.path_sample ?? "—"}</td>
+                    <td className="p-2 max-w-[360px]">{f.recommendation ?? "—"}</td>
                   </tr>
-                </thead>
-                <tbody>
-
-                  {findings.map((f) => (
-                    <tr key={f.id} className="border-b align-top hover:bg-muted/40">
-                      <td className="p-2 whitespace-nowrap">{new Date(f.created_at).toLocaleString()}</td>
-                      <td className="p-2 font-mono">{f.bucket_id}</td>
-                      <td className="p-2">
-                        <Badge variant={["learner_data","certificate","assessment","exam_content"].includes(f.content_class) ? "destructive" : "secondary"}>
-                          {f.content_class}
-                        </Badge>
-                      </td>
-                      <td className="p-2">{f.finding_type}</td>
-                      <td className="p-2">
-                        <Badge variant={(sevColor[f.severity] as any) ?? "outline"}>{f.severity}</Badge>
-                      </td>
-                      <td className="p-2">{f.status}</td>
-                      <td className="p-2 font-mono break-all max-w-[260px]">{f.path_sample ?? "—"}</td>
-                      <td className="p-2 max-w-[360px]">{f.recommendation ?? "—"}</td>
-                    </tr>
-                  ))}
-                  {!loading && findings.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="p-6 text-center text-muted-foreground">
-                        Keine Findings.
-                      </td>
-                    </tr>
-                  )}
-
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+                ))}
+                {!loading && findings.length === 0 && (<tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Keine Findings.</td></tr>)}
+              </tbody>
+            </table>
+          </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="runs">
+          <Card><CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-left text-muted-foreground"><tr className="border-b">
+                <th className="p-2">Start</th><th className="p-2">Quelle</th><th className="p-2">Status</th>
+                <th className="p-2">Buckets</th><th className="p-2">Geplant/Gesampelt</th><th className="p-2">Cleanup</th>
+                <th className="p-2">Findings</th><th className="p-2">Fertig</th>
+              </tr></thead>
+              <tbody>
+                {runs.map((r) => (
+                  <tr key={r.id} className="border-b">
+                    <td className="p-2 whitespace-nowrap">{new Date(r.started_at).toLocaleString()}</td>
+                    <td className="p-2">{r.source}</td>
+                    <td className="p-2"><Badge variant={r.status === "completed" ? "default" : "secondary"}>{r.status}</Badge></td>
+                    <td className="p-2">{r.buckets_scanned ?? "—"}</td>
+                    <td className="p-2">{(r.objects_planned ?? "—") + " / " + (r.objects_sampled ?? "—")}</td>
+                    <td className="p-2">
+                      {r.cleanup_ok === null || r.cleanup_ok === undefined ? "—" :
+                        r.cleanup_ok ? <Badge variant="default">{r.cleanup_count}</Badge> :
+                        <Badge variant="destructive">{r.cleanup_count}/{r.objects_sampled}</Badge>}
+                    </td>
+                    <td className="p-2">{r.findings_count ?? "—"}</td>
+                    <td className="p-2 whitespace-nowrap">{r.finished_at ? new Date(r.finished_at).toLocaleString() : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent></Card>
+        </TabsContent>
+
+        <TabsContent value="attacks" className="space-y-4">
+          {/* Kill-switch + KPIs */}
+          <Card><CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm font-medium"><AlertTriangle className="h-4 w-4 text-amber-600" />Synthetic Attack Kill-Switch</div>
+                <div className="text-xs text-muted-foreground">
+                  Schreibt nur unter <code className="font-mono">{policy?.synthetic_prefix ?? "__storage_audit__"}/&lt;run_id&gt;/</code> · garantiertes Cleanup · Block-Gate aktiv.
+                </div>
+              </div>
+              <Switch checked={policy?.enabled ?? false} onCheckedChange={toggleKillSwitch} disabled={!policy} />
+            </div>
+            {attackKpis && (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
+                <Stat label="Attack Runs" value={attackKpis.total_attack_runs} />
+                <Stat label="Ergebnisse" value={attackKpis.total_attack_results} />
+                <Stat label="Leaks" value={attackKpis.total_leaks} accent={attackKpis.total_leaks > 0} />
+                <Stat label="High/Critical Leaks" value={attackKpis.critical_leaks} accent={attackKpis.critical_leaks > 0} />
+                <Stat label="Buckets mit Leaks" value={attackKpis.buckets_with_leaks} accent={attackKpis.buckets_with_leaks > 0} />
+              </div>
+            )}
+          </CardContent></Card>
+
+          {/* Block-Banner */}
+          {blocked && lastRun && (
+            <Card className="border-destructive">
+              <CardContent className="p-4 flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-destructive"><ShieldAlert className="h-4 w-4" />Voll-Lauf blockiert</div>
+                  <div className="text-xs text-muted-foreground">{lastRun.blocked_reason ?? "Cleanup-Mismatch im letzten Run."}</div>
+                  <div className="text-xs">sampled: <b>{lastRun.objects_sampled}</b> · cleaned: <b>{lastRun.cleanup_count}</b> · cleanup_ok: <b>{String(lastRun.cleanup_ok)}</b></div>
+                </div>
+                <Button size="sm" variant="outline" onClick={clearBlock}><Unlock className="h-4 w-4 mr-2" />Manuell freigeben</Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Top Findings by Content-Class */}
           <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Top Leaks nach Content-Klasse</CardTitle></CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <table className="w-full text-xs">
-                <thead className="text-left text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="p-2">Start</th>
-                    <th className="p-2">Quelle</th>
-                    <th className="p-2">Status</th>
-                    <th className="p-2">Buckets</th>
-                    <th className="p-2">Objekte</th>
-                    <th className="p-2">Findings</th>
-                    <th className="p-2">Fertig</th>
-                  </tr>
-                </thead>
+                <thead className="text-left text-muted-foreground"><tr className="border-b">
+                  <th className="p-2">Content-Klasse</th><th className="p-2">Risk-Score</th><th className="p-2">Leaks</th>
+                  <th className="p-2">Buckets</th><th className="p-2">Objekte</th><th className="p-2">Attack-Typen</th><th className="p-2">Zuletzt</th>
+                </tr></thead>
                 <tbody>
-                  {runs.map((r) => (
-                    <tr key={r.id} className="border-b">
-                      <td className="p-2 whitespace-nowrap">{new Date(r.started_at).toLocaleString()}</td>
-                      <td className="p-2">{r.source}</td>
-                      <td className="p-2">
-                        <Badge variant={r.status === "completed" ? "default" : "secondary"}>{r.status}</Badge>
-                      </td>
-                      <td className="p-2">{r.buckets_scanned ?? "—"}</td>
-                      <td className="p-2">{r.objects_sampled ?? "—"}</td>
-                      <td className="p-2">{r.findings_count ?? "—"}</td>
-                      <td className="p-2 whitespace-nowrap">
-                        {r.finished_at ? new Date(r.finished_at).toLocaleString() : "—"}
-                      </td>
+                  {topByClass.map((t) => (
+                    <tr key={t.content_class} className="border-b">
+                      <td className="p-2"><Badge variant={SENSITIVE.includes(t.content_class) ? "destructive" : "secondary"}>{t.content_class}</Badge></td>
+                      <td className="p-2 font-semibold">{t.risk_score}</td>
+                      <td className="p-2">{t.leak_count}</td>
+                      <td className="p-2 font-mono text-[10px] break-all max-w-[200px]">{(t.bucket_ids ?? []).join(", ")}</td>
+                      <td className="p-2">{t.objects_affected}</td>
+                      <td className="p-2 text-[10px]">{(t.attack_types ?? []).join(", ")}</td>
+                      <td className="p-2 whitespace-nowrap">{t.last_seen_at ? new Date(t.last_seen_at).toLocaleString() : "—"}</td>
                     </tr>
                   ))}
+                  {topByClass.length === 0 && (<tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Keine Leaks erkannt.</td></tr>)}
                 </tbody>
               </table>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="attacks" className="space-y-4">
+          {/* Attack Runs mit Export + Logs */}
           <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    Synthetic Attack Kill-Switch
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Schreibt nur unter <code className="font-mono">{policy?.synthetic_prefix ?? "__storage_audit__"}/&lt;run_id&gt;/</code> · garantiertes Cleanup · keine Policy-/Bucket-Änderungen.
-                  </div>
-                </div>
-                <Switch
-                  checked={policy?.enabled ?? false}
-                  onCheckedChange={toggleKillSwitch}
-                  disabled={!policy}
-                />
-              </div>
-              {attackKpis && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
-                  <Stat label="Attack Runs" value={attackKpis.total_attack_runs} />
-                  <Stat label="Ergebnisse" value={attackKpis.total_attack_results} />
-                  <Stat label="Leaks" value={attackKpis.total_leaks} accent={attackKpis.total_leaks > 0} />
-                  <Stat label="High/Critical Leaks" value={attackKpis.critical_leaks} accent={attackKpis.critical_leaks > 0} />
-                  <Stat label="Buckets mit Leaks" value={attackKpis.buckets_with_leaks} accent={attackKpis.buckets_with_leaks > 0} />
-                </div>
-              )}
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Attack Runs · Export & Logs</CardTitle></CardHeader>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-left text-muted-foreground"><tr className="border-b">
+                  <th className="p-2">Start/Stop</th><th className="p-2">Buckets</th><th className="p-2">Geplant/Gesampelt</th>
+                  <th className="p-2">Cleanup</th><th className="p-2">Leaks</th><th className="p-2">Block</th><th className="p-2">Export</th>
+                </tr></thead>
+                <tbody>
+                  {attackRuns.map((r) => {
+                    const isOpen = expandedRun === r.id;
+                    return (
+                      <>
+                        <tr key={r.id} className="border-b hover:bg-muted/40 cursor-pointer" onClick={() => setExpandedRun(isOpen ? null : r.id)}>
+                          <td className="p-2 whitespace-nowrap">
+                            <div>{new Date(r.started_at).toLocaleString()}</div>
+                            <div className="text-muted-foreground">{r.finished_at ? new Date(r.finished_at).toLocaleString() : "—"}</div>
+                          </td>
+                          <td className="p-2">{r.buckets_scanned ?? "—"}</td>
+                          <td className="p-2">{(r.objects_planned ?? 0)} / {(r.objects_sampled ?? 0)}</td>
+                          <td className="p-2">
+                            {r.cleanup_ok === null || r.cleanup_ok === undefined ? "—" :
+                              r.cleanup_ok ? <Badge variant="default">{r.cleanup_count} ok</Badge> :
+                              <Badge variant="destructive" className="gap-1"><ShieldAlert className="h-3 w-3" />{r.cleanup_count}/{r.objects_sampled}</Badge>}
+                          </td>
+                          <td className="p-2">{r.findings_count ?? 0}</td>
+                          <td className="p-2">{r.blocked_reason ? <Badge variant="destructive">blocked</Badge> : <Badge variant="outline">—</Badge>}</td>
+                          <td className="p-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <Button size="sm" variant="ghost" onClick={() => downloadRunJson(r)}><FileJson className="h-3 w-3 mr-1" />JSON</Button>
+                            <Button size="sm" variant="ghost" onClick={() => downloadRunCsv(r)}><FileSpreadsheet className="h-3 w-3 mr-1" />CSV</Button>
+                          </td>
+                        </tr>
+                        {isOpen && (
+                          <tr key={r.id + "-log"} className="border-b bg-muted/20">
+                            <td colSpan={7} className="p-3 space-y-2">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                                <Kv k="allowed_buckets" v={(r.allowed_buckets ?? []).join(", ") || "(alle privaten)"} />
+                                <Kv k="excluded_buckets" v={(r.excluded_buckets ?? []).join(", ") || "—"} />
+                                <Kv k="cleanup_ok" v={String(r.cleanup_ok)} />
+                                <Kv k="blocked_reason" v={r.blocked_reason ?? "—"} />
+                              </div>
+                              <div>
+                                <div className="text-[11px] font-semibold mb-1">Run-Log</div>
+                                <pre className="text-[10px] font-mono bg-background p-2 rounded border overflow-x-auto max-h-[280px]">
+{JSON.stringify(r.run_log ?? [], null, 2)}
+                                </pre>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                  {attackRuns.length === 0 && (<tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Noch keine Attack-Runs.</td></tr>)}
+                </tbody>
+              </table>
             </CardContent>
           </Card>
 
+          {/* Attack Results */}
           <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Letzte Ergebnisse</CardTitle></CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <table className="w-full text-xs">
-                <thead className="text-left text-muted-foreground">
-                  <tr className="border-b">
-                    <th className="p-2">Zeit</th>
-                    <th className="p-2">Bucket</th>
-                    <th className="p-2">Content</th>
-                    <th className="p-2">Attack</th>
-                    <th className="p-2">Ergebnis</th>
-                    <th className="p-2">Severity</th>
-                    <th className="p-2">Tenant</th>
-                    <th className="p-2">Pfad</th>
-                    <th className="p-2">Evidence</th>
-                  </tr>
-                </thead>
+                <thead className="text-left text-muted-foreground"><tr className="border-b">
+                  <th className="p-2">Zeit</th><th className="p-2">Bucket</th><th className="p-2">Content</th><th className="p-2">Attack</th>
+                  <th className="p-2">Ergebnis</th><th className="p-2">Severity</th><th className="p-2">Tenant</th><th className="p-2">Pfad</th><th className="p-2">Evidence</th>
+                </tr></thead>
                 <tbody>
-                  {attackResults.map((a) => (
+                  {attackResults.slice(0, 100).map((a) => (
                     <tr key={a.id} className="border-b align-top hover:bg-muted/40">
                       <td className="p-2 whitespace-nowrap">{new Date(a.created_at).toLocaleString()}</td>
                       <td className="p-2 font-mono">{a.bucket_id}</td>
-                      <td className="p-2">
-                        <Badge variant={["learner_data","certificate","assessment","exam_content"].includes(a.content_class) ? "destructive" : "secondary"}>
-                          {a.content_class}
-                        </Badge>
-                      </td>
+                      <td className="p-2"><Badge variant={SENSITIVE.includes(a.content_class) ? "destructive" : "secondary"}>{a.content_class}</Badge></td>
                       <td className="p-2">{a.attack_type}</td>
-                      <td className="p-2">
-                        <Badge variant={a.result === "leak" ? "destructive" : a.result === "pass" ? "default" : "secondary"}>
-                          {a.result}
-                        </Badge>
-                      </td>
-                      <td className="p-2">
-                        <Badge variant={(sevColor[a.severity] as any) ?? "outline"}>{a.severity}</Badge>
-                      </td>
+                      <td className="p-2"><Badge variant={a.result === "leak" ? "destructive" : a.result === "pass" ? "default" : "secondary"}>{a.result}</Badge></td>
+                      <td className="p-2"><Badge variant={(sevColor[a.severity] as any) ?? "outline"}>{a.severity}</Badge></td>
                       <td className="p-2">{a.synthetic_tenant ?? "—"}</td>
                       <td className="p-2 font-mono break-all max-w-[260px]">{a.target_path ?? "—"}</td>
-                      <td className="p-2 max-w-[280px] font-mono text-[10px] break-all">
-                        {a.evidence ? JSON.stringify(a.evidence) : "—"}
-                      </td>
+                      <td className="p-2 max-w-[280px] font-mono text-[10px] break-all">{a.evidence ? JSON.stringify(a.evidence) : "—"}</td>
                     </tr>
                   ))}
-                  {!loading && attackResults.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="p-6 text-center text-muted-foreground">
-                        Noch keine Attack-Ergebnisse. Kill-Switch aktivieren und „Attack starten".
-                      </td>
-                    </tr>
-                  )}
+                  {!loading && attackResults.length === 0 && (<tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Noch keine Attack-Ergebnisse.</td></tr>)}
                 </tbody>
               </table>
             </CardContent>
@@ -517,12 +546,17 @@ export default function StorageRealityPage() {
 function Stat({ label, value, accent }: { label: string; value: any; accent?: boolean }) {
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-xs font-normal text-muted-foreground">{label}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className={`text-2xl font-semibold ${accent ? "text-destructive" : ""}`}>{value}</div>
-      </CardContent>
+      <CardHeader className="pb-2"><CardTitle className="text-xs font-normal text-muted-foreground">{label}</CardTitle></CardHeader>
+      <CardContent><div className={`text-2xl font-semibold ${accent ? "text-destructive" : ""}`}>{value}</div></CardContent>
     </Card>
+  );
+}
+
+function Kv({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-muted-foreground">{k}</span>
+      <span className="font-mono break-all">{v}</span>
+    </div>
   );
 }
