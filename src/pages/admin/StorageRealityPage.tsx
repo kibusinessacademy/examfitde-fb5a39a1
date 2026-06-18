@@ -80,12 +80,13 @@ export default function StorageRealityPage() {
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
+  const [kpis, setKpis] = useState<Kpis | null>(null);
   const [running, setRunning] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [bRes, fRes, rRes] = await Promise.all([
+    const [bRes, fRes, rRes, kRes] = await Promise.all([
       (supabase as any).from("v_admin_storage_bucket_maturity").select("*"),
       (supabase as any)
         .from("storage_rls_audit_findings")
@@ -97,12 +98,15 @@ export default function StorageRealityPage() {
         .select("*")
         .order("started_at", { ascending: false })
         .limit(20),
+      (supabase as any).from("v_admin_storage_audit_kpis").select("*").maybeSingle(),
     ]);
     if (!bRes.error) setBuckets(bRes.data ?? []);
     if (!fRes.error) setFindings(fRes.data ?? []);
     if (!rRes.error) setRuns(rRes.data ?? []);
+    if (!kRes.error) setKpis(kRes.data ?? null);
     setLoading(false);
   }
+
   useEffect(() => {
     load();
   }, []);
@@ -155,18 +159,28 @@ export default function StorageRealityPage() {
       </header>
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat label="Buckets" value={buckets.length} />
-        <Stat
-          label="Open Findings"
-          value={buckets.reduce((s, b) => s + b.open_findings, 0)}
-        />
-        <Stat
-          label="High / Critical offen"
-          value={buckets.reduce((s, b) => s + b.high_open_findings, 0)}
-          accent={buckets.some((b) => b.high_open_findings > 0)}
-        />
+        <Stat label="Buckets gesamt" value={kpis?.total_buckets ?? buckets.length} />
+        <Stat label="Public / Private" value={`${kpis?.public_buckets ?? 0} / ${kpis?.private_buckets ?? 0}`} accent={(kpis?.public_buckets ?? 0) > 0} />
+        <Stat label="Open Findings" value={kpis?.open_findings ?? 0} />
+        <Stat label="High / Critical" value={kpis?.hi_open_findings ?? 0} accent={(kpis?.hi_open_findings ?? 0) > 0} />
+        <Stat label="Ohne Tenant-Prefix" value={kpis?.no_tenant_prefix_findings ?? 0} accent={(kpis?.no_tenant_prefix_findings ?? 0) > 0} />
+        <Stat label="Flat-Root Objekte" value={kpis?.flat_root_findings ?? 0} />
+        <Stat label="Mixed Pfade" value={kpis?.mixed_path_findings ?? 0} />
         <Stat label="Maturity-Score" value={`${score}/100`} />
       </section>
+
+      {kpis?.findings_by_content_class && Object.keys(kpis.findings_by_content_class).length > 0 && (
+        <section>
+          <div className="text-xs text-muted-foreground mb-2">Open Findings nach Content-Klasse</div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(kpis.findings_by_content_class).map(([cls, n]) => (
+              <Badge key={cls} variant={["learner_data","certificate","assessment","exam_content"].includes(cls) ? "destructive" : "secondary"}>
+                {cls}: {n}
+              </Badge>
+            ))}
+          </div>
+        </section>
+      )}
 
       <Tabs defaultValue="buckets">
         <TabsList>
@@ -174,6 +188,7 @@ export default function StorageRealityPage() {
           <TabsTrigger value="findings">Findings</TabsTrigger>
           <TabsTrigger value="runs">Runs</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="buckets">
           <Card>
