@@ -1,0 +1,29 @@
+name: Architecture Invariants Guard (Phase A)
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  invariants:
+    name: 8-Rules Lint-Hint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Run Architecture Invariants Guard
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          # Phase A = lint-hint (non-blocking). Flip to "1" for Phase B.
+          GUARD_STRICT: "0"
+        run: node scripts/guards/architecture-invariants-guard.mjs
