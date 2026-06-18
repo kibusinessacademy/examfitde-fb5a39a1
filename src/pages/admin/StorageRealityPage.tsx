@@ -423,6 +423,92 @@ export default function StorageRealityPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="attacks" className="space-y-4">
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    Synthetic Attack Kill-Switch
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Schreibt nur unter <code className="font-mono">{policy?.synthetic_prefix ?? "__storage_audit__"}/&lt;run_id&gt;/</code> · garantiertes Cleanup · keine Policy-/Bucket-Änderungen.
+                  </div>
+                </div>
+                <Switch
+                  checked={policy?.enabled ?? false}
+                  onCheckedChange={toggleKillSwitch}
+                  disabled={!policy}
+                />
+              </div>
+              {attackKpis && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
+                  <Stat label="Attack Runs" value={attackKpis.total_attack_runs} />
+                  <Stat label="Ergebnisse" value={attackKpis.total_attack_results} />
+                  <Stat label="Leaks" value={attackKpis.total_leaks} accent={attackKpis.total_leaks > 0} />
+                  <Stat label="High/Critical Leaks" value={attackKpis.critical_leaks} accent={attackKpis.critical_leaks > 0} />
+                  <Stat label="Buckets mit Leaks" value={attackKpis.buckets_with_leaks} accent={attackKpis.buckets_with_leaks > 0} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-left text-muted-foreground">
+                  <tr className="border-b">
+                    <th className="p-2">Zeit</th>
+                    <th className="p-2">Bucket</th>
+                    <th className="p-2">Content</th>
+                    <th className="p-2">Attack</th>
+                    <th className="p-2">Ergebnis</th>
+                    <th className="p-2">Severity</th>
+                    <th className="p-2">Tenant</th>
+                    <th className="p-2">Pfad</th>
+                    <th className="p-2">Evidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attackResults.map((a) => (
+                    <tr key={a.id} className="border-b align-top hover:bg-muted/40">
+                      <td className="p-2 whitespace-nowrap">{new Date(a.created_at).toLocaleString()}</td>
+                      <td className="p-2 font-mono">{a.bucket_id}</td>
+                      <td className="p-2">
+                        <Badge variant={["learner_data","certificate","assessment","exam_content"].includes(a.content_class) ? "destructive" : "secondary"}>
+                          {a.content_class}
+                        </Badge>
+                      </td>
+                      <td className="p-2">{a.attack_type}</td>
+                      <td className="p-2">
+                        <Badge variant={a.result === "leak" ? "destructive" : a.result === "pass" ? "default" : "secondary"}>
+                          {a.result}
+                        </Badge>
+                      </td>
+                      <td className="p-2">
+                        <Badge variant={(sevColor[a.severity] as any) ?? "outline"}>{a.severity}</Badge>
+                      </td>
+                      <td className="p-2">{a.synthetic_tenant ?? "—"}</td>
+                      <td className="p-2 font-mono break-all max-w-[260px]">{a.target_path ?? "—"}</td>
+                      <td className="p-2 max-w-[280px] font-mono text-[10px] break-all">
+                        {a.evidence ? JSON.stringify(a.evidence) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                  {!loading && attackResults.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="p-6 text-center text-muted-foreground">
+                        Noch keine Attack-Ergebnisse. Kill-Switch aktivieren und „Attack starten".
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
