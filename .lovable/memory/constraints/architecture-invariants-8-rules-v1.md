@@ -8,11 +8,23 @@ type: constraint
 
 These are NOT wishes. They are **hard gates**. Every new feature/module/route/table/edge-fn/registry MUST satisfy all 8 + the meta-rule before merge.
 
-## Meta-Rule (overrides all)
+## Meta-Rule — FEATURE_JUSTIFICATION_REQUIRED (verschärft 2026-06-18, überschreibt alles)
 
-> Jedes neue Feature muss entweder (a) eine bestehende Fähigkeit erweitern, (b) eine identifizierte Lücke schließen, oder (c) mindestens zwei bestehende Module miteinander verbinden. Andernfalls darf es nicht gebaut werden.
+Ein Feature darf nur gebaut werden, wenn **mindestens eine** dieser fünf Aussagen zutrifft:
 
-If none of (a)/(b)/(c) applies → **REJECT, do not build**.
+1. `EXTENDS_CAPABILITY` — erweitert bestehende Fähigkeit
+2. `CLOSES_GAP` — schließt bekannte Lücke
+3. `CONNECTS_MODULES` — verbindet mindestens zwei bestehende Module
+4. `INCREASES_AUTOMATION` — erhöht Automatisierungsgrad
+5. `IMPROVES_FLOW` — verbessert Nutzerfluss
+
+Wenn keine zutrifft → **`FEATURE_REJECTED`**, do not build.
+
+Deklaration verpflichtend in PR-Body oder Commit:
+```
+FEATURE_JUSTIFICATION: <one of the 5>
+reason: <one sentence>
+```
 
 ---
 
