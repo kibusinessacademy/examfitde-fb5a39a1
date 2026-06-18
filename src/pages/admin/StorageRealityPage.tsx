@@ -77,17 +77,54 @@ const matColor: Record<string, string> = {
   platinum: "default",
 };
 
+type AttackKpis = {
+  total_attack_runs: number;
+  total_attack_results: number;
+  total_leaks: number;
+  critical_leaks: number;
+  buckets_with_leaks: number;
+  last_attack_run_at: string | null;
+};
+
+type AttackResultRow = {
+  id: string;
+  run_id: string;
+  bucket_id: string;
+  attack_type: string;
+  result: string;
+  severity: string;
+  content_class: string;
+  synthetic_tenant: string | null;
+  target_path: string | null;
+  evidence: any;
+  created_at: string;
+};
+
+type AttackPolicy = {
+  id: string;
+  enabled: boolean;
+  synthetic_prefix: string;
+  allowed_buckets: string[];
+  excluded_buckets: string[];
+  max_objects_per_bucket: number;
+  notes: string | null;
+};
+
 export default function StorageRealityPage() {
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [kpis, setKpis] = useState<Kpis | null>(null);
+  const [attackKpis, setAttackKpis] = useState<AttackKpis | null>(null);
+  const [attackResults, setAttackResults] = useState<AttackResultRow[]>([]);
+  const [policy, setPolicy] = useState<AttackPolicy | null>(null);
   const [running, setRunning] = useState(false);
+  const [attacking, setAttacking] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [bRes, fRes, rRes, kRes] = await Promise.all([
+    const [bRes, fRes, rRes, kRes, akRes, arRes, pRes] = await Promise.all([
       (supabase as any).from("v_admin_storage_bucket_maturity").select("*"),
       (supabase as any)
         .from("storage_rls_audit_findings")
@@ -100,11 +137,21 @@ export default function StorageRealityPage() {
         .order("started_at", { ascending: false })
         .limit(20),
       (supabase as any).from("v_admin_storage_audit_kpis").select("*").maybeSingle(),
+      (supabase as any).from("v_admin_storage_attack_kpis").select("*").maybeSingle(),
+      (supabase as any)
+        .from("storage_attack_run_results")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      (supabase as any).from("storage_attack_policies").select("*").limit(1).maybeSingle(),
     ]);
     if (!bRes.error) setBuckets(bRes.data ?? []);
     if (!fRes.error) setFindings(fRes.data ?? []);
     if (!rRes.error) setRuns(rRes.data ?? []);
     if (!kRes.error) setKpis(kRes.data ?? null);
+    if (!akRes.error) setAttackKpis(akRes.data ?? null);
+    if (!arRes.error) setAttackResults(arRes.data ?? []);
+    if (!pRes.error) setPolicy(pRes.data ?? null);
     setLoading(false);
   }
 
@@ -128,6 +175,36 @@ export default function StorageRealityPage() {
     } finally {
       setRunning(false);
     }
+  }
+
+  async function runAttack() {
+    if (!policy?.enabled) {
+      toast.error("Kill-Switch ist aus. Erst Attack-Simulation aktivieren.");
+      return;
+    }
+    if (!confirm("Synthetische Attack-Simulation starten? Schreibt nur unter __storage_audit__/<run_id>/ und räumt am Ende auf.")) return;
+    setAttacking(true);
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("storage-attack-simulator", { body: {} });
+      if (error) throw error;
+      toast.success(`Attack fertig — ${data.attacks_run} Angriffe, ${data.leaks} Leaks, ${data.cleaned} Objekte aufgeräumt`);
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Attack-Simulation fehlgeschlagen");
+    } finally {
+      setAttacking(false);
+    }
+  }
+
+  async function toggleKillSwitch(next: boolean) {
+    if (!policy) return;
+    const { error } = await (supabase as any)
+      .from("storage_attack_policies")
+      .update({ enabled: next, updated_at: new Date().toISOString() })
+      .eq("id", policy.id);
+    if (error) { toast.error(error.message); return; }
+    setPolicy({ ...policy, enabled: next });
+    toast.success(next ? "Attack-Simulation aktiviert" : "Attack-Simulation deaktiviert");
   }
 
   const score = (() => {
