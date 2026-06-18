@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ShieldCheck, Loader2, RefreshCcw, Lock } from "lucide-react";
+import { ShieldCheck, Loader2, RefreshCcw, Lock, Swords, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 type Bucket = {
   bucket_id: string;
