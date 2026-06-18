@@ -198,6 +198,7 @@ export default function StorageRealityPage() {
                   <tr className="border-b">
                     <th className="p-2">Bucket</th>
                     <th className="p-2">Tenant-Modell</th>
+                    <th className="p-2">Content-Klasse</th>
                     <th className="p-2">Public</th>
                     <th className="p-2">Objekte</th>
                     <th className="p-2">Open</th>
@@ -211,6 +212,11 @@ export default function StorageRealityPage() {
                     <tr key={b.bucket_id} className="border-b hover:bg-muted/40">
                       <td className="p-2 font-mono">{b.bucket_id}</td>
                       <td className="p-2">{b.tenant_model}</td>
+                      <td className="p-2">
+                        <Badge variant={["learner_data","certificate","assessment","exam_content"].includes(b.content_class) ? "destructive" : "secondary"}>
+                          {b.content_class}
+                        </Badge>
+                      </td>
                       <td className="p-2">
                         {b.is_public ? (
                           <Badge variant="destructive">public</Badge>
@@ -231,11 +237,12 @@ export default function StorageRealityPage() {
                   ))}
                   {!loading && buckets.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="p-6 text-center text-muted-foreground">
+                      <td colSpan={9} className="p-6 text-center text-muted-foreground">
                         Noch kein Audit gelaufen. Klick „Audit starten".
                       </td>
                     </tr>
                   )}
+
                 </tbody>
               </table>
             </CardContent>
@@ -250,6 +257,7 @@ export default function StorageRealityPage() {
                   <tr className="border-b">
                     <th className="p-2">Zeit</th>
                     <th className="p-2">Bucket</th>
+                    <th className="p-2">Content</th>
                     <th className="p-2">Typ</th>
                     <th className="p-2">Severity</th>
                     <th className="p-2">Status</th>
@@ -258,6 +266,7 @@ export default function StorageRealityPage() {
                   </tr>
                 </thead>
                 <tbody>
+
                   {findings.map((f) => (
                     <tr key={f.id} className="border-b align-top hover:bg-muted/40">
                       <td className="p-2 whitespace-nowrap">{new Date(f.created_at).toLocaleString()}</td>
