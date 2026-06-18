@@ -55,9 +55,15 @@ Deno.serve(async (req) => {
     return json({ error: "global attack simulation disabled (kill-switch off)" }, 423);
   }
 
-  // Phase 2.0 hard allowlist (server-enforced; never widened from client)
-  const HARD_ALLOWLIST_SAFE = new Set<string>(["seo_assets", "media_uploads", "system_assets"]);
-  const FORBIDDEN_CLASSES = new Set(["learner_data", "certificate", "assessment", "exam_content"]);
+  // Phase 2.0 hard allowlist (server-enforced; never widened from client).
+  // Mapped to actually-existing non-sensitive private buckets in this project.
+  const HARD_ALLOWLIST_SAFE = new Set<string>([
+    "seo_assets", "media_uploads", "system_assets", // canonical names (kept for forward-compat)
+    "bonus-songs",                                  // real: non-sensitive media
+  ]);
+  const FORBIDDEN_CLASSES = new Set([
+    "learner_data", "certificate", "assessment", "exam_content", "curriculum", "ai_artifact",
+  ]);
 
   const synthPrefix: string = policy.synthetic_prefix || "__storage_audit__";
 
@@ -107,7 +113,7 @@ Deno.serve(async (req) => {
     .from("storage_audit_runs")
     .insert({
       triggered_by: userData.user.id,
-      source: "admin_ui_attack_phase2",
+      source: "manual",
       status: "running",
       run_kind: "attack_phase2",
       allowed_buckets: buckets.map((b: any) => b.bucket_id),
