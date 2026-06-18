@@ -125,6 +125,30 @@ type TopByClass = {
 
 type LastRun = Run & { block_next_full_run: boolean };
 
+type AttackClass = {
+  id: string;
+  class_key: string;
+  display_name: string;
+  description: string | null;
+  phase: string;
+  default_severity: string;
+  enabled: boolean;
+  kill_switch: boolean;
+  synth_only: boolean;
+};
+
+type ByClassRow = {
+  attack_class: string;
+  content_class: string;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+  total_findings: number;
+  risk_score: number;
+  last_seen_at: string | null;
+};
+
 const SENSITIVE = ["learner_data", "certificate", "assessment", "exam_content"];
 
 export default function StorageRealityPage() {
@@ -138,13 +162,16 @@ export default function StorageRealityPage() {
   const [topByClass, setTopByClass] = useState<TopByClass[]>([]);
   const [lastRun, setLastRun] = useState<LastRun | null>(null);
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
+  const [attackClasses, setAttackClasses] = useState<AttackClass[]>([]);
+  const [byClassRows, setByClassRows] = useState<ByClassRow[]>([]);
   const [running, setRunning] = useState(false);
   const [attacking, setAttacking] = useState(false);
+  const [attackingP2, setAttackingP2] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [bRes, fRes, rRes, kRes, akRes, arRes, pRes, tRes, lRes] = await Promise.all([
+    const [bRes, fRes, rRes, kRes, akRes, arRes, pRes, tRes, lRes, acRes, bcRes] = await Promise.all([
       (supabase as any).from("v_admin_storage_bucket_maturity").select("*"),
       (supabase as any).from("storage_rls_audit_findings").select("*").order("created_at", { ascending: false }).limit(200),
       (supabase as any).from("storage_audit_runs").select("*").order("started_at", { ascending: false }).limit(20),
@@ -154,6 +181,8 @@ export default function StorageRealityPage() {
       (supabase as any).from("storage_attack_policies").select("*").limit(1).maybeSingle(),
       (supabase as any).from("v_admin_storage_attack_top_findings_by_class").select("*"),
       (supabase as any).from("v_admin_storage_attack_last_run").select("*").maybeSingle(),
+      (supabase as any).from("storage_attack_classes").select("*").order("class_key"),
+      (supabase as any).from("v_admin_storage_attack_by_class").select("*"),
     ]);
     if (!bRes.error) setBuckets(bRes.data ?? []);
     if (!fRes.error) setFindings(fRes.data ?? []);
@@ -164,6 +193,8 @@ export default function StorageRealityPage() {
     if (!pRes.error) setPolicy(pRes.data ?? null);
     if (!tRes.error) setTopByClass(tRes.data ?? []);
     if (!lRes.error) setLastRun(lRes.data ?? null);
+    if (!acRes.error) setAttackClasses(acRes.data ?? []);
+    if (!bcRes.error) setByClassRows(bcRes.data ?? []);
     setLoading(false);
   }
 
@@ -205,6 +236,30 @@ export default function StorageRealityPage() {
     if (error) { toast.error(error.message); return; }
     setPolicy({ ...policy, enabled: next });
     toast.success(next ? "Attack-Simulation aktiviert" : "Attack-Simulation deaktiviert");
+  }
+
+  async function toggleAttackClass(c: AttackClass, field: "enabled" | "kill_switch", next: boolean) {
+    const patch: any = { [field]: next, updated_at: new Date().toISOString() };
+    const { error } = await (supabase as any)
+      .from("storage_attack_classes").update(patch).eq("id", c.id);
+    if (error) { toast.error(error.message); return; }
+    setAttackClasses((prev) => prev.map((x) => x.id === c.id ? { ...x, ...patch } : x));
+    toast.success(`${c.class_key}: ${field} = ${next}`);
+  }
+
+  async function runPhase2Attack() {
+    if (!policy?.enabled) { toast.error("Globaler Kill-Switch aus."); return; }
+    const armed = attackClasses.filter((c) => c.phase === "2.0" && c.enabled && !c.kill_switch);
+    if (armed.length === 0) { toast.error("Keine Phase-2.0-Klasse aktiv (Enabled + Kill-Switch off)."); return; }
+    if (!confirm(`Phase 2.0 Tenant-Reality starten?\nAktiv: ${armed.map((c) => c.class_key).join(", ")}\nNur Synth-Tenants. Hard-Allowlist server-seitig (seo_assets, media_uploads, system_assets).`)) return;
+    setAttackingP2(true);
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("storage-tenant-attack-simulator", { body: {} });
+      if (error) throw error;
+      toast.success(`Phase 2.0 fertig — ${data.attacks_run} Attacks, ${data.leaks} Leaks, ${data.cleaned}/${data.objects_planned} Objekte aufgeräumt`);
+      await load();
+    } catch (e: any) { toast.error(e?.message ?? "Phase-2.0-Attack fehlgeschlagen"); }
+    finally { setAttackingP2(false); }
   }
 
   async function clearBlock() {
@@ -421,6 +476,83 @@ export default function StorageRealityPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Phase 2.0 — Tenant-Reality Attack Classes */}
+          <Card>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Swords className="h-4 w-4 text-amber-600" />
+                  Phase 2.0 · Tenant-Reality Attacks
+                </CardTitle>
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  Synth-only · Hard-Allowlist (seo_assets, media_uploads, system_assets) · keine sensiblen Klassen.
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant={attackClasses.some((c) => c.phase === "2.0" && c.enabled && !c.kill_switch) ? "destructive" : "secondary"}
+                onClick={runPhase2Attack}
+                disabled={attackingP2 || !policy?.enabled || !!blocked}
+              >
+                {attackingP2 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-4 w-4" />}
+                <span className="ml-2">Phase 2.0 starten</span>
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-left text-muted-foreground"><tr className="border-b">
+                  <th className="p-2">Klasse</th><th className="p-2">Beschreibung</th><th className="p-2">Severity</th>
+                  <th className="p-2">Enabled</th><th className="p-2">Kill-Switch</th>
+                </tr></thead>
+                <tbody>
+                  {attackClasses.filter((c) => c.phase === "2.0").map((c) => (
+                    <tr key={c.id} className="border-b align-top">
+                      <td className="p-2 font-mono whitespace-nowrap">{c.class_key}</td>
+                      <td className="p-2 max-w-[420px] text-muted-foreground">{c.description ?? "—"}</td>
+                      <td className="p-2"><Badge variant={(sevColor[c.default_severity] as any) ?? "outline"}>{c.default_severity}</Badge></td>
+                      <td className="p-2"><Switch checked={c.enabled} onCheckedChange={(v) => toggleAttackClass(c, "enabled", v)} /></td>
+                      <td className="p-2">
+                        <div className="flex items-center gap-2">
+                          <Switch checked={!c.kill_switch} onCheckedChange={(v) => toggleAttackClass(c, "kill_switch", !v)} />
+                          <span className="text-[10px] text-muted-foreground">{c.kill_switch ? "armed-OFF" : "armed-ON"}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {attackClasses.filter((c) => c.phase === "2.0").length === 0 && (
+                    <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">Keine Attack-Klassen registriert.</td></tr>
+                  )}
+                </tbody>
+              </table>
+              {byClassRows.length > 0 && (
+                <div className="p-3 border-t">
+                  <div className="text-[11px] font-semibold mb-2">Findings je Attack × Content-Klasse</div>
+                  <table className="w-full text-[11px]">
+                    <thead className="text-left text-muted-foreground"><tr className="border-b">
+                      <th className="p-1">Attack</th><th className="p-1">Content</th><th className="p-1">Risk</th>
+                      <th className="p-1">Crit</th><th className="p-1">High</th><th className="p-1">Med</th><th className="p-1">Low</th><th className="p-1">Total</th><th className="p-1">Zuletzt</th>
+                    </tr></thead>
+                    <tbody>
+                      {byClassRows.map((r, i) => (
+                        <tr key={i} className="border-b">
+                          <td className="p-1 font-mono">{r.attack_class}</td>
+                          <td className="p-1"><Badge variant={SENSITIVE.includes(r.content_class) ? "destructive" : "secondary"}>{r.content_class}</Badge></td>
+                          <td className="p-1 font-semibold">{r.risk_score}</td>
+                          <td className="p-1">{r.critical_count}</td>
+                          <td className="p-1">{r.high_count}</td>
+                          <td className="p-1">{r.medium_count}</td>
+                          <td className="p-1">{r.low_count}</td>
+                          <td className="p-1">{r.total_findings}</td>
+                          <td className="p-1 whitespace-nowrap">{r.last_seen_at ? new Date(r.last_seen_at).toLocaleString() : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Top Findings by Content-Class */}
           <Card>
