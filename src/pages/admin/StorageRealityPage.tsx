@@ -11,6 +11,7 @@ type Bucket = {
   bucket_id: string;
   purpose: string | null;
   tenant_model: string;
+  content_class: string;
   expected_path_regex: string | null;
   owner_module: string | null;
   risk_level: string;
@@ -22,11 +23,34 @@ type Bucket = {
   last_seen_at: string | null;
 };
 
+type Kpis = {
+  total_buckets: number;
+  public_buckets: number;
+  private_buckets: number;
+  unclassified_buckets: number;
+  uncl_content_buckets: number;
+  open_findings: number;
+  hi_open_findings: number;
+  no_tenant_prefix_findings: number;
+  flat_root_findings: number;
+  public_bucket_findings: number;
+  mixed_path_findings: number;
+  findings_by_content_class: Record<string, number>;
+};
+
 type Finding = {
   id: string;
   bucket_id: string;
   finding_type: string;
   severity: string;
+  path_sample: string | null;
+  evidence: any;
+type Finding = {
+  id: string;
+  bucket_id: string;
+  finding_type: string;
+  severity: string;
+  content_class: string;
   path_sample: string | null;
   evidence: any;
   recommendation: string | null;
