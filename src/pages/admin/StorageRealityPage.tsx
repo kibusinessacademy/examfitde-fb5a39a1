@@ -11,6 +11,7 @@ type Bucket = {
   bucket_id: string;
   purpose: string | null;
   tenant_model: string;
+  content_class: string;
   expected_path_regex: string | null;
   owner_module: string | null;
   risk_level: string;
@@ -22,11 +23,27 @@ type Bucket = {
   last_seen_at: string | null;
 };
 
+type Kpis = {
+  total_buckets: number;
+  public_buckets: number;
+  private_buckets: number;
+  unclassified_buckets: number;
+  uncl_content_buckets: number;
+  open_findings: number;
+  hi_open_findings: number;
+  no_tenant_prefix_findings: number;
+  flat_root_findings: number;
+  public_bucket_findings: number;
+  mixed_path_findings: number;
+  findings_by_content_class: Record<string, number>;
+};
+
 type Finding = {
   id: string;
   bucket_id: string;
   finding_type: string;
   severity: string;
+  content_class: string;
   path_sample: string | null;
   evidence: any;
   recommendation: string | null;
@@ -63,12 +80,13 @@ export default function StorageRealityPage() {
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
+  const [kpis, setKpis] = useState<Kpis | null>(null);
   const [running, setRunning] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
-    const [bRes, fRes, rRes] = await Promise.all([
+    const [bRes, fRes, rRes, kRes] = await Promise.all([
       (supabase as any).from("v_admin_storage_bucket_maturity").select("*"),
       (supabase as any)
         .from("storage_rls_audit_findings")
@@ -80,12 +98,15 @@ export default function StorageRealityPage() {
         .select("*")
         .order("started_at", { ascending: false })
         .limit(20),
+      (supabase as any).from("v_admin_storage_audit_kpis").select("*").maybeSingle(),
     ]);
     if (!bRes.error) setBuckets(bRes.data ?? []);
     if (!fRes.error) setFindings(fRes.data ?? []);
     if (!rRes.error) setRuns(rRes.data ?? []);
+    if (!kRes.error) setKpis(kRes.data ?? null);
     setLoading(false);
   }
+
   useEffect(() => {
     load();
   }, []);
@@ -138,18 +159,28 @@ export default function StorageRealityPage() {
       </header>
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat label="Buckets" value={buckets.length} />
-        <Stat
-          label="Open Findings"
-          value={buckets.reduce((s, b) => s + b.open_findings, 0)}
-        />
-        <Stat
-          label="High / Critical offen"
-          value={buckets.reduce((s, b) => s + b.high_open_findings, 0)}
-          accent={buckets.some((b) => b.high_open_findings > 0)}
-        />
+        <Stat label="Buckets gesamt" value={kpis?.total_buckets ?? buckets.length} />
+        <Stat label="Public / Private" value={`${kpis?.public_buckets ?? 0} / ${kpis?.private_buckets ?? 0}`} accent={(kpis?.public_buckets ?? 0) > 0} />
+        <Stat label="Open Findings" value={kpis?.open_findings ?? 0} />
+        <Stat label="High / Critical" value={kpis?.hi_open_findings ?? 0} accent={(kpis?.hi_open_findings ?? 0) > 0} />
+        <Stat label="Ohne Tenant-Prefix" value={kpis?.no_tenant_prefix_findings ?? 0} accent={(kpis?.no_tenant_prefix_findings ?? 0) > 0} />
+        <Stat label="Flat-Root Objekte" value={kpis?.flat_root_findings ?? 0} />
+        <Stat label="Mixed Pfade" value={kpis?.mixed_path_findings ?? 0} />
         <Stat label="Maturity-Score" value={`${score}/100`} />
       </section>
+
+      {kpis?.findings_by_content_class && Object.keys(kpis.findings_by_content_class).length > 0 && (
+        <section>
+          <div className="text-xs text-muted-foreground mb-2">Open Findings nach Content-Klasse</div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(kpis.findings_by_content_class).map(([cls, n]) => (
+              <Badge key={cls} variant={["learner_data","certificate","assessment","exam_content"].includes(cls) ? "destructive" : "secondary"}>
+                {cls}: {n}
+              </Badge>
+            ))}
+          </div>
+        </section>
+      )}
 
       <Tabs defaultValue="buckets">
         <TabsList>
@@ -157,6 +188,7 @@ export default function StorageRealityPage() {
           <TabsTrigger value="findings">Findings</TabsTrigger>
           <TabsTrigger value="runs">Runs</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="buckets">
           <Card>
@@ -166,6 +198,7 @@ export default function StorageRealityPage() {
                   <tr className="border-b">
                     <th className="p-2">Bucket</th>
                     <th className="p-2">Tenant-Modell</th>
+                    <th className="p-2">Content-Klasse</th>
                     <th className="p-2">Public</th>
                     <th className="p-2">Objekte</th>
                     <th className="p-2">Open</th>
@@ -179,6 +212,11 @@ export default function StorageRealityPage() {
                     <tr key={b.bucket_id} className="border-b hover:bg-muted/40">
                       <td className="p-2 font-mono">{b.bucket_id}</td>
                       <td className="p-2">{b.tenant_model}</td>
+                      <td className="p-2">
+                        <Badge variant={["learner_data","certificate","assessment","exam_content"].includes(b.content_class) ? "destructive" : "secondary"}>
+                          {b.content_class}
+                        </Badge>
+                      </td>
                       <td className="p-2">
                         {b.is_public ? (
                           <Badge variant="destructive">public</Badge>
@@ -199,11 +237,12 @@ export default function StorageRealityPage() {
                   ))}
                   {!loading && buckets.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="p-6 text-center text-muted-foreground">
+                      <td colSpan={9} className="p-6 text-center text-muted-foreground">
                         Noch kein Audit gelaufen. Klick „Audit starten".
                       </td>
                     </tr>
                   )}
+
                 </tbody>
               </table>
             </CardContent>
@@ -218,6 +257,7 @@ export default function StorageRealityPage() {
                   <tr className="border-b">
                     <th className="p-2">Zeit</th>
                     <th className="p-2">Bucket</th>
+                    <th className="p-2">Content</th>
                     <th className="p-2">Typ</th>
                     <th className="p-2">Severity</th>
                     <th className="p-2">Status</th>
@@ -226,10 +266,16 @@ export default function StorageRealityPage() {
                   </tr>
                 </thead>
                 <tbody>
+
                   {findings.map((f) => (
                     <tr key={f.id} className="border-b align-top hover:bg-muted/40">
                       <td className="p-2 whitespace-nowrap">{new Date(f.created_at).toLocaleString()}</td>
                       <td className="p-2 font-mono">{f.bucket_id}</td>
+                      <td className="p-2">
+                        <Badge variant={["learner_data","certificate","assessment","exam_content"].includes(f.content_class) ? "destructive" : "secondary"}>
+                          {f.content_class}
+                        </Badge>
+                      </td>
                       <td className="p-2">{f.finding_type}</td>
                       <td className="p-2">
                         <Badge variant={(sevColor[f.severity] as any) ?? "outline"}>{f.severity}</Badge>
@@ -241,11 +287,12 @@ export default function StorageRealityPage() {
                   ))}
                   {!loading && findings.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                      <td colSpan={8} className="p-6 text-center text-muted-foreground">
                         Keine Findings.
                       </td>
                     </tr>
                   )}
+
                 </tbody>
               </table>
             </CardContent>

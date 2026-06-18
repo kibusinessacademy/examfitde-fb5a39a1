@@ -17,10 +17,42 @@ const TENANT_REGEX: Record<string, RegExp> = {
   flat_uuid: /^[0-9a-f-]{36}\//i,
 };
 
+type ContentClass =
+  | "exam_content" | "curriculum" | "learner_data" | "assessment"
+  | "certificate" | "ai_artifact" | "seo_asset" | "system_asset"
+  | "media_upload" | "unknown";
+
+// Heuristic bucket-name → content-class mapping (read-only)
+function classifyBucket(id: string): ContentClass {
+  const s = id.toLowerCase();
+  if (/(certificate|cert-|zertifikat)/.test(s)) return "certificate";
+  if (/(oral|voice|audio|trainer-session|exam-recording)/.test(s)) return "learner_data";
+  if (/(answer|attempt|submission|response|learner-|progress|export)/.test(s)) return "learner_data";
+  if (/(exam|question-pool|prüfungs|pruefung|blueprint|pool)/.test(s)) return "exam_content";
+  if (/(curriculum|lehrplan|curricula|syllabus|ssot)/.test(s)) return "curriculum";
+  if (/(minicheck|assessment|quiz|readiness)/.test(s)) return "assessment";
+  if (/(ai-|tutor|ai_tutor|gen|generated|llm|embedding)/.test(s)) return "ai_artifact";
+  if (/(seo|sitemap|llms|og-image|social)/.test(s)) return "seo_asset";
+  if (/(upload|media|avatar|cover|image|brand)/.test(s)) return "media_upload";
+  if (/(backup|system|ops|log|admin)/.test(s)) return "system_asset";
+  return "unknown";
+}
+
+type Severity = "info" | "low" | "medium" | "high" | "critical";
+
+function escalate(base: Severity, cls: ContentClass): Severity {
+  const sensitive = cls === "learner_data" || cls === "certificate" || cls === "assessment";
+  if (!sensitive) return base;
+  const order: Severity[] = ["info", "low", "medium", "high", "critical"];
+  const i = order.indexOf(base);
+  return order[Math.min(i + 1, order.length - 1)];
+}
+
 type Finding = {
   bucket_id: string;
   finding_type: string;
-  severity: "info" | "low" | "medium" | "high" | "critical";
+  severity: Severity;
+  content_class: ContentClass;
   path_sample?: string | null;
   evidence: Record<string, unknown>;
   recommendation?: string;
@@ -73,6 +105,8 @@ Deno.serve(async (req) => {
     let totalSampled = 0;
 
     for (const b of buckets) {
+      const cls: ContentClass = classifyBucket(b.id);
+
       // sample objects (root level + 1 prefix deep) — READ-ONLY list calls
       const sample: { name: string; id?: string | null }[] = [];
       const { data: rootList } = await admin.storage.from(b.id).list("", {
@@ -89,7 +123,6 @@ Deno.serve(async (req) => {
       const matchesUuid = paths.filter((p) => TENANT_REGEX.flat_uuid.test(p)).length;
       const matchedAny = matchesOrg + matchesUser + matchesUuid;
 
-      // upsert into registry with observed metadata
       const inferred =
         matchesOrg > matchesUser && matchesOrg > 0
           ? "org"
@@ -105,36 +138,39 @@ Deno.serve(async (req) => {
           {
             bucket_id: b.id,
             tenant_model: inferred,
+            content_class: cls,
             is_public: !!b.public,
             observed_object_count: paths.length,
             last_seen_at: new Date().toISOString(),
-            purpose: undefined,
           },
           { onConflict: "bucket_id", ignoreDuplicates: false },
         );
 
+      const push = (f: Omit<Finding, "content_class" | "severity"> & { severity: Severity }) =>
+        findings.push({ ...f, content_class: cls, severity: escalate(f.severity, cls) });
+
       // FINDINGS ---------------------------------------------------------------
       if (b.public) {
-        findings.push({
+        push({
           bucket_id: b.id,
           finding_type: "bucket_is_public",
           severity: "high",
-          evidence: { public: true },
+          evidence: { public: true, content_class: cls },
           recommendation:
-            "Public buckets bypass RLS. Confirm contents are non-sensitive or migrate to private + signed URLs.",
+            "Public buckets bypass RLS. Bei sensitiven Klassen (learner_data, certificate, assessment) sofort prüfen.",
         });
       }
 
       if (paths.length === 0) {
-        findings.push({
+        push({
           bucket_id: b.id,
           finding_type: "bucket_empty_or_inaccessible",
           severity: "info",
           evidence: { sampled: 0 },
-          recommendation: "No objects observed at root level. Inactive bucket — candidate for deletion.",
+          recommendation: "Keine Objekte am Root beobachtet. Inaktiv — Löschkandidat.",
         });
       } else if (matchedAny === 0) {
-        findings.push({
+        push({
           bucket_id: b.id,
           finding_type: "no_tenant_prefix_detected",
           severity: "high",
@@ -150,7 +186,7 @@ Deno.serve(async (req) => {
             !TENANT_REGEX.user.test(p) &&
             !TENANT_REGEX.flat_uuid.test(p),
         );
-        findings.push({
+        push({
           bucket_id: b.id,
           finding_type: "mixed_path_convention",
           severity: "medium",
@@ -160,14 +196,13 @@ Deno.serve(async (req) => {
             matched: matchedAny,
             unmatched_examples: offenders.slice(0, 5),
           },
-          recommendation: "Pfadkonvention uneinheitlich. Legacy-Objekte identifizieren und migrieren.",
+          recommendation: "Pfadkonvention uneinheitlich. Legacy-Objekte identifizieren.",
         });
       }
 
-      // suspicious flat path hints
       const flatRoot = paths.filter((p) => !p.includes("/"));
       if (flatRoot.length > 0 && !b.public) {
-        findings.push({
+        push({
           bucket_id: b.id,
           finding_type: "flat_root_objects",
           severity: "medium",
@@ -178,6 +213,7 @@ Deno.serve(async (req) => {
         });
       }
     }
+
 
     if (findings.length > 0) {
       const rows = findings.map((f) => ({ ...f, run_id: runId }));
