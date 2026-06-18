@@ -238,6 +238,30 @@ export default function StorageRealityPage() {
     toast.success(next ? "Attack-Simulation aktiviert" : "Attack-Simulation deaktiviert");
   }
 
+  async function toggleAttackClass(c: AttackClass, field: "enabled" | "kill_switch", next: boolean) {
+    const patch: any = { [field]: next, updated_at: new Date().toISOString() };
+    const { error } = await (supabase as any)
+      .from("storage_attack_classes").update(patch).eq("id", c.id);
+    if (error) { toast.error(error.message); return; }
+    setAttackClasses((prev) => prev.map((x) => x.id === c.id ? { ...x, ...patch } : x));
+    toast.success(`${c.class_key}: ${field} = ${next}`);
+  }
+
+  async function runPhase2Attack() {
+    if (!policy?.enabled) { toast.error("Globaler Kill-Switch aus."); return; }
+    const armed = attackClasses.filter((c) => c.phase === "2.0" && c.enabled && !c.kill_switch);
+    if (armed.length === 0) { toast.error("Keine Phase-2.0-Klasse aktiv (Enabled + Kill-Switch off)."); return; }
+    if (!confirm(`Phase 2.0 Tenant-Reality starten?\nAktiv: ${armed.map((c) => c.class_key).join(", ")}\nNur Synth-Tenants. Hard-Allowlist server-seitig (seo_assets, media_uploads, system_assets).`)) return;
+    setAttackingP2(true);
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("storage-tenant-attack-simulator", { body: {} });
+      if (error) throw error;
+      toast.success(`Phase 2.0 fertig — ${data.attacks_run} Attacks, ${data.leaks} Leaks, ${data.cleaned}/${data.objects_planned} Objekte aufgeräumt`);
+      await load();
+    } catch (e: any) { toast.error(e?.message ?? "Phase-2.0-Attack fehlgeschlagen"); }
+    finally { setAttackingP2(false); }
+  }
+
   async function clearBlock() {
     if (!lastRun) return;
     const note = prompt("Notiz zur manuellen Freigabe (z.B. 'Synth-Reste manuell gelöscht'):") ?? "";
