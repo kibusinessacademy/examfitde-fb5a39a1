@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
     .from("storage_audit_runs")
     .insert({
       triggered_by: userData.user.id,
-      source: "admin_ui_attack_phase2",
+      source: "manual",
       status: "running",
       run_kind: "attack_phase2",
       allowed_buckets: buckets.map((b: any) => b.bucket_id),
