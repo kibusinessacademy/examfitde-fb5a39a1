@@ -125,6 +125,30 @@ type TopByClass = {
 
 type LastRun = Run & { block_next_full_run: boolean };
 
+type AttackClass = {
+  id: string;
+  class_key: string;
+  display_name: string;
+  description: string | null;
+  phase: string;
+  default_severity: string;
+  enabled: boolean;
+  kill_switch: boolean;
+  synth_only: boolean;
+};
+
+type ByClassRow = {
+  attack_class: string;
+  content_class: string;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+  total_findings: number;
+  risk_score: number;
+  last_seen_at: string | null;
+};
+
 const SENSITIVE = ["learner_data", "certificate", "assessment", "exam_content"];
 
 export default function StorageRealityPage() {
