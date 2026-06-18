@@ -271,6 +271,11 @@ export default function StorageRealityPage() {
                     <tr key={f.id} className="border-b align-top hover:bg-muted/40">
                       <td className="p-2 whitespace-nowrap">{new Date(f.created_at).toLocaleString()}</td>
                       <td className="p-2 font-mono">{f.bucket_id}</td>
+                      <td className="p-2">
+                        <Badge variant={["learner_data","certificate","assessment","exam_content"].includes(f.content_class) ? "destructive" : "secondary"}>
+                          {f.content_class}
+                        </Badge>
+                      </td>
                       <td className="p-2">{f.finding_type}</td>
                       <td className="p-2">
                         <Badge variant={(sevColor[f.severity] as any) ?? "outline"}>{f.severity}</Badge>
@@ -282,11 +287,12 @@ export default function StorageRealityPage() {
                   ))}
                   {!loading && findings.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="p-6 text-center text-muted-foreground">
+                      <td colSpan={8} className="p-6 text-center text-muted-foreground">
                         Keine Findings.
                       </td>
                     </tr>
                   )}
+
                 </tbody>
               </table>
             </CardContent>
