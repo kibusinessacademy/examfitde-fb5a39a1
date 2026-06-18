@@ -221,17 +221,21 @@ export default function StorageRealityPage() {
           <div>
             <h1 className="text-2xl font-semibold">Storage Reality Audit</h1>
             <p className="text-sm text-muted-foreground">
-              Phase 0 — read-only Inventar & Diagnose. Keine Bucket-/Object-/Policy-Änderungen.
+              Phase 0 read-only Inventar · Phase 1 synthetische Attack-Simulation (kill-switch).
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="gap-1">
-            <Lock className="h-3 w-3" /> read-only
+            <Lock className="h-3 w-3" /> {policy?.enabled ? "attacks armed" : "read-only"}
           </Badge>
-          <Button onClick={runAudit} disabled={running}>
+          <Button variant="outline" onClick={runAudit} disabled={running}>
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
             <span className="ml-2">Audit starten</span>
+          </Button>
+          <Button onClick={runAttack} disabled={attacking || !policy?.enabled} variant={policy?.enabled ? "destructive" : "secondary"}>
+            {attacking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-4 w-4" />}
+            <span className="ml-2">Attack starten</span>
           </Button>
         </div>
       </header>
