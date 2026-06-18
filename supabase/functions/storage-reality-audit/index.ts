@@ -17,10 +17,42 @@ const TENANT_REGEX: Record<string, RegExp> = {
   flat_uuid: /^[0-9a-f-]{36}\//i,
 };
 
+type ContentClass =
+  | "exam_content" | "curriculum" | "learner_data" | "assessment"
+  | "certificate" | "ai_artifact" | "seo_asset" | "system_asset"
+  | "media_upload" | "unknown";
+
+// Heuristic bucket-name → content-class mapping (read-only)
+function classifyBucket(id: string): ContentClass {
+  const s = id.toLowerCase();
+  if (/(certificate|cert-|zertifikat)/.test(s)) return "certificate";
+  if (/(oral|voice|audio|trainer-session|exam-recording)/.test(s)) return "learner_data";
+  if (/(answer|attempt|submission|response|learner-|progress|export)/.test(s)) return "learner_data";
+  if (/(exam|question-pool|prüfungs|pruefung|blueprint|pool)/.test(s)) return "exam_content";
+  if (/(curriculum|lehrplan|curricula|syllabus|ssot)/.test(s)) return "curriculum";
+  if (/(minicheck|assessment|quiz|readiness)/.test(s)) return "assessment";
+  if (/(ai-|tutor|ai_tutor|gen|generated|llm|embedding)/.test(s)) return "ai_artifact";
+  if (/(seo|sitemap|llms|og-image|social)/.test(s)) return "seo_asset";
+  if (/(upload|media|avatar|cover|image|brand)/.test(s)) return "media_upload";
+  if (/(backup|system|ops|log|admin)/.test(s)) return "system_asset";
+  return "unknown";
+}
+
+type Severity = "info" | "low" | "medium" | "high" | "critical";
+
+function escalate(base: Severity, cls: ContentClass): Severity {
+  const sensitive = cls === "learner_data" || cls === "certificate" || cls === "assessment";
+  if (!sensitive) return base;
+  const order: Severity[] = ["info", "low", "medium", "high", "critical"];
+  const i = order.indexOf(base);
+  return order[Math.min(i + 1, order.length - 1)];
+}
+
 type Finding = {
   bucket_id: string;
   finding_type: string;
-  severity: "info" | "low" | "medium" | "high" | "critical";
+  severity: Severity;
+  content_class: ContentClass;
   path_sample?: string | null;
   evidence: Record<string, unknown>;
   recommendation?: string;
