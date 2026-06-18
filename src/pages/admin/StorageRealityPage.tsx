@@ -477,6 +477,83 @@ export default function StorageRealityPage() {
             </Card>
           )}
 
+          {/* Phase 2.0 — Tenant-Reality Attack Classes */}
+          <Card>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Swords className="h-4 w-4 text-amber-600" />
+                  Phase 2.0 · Tenant-Reality Attacks
+                </CardTitle>
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  Synth-only · Hard-Allowlist (seo_assets, media_uploads, system_assets) · keine sensiblen Klassen.
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant={attackClasses.some((c) => c.phase === "2.0" && c.enabled && !c.kill_switch) ? "destructive" : "secondary"}
+                onClick={runPhase2Attack}
+                disabled={attackingP2 || !policy?.enabled || !!blocked}
+              >
+                {attackingP2 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-4 w-4" />}
+                <span className="ml-2">Phase 2.0 starten</span>
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-left text-muted-foreground"><tr className="border-b">
+                  <th className="p-2">Klasse</th><th className="p-2">Beschreibung</th><th className="p-2">Severity</th>
+                  <th className="p-2">Enabled</th><th className="p-2">Kill-Switch</th>
+                </tr></thead>
+                <tbody>
+                  {attackClasses.filter((c) => c.phase === "2.0").map((c) => (
+                    <tr key={c.id} className="border-b align-top">
+                      <td className="p-2 font-mono whitespace-nowrap">{c.class_key}</td>
+                      <td className="p-2 max-w-[420px] text-muted-foreground">{c.description ?? "—"}</td>
+                      <td className="p-2"><Badge variant={(sevColor[c.default_severity] as any) ?? "outline"}>{c.default_severity}</Badge></td>
+                      <td className="p-2"><Switch checked={c.enabled} onCheckedChange={(v) => toggleAttackClass(c, "enabled", v)} /></td>
+                      <td className="p-2">
+                        <div className="flex items-center gap-2">
+                          <Switch checked={!c.kill_switch} onCheckedChange={(v) => toggleAttackClass(c, "kill_switch", !v)} />
+                          <span className="text-[10px] text-muted-foreground">{c.kill_switch ? "armed-OFF" : "armed-ON"}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {attackClasses.filter((c) => c.phase === "2.0").length === 0 && (
+                    <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">Keine Attack-Klassen registriert.</td></tr>
+                  )}
+                </tbody>
+              </table>
+              {byClassRows.length > 0 && (
+                <div className="p-3 border-t">
+                  <div className="text-[11px] font-semibold mb-2">Findings je Attack × Content-Klasse</div>
+                  <table className="w-full text-[11px]">
+                    <thead className="text-left text-muted-foreground"><tr className="border-b">
+                      <th className="p-1">Attack</th><th className="p-1">Content</th><th className="p-1">Risk</th>
+                      <th className="p-1">Crit</th><th className="p-1">High</th><th className="p-1">Med</th><th className="p-1">Low</th><th className="p-1">Total</th><th className="p-1">Zuletzt</th>
+                    </tr></thead>
+                    <tbody>
+                      {byClassRows.map((r, i) => (
+                        <tr key={i} className="border-b">
+                          <td className="p-1 font-mono">{r.attack_class}</td>
+                          <td className="p-1"><Badge variant={SENSITIVE.includes(r.content_class) ? "destructive" : "secondary"}>{r.content_class}</Badge></td>
+                          <td className="p-1 font-semibold">{r.risk_score}</td>
+                          <td className="p-1">{r.critical_count}</td>
+                          <td className="p-1">{r.high_count}</td>
+                          <td className="p-1">{r.medium_count}</td>
+                          <td className="p-1">{r.low_count}</td>
+                          <td className="p-1">{r.total_findings}</td>
+                          <td className="p-1 whitespace-nowrap">{r.last_seen_at ? new Date(r.last_seen_at).toLocaleString() : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Top Findings by Content-Class */}
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Top Leaks nach Content-Klasse</CardTitle></CardHeader>
