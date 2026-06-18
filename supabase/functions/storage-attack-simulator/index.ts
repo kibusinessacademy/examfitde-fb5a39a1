@@ -1,7 +1,6 @@
-// STORAGE.RLS.REALITY.AUDIT — Phase 1
-// Synthetic attack simulation with hard kill-switch + synthetic prefix + guaranteed cleanup.
-// Writes ONLY under `<synthetic_prefix>/<run_id>/...`. Does NOT touch production paths,
-// does NOT mutate policies, buckets, or signed URLs.
+// STORAGE.RLS.REALITY.AUDIT — Phase 1.1
+// Synthetic attack simulation with hard kill-switch, cleanup-equality enforcement,
+// detailed run logging, and a blocker that prevents the next full run after a cleanup mismatch.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -23,12 +22,7 @@ type AttackKind =
 type AttackResult = "pass" | "leak" | "error" | "not_applicable" | "skipped";
 type Severity = "info" | "low" | "medium" | "high" | "critical";
 
-const SENSITIVE = new Set([
-  "learner_data",
-  "certificate",
-  "assessment",
-  "exam_content",
-]);
+const SENSITIVE = new Set(["learner_data", "certificate", "assessment", "exam_content"]);
 
 function escalateForClass(base: Severity, cls: string): Severity {
   if (!SENSITIVE.has(cls)) return base;
@@ -39,7 +33,6 @@ function escalateForClass(base: Severity, cls: string): Severity {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // ---- AuthZ: admin only ----
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) return json({ error: "missing bearer" }, 401);
 
@@ -72,6 +65,26 @@ Deno.serve(async (req) => {
   const maxObjs: number = Math.max(1, Math.min(5, policy.max_objects_per_bucket ?? 2));
   const allow: string[] = policy.allowed_buckets ?? [];
   const exclude: string[] = policy.excluded_buckets ?? [];
+  const isFullRun = allow.length === 0;
+
+  // ---- Block-Gate (only enforced on full runs; targeted runs may proceed) ----
+  if (isFullRun) {
+    const { data: gate } = await admin.rpc("fn_storage_attack_can_run");
+    const row = Array.isArray(gate) ? gate[0] : gate;
+    if (row && row.can_run === false) {
+      return json(
+        { error: "blocked", reason: row.reason ?? "previous run cleanup mismatch" },
+        409,
+      );
+    }
+  }
+
+  const log: any[] = [];
+  const startedAt = new Date().toISOString();
+  const pushLog = (event: string, data: Record<string, unknown> = {}) =>
+    log.push({ at: new Date().toISOString(), event, ...data });
+
+  pushLog("run_started", { synthetic_prefix: synthPrefix, max_objects_per_bucket: maxObjs, allowed_buckets: allow, excluded_buckets: exclude, full_run: isFullRun });
 
   // ---- Create run ----
   const { data: runRow, error: runErr } = await admin
@@ -81,6 +94,9 @@ Deno.serve(async (req) => {
       source: "admin_ui_attack",
       status: "running",
       run_kind: "attack",
+      allowed_buckets: allow,
+      excluded_buckets: exclude,
+      run_log: log,
     })
     .select()
     .single();
@@ -92,15 +108,18 @@ Deno.serve(async (req) => {
     .from("storage_bucket_registry")
     .select("bucket_id, content_class, is_public, tenant_model");
 
-  let buckets = (registry ?? []).filter((b) => {
-    if (b.is_public === true) return false; // public buckets are not attack targets
+  const buckets = (registry ?? []).filter((b) => {
+    if (b.is_public === true) return false;
     if (exclude.includes(b.bucket_id)) return false;
     if (allow.length > 0 && !allow.includes(b.bucket_id)) return false;
     return true;
   });
 
+  pushLog("buckets_resolved", { buckets_count: buckets.length, bucket_ids: buckets.map((b) => b.bucket_id) });
+
   let attacksRun = 0;
   let leaks = 0;
+  let objectsPlanned = 0;
   const createdObjects: { bucket: string; path: string }[] = [];
 
   try {
@@ -108,13 +127,14 @@ Deno.serve(async (req) => {
       const bucket = b.bucket_id;
       const cls = b.content_class ?? "unknown";
 
-      // Plant synthetic objects (tenant A + tenant B), service-role only.
       const tenantA = crypto.randomUUID();
       const tenantB = crypto.randomUUID();
       const paths = [
         { tenant: "tenant_a", path: `${synthPrefix}/${runId}/tenant_a/${tenantA}/probe.txt` },
         { tenant: "tenant_b", path: `${synthPrefix}/${runId}/tenant_b/${tenantB}/probe.txt` },
       ].slice(0, maxObjs);
+
+      objectsPlanned += paths.length;
 
       const planted: { tenant: string; path: string }[] = [];
       for (const p of paths) {
@@ -127,141 +147,129 @@ Deno.serve(async (req) => {
           planted.push(p);
           createdObjects.push({ bucket, path: p.path });
         } else {
-          await recordResult(admin, runId, bucket, "public_url_read_anon", "error", cls, "medium", p.tenant, p.path, {
-            stage: "plant",
-            error: up.error.message,
-          });
+          pushLog("plant_failed", { bucket, path: p.path, error: up.error.message });
+          await recordResult(admin, runId, bucket, "public_url_read_anon", "error", cls, "medium", p.tenant, p.path, { stage: "plant", error: up.error.message });
         }
       }
-      if (planted.length === 0) continue;
+      if (planted.length === 0) {
+        pushLog("bucket_skipped_no_plant", { bucket });
+        continue;
+      }
 
-      // ---- 5 attack kinds, executed with anon client ----
       for (const p of planted) {
-        // 1) public URL read
+        // 1
         try {
           const pub = anon.storage.from(bucket).getPublicUrl(p.path);
           const url = pub.data?.publicUrl;
-          let leaked = false;
-          let status = 0;
-          if (url) {
-            const r = await fetch(url, { method: "GET" });
-            status = r.status;
-            leaked = r.ok;
-          }
-          await recordResult(
-            admin, runId, bucket, "public_url_read_anon",
-            leaked ? "leak" : "pass",
-            cls,
-            escalateForClass(leaked ? "high" : "info", cls),
-            p.tenant, p.path,
-            { url, http_status: status },
-          );
+          let leaked = false, status = 0;
+          if (url) { const r = await fetch(url, { method: "GET" }); status = r.status; leaked = r.ok; }
+          await recordResult(admin, runId, bucket, "public_url_read_anon", leaked ? "leak" : "pass", cls, escalateForClass(leaked ? "high" : "info", cls), p.tenant, p.path, { url, http_status: status });
           attacksRun++; if (leaked) leaks++;
-        } catch (e) {
-          await recordResult(admin, runId, bucket, "public_url_read_anon", "error", cls, "medium", p.tenant, p.path, { error: String(e) });
-        }
+        } catch (e) { await recordResult(admin, runId, bucket, "public_url_read_anon", "error", cls, "medium", p.tenant, p.path, { error: String(e) }); }
 
-        // 2) signed URL creation as anon
+        // 2
         try {
           const sr = await anon.storage.from(bucket).createSignedUrl(p.path, 60);
           const leaked = !sr.error && !!sr.data?.signedUrl;
-          await recordResult(
-            admin, runId, bucket, "signed_url_creation_anon",
-            leaked ? "leak" : "pass",
-            cls,
-            escalateForClass(leaked ? "high" : "info", cls),
-            p.tenant, p.path,
-            { error: sr.error?.message ?? null },
-          );
+          await recordResult(admin, runId, bucket, "signed_url_creation_anon", leaked ? "leak" : "pass", cls, escalateForClass(leaked ? "high" : "info", cls), p.tenant, p.path, { error: sr.error?.message ?? null });
           attacksRun++; if (leaked) leaks++;
-        } catch (e) {
-          await recordResult(admin, runId, bucket, "signed_url_creation_anon", "error", cls, "medium", p.tenant, p.path, { error: String(e) });
-        }
+        } catch (e) { await recordResult(admin, runId, bucket, "signed_url_creation_anon", "error", cls, "medium", p.tenant, p.path, { error: String(e) }); }
 
-        // 3) direct download as anon
+        // 3
         try {
           const dl = await anon.storage.from(bucket).download(p.path);
           const leaked = !dl.error && !!dl.data;
-          await recordResult(
-            admin, runId, bucket, "direct_download_anon",
-            leaked ? "leak" : "pass",
-            cls,
-            escalateForClass(leaked ? "high" : "info", cls),
-            p.tenant, p.path,
-            { error: dl.error?.message ?? null, bytes: leaked ? (dl.data as Blob).size : 0 },
-          );
+          await recordResult(admin, runId, bucket, "direct_download_anon", leaked ? "leak" : "pass", cls, escalateForClass(leaked ? "high" : "info", cls), p.tenant, p.path, { error: dl.error?.message ?? null, bytes: leaked ? (dl.data as Blob).size : 0 });
           attacksRun++; if (leaked) leaks++;
-        } catch (e) {
-          await recordResult(admin, runId, bucket, "direct_download_anon", "error", cls, "medium", p.tenant, p.path, { error: String(e) });
-        }
+        } catch (e) { await recordResult(admin, runId, bucket, "direct_download_anon", "error", cls, "medium", p.tenant, p.path, { error: String(e) }); }
 
-        // 4) list enumeration as anon
+        // 4
         try {
           const prefix = p.path.split("/").slice(0, -1).join("/");
           const ls = await anon.storage.from(bucket).list(prefix, { limit: 5 });
           const leaked = !ls.error && Array.isArray(ls.data) && ls.data.length > 0;
-          await recordResult(
-            admin, runId, bucket, "list_enumeration_anon",
-            leaked ? "leak" : "pass",
-            cls,
-            escalateForClass(leaked ? "medium" : "info", cls),
-            p.tenant, p.path,
-            { error: ls.error?.message ?? null, entries: leaked ? ls.data!.length : 0 },
-          );
+          await recordResult(admin, runId, bucket, "list_enumeration_anon", leaked ? "leak" : "pass", cls, escalateForClass(leaked ? "medium" : "info", cls), p.tenant, p.path, { error: ls.error?.message ?? null, entries: leaked ? ls.data!.length : 0 });
           attacksRun++; if (leaked) leaks++;
-        } catch (e) {
-          await recordResult(admin, runId, bucket, "list_enumeration_anon", "error", cls, "medium", p.tenant, p.path, { error: String(e) });
-        }
+        } catch (e) { await recordResult(admin, runId, bucket, "list_enumeration_anon", "error", cls, "medium", p.tenant, p.path, { error: String(e) }); }
       }
 
-      // 5) upload tenant-spoof as anon (one attempt per bucket, separate path)
+      // 5
       try {
         const spoofPath = `${synthPrefix}/${runId}/spoof/${crypto.randomUUID()}.txt`;
         const body = new Blob(["spoof"], { type: "text/plain" });
-        const up = await anon.storage.from(bucket).upload(spoofPath, body, {
-          contentType: "text/plain",
-          upsert: false,
-        });
+        const up = await anon.storage.from(bucket).upload(spoofPath, body, { contentType: "text/plain", upsert: false });
         const leaked = !up.error;
-        if (leaked) createdObjects.push({ bucket, path: spoofPath });
-        await recordResult(
-          admin, runId, bucket, "upload_tenant_spoof_anon",
-          leaked ? "leak" : "pass",
-          cls,
-          escalateForClass(leaked ? "high" : "info", cls),
-          "anon", spoofPath,
-          { error: up.error?.message ?? null },
-        );
+        if (leaked) { createdObjects.push({ bucket, path: spoofPath }); objectsPlanned++; }
+        await recordResult(admin, runId, bucket, "upload_tenant_spoof_anon", leaked ? "leak" : "pass", cls, escalateForClass(leaked ? "high" : "info", cls), "anon", spoofPath, { error: up.error?.message ?? null });
         attacksRun++; if (leaked) leaks++;
-      } catch (e) {
-        await recordResult(admin, runId, "(spoof)", "upload_tenant_spoof_anon", "error", "unknown", "medium", "anon", null, { error: String(e) });
-      }
+      } catch (e) { await recordResult(admin, runId, "(spoof)", "upload_tenant_spoof_anon", "error", "unknown", "medium", "anon", null, { error: String(e) }); }
     }
   } finally {
-    // ---- Guaranteed cleanup of every synthetic object we created ----
+    // ---- Guaranteed cleanup ----
     const byBucket = new Map<string, string[]>();
     for (const o of createdObjects) {
       if (!byBucket.has(o.bucket)) byBucket.set(o.bucket, []);
       byBucket.get(o.bucket)!.push(o.path);
     }
+    let cleanupCount = 0;
+    const cleanupFailures: { bucket: string; error: string; paths: number }[] = [];
     for (const [bucket, paths] of byBucket) {
-      try { await admin.storage.from(bucket).remove(paths); } catch (_) { /* swallow */ }
+      try {
+        const rm = await admin.storage.from(bucket).remove(paths);
+        if (rm.error) {
+          cleanupFailures.push({ bucket, error: rm.error.message, paths: paths.length });
+        } else {
+          cleanupCount += paths.length;
+        }
+      } catch (e) {
+        cleanupFailures.push({ bucket, error: String(e), paths: paths.length });
+      }
     }
+
+    const sampled = createdObjects.length;
+    const cleanupOk = cleanupCount === sampled && cleanupFailures.length === 0;
+    const blockedReason = cleanupOk
+      ? null
+      : `cleanup mismatch: sampled=${sampled} cleaned=${cleanupCount} failures=${cleanupFailures.length}`;
+
+    pushLog("cleanup_done", { sampled, cleanup_count: cleanupCount, cleanup_ok: cleanupOk, failures: cleanupFailures });
+    pushLog("run_finished", { attacks_run: attacksRun, leaks });
 
     await admin
       .from("storage_audit_runs")
       .update({
         status: "completed",
         buckets_scanned: buckets.length,
-        objects_sampled: createdObjects.length,
+        objects_planned: objectsPlanned,
+        objects_sampled: sampled,
+        cleanup_count: cleanupCount,
+        cleanup_ok: cleanupOk,
+        blocked_reason: blockedReason,
         findings_count: leaks,
-        summary: { attacks_run: attacksRun, leaks, buckets: buckets.length, cleanup_count: createdObjects.length },
+        summary: {
+          attacks_run: attacksRun,
+          leaks,
+          buckets: buckets.length,
+          objects_planned: objectsPlanned,
+          cleanup_count: cleanupCount,
+          cleanup_ok: cleanupOk,
+          cleanup_failures: cleanupFailures,
+          started_at: startedAt,
+        },
+        run_log: log,
         finished_at: new Date().toISOString(),
       })
       .eq("id", runId);
   }
 
-  return json({ run_id: runId, buckets: buckets.length, attacks_run: attacksRun, leaks, cleaned: createdObjects.length });
+  return json({
+    run_id: runId,
+    buckets: buckets.length,
+    attacks_run: attacksRun,
+    leaks,
+    objects_planned: objectsPlanned,
+    cleaned: createdObjects.length,
+  });
 });
 
 async function recordResult(
