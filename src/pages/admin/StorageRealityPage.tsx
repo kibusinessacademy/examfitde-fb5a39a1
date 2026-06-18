@@ -269,6 +269,12 @@ export default function StorageRealityPage() {
           <TabsTrigger value="buckets">Buckets</TabsTrigger>
           <TabsTrigger value="findings">Findings</TabsTrigger>
           <TabsTrigger value="runs">Runs</TabsTrigger>
+          <TabsTrigger value="attacks">
+            Attacks
+            {attackKpis && attackKpis.total_leaks > 0 && (
+              <Badge variant="destructive" className="ml-2">{attackKpis.total_leaks}</Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
 
