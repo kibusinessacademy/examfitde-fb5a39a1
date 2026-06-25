@@ -40,7 +40,9 @@ export interface B2BTeamTier {
 const BUNDLE_PRICE_CENTS = 2490;
 const BUNDLE_PRICE_DISPLAY = '24,90 €';
 const BUNDLE_STRIPE_PRODUCT_ID = 'prod_UJIqaKAx185ofq';
-const BUNDLE_STRIPE_PRICE_ID = 'price_1TKgFDDxqdaWCpJ6cquKeCog';
+// SSOT-heal 2026-06-25: replaces price_1TKgFDDxqdaWCpJ6cquKeCog (had drifted to 2990ct in Stripe).
+// New price_1TmFCHDxqdaWCpJ6QBjzw4lS is unit_amount=2490 on prod_UJIqaKAx185ofq.
+const BUNDLE_STRIPE_PRICE_ID = 'price_1TmFCHDxqdaWCpJ6QBjzw4lS';
 
 const BUNDLE_B2B_TIERS = [
   { seats: 5, totalCents: 12450, totalDisplay: '124,50 €/Jahr', perSeatCents: 2490, perSeatDisplay: '24,90 €/Jahr', stripeProductId: BUNDLE_STRIPE_PRODUCT_ID, stripePriceId: BUNDLE_STRIPE_PRICE_ID },
