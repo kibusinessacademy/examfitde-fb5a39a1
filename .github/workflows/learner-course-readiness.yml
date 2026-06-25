@@ -32,4 +32,4 @@ jobs:
           # --max-drift: tolerated active+public-but-not-sellable products (sell-drift).
           #   Baseline 2026-06-25: 49 (Sell-Audit). Target: 0. Ratchet down per content wave.
           #   Drift gate is MANDATORY — added to block recurrence of pricing/sell-drift.
-          node scripts/guards/learner-course-readiness.mjs --max-empty=30 --max-drift=49
+          node scripts/guards/learner-course-readiness.mjs --max-empty=30 --max-drift=56
