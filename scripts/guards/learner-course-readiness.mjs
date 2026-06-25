@@ -33,6 +33,8 @@ const argVal = (name, dflt) => {
 const JSON_OUT = !!flag("json");
 const PRINT_READY = !!flag("print-ready");
 const MAX_EMPTY = Number(argVal("max-empty", "0"));
+const MAX_DRIFT = Number(argVal("max-drift", "0"));
+const SKIP_DRIFT = !!flag("skip-drift");
 
 function envFromDotenv() {
   if (!existsSync(".env")) return {};
