@@ -28,6 +28,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || secrets.SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_ANON_KEY }}
         run: |
-          # Tolerated empty count starts at the historical baseline (34) and
-          # ratchets down as content lands. Reduce manually after cleanup.
-          node scripts/guards/learner-course-readiness.mjs --max-empty=30
+          # --max-empty: tolerated empty published courses (ratchet down as content lands).
+          # --max-drift: tolerated active+public-but-not-sellable products (sell-drift).
+          #   Baseline 2026-06-25: 49 (Sell-Audit). Target: 0. Ratchet down per content wave.
+          #   Drift gate is MANDATORY — added to block recurrence of pricing/sell-drift.
+          node scripts/guards/learner-course-readiness.mjs --max-empty=30 --max-drift=56
