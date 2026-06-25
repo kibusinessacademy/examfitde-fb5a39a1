@@ -26,6 +26,8 @@
     "audit:master:full": "node scripts/master-platform-audit.mjs --full",
     "audit:master:json": "node scripts/master-platform-audit.mjs --full --json",
     "audit:master:strict": "node scripts/master-platform-audit.mjs --full --fail-on-warn",
+    "smoke:stripe-sync": "node scripts/stripe-sync-smoke.mjs",
+    "smoke:stripe-sync:invoke": "node scripts/stripe-sync-smoke.mjs --invoke",
     "guard:admin-routing": "node scripts/guard-admin-routing.mjs",
     "check:admin-routes": "node scripts/check-admin-routes.mjs",
     "lint:admin-routing": "npm run guard:admin-routing && npm run check:admin-routes",
