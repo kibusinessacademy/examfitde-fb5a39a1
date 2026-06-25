@@ -7,10 +7,16 @@
  * and must NOT be visible in production.
  *
  * Modes:
- *   default            → exit 1 if any empty published course exists.
+ *   default            → exit 1 if any empty published course OR any sell-drift exists.
  *   --json             → emit JSON report on stdout; never exits non-zero.
- *   --max-empty=N      → tolerate up to N (legacy slack); default 0 strict.
+ *   --max-empty=N      → tolerate up to N empty published courses (legacy slack); default 0.
+ *   --max-drift=N      → tolerate up to N sell-drift products (active+public but !is_sellable); default 0.
+ *   --skip-drift       → skip sell-drift gate (NOT recommended; emits warning).
  *   --print-ready      → print ID list of READY courses (for E2E smoke).
+ *
+ * Sell-Drift gate (added 2026-06-25): products where status='active' AND visibility='public'
+ * AND is_sellable=false are mandatory fails. Catches catalog→checkout breakage that the
+ * empty-course probe misses (e.g. status-drift between lesson states and v_public_sellable_courses).
  *
  * Reads anon SUPABASE_URL + ANON_KEY from .env (already injected in CI).
  */
