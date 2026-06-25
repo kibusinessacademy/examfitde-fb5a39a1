@@ -21,6 +21,10 @@ export interface SellableCourse {
   track: string;
   chamber_type: string;
   catalog_type: string;
+  /** Top-Level Gruppierung für die Shop-Kategorien. */
+  category: 'Ausbildung' | 'Weiterbildung' | 'Zertifizierung';
+  /** Nachfrage-Proxy (certification_catalog.priority_score) — Basis der Standardsortierung. */
+  demand_score: number;
   certification_slug: string | null;
   modules: number;
   lessons: number;
@@ -48,6 +52,10 @@ export const TRACK_LABELS: Record<string, string> = {
   EXAM_FIRST_PLUS: 'Prüfung + Mündlich',
   AUSBILDUNG_VOLL: 'Komplette Ausbildung',
 };
+
+/** Reihenfolge & Labels der drei Shop-Hauptkategorien. */
+export const CATEGORY_ORDER = ['Ausbildung', 'Weiterbildung', 'Zertifizierung'] as const;
+export type CourseCategory = (typeof CATEGORY_ORDER)[number];
 
 /** Klar lesbarer Title-Cleanup für Cards. */
 export function cleanCourseTitle(title: string): string {
