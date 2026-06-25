@@ -78,32 +78,90 @@ try {
 const ready = report.filter((c) => c.is_ready);
 const empty = report.filter((c) => !c.is_ready);
 
+// ── Sell-Drift gate ─────────────────────────────────────────────────────────
+// Active+public products that v_public_sellable_courses marks is_sellable=false.
+// These are catalog→checkout breakers: page exists, CTA dead. Must be 0.
+let drift = [];
+let driftError = null;
+if (!SKIP_DRIFT) {
+  try {
+    drift = await rpc("public_sell_drift_audit");
+  } catch (err) {
+    driftError = err.message;
+  }
+}
+
 if (PRINT_READY) {
   for (const c of ready) console.log(c.id);
   process.exit(0);
 }
 
 if (JSON_OUT) {
-  console.log(JSON.stringify({ total: report.length, ready: ready.length, empty }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        total: report.length,
+        ready: ready.length,
+        empty,
+        sell_drift_count: drift.length,
+        sell_drift: drift,
+        sell_drift_error: driftError,
+      },
+      null,
+      2,
+    ),
+  );
   process.exit(0);
 }
 
 console.log(
   `[learner-course-readiness] published=${report.length} ready=${ready.length} empty=${empty.length} (tolerated ≤${MAX_EMPTY})`,
 );
+console.log(
+  `[sell-drift] active+public-not-sellable=${drift.length} (tolerated ≤${MAX_DRIFT})${SKIP_DRIFT ? " [SKIPPED]" : ""}`,
+);
+
+let failed = false;
 
 if (empty.length > MAX_EMPTY) {
   console.error(`\nFAIL: ${empty.length} published course(s) are empty in the Learner-UI:`);
   for (const c of empty.slice(0, 25)) {
-    console.error(
-      `  - ${c.id}  modules=${c.modules}  lessons=${c.lessons}  · ${c.title}`,
-    );
+    console.error(`  - ${c.id}  modules=${c.modules}  lessons=${c.lessons}  · ${c.title}`);
   }
   if (empty.length > 25) console.error(`  …and ${empty.length - 25} more`);
-  console.error(
-    "\nFix: demote the course to draft (admin_demote_*), or backfill modules+lessons.",
-  );
-  process.exit(1);
+  console.error("\nFix: demote the course to draft (admin_demote_*), or backfill modules+lessons.");
+  failed = true;
 }
+
+if (driftError) {
+  console.error(`\nFAIL: sell-drift probe errored — ${driftError}`);
+  console.error("Fix: ensure public_sell_drift_audit RPC exists and is granted to anon.");
+  failed = true;
+} else if (!SKIP_DRIFT && drift.length > MAX_DRIFT) {
+  console.error(
+    `\nFAIL: ${drift.length} active+public product(s) are NOT sellable (catalog→checkout breakers):`,
+  );
+  const byReason = drift.reduce((acc, d) => {
+    acc[d.reason] = (acc[d.reason] || 0) + 1;
+    return acc;
+  }, {});
+  for (const [reason, n] of Object.entries(byReason)) {
+    console.error(`  · ${reason}: ${n}`);
+  }
+  for (const d of drift.slice(0, 20)) {
+    console.error(
+      `  - ${d.product_slug}  reason=${d.reason}  lessons=${d.lessons}/${d.lessons_ready}-ready  stripe=${d.has_stripe_price}  · ${d.title}`,
+    );
+  }
+  if (drift.length > 20) console.error(`  …and ${drift.length - 20} more`);
+  console.error(
+    "\nFix: either flip product to draft/hidden, complete content (lessons_ready), or attach a stripe price.",
+  );
+  failed = true;
+}
+
+if (failed) process.exit(1);
+
+
 
 console.log(`[learner-course-readiness] OK`);
