@@ -538,10 +538,14 @@ Antworte NUR mit JSON:
       critical_issues: result.issues || [],
       suggested_fixes: result.correction_needed ? [{ type: "correction", reason: result.correction }] : [],
       corrected_content: result.correction_needed ? { correction: result.correction } : null,
-      input_tokens: valResult.usage?.input_tokens || 0,
-      output_tokens: valResult.usage?.output_tokens || 0,
+      input_tokens: valResult.usage?.input_tokens || valResult.usage?.prompt_tokens || 0,
+      output_tokens: valResult.usage?.output_tokens || valResult.usage?.completion_tokens || 0,
       cost_eur: 0,
       latency_ms: latencyMs,
+      metadata: {
+        winning_provider: winningProvider,
+        val_usage: valResult.usage ?? null,
+      },
     });
 
     await supabase.from("ai_generations").update({
