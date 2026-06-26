@@ -1206,6 +1206,33 @@ export default function OralExamTrainer() {
               ))}
             </div>
 
+            {Array.isArray((session as any).topic_scores) && (session as any).topic_scores.length > 0 && (
+              <div className="space-y-3" data-testid="oral-topic-breakdown">
+                <h4 className="font-medium">Ergebnis pro Thema (Lernfeld)</h4>
+                <div className="grid gap-2">
+                  {(session as any).topic_scores.map((t: any) => (
+                    <div key={t.topic_key} className="p-3 rounded-lg bg-muted/40 border flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{t.topic_label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t.questions_answered}/{t.questions_total} beantwortet
+                          {' · '}F {Math.round(t.fachlichkeit_pct)}%
+                          {' · S '}{Math.round(t.struktur_pct)}%
+                          {' · B '}{Math.round(t.begriffssicherheit_pct)}%
+                          {' · P '}{Math.round(t.praxisbezug_pct)}%
+                        </p>
+                      </div>
+                      <div className={cn("text-lg font-bold", getScoreColor((t.overall_pct || 0) / 100))}>
+                        {Math.round(t.overall_pct)}%
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+
+
             <div className="grid md:grid-cols-2 gap-4">
               {session.strengths && session.strengths.length > 0 && (
                 <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
