@@ -683,7 +683,7 @@ Deno.serve(async (req) => {
                       const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
                         type: 'recovery',
                         email: guestEmail,
-                        options: { redirectTo: `${appUrl}/auth/account-claim?session_id=${session.id}` },
+                        options: { redirectTo: `${appUrl}/auth/reset-password?guest=1&session_id=${session.id}` },
                       } as any);
                       if (linkErr) {
                         logStep("WARN: guest recovery link generation failed", { error: linkErr.message });
