@@ -1083,6 +1083,41 @@ Deno.serve(async (req) => {
     zip.file("4_didaktik/minicheck_questions_all.json", JSON.stringify(minicheckQuestions));
     zip.file("4_didaktik/mastery_model.json", JSON.stringify(masteryModel, null, 2));
     zip.file("4_didaktik/course_snapshot.json", JSON.stringify(courseSnapshot || {}, null, 2));
+    // ── modules.json: explicit per-module breakdown with lesson IDs for completeness audits ──
+    {
+      const csAny = (courseSnapshot || {}) as Record<string, unknown>;
+      const mods = ((csAny.modules as unknown[]) || []) as Record<string, unknown>[];
+      const lessonsByModule = new Map<string, Record<string, unknown>[]>();
+      for (const l of allLessons as Record<string, unknown>[]) {
+        const mid = String(l.module_id || "");
+        if (!mid) continue;
+        if (!lessonsByModule.has(mid)) lessonsByModule.set(mid, []);
+        lessonsByModule.get(mid)!.push(l);
+      }
+      const modulesExport = mods.map((m) => {
+        const ls = lessonsByModule.get(String(m.id)) || [];
+        return {
+          module_id: m.id,
+          title: m.title,
+          sort_order: m.sort_order,
+          lesson_count: ls.length,
+          lesson_ids: ls.map((l) => l.lesson_id),
+          lessons: ls.map((l) => ({
+            lesson_id: l.lesson_id,
+            title: l.title,
+            step: l.step,
+            status: l.status,
+            sort_order: l.sort_order,
+          })),
+        };
+      });
+      zip.file("4_didaktik/modules.json", JSON.stringify({
+        total_modules: modulesExport.length,
+        total_lessons: allLessons.length,
+        modules: modulesExport,
+      }, null, 2));
+    }
+
     zip.file("4_didaktik/handbook.md", handbookMd);
     zip.file("4_didaktik/handbook_structured.json", JSON.stringify(handbookStructured, null, 2));
 
