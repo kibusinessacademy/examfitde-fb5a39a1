@@ -174,9 +174,15 @@ export default function LessonContent({
   competencyTitle,
   stepKey,
   visualArtifacts,
+  miniCheckAnswerSignals,
+  miniCheckVisualMappings,
+  miniCheckIsSubmitted,
+  miniCheckId,
+  miniCheckSourceRefs,
   onH5PCompleted,
   onH5PProgress,
   onMiniCheckCompleted
+
 }: LessonContentProps) {
   // Fetch DB-backed MiniChecks for this lesson (pipeline SSOT)
   const { data: dbMiniChecks, isLoading: dbMiniChecksLoading } = useLessonMiniChecks(lessonId);
