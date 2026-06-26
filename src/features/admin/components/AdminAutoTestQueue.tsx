@@ -150,7 +150,7 @@ export function AdminAutoTestQueue({
               <Button size="sm" variant="outline" onClick={() => open(`/exam-trainer?curriculum=${item.curriculum_id}`)}>
                 Prüfung
               </Button>
-              <Button size="sm" variant="outline" onClick={() => open(`/oral-exam?curriculum=${item.curriculum_id}`)}>
+              <Button size="sm" variant="outline" onClick={() => open(`/app/oral?curriculum=${item.curriculum_id}`)}>
                 Tutor
               </Button>
               <Button size="sm" onClick={() => open(`/exam-trainer?curriculum=${item.curriculum_id}`)}>

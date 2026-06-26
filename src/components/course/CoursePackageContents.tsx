@@ -184,7 +184,7 @@ export function CoursePackageContents({ curriculumId, courseId, lessonCount, mod
         title: "Mündlicher Prüfungstrainer",
         subtitle: "Sprach-Dialoge mit Prüfer-KI",
         count: `${c.oralBlueprints} Szenarien`,
-        to: `/oral-exam?curriculum=${curriculumId}`,
+        to: `/app/oral?curriculum=${curriculumId}`,
         accent: "from-rose-500/15 to-rose-500/0",
       });
     }

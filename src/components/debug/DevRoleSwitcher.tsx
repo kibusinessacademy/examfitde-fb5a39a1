@@ -32,7 +32,7 @@ const ROLES: { id: Role; label: string; emoji: string }[] = [
 ];
 
 const QUICK_LINKS = [
-  { label: "Oral-Trainer", path: "/oral-exam" },
+  { label: "Oral-Trainer", path: "/app/oral" },
   { label: "Dashboard", path: "/dashboard" },
   { label: "AI-Tutor", path: "/app/ai-tutor" },
   { label: "Admin", path: "/admin" },
