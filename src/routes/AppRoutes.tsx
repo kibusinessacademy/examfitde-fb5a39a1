@@ -883,6 +883,7 @@ const AppRoutes = () => {
           <Route path="governance/ssot-guard" element={<SsotGuardPage />} />
           <Route path="governance/storage-reality" element={<StorageRealityPage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
+          <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
 
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
           <Route path="berufs-ki/quality" element={<BerufsKIQualityPage />} />
