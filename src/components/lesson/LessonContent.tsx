@@ -420,6 +420,8 @@ export default function LessonContent({
             stepKey={stepKey}
             onCompleted={onMiniCheckCompleted}
           />
+          {miniCheckFeedbackNode}
+
         </div>
       );
     }
