@@ -25,3 +25,8 @@ export * from "./admin-preview";
 export * from "./lesson-visual-policy";
 export * from "./lesson-visual-block";
 export * from "./fixtures";
+
+// Cut 5 — MiniCheck Visual Feedback
+export * from "./minicheck-visual-policy";
+export * from "./minicheck-visual-feedback";
+

@@ -12,11 +12,18 @@ import LessonSections from './sections/LessonSections';
 import { useTranslatedLesson } from '@/hooks/i18n/useTranslatedContent';
 import { TranslationBadge } from '@/components/i18n/TranslationBadge';
 import VisualLearningBlock from '@/components/learning/VisualLearningBlock';
+import MiniCheckVisualFeedback from '@/components/learning/MiniCheckVisualFeedback';
 import {
   buildVisualLessonBlock,
   type VisualLessonStepPlacement,
 } from '@/lib/visual-learning-os/lesson-visual-block';
+import {
+  buildMiniCheckVisualFeedback,
+  type MiniCheckVisualAnswerSignal,
+  type MiniCheckVisualMapping,
+} from '@/lib/visual-learning-os/minicheck-visual-feedback';
 import type { PublishedVisualArtifact } from '@/lib/visual-learning-os/contracts';
+
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
 interface LessonContentProps {
@@ -35,7 +42,19 @@ interface LessonContentProps {
    * Wird NICHT aus der DB im Component geladen. Eltern-Komponente liefert sie.
    */
   visualArtifacts?: ReadonlyArray<PublishedVisualArtifact>;
+  /**
+   * VISUAL.LEARNING.OS — Cut 5.
+   * Optionale MiniCheck Visual Feedback Props. Komponente erzeugt KEINE
+   * Fachdiagnose, sondern rendert nur explizit übergebene Signale + Mappings.
+   */
+  miniCheckAnswerSignals?: ReadonlyArray<MiniCheckVisualAnswerSignal>;
+  miniCheckVisualMappings?: ReadonlyArray<MiniCheckVisualMapping>;
+  /** Pflicht für Sichtbarkeit des Fehlerbilds — niemals vor Abgabe true. */
+  miniCheckIsSubmitted?: boolean;
+  miniCheckId?: string;
+  miniCheckSourceRefs?: ReadonlyArray<string>;
   onH5PCompleted?: (score?: number, maxScore?: number) => void;
+
   onH5PProgress?: (progress: number) => void;
   onMiniCheckCompleted?: (score: number, maxScore: number) => void;
 }
@@ -155,9 +174,15 @@ export default function LessonContent({
   competencyTitle,
   stepKey,
   visualArtifacts,
+  miniCheckAnswerSignals,
+  miniCheckVisualMappings,
+  miniCheckIsSubmitted,
+  miniCheckId,
+  miniCheckSourceRefs,
   onH5PCompleted,
   onH5PProgress,
   onMiniCheckCompleted
+
 }: LessonContentProps) {
   // Fetch DB-backed MiniChecks for this lesson (pipeline SSOT)
   const { data: dbMiniChecks, isLoading: dbMiniChecksLoading } = useLessonMiniChecks(lessonId);
@@ -182,6 +207,37 @@ export default function LessonContent({
     });
     return <VisualLearningBlock block={block} />;
   }, [stepKey, visualArtifacts, curriculumId, competenceId, lessonId]);
+
+  // VISUAL.LEARNING.OS — Cut 5: MiniCheck Visual Feedback (nach Abgabe).
+  const miniCheckFeedbackNode = useMemo(() => {
+    if (!miniCheckIsSubmitted) return null;
+    if (!miniCheckAnswerSignals || miniCheckAnswerSignals.length === 0) return null;
+    if (!curriculumId || !competenceId || !miniCheckId) return null;
+    const result = buildMiniCheckVisualFeedback({
+      context: {
+        curriculum_id: curriculumId,
+        competence_id: competenceId,
+        lesson_id: lessonId,
+        mini_check_id: miniCheckId,
+      },
+      signals: miniCheckAnswerSignals,
+      mappings: miniCheckVisualMappings ?? [],
+      artifacts: visualArtifacts ?? [],
+      source_refs: miniCheckSourceRefs,
+    });
+    return <MiniCheckVisualFeedback result={result} isSubmitted={miniCheckIsSubmitted} />;
+  }, [
+    miniCheckIsSubmitted,
+    miniCheckAnswerSignals,
+    miniCheckVisualMappings,
+    miniCheckId,
+    miniCheckSourceRefs,
+    visualArtifacts,
+    curriculumId,
+    competenceId,
+    lessonId,
+  ]);
+
 
   // i18n PR-3 wiring: resolve translated lesson body if available.
   const sourceHtml = useMemo(() => {
@@ -236,19 +292,23 @@ export default function LessonContent({
       const validation = isMiniCheckValid(dbMiniChecks.questions);
       if (validation.valid) {
         return (
-          <MiniCheckPlayer
-            content={dbMiniChecks}
-            lessonId={lessonId}
-            certificationId={certificationId}
-            competenceId={competenceId}
-            curriculumId={curriculumId}
-            competencyCode={competencyCode}
-            competencyTitle={competencyTitle}
-            stepKey={stepKey}
-            onCompleted={onMiniCheckCompleted}
-          />
+          <div className="space-y-4">
+            <MiniCheckPlayer
+              content={dbMiniChecks}
+              lessonId={lessonId}
+              certificationId={certificationId}
+              competenceId={competenceId}
+              curriculumId={curriculumId}
+              competencyCode={competencyCode}
+              competencyTitle={competencyTitle}
+              stepKey={stepKey}
+              onCompleted={onMiniCheckCompleted}
+            />
+            {miniCheckFeedbackNode}
+          </div>
         );
       }
+
     }
     return (
       <ContentPlaceholder
@@ -333,9 +393,11 @@ export default function LessonContent({
           stepKey={stepKey}
           onCompleted={onMiniCheckCompleted}
         />
+        {miniCheckFeedbackNode}
       </div>
     );
   }
+
 
   // No inline quiz type, but DB has MiniChecks for this lesson (text + minicheck combo)
   if (dbMiniChecks && lessonId) {
@@ -358,6 +420,8 @@ export default function LessonContent({
             stepKey={stepKey}
             onCompleted={onMiniCheckCompleted}
           />
+          {miniCheckFeedbackNode}
+
         </div>
       );
     }
