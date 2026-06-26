@@ -11,6 +11,7 @@ import {
   SEO_TEMPLATES,
   SITE_URL,
   PRODUCT_PRICES,
+  PRODUCT_PRICE_DISPLAY,
   generateCourseSchema,
   generateFAQSchema,
 } from '@/lib/seo';
@@ -257,7 +258,7 @@ export default function BerufDetailPage() {
     },
     {
       question: `Was kostet ExamFit für ${title}?`,
-      answer: `Das Komplettpaket kostet einmalig ${PRODUCT_PRICES.bundle} € – inklusive Lernkurs, Prüfungstrainer, KI-Tutor und mündlicher Simulation. 12 Monate Zugang. Kein Abo.`,
+      answer: `Das Komplettpaket kostet einmalig ${PRODUCT_PRICE_DISPLAY} – inklusive Lernkurs, Prüfungstrainer, KI-Tutor und mündlicher Simulation. 12 Monate Zugang. Kein Abo.`,
     },
     {
       question: `Gibt es eine mündliche Prüfungssimulation für ${title}?`,
@@ -318,7 +319,7 @@ export default function BerufDetailPage() {
             onPrimaryCta={() => trackCta('hero_quiz')}
             onBuyCta={() => handleBuy('hero_buy')}
             buying={buying}
-            priceLabel={`${PRODUCT_PRICES.bundle} €`}
+            priceLabel={PRODUCT_PRICE_DISPLAY}
           />
         </div>
 
@@ -342,7 +343,7 @@ export default function BerufDetailPage() {
               Bereit für die {title}-Prüfung?
             </h2>
             <p className="text-text-secondary">
-              Sichere dir direkt das Komplettpaket für {PRODUCT_PRICES.bundle} € oder starte
+              Sichere dir direkt das Komplettpaket für {PRODUCT_PRICE_DISPLAY} oder starte
               vorher in 4 Minuten mit dem kostenlosen Prüfungsreife-Check.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -358,7 +359,7 @@ export default function BerufDetailPage() {
                     Weiterleitung …
                   </>
                 ) : (
-                  <>Komplettpaket sichern – {PRODUCT_PRICES.bundle} €</>
+                  <>Komplettpaket sichern – {PRODUCT_PRICE_DISPLAY}</>
                 )}
               </Button>
               <Button asChild size="lg" variant="outline" onClick={() => trackCta('footer_quiz')}>

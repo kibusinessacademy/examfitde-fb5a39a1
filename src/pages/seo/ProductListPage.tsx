@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useBerufPages } from '@/hooks/useSEOPages';
-import { SITE_URL, PRODUCT_PRICES } from '@/lib/seo';
+import { SITE_URL, PRODUCT_PRICE_DISPLAY } from '@/lib/seo';
 import { PRICING } from '@/config/pricing';
 
 /**
@@ -45,7 +45,7 @@ function ProductListPageComponent() {
                 Alles in einem Produkt: Prüfungssimulation, KI-Coach, mündliche Prüfung & Prüfungswissen.
               </p>
               <div className="flex items-end gap-3 mb-6">
-                <span className="text-4xl font-bold text-gradient">{PRODUCT_PRICES.pruefungstraining} €</span>
+                <span className="text-4xl font-bold text-gradient">{PRODUCT_PRICE_DISPLAY}</span>
                 <span className="text-muted-foreground mb-1">einmalig · 12 Monate</span>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -83,7 +83,7 @@ function ProductListPageComponent() {
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <Target className="h-6 w-6 text-primary" />
-                          <span className="font-bold text-gradient">{PRODUCT_PRICES.pruefungstraining} €</span>
+                          <span className="font-bold text-gradient">{PRODUCT_PRICE_DISPLAY}</span>
                         </div>
                         <CardTitle className="group-hover:text-primary transition-colors">
                           {beruf.title}
