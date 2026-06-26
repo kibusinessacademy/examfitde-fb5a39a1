@@ -69,6 +69,7 @@ export default function SearchPage() {
       <SEOHead
         title={qParam ? `Suche: ${qParam} | ExamFit` : "Suche | ExamFit"}
         description="Durchsuche alle Berufe, Kurse und Artikel auf ExamFit."
+        noindex
       />
       <h1 className="text-3xl font-bold mb-6">Suche</h1>
 

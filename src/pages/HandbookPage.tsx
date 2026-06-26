@@ -17,6 +17,7 @@ import { useHandbookChapters, useHandbookProgress } from '@/hooks/handbook';
 import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { HandbookChapterCard } from '@/components/handbook/HandbookChapterCard';
 import { SEOHead } from '@/components/seo/SEOHead';
+import { SITE_URL } from '@/lib/seo';
 import PageExplainer from '@/components/admin/PageExplainer';
 
 export default function HandbookPage() {
@@ -48,6 +49,7 @@ export default function HandbookPage() {
       <SEOHead
         title="Prüfungstraining-Handbuch | ExamFit.de"
         description="Dein strategischer Begleiter zur IHK-Prüfung. Lerne, wie die IHK denkt, vermeide typische Fehler und bestehe mit System."
+        canonical={`${SITE_URL}/handbuch`}
       />
 
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
