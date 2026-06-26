@@ -87,12 +87,12 @@ export default function BulkCourseExportPage() {
     setSelected((s) => ({ ...s, [id]: !s[id] }));
   }
 
-  async function exportOne(packageId: string, courseId: string | null) {
+  async function exportOne(packageId: string, courseId: string | null, includePlayer = false) {
     setRowState((s) => ({ ...s, [packageId]: { status: "running" } }));
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("export-course-package", {
-        body: { packageId, courseId },
+        body: { packageId, courseId, includePlayer },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       });
       if (res.error) throw res.error;
