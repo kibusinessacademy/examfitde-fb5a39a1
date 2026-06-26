@@ -68,7 +68,8 @@ export const OS_SURFACE_PREFIXES = [
 
 export function isOsSurface(pathname: string): boolean {
   if (pathname.startsWith("/admin")) return false;
-  if (pathname === "/" || pathname === "") return true;
+  // Landing ("/") wurde aus der OS-Companion-Surface entfernt — auf der Landing
+  // führt der Hero selbst, der schwebende Top-Strip wirkte dort funktionslos.
   return (
     pathname.startsWith("/app") ||
     pathname.startsWith("/pruefungscheck") ||
