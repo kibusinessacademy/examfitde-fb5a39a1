@@ -81,6 +81,14 @@ export default function BulkCourseExportPage() {
     });
   }, [packages, search, statusFilter]);
 
+  // Fetch full publish-gate signals for all non-published packages on the current page
+  // — keeps the UI honest about Open Steps, Meta-Drift, Bronze etc.
+  const gateProbeIds = useMemo(
+    () => filtered.filter((p) => p.status !== "published").map((p) => p.package_id),
+    [filtered],
+  );
+  const { data: readinessMap = {} } = useAdminPublishReadinessBatch(gateProbeIds);
+
   const selectedIds = useMemo(
     () => filtered.filter((p) => selected[p.package_id]).map((p) => p.package_id),
     [filtered, selected],
