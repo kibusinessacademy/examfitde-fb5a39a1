@@ -37,6 +37,7 @@ export default function BerufDetailPage() {
   const { data: catalog, isLoading } = useHomepageCatalog();
   const heroRef = useRef<HTMLDivElement>(null);
   const [stickyVisible, setStickyVisible] = useState(false);
+  const [buying, setBuying] = useState(false);
 
   const course = catalog?.find((c) => c.slug === slug);
   const fallbackEntry = !course && slug
