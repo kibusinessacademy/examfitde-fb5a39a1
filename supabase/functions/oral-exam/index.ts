@@ -322,6 +322,7 @@ async function generateQuestionForSession(
   curriculumId: string,
   orderIndex: number,
   mode: "practice" | "simulation" = "practice",
+  topicFilter: string[] = [],
 ) {
   const professionName = await loadProfessionName(sbAdmin, curriculumId);
 
@@ -334,9 +335,15 @@ async function generateQuestionForSession(
       learning_field:learning_fields!inner(id, title, code, curriculum_id)
     `)
     .eq("learning_fields.curriculum_id", curriculumId)
-    .limit(100);
+    .limit(200);
 
   if (!competencies?.length) throw new Error("No competencies found for curriculum");
+
+  // Optional topic filter: keep only competencies whose learning_field.code matches
+  const filtered = (topicFilter?.length ?? 0) > 0
+    ? competencies.filter((c: any) => topicFilter.includes(c.learning_field?.code))
+    : competencies;
+  const pool0 = filtered.length > 0 ? filtered : competencies;
 
   // Avoid repeats
   const { data: usedQuestions } = await sbUser
@@ -345,7 +352,8 @@ async function generateQuestionForSession(
     .eq("session_id", sessionId);
 
   const usedCompIds = new Set((usedQuestions || []).map((q: any) => q.competency_id));
-  const available = competencies.filter((c: any) => !usedCompIds.has(c.id));
+  const available = pool0.filter((c: any) => !usedCompIds.has(c.id));
+
 
   // ── FIX 3: Deterministic selection (no Math.random) ──────────
   const pool = available.length > 0 ? available : competencies;
