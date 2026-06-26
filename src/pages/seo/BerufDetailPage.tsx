@@ -319,7 +319,7 @@ export default function BerufDetailPage() {
             onPrimaryCta={() => trackCta('hero_quiz')}
             onBuyCta={() => handleBuy('hero_buy')}
             buying={buying}
-            priceLabel={`${PRODUCT_PRICES.bundle} €`}
+            priceLabel={PRODUCT_PRICE_DISPLAY}
           />
         </div>
 
