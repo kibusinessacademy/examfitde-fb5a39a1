@@ -185,15 +185,20 @@ export function SellableCoursesCatalog() {
                   <Button
                     size="sm"
                     className="flex-1"
-                    onClick={() => handleStart(c, 'start')}
+                    onClick={() => handleBuy(c)}
+                    disabled={buyingId === c.course_id}
                   >
-                    <Sparkles className="h-4 w-4 mr-1" />
-                    Prüfung starten
+                    {buyingId === c.course_id ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <ShoppingCart className="h-4 w-4 mr-1" />
+                    )}
+                    {buyingId === c.course_id ? 'Wird geladen…' : `Jetzt kaufen · ${formatEur(c.min_price_cents)}`}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleStart(c, 'simulate')}
+                    onClick={() => handleSimulate(c)}
                     aria-label={`Prüfung simulieren — ${cleanCourseTitle(c.title)}`}
                   >
                     <PlayCircle className="h-4 w-4" />
