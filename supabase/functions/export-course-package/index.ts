@@ -1660,7 +1660,8 @@ Hinweise:
     const bucket = "exports";
     const pkgTitle = safeFilename(String((pkg as Record<string, unknown>).title || packageId));
     const dateStr = new Date().toISOString().split("T")[0];
-    const path = `packages/${packageId}/${pkgTitle}-${dateStr}.zip`;
+    const variantSuffix = includePlayer ? "-with-player" : "";
+    const path = `packages/${packageId}/${pkgTitle}-${dateStr}${variantSuffix}.zip`;
 
     const { error: uploadErr } = await sb.storage
       .from(bucket)
