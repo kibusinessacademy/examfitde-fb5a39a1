@@ -133,6 +133,14 @@ export default function CoursesPage() {
     return result;
   }, [courses, search, filter, category, categoryByCurriculum, enrollments]);
 
+  // Beruf-passende Bilder für sichtbare Karten (lazy, gecached).
+  // slug-key = course.id (eindeutig, stabil im cache).
+  const berufItems = useMemo(
+    () => filteredCourses.map((c) => ({ slug: c.id, title: c.title })),
+    [filteredCourses],
+  );
+  const { imageBySlug } = useBerufImages(berufItems);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" role="status" aria-live="polite" aria-busy="true">
