@@ -42,6 +42,7 @@ const CONCURRENCY = 2;
 
 export default function BulkCourseExportPage() {
   const { data: packages = [], isLoading } = useAdminVisiblePackages();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
