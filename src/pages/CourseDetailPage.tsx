@@ -256,6 +256,18 @@ export default function CourseDetailPage() {
 
   const progressPercent = courseProgress?.progress_percent ?? 0;
 
+  // Beruf-passendes Hero-Foto (lazy + gecached). slug-key = course.id.
+  // HOOKS MUST RUN UNCONDITIONALLY — keep above any early return.
+  const berufItems = useMemo(
+    () => (course ? [{ slug: course.id, title: course.title }] : []),
+    [course],
+  );
+  const { imageBySlug } = useBerufImages(berufItems);
+  const heroImage =
+    course?.thumbnail_url ||
+    (course ? imageBySlug.get(course.id) : undefined) ||
+    (course ? getBerufImage(course.title) : undefined);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -267,16 +279,7 @@ export default function CourseDetailPage() {
   if (!course) {
     return null;
   }
-  // Beruf-passendes Hero-Foto (lazy + gecached). slug-key = course.id.
-  const berufItems = useMemo(
-    () => (course ? [{ slug: course.id, title: course.title }] : []),
-    [course],
-  );
-  const { imageBySlug } = useBerufImages(berufItems);
-  const heroImage =
-    course?.thumbnail_url ||
-    (course ? imageBySlug.get(course.id) : undefined) ||
-    (course ? getBerufImage(course.title) : undefined);
+
 
 
   return (
