@@ -6,6 +6,7 @@ import { generateFAQSchema, generateCourseListSchema, SITE_URL, seoTitle } from 
 import { PRICING } from '@/config/pricing';
 import { StickyCTA } from '@/components/marketing/StickyCTA';
 import { SellableCoursesCatalog } from '@/components/shop/SellableCoursesCatalog';
+import { useSellableCourses, cleanCourseTitle } from '@/hooks/useSellableCourses';
 import { HowExamFitWorksSection } from '@/components/landing/HowExamFitWorksSection';
 import { DemoGallery } from '@/components/landing/demos/DemoGallery';
 import { HeroAccent } from '@/components/marketing/HeroAccent';
@@ -49,6 +50,8 @@ const FAQ_ITEMS = [
 ];
 
 export default function HomePage() {
+  const { data: sellableCourses = [] } = useSellableCourses();
+
   useEffect(() => {
     trackConversion({ event: 'page_view', source: 'homepage' });
 
@@ -78,10 +81,19 @@ export default function HomePage() {
         type="website"
         structuredData={[
           generateFAQSchema(FAQ_ITEMS),
-          generateCourseListSchema([
-            // Reality-Audit Fix: Pricing-SSOT — Schema-Preis MUSS PRICING.individual entsprechen (vorher 29.90 hardcoded)
-            { name: 'Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe', price: PRICING.individual.ausbildung.priceCents / 100 },
-          ]),
+          generateCourseListSchema(
+            sellableCourses.length > 0
+              ? sellableCourses.slice(0, 20).map((c) => ({
+                  name: cleanCourseTitle(c.title),
+                  url: c.product_slug ? `${SITE_URL}/produkt/${c.product_slug}` : `${SITE_URL}/shop?curriculum=${c.curriculum_id}`,
+                  description: `${c.chamber_type} Prüfungstraining — ${cleanCourseTitle(c.title)}`,
+                  price: c.min_price_cents / 100,
+                }))
+              : [
+                  // Fallback vor Datenladung — Reality-Audit Fix: Pricing-SSOT — Schema-Preis MUSS PRICING.individual entsprechen
+                  { name: 'Prüfungstraining', url: `${SITE_URL}/shop`, description: 'Komplett-Prüfungstraining für IHK-Ausbildungsberufe', price: PRICING.individual.ausbildung.priceCents / 100 },
+                ]
+          ),
         ]}
       />
       <div className="min-h-screen">
