@@ -154,6 +154,7 @@ export default function LessonContent({
   competencyCode,
   competencyTitle,
   stepKey,
+  visualArtifacts,
   onH5PCompleted,
   onH5PProgress,
   onMiniCheckCompleted
@@ -162,6 +163,25 @@ export default function LessonContent({
   const { data: dbMiniChecks, isLoading: dbMiniChecksLoading } = useLessonMiniChecks(lessonId);
   // Fetch answer key for interactive Einstieg/Anwenden steps
   const { data: answerKey } = useLessonAnswerKey(lessonId);
+
+  // VISUAL.LEARNING.OS — Cut 4: deterministisch berechneter Lesson Visual Block.
+  // Eingaben kommen ausschließlich aus Props (kein DB-Read im Component).
+  const visualBlockNode = useMemo(() => {
+    const placement = mapStepKeyToVisualPlacement(stepKey);
+    if (!placement) return null;
+    if (!visualArtifacts || visualArtifacts.length === 0) return null;
+    if (!curriculumId || !competenceId) return null;
+    const block = buildVisualLessonBlock({
+      placement,
+      lesson_context: {
+        curriculum_id: curriculumId,
+        competence_id: competenceId,
+        lesson_id: lessonId,
+      },
+      artifacts: visualArtifacts,
+    });
+    return <VisualLearningBlock block={block} />;
+  }, [stepKey, visualArtifacts, curriculumId, competenceId, lessonId]);
 
   // i18n PR-3 wiring: resolve translated lesson body if available.
   const sourceHtml = useMemo(() => {
