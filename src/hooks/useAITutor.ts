@@ -114,6 +114,9 @@ export function useAITutor({
       }
 
       const contentType = resp.headers.get("content-type") || "";
+      const winningProvider = resp.headers.get("x-tutor-provider") || "unknown";
+      const sseStatus = resp.headers.get("x-tutor-sse-status") || String(resp.status);
+      const sseReason = resp.headers.get("x-tutor-reason") || "";
 
       // Handle SSE streaming response
       if (contentType.includes("text/event-stream") && resp.body) {
@@ -176,11 +179,26 @@ export function useAITutor({
         }
 
         if (!assistantContent) {
+          const debugLines = [
+            'Der AI-Tutor hat keine Antwort geliefert.',
+            '',
+            'Debug-Informationen:',
+            `• Provider: ${winningProvider}`,
+            `• SSE-Status: ${sseStatus}`,
+            sseReason ? `• Grund: ${sseReason}` : '',
+            '',
+            'Bitte erneut versuchen. Falls das Problem bestehen bleibt, an den Support melden (mit obigen Debug-Daten).',
+          ].filter(Boolean).join('\n');
           setMessages(prev => [...prev, {
             role: 'assistant',
-            content: 'Keine Antwort erhalten.',
+            content: debugLines,
             timestamp: new Date(),
           }]);
+          toast({
+            title: 'Keine Antwort vom AI-Tutor',
+            description: `Provider=${winningProvider}, SSE=${sseStatus}`,
+            variant: 'destructive',
+          });
         }
       } else {
         // Fallback: JSON response (e.g. blocked in exam mode)
