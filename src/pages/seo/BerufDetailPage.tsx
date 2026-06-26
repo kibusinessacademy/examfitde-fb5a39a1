@@ -343,7 +343,7 @@ export default function BerufDetailPage() {
               Bereit für die {title}-Prüfung?
             </h2>
             <p className="text-text-secondary">
-              Sichere dir direkt das Komplettpaket für {PRODUCT_PRICES.bundle} € oder starte
+              Sichere dir direkt das Komplettpaket für {PRODUCT_PRICE_DISPLAY} oder starte
               vorher in 4 Minuten mit dem kostenlosen Prüfungsreife-Check.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
