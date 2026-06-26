@@ -335,6 +335,22 @@
     font-size: inherit;
     line-height: inherit;
   }
+
+  /* Headings: inline children MUST inherit size/family/weight/line-height.
+     Prevents brand spans (e.g. .text-gradient ExamFit) from shrinking
+     or breaking font consistency relative to surrounding heading text. */
+  h1 span, h1 a, h1 strong, h1 em, h1 b, h1 i,
+  h2 span, h2 a, h2 strong, h2 em, h2 b, h2 i,
+  h3 span, h3 a, h3 strong, h3 em, h3 b, h3 i,
+  h4 span, h4 a, h4 strong, h4 em, h4 b, h4 i,
+  h5 span, h5 a, h5 strong, h5 em, h5 b, h5 i,
+  h6 span, h6 a, h6 strong, h6 em, h6 b, h6 i {
+    font-size: inherit !important;
+    line-height: inherit !important;
+    font-family: inherit !important;
+    font-weight: inherit !important;
+    letter-spacing: inherit;
+  }
 }
 
 @layer utilities {
