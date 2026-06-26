@@ -98,6 +98,7 @@ const CertificationCategoryPage = lazyRetry(() => import('@/pages/seo/Certificat
 const CertificationSEOPage = lazyRetry(() => import('@/pages/seo/CertificationSEOPage'));
 const PruefungSlugRedirect = lazyRetry(() => import('@/pages/seo/PruefungSlugRedirect'));
 const PruefungstrainingHub = lazyRetry(() => import('@/pages/seo/PruefungstrainingHub'));
+const PruefungstrainingCategoryPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingCategoryPage'));
 const PruefungstrainingDetailPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingDetailPage'));
 const KarrierePage = lazyRetry(() => import('@/pages/seo/KarrierePage'));
 const BetriebeLandingPage = lazyRetry(() => import('@/pages/seo/BetriebeLandingPage'));
