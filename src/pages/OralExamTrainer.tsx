@@ -41,6 +41,7 @@ import { useTerminology } from '@/hooks/useProgramType';
 import { OralWaveform } from '@/components/oral/OralWaveform';
 import { ExaminerThinkingBeat } from '@/components/oral/ExaminerThinkingBeat';
 import { OralReplayCard, type TurnMetric } from '@/components/oral/OralReplayCard';
+import { VoiceDiagnostics } from '@/components/oral/VoiceDiagnostics';
 import {
   reportEntryFallbackView,
   reportEntryFallbackCtaClick,
@@ -712,6 +713,7 @@ export default function OralExamTrainer() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <VoiceDiagnostics locale={speechLocale} />
             <div>
               <label className="text-sm font-medium mb-2 block">
                 {isAcademic ? 'Studiengang / Curriculum' : 'Ausbildungsberuf / Curriculum'}
