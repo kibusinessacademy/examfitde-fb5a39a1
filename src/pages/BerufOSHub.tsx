@@ -115,7 +115,7 @@ export default function BerufOSHub() {
               className="berufos-btn-ghost px-6 py-3"
               data-cta-location="home_hero_demo"
             >
-              Kostenlos testen
+              Demo ansehen
             </Link>
             <a href="#module" className="berufos-btn-ghost px-6 py-3">
               Plattform entdecken
