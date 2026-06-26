@@ -345,7 +345,44 @@ export default function BulkCourseExportPage() {
         </div>
       </div>
 
+      {totalInFlight > 0 && (
+        <div className="rounded-lg border bg-card p-4 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium flex items-center gap-2">
+              {running || runningCount > 0 ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              )}
+              Bulk-Export Fortschritt
+            </span>
+            <span className="text-muted-foreground">
+              {doneCount + errorCount} / {totalInFlight} · {progressPct}%
+            </span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+            <span>🟢 {doneCount} fertig</span>
+            <span>🔵 {runningCount} laufen</span>
+            <span>⏳ {queuedCount} warten</span>
+            {errorCount > 0 && <span className="text-destructive">🔴 {errorCount} Fehler</span>}
+            {totalModulesExported > 0 && (
+              <span className="ml-auto">
+                Σ <strong className="text-foreground">{totalModulesExported}</strong> Module ·{" "}
+                <strong className="text-foreground">{totalLessonsExported}</strong> Lektionen exportiert
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="border rounded-lg overflow-hidden">
+
         <Table>
           <TableHeader>
             <TableRow>
