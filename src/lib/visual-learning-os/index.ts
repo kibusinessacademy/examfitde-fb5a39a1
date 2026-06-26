@@ -30,3 +30,11 @@ export * from "./fixtures";
 export * from "./minicheck-visual-policy";
 export * from "./minicheck-visual-feedback";
 
+// Cut 6 — AI-assisted Visual Drafting (hinter Review-Gate)
+export * from "./ai-draft-policy";
+export * from "./ai-draft-contracts";
+export * from "./ai-draft-request";
+export * from "./ai-output-normalizer";
+export * from "./ai-draft-pipeline";
+
+
