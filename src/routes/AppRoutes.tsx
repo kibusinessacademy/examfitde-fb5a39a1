@@ -480,8 +480,9 @@ const AppRoutes = () => {
         <Route path="/industries" element={<BerufOSModulePage slug="industries" />} />
         <Route path="/governance" element={<BerufOSModulePage slug="governance" />} />
 
-        {/* /examfit = ExamFit LearningOS Marketing-Homepage (vorher /) */}
-        <Route path="/examfit" element={<HomePageV1Legacy />} />
+        {/* /examfit = neue Shop-Landingpage (Routing in MainLayout-Block, siehe unten).
+            Legacy HomePageV1Legacy wird nicht mehr unter /examfit gemountet. */}
+
 
         {/* Berufs-KI — eigenständige Produktlinie */}
         <Route path="/berufs-ki" element={<BerufsKIHubPage />} />
