@@ -816,6 +816,38 @@ async function finishSession(sbUser: any, sbAdmin: any, userId: string, params: 
     if (q.missed_points) q.missed_points.forEach((p: string) => allWeaknesses.add(p));
   });
 
+  // ── Per-Thema-Aggregation für Replay/Filter ─────────────────
+  const topicMap = new Map<string, {
+    topic_key: string; topic_label: string;
+    f: number; s: number; b: number; p: number; n: number; answered: number;
+  }>();
+  for (const q of questions as any[]) {
+    const key = q.topic_key || 'allgemein';
+    const label = q.topic_label || 'Allgemein';
+    const t = topicMap.get(key) || { topic_key: key, topic_label: label, f: 0, s: 0, b: 0, p: 0, n: 0, answered: 0 };
+    t.f += Number(q.fachlichkeit_score || 0);
+    t.s += Number(q.struktur_score || 0);
+    t.b += Number(q.begriffssicherheit_score || 0);
+    t.p += Number(q.praxisbezug_score || 0);
+    t.n += 1;
+    if (q.user_answer) t.answered += 1;
+    topicMap.set(key, t);
+  }
+  const topicScores = Array.from(topicMap.values()).map(t => {
+    const f = t.f / t.n, s = t.s / t.n, b = t.b / t.n, p = t.p / t.n;
+    return {
+      topic_key: t.topic_key,
+      topic_label: t.topic_label,
+      questions_total: t.n,
+      questions_answered: t.answered,
+      fachlichkeit_pct: Math.round(f * 100 * 10) / 10,
+      struktur_pct: Math.round(s * 100 * 10) / 10,
+      begriffssicherheit_pct: Math.round(b * 100 * 10) / 10,
+      praxisbezug_pct: Math.round(p * 100 * 10) / 10,
+      overall_pct: Math.round((f * EVAL_WEIGHTS.fachlichkeit + s * EVAL_WEIGHTS.struktur + b * EVAL_WEIGHTS.begriffssicherheit + p * EVAL_WEIGHTS.praxisbezug) * 100 * 10) / 10,
+    };
+  }).sort((a, b) => a.topic_label.localeCompare(b.topic_label));
+
   const { data: session, error } = await sbUser
     .from("oral_exam_sessions")
     .update({
@@ -829,7 +861,9 @@ async function finishSession(sbUser: any, sbAdmin: any, userId: string, params: 
       strengths: Array.from(allStrengths).slice(0, 5),
       weaknesses: Array.from(allWeaknesses).slice(0, 5),
       improvement_suggestions: Array.from(allWeaknesses).slice(0, 3).map((w) => `Vertiefen Sie: ${w}`),
+      topic_scores: topicScores,
     })
+
     .eq("id", session_id)
     .select()
     .single();
