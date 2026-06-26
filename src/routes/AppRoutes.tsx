@@ -98,6 +98,7 @@ const CertificationCategoryPage = lazyRetry(() => import('@/pages/seo/Certificat
 const CertificationSEOPage = lazyRetry(() => import('@/pages/seo/CertificationSEOPage'));
 const PruefungSlugRedirect = lazyRetry(() => import('@/pages/seo/PruefungSlugRedirect'));
 const PruefungstrainingHub = lazyRetry(() => import('@/pages/seo/PruefungstrainingHub'));
+const PruefungstrainingCategoryPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingCategoryPage'));
 const PruefungstrainingDetailPage = lazyRetry(() => import('@/pages/seo/PruefungstrainingDetailPage'));
 const KarrierePage = lazyRetry(() => import('@/pages/seo/KarrierePage'));
 const BetriebeLandingPage = lazyRetry(() => import('@/pages/seo/BetriebeLandingPage'));
@@ -595,6 +596,13 @@ const AppRoutes = () => {
           <Route path="/pruefungstraining/:slug/betrieb" element={<ProductPersonaPage />} />
           <Route path="/pruefungstraining/:slug/institution" element={<ProductPersonaPage />} />
           <Route path="/pruefungstraining/:category/:slug" element={<PruefungstrainingDetailPage />} />
+          {/* Known category landing pages — MUST be before generic :slug catch-all */}
+          <Route path="/pruefungstraining/ausbildung" element={<PruefungstrainingCategoryPage />} />
+          <Route path="/pruefungstraining/fachwirt" element={<PruefungstrainingCategoryPage />} />
+          <Route path="/pruefungstraining/meister" element={<PruefungstrainingCategoryPage />} />
+          <Route path="/pruefungstraining/betriebswirt" element={<PruefungstrainingCategoryPage />} />
+          <Route path="/pruefungstraining/sachkunde" element={<PruefungstrainingCategoryPage />} />
+          <Route path="/pruefungstraining/aevo" element={<PruefungstrainingCategoryPage />} />
           {/* SSOT-driven product page — replaces legacy detail page */}
           <Route path="/pruefungstraining/:slug" element={<ProductPage />} />
 

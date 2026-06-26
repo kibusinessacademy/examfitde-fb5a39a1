@@ -44,7 +44,8 @@ const CATEGORY_META: Record<string, { title: string; h1: string; description: st
 };
 
 const PruefungstrainingCategoryPage = () => {
-  const { category } = useParams<{ category: string }>();
+  const params = useParams<{ category?: string; slug?: string }>();
+  const category = params.category || params.slug;
   const { data: catalog, isLoading } = useCertificationCatalog();
   const { data: publishedIds } = usePublishedCertifications();
 
