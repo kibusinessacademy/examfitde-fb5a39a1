@@ -32,11 +32,23 @@ const STATUS_OPTIONS = [
   { value: "archived", label: "Archived" },
 ];
 
+type PlayerValidation = {
+  requested: boolean;
+  has_player_index_html: boolean;
+  has_player_data_json: boolean;
+  complete: boolean;
+  reason: string;
+};
+
 type RowState = {
   status: "idle" | "queued" | "running" | "done" | "error";
   message?: string;
   url?: string;
+  playerUrl?: string | null;
+  playerValidation?: PlayerValidation;
+  variant?: "zip" | "with-player";
 };
+
 
 const CONCURRENCY = 2;
 
