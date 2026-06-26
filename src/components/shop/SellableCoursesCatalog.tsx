@@ -60,13 +60,29 @@ export function SellableCoursesCatalog() {
     });
   }, [courses, search, chamber, catalog, trackFilter, priceBucket]);
 
-  const handleStart = (c: SellableCourse, action: 'start' | 'simulate') => {
-    track('product_select', {
+  const handleBuy = async (c: SellableCourse) => {
+    track('checkout_start', {
       curriculumId: c.curriculum_id,
-      product_key: action === 'simulate' ? 'catalog_simulate' : 'catalog_start',
+      product_key: 'catalog_buy',
+      product_slug: c.product_slug,
     });
+    if (!c.product_slug) {
+      navigate(`/shop?curriculum=${c.curriculum_id}`);
+      return;
+    }
+    try {
+      setBuyingId(c.course_id);
+      const res = await startProductCheckout(c.product_slug, { source: 'catalog_card' });
+      if (!res.ok && res.error) toast.error(res.error);
+    } finally {
+      setBuyingId(null);
+    }
+  };
+
+  const handleSimulate = (c: SellableCourse) => {
+    track('product_select', { curriculumId: c.curriculum_id, product_key: 'catalog_simulate' });
     if (c.product_slug) {
-      navigate(`/produkt/${c.product_slug}${action === 'simulate' ? '?intent=simulate' : ''}`);
+      navigate(`/produkt/${c.product_slug}?intent=simulate`);
     } else {
       navigate(`/shop?curriculum=${c.curriculum_id}`);
     }
