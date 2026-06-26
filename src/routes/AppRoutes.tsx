@@ -596,6 +596,13 @@ const AppRoutes = () => {
           <Route path="/pruefungstraining/:slug/betrieb" element={<ProductPersonaPage />} />
           <Route path="/pruefungstraining/:slug/institution" element={<ProductPersonaPage />} />
           <Route path="/pruefungstraining/:category/:slug" element={<PruefungstrainingDetailPage />} />
+          {/* Known category landing pages — MUST be before generic :slug catch-all */}
+          <Route path="/pruefungstraining/ausbildung" element={<PruefungstrainingCategoryPage />} />
+          <Route path="/pruefungstraining/fachwirt" element={<PruefungstrainingCategoryPage />} />
+          <Route path="/pruefungstraining/meister" element={<PruefungstrainingCategoryPage />} />
+          <Route path="/pruefungstraining/betriebswirt" element={<PruefungstrainingCategoryPage />} />
+          <Route path="/pruefungstraining/sachkunde" element={<PruefungstrainingCategoryPage />} />
+          <Route path="/pruefungstraining/aevo" element={<PruefungstrainingCategoryPage />} />
           {/* SSOT-driven product page — replaces legacy detail page */}
           <Route path="/pruefungstraining/:slug" element={<ProductPage />} />
 
