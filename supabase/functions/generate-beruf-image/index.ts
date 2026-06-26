@@ -83,7 +83,7 @@ async function generateAndStore(
   kammer: string | null,
 ) {
   try {
-    const prompt = buildPrompt(title, kammer);
+    const prompt = buildPrompt(slug, title, kammer);
     const b64 = await generateImageB64(prompt);
     const bytes = b64ToBytes(b64);
     const path = `${slug}.png`;
