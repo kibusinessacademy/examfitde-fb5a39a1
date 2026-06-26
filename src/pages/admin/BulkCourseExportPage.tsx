@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Loader2, Download, CheckCircle2, XCircle, Package } from "lucide-react";
+import { Loader2, Download, CheckCircle2, XCircle, Package, Info, PlayCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminVisiblePackages } from "@/hooks/useAdminVisiblePackages";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,23 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "Alle Status" },
+  { value: "published", label: "Published (live verkaufbar)" },
+  { value: "done", label: "Done (Build fertig, nicht published)" },
+  { value: "building", label: "Building (aktive Pipeline)" },
+  { value: "queued", label: "Queued (wartet auf Build)" },
+  { value: "planning", label: "Planning" },
+  { value: "blocked", label: "Blocked (Integrity/Quality-Gate)" },
+  { value: "failed", label: "Failed (manueller Eingriff nötig)" },
+  { value: "archived", label: "Archived" },
+];
 
 type RowState = {
   status: "idle" | "queued" | "running" | "done" | "error";
