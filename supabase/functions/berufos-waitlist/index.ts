@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     // Idempotent: duplicate is success.
     if (insertErr && !String(insertErr.message).toLowerCase().includes("duplicate")) {
       console.error("[berufos-waitlist] insert failed:", insertErr);
-      return new Response(JSON.stringify({ error: "insert_failed", detail: insertErr.message }), {
+      return new Response(JSON.stringify({ error: "internal_error", code: "ERR_INSERT" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
