@@ -558,7 +558,9 @@ async function generateQuestion(sbUser: any, sbAdmin: any, userId: string, param
 
   const question = await generateQuestionForSession(
     sbUser, sbAdmin, userId, session_id, session.curriculum_id, session.current_question_index, session.mode,
+    Array.isArray(session.topic_filter) ? session.topic_filter : [],
   );
+
 
   // ── FIX 4: Log turn ─────────────────────────────────────────
   await logTurn(sbAdmin, {
