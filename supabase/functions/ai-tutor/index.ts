@@ -998,6 +998,9 @@ REGELN für Humor-Nutzung:
               responseExcerpt: fullResponse,
               metadata: {
                 invalid_ids: cit.invalidIds,
+                winning_provider: winningProvider,
+                sse_status: streamStatus,
+                response_length: fullResponse.length,
                 allowed_counts: {
                   lessons: allowedSources.lessons.length,
                   competencies: allowedSources.competencies.length,
