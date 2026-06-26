@@ -292,19 +292,23 @@ export default function LessonContent({
       const validation = isMiniCheckValid(dbMiniChecks.questions);
       if (validation.valid) {
         return (
-          <MiniCheckPlayer
-            content={dbMiniChecks}
-            lessonId={lessonId}
-            certificationId={certificationId}
-            competenceId={competenceId}
-            curriculumId={curriculumId}
-            competencyCode={competencyCode}
-            competencyTitle={competencyTitle}
-            stepKey={stepKey}
-            onCompleted={onMiniCheckCompleted}
-          />
+          <div className="space-y-4">
+            <MiniCheckPlayer
+              content={dbMiniChecks}
+              lessonId={lessonId}
+              certificationId={certificationId}
+              competenceId={competenceId}
+              curriculumId={curriculumId}
+              competencyCode={competencyCode}
+              competencyTitle={competencyTitle}
+              stepKey={stepKey}
+              onCompleted={onMiniCheckCompleted}
+            />
+            {miniCheckFeedbackNode}
+          </div>
         );
       }
+
     }
     return (
       <ContentPlaceholder
