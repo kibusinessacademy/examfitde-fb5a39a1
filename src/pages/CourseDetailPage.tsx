@@ -14,6 +14,8 @@ import { Paywall } from "@/components/shop/Paywall";
 import { Loader2, Clock, BookOpen, ArrowLeft, PlayCircle, Zap, HelpCircle, ChevronDown } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { SEOHead } from "@/components/seo/SEOHead";
+import { getBerufImage } from "@/lib/berufImage";
+import { useBerufImages } from "@/hooks/useBerufImages";
 
 interface Course {
   id: string;
@@ -264,6 +266,17 @@ export default function CourseDetailPage() {
   if (!course) {
     return null;
   }
+  // Beruf-passendes Hero-Foto (lazy + gecached). slug-key = course.id.
+  const berufItems = useMemo(
+    () => (course ? [{ slug: course.id, title: course.title }] : []),
+    [course],
+  );
+  const { imageBySlug } = useBerufImages(berufItems);
+  const heroImage =
+    course?.thumbnail_url ||
+    (course ? imageBySlug.get(course.id) : undefined) ||
+    (course ? getBerufImage(course.title) : undefined);
+
 
   return (
     <div className="py-8 px-4">
@@ -288,13 +301,12 @@ export default function CourseDetailPage() {
         {/* Course Header */}
         <div className="glass-card rounded-2xl overflow-hidden mb-8">
           <div className="aspect-video md:aspect-[3/1] bg-muted relative">
-            {course.thumbnail_url ? (
-              <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center gradient-hero opacity-50">
-                <BookOpen className="h-20 w-20 text-primary-foreground" />
-              </div>
-            )}
+            <img
+              src={heroImage}
+              alt={course.title}
+              loading="eager"
+              className="w-full h-full object-cover"
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
               <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-2" data-testid="course-title">{course.title}</h1>

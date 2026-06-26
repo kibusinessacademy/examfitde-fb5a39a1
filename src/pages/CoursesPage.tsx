@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Loader2, Clock, BookOpen, ArrowRight, CheckCircle, Search, X } from 'lucide-react';
 import { SEOHead } from '@/components/seo/SEOHead';
+import { getBerufImage } from '@/lib/berufImage';
+import { useBerufImages } from '@/hooks/useBerufImages';
 
 interface Course {
   id: string;
@@ -131,6 +133,14 @@ export default function CoursesPage() {
     return result;
   }, [courses, search, filter, category, categoryByCurriculum, enrollments]);
 
+  // Beruf-passende Bilder für sichtbare Karten (lazy, gecached).
+  // slug-key = course.id (eindeutig, stabil im cache).
+  const berufItems = useMemo(
+    () => filteredCourses.map((c) => ({ slug: c.id, title: c.title })),
+    [filteredCourses],
+  );
+  const { imageBySlug } = useBerufImages(berufItems);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" role="status" aria-live="polite" aria-busy="true">
@@ -244,19 +254,22 @@ export default function CoursesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredCourses.map((course) => (
               <Card key={course.id} className="glass-card border-border hover:border-primary/30 transition-all duration-300 group overflow-hidden">
-                {/* Thumbnail */}
+                {/* Thumbnail — Reihenfolge: explizites course.thumbnail → AI-Foto aus Cache → Kategorie-Fallback */}
                 <div className="aspect-video bg-muted relative overflow-hidden">
-                  {course.thumbnail_url ? (
-                    <img 
-                      src={course.thumbnail_url} 
-                      alt={course.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center gradient-primary opacity-50">
-                      <BookOpen className="h-12 w-12 text-primary-foreground" />
-                    </div>
-                  )}
+                  {(() => {
+                    const src =
+                      course.thumbnail_url ||
+                      imageBySlug.get(course.id) ||
+                      getBerufImage(course.title);
+                    return (
+                      <img
+                        src={src}
+                        alt={course.title}
+                        loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    );
+                  })()}
                   
                   {/* Status Badges */}
                   <div className="absolute top-3 left-3 flex gap-2">
