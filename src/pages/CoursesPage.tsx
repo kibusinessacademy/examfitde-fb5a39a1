@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Loader2, Clock, BookOpen, ArrowRight, CheckCircle, Search, X } from 'lucide-react';
 import { SEOHead } from '@/components/seo/SEOHead';
+import { getBerufImage } from '@/lib/berufImage';
+import { useBerufImages } from '@/hooks/useBerufImages';
 
 interface Course {
   id: string;
