@@ -6,7 +6,6 @@ name: Vercel Prerender Gate
 # and the post-deploy smoke (verify the live URL after Vercel finishes).
 
 on:
-on:
   pull_request:
     paths:
       - 'vercel.json'

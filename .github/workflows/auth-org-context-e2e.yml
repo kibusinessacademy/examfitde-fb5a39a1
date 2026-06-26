@@ -18,16 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # Job-Level-Mutex: pro Org/Env nur EIN aktiver Auth-E2E-Run.
+    # Job-Level-Mutex: pro Repo nur EIN aktiver Auth-E2E-Run.
     # Nachfolgende Runs warten in der Queue statt parallel zu laufen
     # (Race-Conditions bei Seed/Login werden so verhindert).
+    # Hinweis: der `secrets`-Kontext ist in concurrency-Ausdrücken NICHT
+    # erlaubt (führt zu "startup_failure" mit 0 ausgeführten Jobs) -
+    # daher hier github.repository statt secrets.E2E_ORG_EMAIL/E2E_BASE_URL.
     concurrency:
-      group: >-
-        auth-org-e2e-mutex-${{
-          secrets.E2E_ORG_EMAIL || 'org@unternehmen.de'
-        }}-${{
-          secrets.E2E_BASE_URL || 'https://examfitde.lovable.app'
-        }}
+      group: auth-org-e2e-mutex-${{ github.repository }}
       cancel-in-progress: false
 
     env:
