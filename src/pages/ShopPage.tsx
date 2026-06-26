@@ -92,7 +92,10 @@ export default function ShopPage() {
     }
   }, [selectedCurriculumId, track]);
 
-  const priceDisplay = priceData ? formatEur(priceData.total_price_cents) : PRICING.defaultPrice;
+  // SSOT-enforced: Bundle-Preis ist immer 24,90 € (siehe src/config/pricing.ts).
+  // Wir ignorieren ggf. driftende DB-Preise und zeigen ausschließlich den SSOT-Preis.
+  void priceData;
+  const priceDisplay = PRICING.defaultPrice;
 
   const cleanTitle = (stats?.title || '')
     .replace(/^Rahmenlehrplan\s+/i, '')

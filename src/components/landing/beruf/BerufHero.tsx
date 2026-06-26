@@ -92,7 +92,7 @@ export function BerufHero({
             className="h-12 px-6 text-base"
             onClick={onPrimaryCta}
           >
-            <Link to={quizHref}>Erst kostenlos testen</Link>
+            <Link to={quizHref}>Prüfungsreife-Check starten</Link>
           </Button>
         </div>
 

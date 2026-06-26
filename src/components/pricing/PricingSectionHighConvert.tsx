@@ -267,7 +267,7 @@ const planMeta: Record<
     description:
       'Für Studierende, die nicht nur lernen, sondern ihre Modulprüfung planbar bestehen wollen.',
     highlighted: true,
-    secondary: 'Kostenlos testen',
+    secondary: 'Sofort starten',
   },
   azubi_single: {
     icon: Sparkles,
