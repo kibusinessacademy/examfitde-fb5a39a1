@@ -1873,6 +1873,7 @@ Hinweise:
           player_validation: playerValidation,
           playerUrl,
           playerHostPath,
+          modules_summary: modulesSummary,
         },
         last_exported_at: new Date().toISOString(),
         export_checksum: exportChecksum,
@@ -1891,6 +1892,7 @@ Hinweise:
       integrity_check: { status: integrityCheck.status, issues: integrityCheck.issues_count, critical: integrityCheck.critical_count },
       player_validation: playerValidation,
       playerUrl,
+      modules_summary: modulesSummary,
       manifest,
     });
 
