@@ -226,6 +226,11 @@ export default function BerufePage() {
       />
 
       <div className="min-h-screen">
+        {debugMode && (
+          <div className="bg-amber-500/10 border-b border-amber-500/40 text-amber-900 dark:text-amber-200 text-xs px-4 py-2 font-mono">
+            🔎 DEBUG-Mode aktiv (<code>?debug=catalog</code>) — jede Karte zeigt sellable-Flag, Teaser-Quelle und Roh-Felder. Admin-Report: <Link to="/admin/governance/catalog-diagnostics" className="underline">/admin/governance/catalog-diagnostics</Link>
+          </div>
+        )}
         {/* Hero — Premium */}
         <section className="relative overflow-hidden border-b border-border/40">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10" />
