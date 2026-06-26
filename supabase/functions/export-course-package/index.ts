@@ -1529,6 +1529,131 @@ Deno.serve(async (req) => {
     };
     zip.file("manifest.json", JSON.stringify(manifest, null, 2));
 
+    // ── Optional: self-contained HTML Player bundle ──
+    if (includePlayer) {
+      try {
+        const playerLessons = (allLessons as Array<Record<string, unknown>>)
+          .filter((l) => !!l.content_html)
+          .map((l) => ({
+            module: l.module,
+            module_id: l.module_id,
+            lesson_id: l.lesson_id,
+            title: l.title,
+            step: l.step,
+            sort_order: l.sort_order,
+            duration_minutes: l.duration_minutes,
+            content_html: l.content_html,
+          }));
+
+        const playerData = {
+          packageId,
+          courseTitle: String((pkg as Record<string, unknown>).title || "Kurspaket"),
+          generated_at: new Date().toISOString(),
+          lessons: playerLessons,
+        };
+
+        const playerHtml = `<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>${playerData.courseTitle.replace(/</g, "&lt;")} – Offline-Player</title>
+<style>
+  :root { --bg:#0f172a; --panel:#1e293b; --fg:#f1f5f9; --muted:#94a3b8; --accent:#3b82f6; --border:#334155; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); display:flex; height:100vh; overflow:hidden; }
+  aside { width:340px; border-right:1px solid var(--border); overflow-y:auto; background:var(--panel); }
+  aside h1 { font-size:14px; padding:16px; margin:0; border-bottom:1px solid var(--border); color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .mod { padding:8px 16px; font-weight:600; color:var(--muted); font-size:12px; text-transform:uppercase; margin-top:8px; }
+  .lesson { display:block; padding:10px 16px; color:var(--fg); text-decoration:none; border-left:3px solid transparent; cursor:pointer; font-size:14px; line-height:1.4; }
+  .lesson:hover { background:rgba(59,130,246,.08); }
+  .lesson.active { background:rgba(59,130,246,.16); border-left-color:var(--accent); }
+  .lesson .step { display:inline-block; font-size:10px; padding:1px 6px; border-radius:4px; background:#334155; margin-right:6px; vertical-align:middle; }
+  main { flex:1; overflow-y:auto; padding:40px 56px; max-width:920px; }
+  main h2 { font-size:28px; margin:0 0 8px; }
+  main .meta { color:var(--muted); font-size:13px; margin-bottom:24px; }
+  .content { background:#fff; color:#0f172a; padding:32px; border-radius:12px; line-height:1.7; }
+  .content h1,.content h2,.content h3 { color:#0f172a; }
+  .content img { max-width:100%; height:auto; }
+  .content table { border-collapse:collapse; }
+  .content th,.content td { border:1px solid #e2e8f0; padding:6px 10px; }
+  .empty { color:var(--muted); padding:80px 20px; text-align:center; }
+  .nav { display:flex; gap:12px; margin-top:24px; }
+  .nav button { flex:1; padding:12px; border:1px solid var(--border); background:var(--panel); color:var(--fg); border-radius:8px; cursor:pointer; font-size:14px; }
+  .nav button:disabled { opacity:.4; cursor:not-allowed; }
+  .nav button:hover:not(:disabled) { border-color:var(--accent); }
+</style>
+</head>
+<body>
+<aside>
+  <h1>${playerData.courseTitle.replace(/</g, "&lt;")}</h1>
+  <div id="toc"></div>
+</aside>
+<main>
+  <div id="view" class="empty">Wähle links eine Lektion aus.</div>
+</main>
+<script id="data" type="application/json">${JSON.stringify(playerData).replace(/</g, "\\u003c")}</script>
+<script>
+(function(){
+  const data = JSON.parse(document.getElementById('data').textContent);
+  const lessons = data.lessons;
+  const toc = document.getElementById('toc');
+  const view = document.getElementById('view');
+  const groups = {};
+  lessons.forEach((l,i) => {
+    l._idx = i;
+    (groups[l.module || 'Lektionen'] = groups[l.module || 'Lektionen'] || []).push(l);
+  });
+  Object.keys(groups).forEach(mod => {
+    const h = document.createElement('div'); h.className='mod'; h.textContent = mod; toc.appendChild(h);
+    groups[mod].forEach(l => {
+      const a = document.createElement('a');
+      a.className = 'lesson'; a.dataset.idx = l._idx; a.href = '#l' + l._idx;
+      a.innerHTML = (l.step ? '<span class="step">'+String(l.step).replace(/</g,'&lt;')+'</span>' : '') + (l.title||'(ohne Titel)').replace(/</g,'&lt;');
+      a.addEventListener('click', e => { e.preventDefault(); render(l._idx); });
+      toc.appendChild(a);
+    });
+  });
+  function render(i) {
+    const l = lessons[i]; if (!l) return;
+    document.querySelectorAll('.lesson').forEach(x => x.classList.toggle('active', Number(x.dataset.idx)===i));
+    view.classList.remove('empty');
+    view.innerHTML = '<h2>'+(l.title||'').replace(/</g,'&lt;')+'</h2>'
+      + '<div class="meta">'+(l.module||'').replace(/</g,'&lt;')+(l.duration_minutes?(' · '+l.duration_minutes+' Min'):'')+'</div>'
+      + '<div class="content">'+(l.content_html||'<em>Keine Inhalte verfügbar.</em>')+'</div>'
+      + '<div class="nav"><button id="prev" '+(i===0?'disabled':'')+'>← Vorherige</button><button id="next" '+(i===lessons.length-1?'disabled':'')+'>Nächste →</button></div>';
+    document.getElementById('prev').onclick = ()=> render(i-1);
+    document.getElementById('next').onclick = ()=> render(i+1);
+    window.scrollTo(0,0);
+  }
+  if (lessons.length) render(0);
+})();
+</script>
+</body>
+</html>`;
+
+        const readmeTxt = `OFFLINE-PLAYER
+==============
+
+Öffne 'player/index.html' in einem beliebigen modernen Browser
+(Chrome, Firefox, Safari, Edge). Keine Installation, kein Server nötig.
+
+Enthalten: ${playerLessons.length} Lektionen mit vollständigem HTML-Inhalt.
+
+Hinweise:
+- Funktioniert komplett offline.
+- Mini-Checks, Prüfungspool und Tutor sind als JSON unter /3_exam_pool/
+  und /4_didaktik/ enthalten und brauchen den Web-Player auf berufos.com.
+`;
+        zip.file("player/index.html", playerHtml);
+        zip.file("player/README.txt", readmeTxt);
+        zip.file("player/data.json", JSON.stringify(playerData, null, 2));
+        console.log(`[export] Player bundle: ${playerLessons.length} lessons embedded`);
+      } catch (e) {
+        console.log(`[export] Player bundle error: ${(e as Error).message}`);
+      }
+    }
+
     const bytes = await zip.generateAsync({ type: "uint8array" });
 
     // ── Upload to Storage ──
