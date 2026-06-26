@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { Loader2, Download, CheckCircle2, XCircle, Package } from "lucide-react";
+import { Loader2, Download, CheckCircle2, XCircle, Package, Info, PlayCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminVisiblePackages } from "@/hooks/useAdminVisiblePackages";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,23 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "Alle Status" },
+  { value: "published", label: "Published (live verkaufbar)" },
+  { value: "done", label: "Done (Build fertig, nicht published)" },
+  { value: "building", label: "Building (aktive Pipeline)" },
+  { value: "queued", label: "Queued (wartet auf Build)" },
+  { value: "planning", label: "Planning" },
+  { value: "blocked", label: "Blocked (Integrity/Quality-Gate)" },
+  { value: "failed", label: "Failed (manueller Eingriff nötig)" },
+  { value: "archived", label: "Archived" },
+];
 
 type RowState = {
   status: "idle" | "queued" | "running" | "done" | "error";
@@ -23,19 +39,29 @@ const CONCURRENCY = 2;
 export default function BulkCourseExportPage() {
   const { data: packages = [], isLoading } = useAdminVisiblePackages();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [rowState, setRowState] = useState<Record<string, RowState>>({});
   const [running, setRunning] = useState(false);
 
+  const statusCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of packages) m[p.status] = (m[p.status] || 0) + 1;
+    return m;
+  }, [packages]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return packages;
-    return packages.filter((p) =>
-      (p.canonical_title || "").toLowerCase().includes(q) ||
-      (p.beruf_display_name || "").toLowerCase().includes(q) ||
-      p.package_id.toLowerCase().includes(q),
-    );
-  }, [packages, search]);
+    return packages.filter((p) => {
+      if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        (p.canonical_title || "").toLowerCase().includes(q) ||
+        (p.beruf_display_name || "").toLowerCase().includes(q) ||
+        p.package_id.toLowerCase().includes(q)
+      );
+    });
+  }, [packages, search, statusFilter]);
 
   const selectedIds = useMemo(
     () => filtered.filter((p) => selected[p.package_id]).map((p) => p.package_id),
@@ -137,6 +163,40 @@ export default function BulkCourseExportPage() {
         </p>
       </header>
 
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle className="flex items-center gap-2">
+          <PlayCircle className="h-4 w-4" /> Wie spiele ich ein exportiertes Paket ab?
+        </AlertTitle>
+        <AlertDescription className="text-sm space-y-1">
+          <p>
+            Der Export ist ein <strong>ZIP-Archiv</strong> mit Lektions-HTML, PDF-Handbüchern, JSON-Manifest,
+            Mini-Checks und (sofern vorhanden) Audio-/Video-Assets. Es ist <em>keine</em> selbst-startende
+            Software — die Wiedergabe erfolgt auf einem dieser Wege:
+          </p>
+          <ul className="list-disc ml-5">
+            <li><strong>Web-Player (empfohlen)</strong>: Im Lernerbereich unter <code>/lernen/&lt;package&gt;</code> abspielbar, sobald das Paket published ist.</li>
+            <li><strong>Offline-Sichtung</strong>: ZIP entpacken und <code>index.html</code> im Browser öffnen (statisches Bundle).</li>
+            <li><strong>SCORM/H5P-Import</strong>: Manifest-Ordner in jedes SCORM-1.2-kompatible LMS (Moodle, ILIAS, TalentLMS) hochladen.</li>
+            <li><strong>PDF-only</strong>: Für Print/Druck reicht das Handbuch im <code>/handbook/</code>-Ordner.</li>
+          </ul>
+        </AlertDescription>
+      </Alert>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Status-Bedeutung</AlertTitle>
+        <AlertDescription className="text-sm space-y-1">
+          <ul className="list-disc ml-5">
+            <li><strong>published</strong> ({statusCounts.published || 0}): Live im Shop, kaufbar, im Web-Player abspielbar.</li>
+            <li><strong>done</strong> ({statusCounts.done || 0}): Build zu 100% fertig, aber Council-Approval oder Integrity-Gate noch offen → wird <em>nicht</em> automatisch published. Manuelle Freigabe oder Re-Audit nötig.</li>
+            <li><strong>building / queued / planning</strong>: aktive Pipeline. <code>auto-heal-runner</code> + <code>autonomous-factory</code> bewegen sie weiter (cron alle 5–15 Min).</li>
+            <li><strong>blocked</strong> ({statusCounts.blocked || 0}): Quality-Gate verweigert (z. B. fehlende Lektionen). Self-Heal versucht es wiederholt; nach 2 Fehlversuchen Hard-Stop bis manueller Eingriff.</li>
+            <li><strong>failed</strong> ({statusCounts.failed || 0}): Pipeline hat aufgegeben. Wird <em>nicht</em> automatisch neu gebaut — manueller Re-Enqueue über Admin-Pipeline oder „Force Rebuild" nötig.</li>
+          </ul>
+        </AlertDescription>
+      </Alert>
+
       <div className="flex flex-wrap items-center gap-3">
         <Input
           placeholder="Suche nach Titel, Beruf oder Package-ID…"
@@ -144,6 +204,21 @@ export default function BulkCourseExportPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
         />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[260px]">
+            <SelectValue placeholder="Status filtern" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+                {opt.value !== "all" && statusCounts[opt.value] != null && (
+                  <span className="text-muted-foreground"> ({statusCounts[opt.value]})</span>
+                )}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Badge variant="secondary">{filtered.length} sichtbar</Badge>
         <Badge>{selectedIds.length} ausgewählt</Badge>
         {doneCount > 0 && (
