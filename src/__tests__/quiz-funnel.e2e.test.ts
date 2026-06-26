@@ -35,15 +35,17 @@ const client = HAS_ENV
 
 d("Funnel E2E — anonymer Quiz → Result → Lernplan-Lock", () => {
   let quizId: string | undefined;
+  let curriculumId: string | undefined;
   let attemptId: string | undefined;
 
   beforeAll(async () => {
     const { data } = await client
       .from("lead_quizzes")
-      .select("id")
+      .select("id, curriculum_id")
       .eq("slug", QUIZ_SLUG)
       .maybeSingle();
     quizId = data?.id;
+    curriculumId = data?.curriculum_id;
   });
 
   it("Step 1: Quiz öffentlich lesbar", async () => {
@@ -52,14 +54,16 @@ d("Funnel E2E — anonymer Quiz → Result → Lernplan-Lock", () => {
 
   it("Step 2: Anonymer Attempt erfolgreich angelegt", async () => {
     if (!quizId) return;
-    const { data, error } = await client
-      .from("quiz_attempts")
-      .insert({ quiz_id: quizId, anonymous_id: anonId, session_id: "e2e" })
-      .select("id")
-      .single();
+    const { data, error } = await (client as any).rpc("public_insert_quiz_attempt", {
+      _quiz_id: quizId,
+      _curriculum_id: curriculumId ?? null,
+      _anonymous_id: anonId,
+      _session_id: "e2e",
+      _user_agent: "vitest",
+    });
     expect(error).toBeNull();
-    expect(data?.id).toBeTruthy();
-    attemptId = data!.id;
+    expect(data).toBeTruthy();
+    attemptId = data as string;
   });
 
   it("Step 3: submit_quiz_attempt mit korrekter anonymous_id → ok", async () => {
@@ -116,12 +120,13 @@ d("Funnel E2E — anonymer Quiz → Result → Lernplan-Lock", () => {
 
   it("Step 6b: RLS blockt Cross-Anon UPDATE auf fremden Attempt", async () => {
     if (!quizId) return;
-    const { data: ins } = await client
-      .from("quiz_attempts")
-      .insert({ quiz_id: quizId, anonymous_id: otherAnonId, session_id: "e2e" })
-      .select("id")
-      .single();
-    const otherAttemptId = ins?.id as string;
+    const { data: otherAttemptId } = await (client as any).rpc("public_insert_quiz_attempt", {
+      _quiz_id: quizId,
+      _curriculum_id: curriculumId ?? null,
+      _anonymous_id: otherAnonId,
+      _session_id: "e2e",
+      _user_agent: "vitest",
+    });
     expect(otherAttemptId).toBeTruthy();
 
     // Direkter UPDATE als anon → RLS blockt (0 rows)

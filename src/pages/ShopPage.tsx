@@ -8,9 +8,10 @@ import { useCurriculumProductStats } from '@/hooks/useCurriculumProductStats';
 import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SEOHead } from '@/components/seo/SEOHead';
-import { SITE_URL, seoTitle } from '@/lib/seo';
+import { SITE_URL, seoTitle, generateCourseListSchema, generateBreadcrumbSchema } from '@/lib/seo';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSellableCourses, cleanCourseTitle } from '@/hooks/useSellableCourses';
 
 // Sections
 import { ProductHero } from '@/components/shop/ProductHero';
@@ -70,6 +71,7 @@ export default function ShopPage() {
   const mainProduct = products?.find(p => p.product_key === 'bundle') || products?.[0];
   const { data: priceData } = useCalculatePrice(mainProduct?.id, 1);
   const { initiateCheckout, isLoading: checkoutLoading } = useCheckout();
+  const { data: sellableCourses = [] } = useSellableCourses();
 
   // Show sticky bar after hero scrolls out
   useEffect(() => {
@@ -97,6 +99,15 @@ export default function ShopPage() {
     .replace(/^Rahmenlehrplan\s+/i, '')
     .replace(/^Modulhandbuch\s+/i, '');
 
+  // Top-N nach Nachfrage (RPC liefert bereits demand_score DESC) — ItemList bleibt
+  // damit handhabbar groß, repräsentiert aber die echten meistgefragten Kurse.
+  const courseListItems = sellableCourses.slice(0, 50).map((c) => ({
+    name: cleanCourseTitle(c.title),
+    description: `${c.chamber_type} Prüfungstraining — ${cleanCourseTitle(c.title)}`,
+    url: `${SITE_URL}${c.product_slug ? `/produkt/${c.product_slug}` : `/shop?curriculum=${c.curriculum_id}`}`,
+    price: c.min_price_cents / 100,
+  }));
+
   const handleBuy = async () => {
     track('checkout_start', { curriculumId: selectedCurriculumId, product_key: mainProduct?.product_key });
     if (!user) {
@@ -122,6 +133,13 @@ export default function ShopPage() {
         )}
         description={`${cleanTitle || 'IHK'} Prüfungstraining: Prüfungssimulation, echte Prüfungsfragen, KI-Coach & mündliche Prüfung. ${priceDisplay} einmalig, ${PRICING.defaultAccess} Zugang.`}
         canonical={`${SITE_URL}/shop`}
+        structuredData={[
+          generateBreadcrumbSchema([
+            { name: 'Start', url: SITE_URL },
+            { name: 'Shop', url: `${SITE_URL}/shop` },
+          ]),
+          ...(courseListItems.length > 0 ? [generateCourseListSchema(courseListItems)] : []),
+        ]}
       />
 
       <div className="min-h-screen pb-24">

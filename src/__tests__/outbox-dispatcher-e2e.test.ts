@@ -15,7 +15,7 @@ const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const maybe = url && key ? describe : describe.skip;
 
 maybe("outbox dispatcher E2E (real rows, no Slack/Resend)", () => {
-  const supabase = createClient(url!, key!);
+  const supabase = createClient(url || "http://localhost:54321", key || "test-key");
 
   beforeAll(async () => { await supabase.rpc("admin_e2e_outbox_cleanup"); });
   afterAll(async () => { await supabase.rpc("admin_e2e_outbox_cleanup"); });

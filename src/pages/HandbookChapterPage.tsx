@@ -24,6 +24,7 @@ import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { HandbookSectionContent } from '@/components/handbook/HandbookSectionContent';
 import { HandbookExercise } from '@/components/handbook/HandbookExercise';
 import { SEOHead } from '@/components/seo/SEOHead';
+import { SITE_URL } from '@/lib/seo';
 
 export default function HandbookChapterPage() {
   const { chapterKey } = useParams<{ chapterKey: string }>();
@@ -92,6 +93,7 @@ export default function HandbookChapterPage() {
         <SEOHead
           title={`${chapter.title} | Prüfungstraining-Handbuch | ExamFit.de`}
           description={chapter.description || 'Strategischer Prüfungsbegleiter'}
+          canonical={`${SITE_URL}/handbuch/${chapterKey}`}
         />
         <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
           <div className="container mx-auto px-4 py-16">
@@ -133,6 +135,7 @@ export default function HandbookChapterPage() {
       <SEOHead
         title={`${chapter.title} | Prüfungstraining-Handbuch | ExamFit.de`}
         description={chapter.description || 'Prüfungstraining-Handbuch Kapitel'}
+        canonical={`${SITE_URL}/handbuch/${chapterKey}`}
       />
 
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">

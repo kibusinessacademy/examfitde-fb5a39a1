@@ -3,7 +3,8 @@
  *
  * Validiert:
  *  ✓ Anon DARF aktive Quizzes & deren Fragen lesen
- *  ✓ Anon DARF anonyme Attempts INSERTEN (mit anonymous_id)
+ *  ✓ Anon DARF anonyme Attempts über die RPC public_insert_quiz_attempt anlegen
+ *    (direkter INSERT ist seit der RLS-Härtung vom 2026-05-26 nicht mehr erlaubt)
  *  ✗ Anon DARF NICHT direkt UPDATE auf quiz_attempts (Härtung nach Punkt 2)
  *  ✗ Anon DARF NICHT direkt INSERT in quiz_leads (nur via RPC submit_quiz_lead)
  *  ✗ Anon DARF NICHT quiz_leads SELECTEN
@@ -40,14 +41,16 @@ const client = HAS_ENV
 
 d("Quiz-Engine RLS — anonymer Zugriff", () => {
   let quizId: string | undefined;
+  let curriculumId: string | undefined;
 
   beforeAll(async () => {
     const { data } = await client
       .from("lead_quizzes")
-      .select("id")
+      .select("id, curriculum_id")
       .eq("slug", QUIZ_SLUG)
       .maybeSingle();
     quizId = data?.id;
+    curriculumId = data?.curriculum_id;
   });
 
   it("liest aktive Quizzes (öffentlich)", async () => {
@@ -73,18 +76,16 @@ d("Quiz-Engine RLS — anonymer Zugriff", () => {
 
   it("erlaubt anonymen Attempt-INSERT mit anonymous_id", async () => {
     if (!quizId) return;
-    const { data, error } = await client
-      .from("quiz_attempts")
-      .insert({
-        quiz_id: quizId,
-        anonymous_id: anonId,
-        session_id: "vitest",
-      })
-      .select("id")
-      .single();
+    const { data, error } = await (client as any).rpc("public_insert_quiz_attempt", {
+      _quiz_id: quizId,
+      _curriculum_id: curriculumId ?? null,
+      _anonymous_id: anonId,
+      _session_id: "vitest",
+      _user_agent: "vitest",
+    });
     expect(error).toBeNull();
-    expect(data?.id).toBeTruthy();
-    (globalThis as any).__attemptId = data?.id;
+    expect(data).toBeTruthy();
+    (globalThis as any).__attemptId = data;
   });
 
   it("verbietet anonymen direkten UPDATE auf quiz_attempts", async () => {
@@ -135,12 +136,13 @@ d("Quiz-Engine RLS — anonymer Zugriff", () => {
   it("submit_quiz_attempt RPC: fremde anonymous_id wird abgelehnt", async () => {
     if (!quizId) return;
     // Neuer Attempt für den anderen anon
-    const { data: ins } = await client
-      .from("quiz_attempts")
-      .insert({ quiz_id: quizId, anonymous_id: otherAnonId, session_id: "vitest" })
-      .select("id")
-      .single();
-    const otherAttemptId = ins?.id as string;
+    const { data: otherAttemptId } = await (client as any).rpc("public_insert_quiz_attempt", {
+      _quiz_id: quizId,
+      _curriculum_id: curriculumId ?? null,
+      _anonymous_id: otherAnonId,
+      _session_id: "vitest",
+      _user_agent: "vitest",
+    });
     expect(otherAttemptId).toBeTruthy();
 
     const { data, error } = await (client as any).rpc("submit_quiz_attempt", {
