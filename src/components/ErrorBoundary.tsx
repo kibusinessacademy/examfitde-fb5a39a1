@@ -141,8 +141,9 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null, isChunkError: false });
+    this.setState({ hasError: false, error: null, isChunkError: false, errorId: null });
   };
+
 
   handleHome = () => {
     window.location.href = '/';
