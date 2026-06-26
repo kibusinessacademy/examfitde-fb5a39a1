@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowRight, BadgeCheck, Brain, GraduationCap, Loader2, Mic, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
@@ -14,6 +15,7 @@ import {
   generateFAQSchema,
 } from '@/lib/seo';
 import { TrackingEvents } from '@/lib/tracking/track';
+import { startProductCheckout } from '@/lib/checkout/startProductCheckout';
 import { BerufHero } from '@/components/landing/beruf/BerufHero';
 import { BerufReadinessBlock } from '@/components/landing/beruf/BerufReadinessBlock';
 import { BerufModulesBlock } from '@/components/landing/beruf/BerufModulesBlock';
