@@ -294,6 +294,21 @@ export default function OralExamTrainer() {
   );
   const curriculumTitle = curricula?.find(c => c.id === selectedCurriculum)?.title;
 
+  // Themen (Lernfelder) für aktives Curriculum
+  const { data: topics } = useQuery({
+    queryKey: ['oral-exam-topics', selectedCurriculum],
+    enabled: !!selectedCurriculum,
+    queryFn: async () => {
+      const sb = supabase as any;
+      const { data } = await sb
+        .from('learning_fields')
+        .select('id, code, title')
+        .eq('curriculum_id', selectedCurriculum)
+        .order('code', { ascending: true });
+      return (data || []) as Array<{ id: string; code: string; title: string }>;
+    },
+  });
+
   const {
     session,
     currentQuestion,
@@ -308,8 +323,10 @@ export default function OralExamTrainer() {
   } = useOralExam({
     curriculumId: selectedCurriculum || '',
     mode: 'practice',
-    totalQuestions: 5
+    totalQuestions: 5,
+    topicKeys: selectedTopics,
   });
+
 
   // Browser-native TTS via Web Speech API. Persona-Effekt entsteht über die
   // Fragelogik (oral-exam Engine + Followup-Chains), nicht über Stimm-Variation.
