@@ -163,6 +163,40 @@ export default function BulkCourseExportPage() {
         </p>
       </header>
 
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle className="flex items-center gap-2">
+          <PlayCircle className="h-4 w-4" /> Wie spiele ich ein exportiertes Paket ab?
+        </AlertTitle>
+        <AlertDescription className="text-sm space-y-1">
+          <p>
+            Der Export ist ein <strong>ZIP-Archiv</strong> mit Lektions-HTML, PDF-Handbüchern, JSON-Manifest,
+            Mini-Checks und (sofern vorhanden) Audio-/Video-Assets. Es ist <em>keine</em> selbst-startende
+            Software — die Wiedergabe erfolgt auf einem dieser Wege:
+          </p>
+          <ul className="list-disc ml-5">
+            <li><strong>Web-Player (empfohlen)</strong>: Im Lernerbereich unter <code>/lernen/&lt;package&gt;</code> abspielbar, sobald das Paket published ist.</li>
+            <li><strong>Offline-Sichtung</strong>: ZIP entpacken und <code>index.html</code> im Browser öffnen (statisches Bundle).</li>
+            <li><strong>SCORM/H5P-Import</strong>: Manifest-Ordner in jedes SCORM-1.2-kompatible LMS (Moodle, ILIAS, TalentLMS) hochladen.</li>
+            <li><strong>PDF-only</strong>: Für Print/Druck reicht das Handbuch im <code>/handbook/</code>-Ordner.</li>
+          </ul>
+        </AlertDescription>
+      </Alert>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertTitle>Status-Bedeutung</AlertTitle>
+        <AlertDescription className="text-sm space-y-1">
+          <ul className="list-disc ml-5">
+            <li><strong>published</strong> ({statusCounts.published || 0}): Live im Shop, kaufbar, im Web-Player abspielbar.</li>
+            <li><strong>done</strong> ({statusCounts.done || 0}): Build zu 100% fertig, aber Council-Approval oder Integrity-Gate noch offen → wird <em>nicht</em> automatisch published. Manuelle Freigabe oder Re-Audit nötig.</li>
+            <li><strong>building / queued / planning</strong>: aktive Pipeline. <code>auto-heal-runner</code> + <code>autonomous-factory</code> bewegen sie weiter (cron alle 5–15 Min).</li>
+            <li><strong>blocked</strong> ({statusCounts.blocked || 0}): Quality-Gate verweigert (z. B. fehlende Lektionen). Self-Heal versucht es wiederholt; nach 2 Fehlversuchen Hard-Stop bis manueller Eingriff.</li>
+            <li><strong>failed</strong> ({statusCounts.failed || 0}): Pipeline hat aufgegeben. Wird <em>nicht</em> automatisch neu gebaut — manueller Re-Enqueue über Admin-Pipeline oder „Force Rebuild" nötig.</li>
+          </ul>
+        </AlertDescription>
+      </Alert>
+
       <div className="flex flex-wrap items-center gap-3">
         <Input
           placeholder="Suche nach Titel, Beruf oder Package-ID…"
@@ -170,6 +204,21 @@ export default function BulkCourseExportPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
         />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[260px]">
+            <SelectValue placeholder="Status filtern" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+                {opt.value !== "all" && statusCounts[opt.value] != null && (
+                  <span className="text-muted-foreground"> ({statusCounts[opt.value]})</span>
+                )}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Badge variant="secondary">{filtered.length} sichtbar</Badge>
         <Badge>{selectedIds.length} ausgewählt</Badge>
         {doneCount > 0 && (
