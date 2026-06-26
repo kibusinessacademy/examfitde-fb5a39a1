@@ -47,7 +47,9 @@ Question-First + Action-First: Feature gilt erst als fertig, wenn 6 Fragen Ja: F
 
 
 ## Memories
+- [VISUAL.LEARNING.OS v1 (Cut 1 Foundation)](mem://features/examfit/visual-learning-os-v1) — SSOT-Layer für visuelle Lern-/Prüfungsartefakte (Contracts, Grammar, Pattern Registry, Rubrics, Accessibility). Code: `src/lib/visual-learning-os/`. Frontend rendert nur approved/published; keine Fachlogik im Frontend; Farbe nie alleinige Bedeutung.
 - [BerufOS ModuleLandingShell Preview-CTA-Fallback v1](mem://features/berufos/module-landing-preview-cta-fallback-v1) — D4-Fix: preview-Module ohne href fallbacken in PrimaryCta+Footer-CTA auf Waitlist-Anchor ("Frühen Zugang anfragen"). Schließt SkillGraph-CTA-Gap strukturell für alle künftigen preview-Module.
+
 - [React-Router v7 Future-Flags v1](mem://architektur/ops/react-router-v7-future-flags-v1) — D7-Fix: BrowserRouter mit v7_startTransition + v7_relativeSplatPath opt-in. Eliminiert Console-Warnings, smoother Lazy-Route-Navigation, entkoppelt v7-Migration.
 - [BerufOS Hub Auth-Aware Re-Entry v1](mem://features/berufos/hub-auth-aware-re-entry-v1) — D8-Fix: AuthHomeRoute redirected eingeloggte User NICHT mehr in ExamFit-/dashboard. BerufOSHub rendert für alle; eingeloggte sehen Re-Entry-Banner im Hero → /dashboard. Brand-Home auth-unabhängig.
 - [BerufOS Workflow Audit Admin/Public href Split v1](mem://features/berufos/workflow-audit-admin-href-split-v1) — W1-Fix: Public `href` darf NIE auf /admin/* zeigen. Neues Feld `adminHref` für additiven Admin-Shortcut (nur isAdmin), `href` bleibt strikt public. agents+governance umgeparkt → D4-Waitlist-Brücke greift jetzt. Test-Invariante verhindert Regression.
