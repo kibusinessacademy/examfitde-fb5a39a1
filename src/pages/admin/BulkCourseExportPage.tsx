@@ -128,7 +128,8 @@ export default function BulkCourseExportPage() {
   }
 
   async function exportOne(packageId: string, courseId: string | null, includePlayer = false) {
-    setRowState((s) => ({ ...s, [packageId]: { status: "running", variant: includePlayer ? "with-player" : "zip" } }));
+    const startedAt = Date.now();
+    setRowState((s) => ({ ...s, [packageId]: { status: "running", variant: includePlayer ? "with-player" : "zip", startedAt } }));
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("export-course-package", {
@@ -140,7 +141,14 @@ export default function BulkCourseExportPage() {
         downloadUrl?: string;
         playerUrl?: string | null;
         player_validation?: PlayerValidation;
+        modules_summary?: ModulesSummary;
+        error?: string;
+        message?: string;
       };
+      if (data?.error === "completeness_check_failed") {
+        const issues = data.modules_summary?.issues?.join(" · ") || "Vollständigkeitsprüfung fehlgeschlagen";
+        throw new Error(`Vollständigkeitsprüfung fehlgeschlagen: ${issues}`);
+      }
       if (!data?.downloadUrl) throw new Error("Keine Download-URL erhalten");
       // trigger browser download
       const a = document.createElement("a");
@@ -157,7 +165,10 @@ export default function BulkCourseExportPage() {
           url: data.downloadUrl,
           playerUrl: data.playerUrl ?? null,
           playerValidation: data.player_validation,
+          modulesSummary: data.modules_summary,
           variant: includePlayer ? "with-player" : "zip",
+          startedAt,
+          finishedAt: Date.now(),
         },
       }));
       if (includePlayer && data.player_validation && !data.player_validation.complete) {
@@ -165,13 +176,19 @@ export default function BulkCourseExportPage() {
       } else if (includePlayer && data.playerUrl) {
         toast.success("Player-Hosting-URL bereit (7 Tage gültig)");
       }
+      if (data.modules_summary) {
+        toast.success(
+          `Export fertig: ${data.modules_summary.total_modules} Module · ${data.modules_summary.total_lessons} Lektionen`,
+        );
+      }
     } catch (e: any) {
       setRowState((s) => ({
         ...s,
-        [packageId]: { status: "error", message: e?.message || "Unbekannter Fehler" },
+        [packageId]: { status: "error", message: e?.message || "Unbekannter Fehler", startedAt, finishedAt: Date.now() },
       }));
     }
   }
+
 
 
   async function runBulk() {
