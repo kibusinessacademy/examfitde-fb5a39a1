@@ -33,6 +33,8 @@ const FORBIDDEN_PATTERNS = [
 
 const violations = [];
 
+const SELF = new URL(import.meta.url).pathname;
+
 function walk(dir) {
   let entries;
   try { entries = readdirSync(dir); } catch { return; }
@@ -48,6 +50,7 @@ function walk(dir) {
 }
 
 function scan(path) {
+  if (path === SELF) return; // never scan the guard's own pattern table
   let text;
   try { text = readFileSync(path, "utf8"); } catch { return; }
   for (const { re, msg } of FORBIDDEN_PATTERNS) {
