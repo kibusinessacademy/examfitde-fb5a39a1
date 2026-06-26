@@ -11,6 +11,12 @@ import LessonAnswerCheck from './LessonAnswerCheck';
 import LessonSections from './sections/LessonSections';
 import { useTranslatedLesson } from '@/hooks/i18n/useTranslatedContent';
 import { TranslationBadge } from '@/components/i18n/TranslationBadge';
+import VisualLearningBlock from '@/components/learning/VisualLearningBlock';
+import {
+  buildVisualLessonBlock,
+  type VisualLessonStepPlacement,
+} from '@/lib/visual-learning-os/lesson-visual-block';
+import type { PublishedVisualArtifact } from '@/lib/visual-learning-os/contracts';
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
 interface LessonContentProps {
