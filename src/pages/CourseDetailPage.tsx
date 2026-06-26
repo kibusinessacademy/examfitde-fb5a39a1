@@ -432,14 +432,26 @@ export default function CourseDetailPage() {
         {/* Competency Progress Section */}
         {hasAccess && <div className="mb-8"><CompetencyProgressGrid competencies={competencyProgress} /></div>}
 
+        {/* Im Kurspaket enthalten — track-gefilterte Bausteine mit Deeplinks */}
+        {course.curriculum_id && (
+          <CoursePackageContents
+            curriculumId={course.curriculum_id}
+            courseId={course.id}
+            lessonCount={lessons.length}
+            moduleCount={modules.length}
+          />
+        )}
+
         {/* Modules List */}
-        <ModuleLessonList
-          modules={modules}
-          lessons={lessons}
-          lessonProgress={courseProgress?.lessons}
-          isEnrolled={hasAccess}
-          defaultExpandedModuleId={modules[0]?.id}
-        />
+        <div id="kursinhalt">
+          <ModuleLessonList
+            modules={modules}
+            lessons={lessons}
+            lessonProgress={courseProgress?.lessons}
+            isEnrolled={hasAccess}
+            defaultExpandedModuleId={modules[0]?.id}
+          />
+        </div>
       </div>
     </div>
   );
