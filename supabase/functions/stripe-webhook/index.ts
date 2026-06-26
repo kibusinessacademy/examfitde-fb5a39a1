@@ -688,17 +688,21 @@ Deno.serve(async (req) => {
                       if (linkErr) {
                         logStep("WARN: guest recovery link generation failed", { error: linkErr.message });
                       } else {
-                        // Persist link for account-claim email (resend-email-worker o.ä. holt sich das).
+                        // Persist link for account-claim email (sequence-worker holt sich pending Items).
+                        const actionLink = (linkData as any)?.properties?.action_link
+                          ?? (linkData as any)?.action_link ?? null;
                         await adminClient.from('email_delivery_queue').insert({
                           recipient_email: guestEmail,
-                          template_key: 'guest_account_claim_v1',
-                          payload: {
-                            action_link: (linkData as any)?.properties?.action_link
-                              ?? (linkData as any)?.action_link ?? null,
+                          sequence_type: 'guest_account_claim_v1',
+                          step_number: 1,
+                          scheduled_for: new Date().toISOString(),
+                          status: 'pending',
+                          idempotency_key: `guest_claim:${session.id}`,
+                          personalization: {
+                            action_link: actionLink,
                             full_name: session.customer_details?.name ?? null,
                             stripe_session_id: session.id,
                           },
-                          status: 'pending',
                         }).then(({ error }) => {
                           if (error) logStep("WARN: email_delivery_queue insert failed", { error: error.message });
                         });
