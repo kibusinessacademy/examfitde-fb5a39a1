@@ -266,6 +266,17 @@ export default function CourseDetailPage() {
   if (!course) {
     return null;
   }
+  // Beruf-passendes Hero-Foto (lazy + gecached). slug-key = course.id.
+  const berufItems = useMemo(
+    () => (course ? [{ slug: course.id, title: course.title }] : []),
+    [course],
+  );
+  const { imageBySlug } = useBerufImages(berufItems);
+  const heroImage =
+    course?.thumbnail_url ||
+    (course ? imageBySlug.get(course.id) : undefined) ||
+    (course ? getBerufImage(course.title) : undefined);
+
 
   return (
     <div className="py-8 px-4">
