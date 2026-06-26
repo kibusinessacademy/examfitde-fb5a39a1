@@ -314,10 +314,11 @@ export default function BerufDetailPage() {
             beruf={title}
             kammer={kammerLabel}
             description={course.description}
-            bundleHref={bundleHref}
             quizHref={quizHref}
             onPrimaryCta={() => trackCta('hero_quiz')}
-            onSecondaryCta={() => trackCta('hero_bundle')}
+            onBuyCta={() => handleBuy('hero_buy')}
+            buying={buying}
+            priceLabel={`${PRODUCT_PRICES.bundle} €`}
           />
         </div>
 
@@ -341,15 +342,27 @@ export default function BerufDetailPage() {
               Bereit für die {title}-Prüfung?
             </h2>
             <p className="text-text-secondary">
-              Starte in 4 Minuten mit dem kostenlosen Prüfungsreife-Check oder sichere dir
-              direkt das Komplettpaket für {PRODUCT_PRICES.bundle} €.
+              Sichere dir direkt das Komplettpaket für {PRODUCT_PRICES.bundle} € oder starte
+              vorher in 4 Minuten mit dem kostenlosen Prüfungsreife-Check.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button asChild size="lg" onClick={() => trackCta('footer_quiz')}>
-                <Link to={quizHref}>Prüfungsreife testen</Link>
+              <Button
+                size="lg"
+                onClick={() => handleBuy('footer_buy')}
+                disabled={buying}
+                data-cta-location="beruf_footer_buy"
+              >
+                {buying ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Weiterleitung …
+                  </>
+                ) : (
+                  <>Komplettpaket sichern – {PRODUCT_PRICES.bundle} €</>
+                )}
               </Button>
-              <Button asChild size="lg" variant="outline" onClick={() => trackCta('footer_bundle')}>
-                <Link to={bundleHref}>Komplettpaket ansehen</Link>
+              <Button asChild size="lg" variant="outline" onClick={() => trackCta('footer_quiz')}>
+                <Link to={quizHref}>Erst kostenlos testen</Link>
               </Button>
             </div>
           </div>
