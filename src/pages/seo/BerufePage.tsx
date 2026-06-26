@@ -12,6 +12,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
 import publishedBerufeFallback from '@/data/publishedBerufeFallback.json';
 import { getBerufImage } from '@/lib/berufImage';
+import { useBerufImages } from '@/hooks/useBerufImages';
 
 
 /**
@@ -136,6 +137,22 @@ export default function BerufePage() {
     () => (catalog ?? []).filter(c => c.isPublished).slice(0, 25),
     [catalog],
   );
+
+  // Per-Beruf realistic photos — lazy-generated & cached server-side.
+  // Only request for the currently-filtered set to avoid queueing all 335 at once.
+  const visibleForImages = useMemo(
+    () =>
+      filteredCourses
+        .filter((c) => c.isPublished)
+        .slice(0, 60)
+        .map((c) => ({
+          slug: c.publishedSlug || c.slug,
+          title: c.title,
+          kammer: c.kammer ?? null,
+        })),
+    [filteredCourses],
+  );
+  const { imageBySlug } = useBerufImages(visibleForImages);
   const structuredData = {
     '@context': 'https://schema.org',
     '@graph': [
