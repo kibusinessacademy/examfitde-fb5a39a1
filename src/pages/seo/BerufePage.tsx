@@ -397,8 +397,9 @@ export default function BerufePage() {
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   {filteredCourses.map((entry) => {
                     const Icon = getCategoryIcon(entry);
-                    const img = getBerufImage(entry.title, entry.kammer);
-                    if (entry.isPublished) {
+                    const fallbackImg = getBerufImage(entry.title, entry.kammer);
+                    const realImg = imageBySlug.get(entry.publishedSlug || entry.slug);
+                    const img = realImg || fallbackImg;
                       return (
                         <Link
                           key={entry.berufId}
