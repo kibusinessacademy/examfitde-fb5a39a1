@@ -32,7 +32,7 @@ export function StickyPurchaseBar({ priceDisplay, onBuyClick, isLoading, visible
           onClick={onBuyClick}
           disabled={isLoading}
         >
-          {isLoading ? '...' : 'Jetzt starten'}
+          {isLoading ? '...' : 'Jetzt kaufen'}
           <ArrowRight className="ml-1.5 h-4 w-4" />
         </Button>
       </div>

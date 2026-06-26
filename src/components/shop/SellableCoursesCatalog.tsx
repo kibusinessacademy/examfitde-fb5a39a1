@@ -5,10 +5,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Sparkles, PlayCircle } from 'lucide-react';
+import { Search, ShoppingCart, PlayCircle, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { formatEur } from '@/lib/timezone';
 import { useSellableCourses, cleanCourseTitle, TRACK_LABELS, type SellableCourse } from '@/hooks/useSellableCourses';
 import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
+import { startProductCheckout } from '@/lib/checkout/startProductCheckout';
 
 const ALL = '__ALL__';
 const PRICE_BUCKETS: Array<{ key: string; label: string; test: (c: SellableCourse) => boolean }> = [
@@ -33,6 +35,7 @@ export function SellableCoursesCatalog() {
   const [catalog, setCatalog] = useState(ALL);
   const [trackFilter, setTrackFilter] = useState(ALL);
   const [priceBucket, setPriceBucket] = useState(ALL);
+  const [buyingId, setBuyingId] = useState<string | null>(null);
 
   const { chambers, catalogs, tracks } = useMemo(() => {
     const c = new Set<string>(), k = new Set<string>(), t = new Set<string>();
@@ -57,13 +60,29 @@ export function SellableCoursesCatalog() {
     });
   }, [courses, search, chamber, catalog, trackFilter, priceBucket]);
 
-  const handleStart = (c: SellableCourse, action: 'start' | 'simulate') => {
-    track('product_select', {
+  const handleBuy = async (c: SellableCourse) => {
+    track('checkout_start', {
       curriculumId: c.curriculum_id,
-      product_key: action === 'simulate' ? 'catalog_simulate' : 'catalog_start',
+      product_key: 'catalog_buy',
+      product_slug: c.product_slug,
     });
+    if (!c.product_slug) {
+      navigate(`/shop?curriculum=${c.curriculum_id}`);
+      return;
+    }
+    try {
+      setBuyingId(c.course_id);
+      const res = await startProductCheckout(c.product_slug, { source: 'catalog_card' });
+      if (!res.ok && res.error) toast.error(res.error);
+    } finally {
+      setBuyingId(null);
+    }
+  };
+
+  const handleSimulate = (c: SellableCourse) => {
+    track('product_select', { curriculumId: c.curriculum_id, product_key: 'catalog_simulate' });
     if (c.product_slug) {
-      navigate(`/produkt/${c.product_slug}${action === 'simulate' ? '?intent=simulate' : ''}`);
+      navigate(`/produkt/${c.product_slug}?intent=simulate`);
     } else {
       navigate(`/shop?curriculum=${c.curriculum_id}`);
     }
@@ -166,15 +185,20 @@ export function SellableCoursesCatalog() {
                   <Button
                     size="sm"
                     className="flex-1"
-                    onClick={() => handleStart(c, 'start')}
+                    onClick={() => handleBuy(c)}
+                    disabled={buyingId === c.course_id}
                   >
-                    <Sparkles className="h-4 w-4 mr-1" />
-                    Prüfung starten
+                    {buyingId === c.course_id ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <ShoppingCart className="h-4 w-4 mr-1" />
+                    )}
+                    {buyingId === c.course_id ? 'Wird geladen…' : `Jetzt kaufen · ${formatEur(c.min_price_cents)}`}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleStart(c, 'simulate')}
+                    onClick={() => handleSimulate(c)}
                     aria-label={`Prüfung simulieren — ${cleanCourseTitle(c.title)}`}
                   >
                     <PlayCircle className="h-4 w-4" />

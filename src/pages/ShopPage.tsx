@@ -201,7 +201,7 @@ export default function ShopPage() {
               disabled={checkoutLoading}
               className="inline-flex items-center justify-center gradient-primary text-primary-foreground shadow-glow rounded-xl h-14 px-8 text-lg font-semibold"
             >
-              {checkoutLoading ? 'Wird geladen...' : `Jetzt starten – ${priceDisplay}`}
+              {checkoutLoading ? 'Wird geladen...' : `Jetzt kaufen – ${priceDisplay}`}
             </button>
           </div>
         </section>
