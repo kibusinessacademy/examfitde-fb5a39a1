@@ -17,3 +17,6 @@ export * from "./visual-artifact-policy";
 export * from "./visual-artifact-factory";
 export * from "./visual-artifact-review";
 export * from "./visual-artifact-projection";
+
+// Cut 3
+export * from "./admin-preview";
