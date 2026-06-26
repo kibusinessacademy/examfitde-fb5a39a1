@@ -1,5 +1,14 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+
+/**
+ * SSOT Konsolidierung 2026-06-26: /oral-exam und /oral leiten auf /app/oral
+ * weiter und erhalten dabei die Querystring-Parameter (curriculum=…).
+ */
+function OralExamRedirect() {
+  const { search, hash } = useLocation();
+  return <Navigate to={`/app/oral${search}${hash}`} replace />;
+}
 // Loader2 removed — PathAwareLoadingFallback owns the Suspense shell.
 
 /** Retry a dynamic import up to 3 times with a short delay (handles Vite HMR restarts). */
