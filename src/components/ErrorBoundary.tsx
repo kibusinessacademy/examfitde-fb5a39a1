@@ -12,15 +12,60 @@ interface State {
   hasError: boolean;
   error: Error | null;
   isChunkError: boolean;
+  errorId: string | null;
+}
+
+/**
+ * Extracts likely resource identifiers (course/package/lesson UUIDs) from the
+ * current route so error reports can be triaged without manual repro.
+ */
+function extractRouteContext(pathname: string): {
+  routePattern: string;
+  courseId: string | null;
+  packageId: string | null;
+  lessonId: string | null;
+  resourceSlug: string | null;
+} {
+  const UUID_RX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  const segs = pathname.split('/').filter(Boolean);
+  let courseId: string | null = null;
+  let packageId: string | null = null;
+  let lessonId: string | null = null;
+  let resourceSlug: string | null = null;
+
+  for (let i = 0; i < segs.length; i++) {
+    const cur = segs[i];
+    const next = segs[i + 1];
+    if (!next) continue;
+    const isUuid = UUID_RX.test(next);
+    if (cur === 'course' || cur === 'kurs') {
+      if (isUuid) courseId = next;
+      else resourceSlug = next;
+    } else if (cur === 'paket' || cur === 'package') {
+      if (isUuid) packageId = next;
+      else resourceSlug = next;
+    } else if (cur === 'lesson' || cur === 'lektion') {
+      if (isUuid) lessonId = next;
+    }
+  }
+
+  // Build a route pattern by replacing UUIDs/numbers with placeholders
+  const routePattern = '/' + segs
+    .map((s) => (UUID_RX.test(s) ? ':uuid' : /^\d+$/.test(s) ? ':num' : s))
+    .join('/');
+
+  return { routePattern, courseId, packageId, lessonId, resourceSlug };
 }
 
 /**
  * Global Error Boundary — catches React render errors, chunk load failures,
  * and other unrecoverable runtime exceptions.
- * Reports errors to admin_notifications via edge function.
+ * Reports errors to admin_notifications via edge function with structured
+ * route/resource context (route pattern, course/package/lesson IDs, stack,
+ * component stack, error id) for fast triage.
  */
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null, isChunkError: false };
+  state: State = { hasError: false, error: null, isChunkError: false, errorId: null };
 
   static getDerivedStateFromError(error: Error): State {
     const isChunkError =
@@ -29,25 +74,57 @@ export class ErrorBoundary extends Component<Props, State> {
       /failed to fetch/i.test(error.message) ||
       /load failed/i.test(error.message);
 
-    return { hasError: true, error, isChunkError };
+    return {
+      hasError: true,
+      error,
+      isChunkError,
+      errorId: typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `err_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack);
-    this.reportError(error);
+    const ctx = extractRouteContext(window.location.pathname);
+    // Structured local log so devs can grep in DevTools / session replay.
+    console.error('[ErrorBoundary]', {
+      errorId: this.state.errorId,
+      message: error.message,
+      route: window.location.pathname,
+      routePattern: ctx.routePattern,
+      courseId: ctx.courseId,
+      packageId: ctx.packageId,
+      lessonId: ctx.lessonId,
+      resourceSlug: ctx.resourceSlug,
+      stack: error.stack,
+      componentStack: info.componentStack,
+    });
+    this.reportError(error, info);
   }
 
-  private reportError(error: Error) {
+  private reportError(error: Error, info?: ErrorInfo) {
     const isChunkError =
       /loading chunk|dynamically imported module|failed to fetch|load failed/i.test(error.message);
+    const ctx = extractRouteContext(window.location.pathname);
 
     try {
       supabase.functions.invoke('report-frontend-error', {
         body: {
+          errorId: this.state.errorId,
           message: error.message,
+          name: error.name,
           stack: error.stack ?? null,
+          componentStack: info?.componentStack ?? null,
           url: window.location.href,
           pathname: window.location.pathname,
+          routePattern: ctx.routePattern,
+          courseId: ctx.courseId,
+          packageId: ctx.packageId,
+          lessonId: ctx.lessonId,
+          resourceSlug: ctx.resourceSlug,
+          referrer: document.referrer || null,
+          userAgent: navigator.userAgent,
+          viewport: { w: window.innerWidth, h: window.innerHeight },
           isChunkError,
           buildVersion: import.meta.env.VITE_APP_VERSION ?? null,
           timestamp: new Date().toISOString(),
@@ -57,6 +134,7 @@ export class ErrorBoundary extends Component<Props, State> {
       // never throw from error boundary
     }
   }
+
 
   handleReload = () => {
     window.location.reload();
