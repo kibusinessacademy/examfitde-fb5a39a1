@@ -357,6 +357,7 @@ const GithubWorkflowsPage = lazyRetry(() => import('@/pages/admin/GithubWorkflow
 const SsotGuardPage = lazyRetry(() => import('@/pages/admin/SsotGuardPage'));
 const StorageRealityPage = lazyRetry(() => import('@/pages/admin/StorageRealityPage'));
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
+const BulkCourseExportPage = lazyRetry(() => import('@/pages/admin/BulkCourseExportPage'));
 
 import { PathAwareLoadingFallback } from '@/components/seo/PathAwareLoadingFallback';
 
@@ -882,6 +883,7 @@ const AppRoutes = () => {
           <Route path="governance/ssot-guard" element={<SsotGuardPage />} />
           <Route path="governance/storage-reality" element={<StorageRealityPage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
+          <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
 
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
           <Route path="berufs-ki/quality" element={<BerufsKIQualityPage />} />
