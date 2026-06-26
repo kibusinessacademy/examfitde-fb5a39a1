@@ -448,6 +448,9 @@ export default function BerufePage() {
                               </div>
                             </div>
                             <CardContent className="p-4 flex flex-col gap-3">
+                              {debugMode && (
+                                <DebugBadgeRow entry={entry} status="sellable" />
+                              )}
                               {entry.discoveryTeaser && (
                                 <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
                                   {entry.discoveryTeaser}
@@ -492,6 +495,9 @@ export default function BerufePage() {
                           </div>
                         </div>
                         <CardContent className="p-4 flex flex-col gap-3">
+                          {debugMode && (
+                            <DebugBadgeRow entry={entry} status="upcoming" />
+                          )}
                           {entry.discoveryTeaser && (
                             <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
                               {entry.discoveryTeaser}
