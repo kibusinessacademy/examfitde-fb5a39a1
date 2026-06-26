@@ -393,9 +393,11 @@ export default function LessonContent({
           stepKey={stepKey}
           onCompleted={onMiniCheckCompleted}
         />
+        {miniCheckFeedbackNode}
       </div>
     );
   }
+
 
   // No inline quiz type, but DB has MiniChecks for this lesson (text + minicheck combo)
   if (dbMiniChecks && lessonId) {
