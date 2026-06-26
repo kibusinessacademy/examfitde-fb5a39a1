@@ -1,0 +1,88 @@
+name: ESLint (flat config + custom rules)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "eslint.config.js"
+      - "eslint-rules/**"
+      - "scripts/lint-config-smoke.mjs"
+      - ".github/workflows/eslint.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "src/**/*.{ts,tsx,js,jsx}"
+  push:
+    branches: [main]
+    paths:
+      - "eslint.config.js"
+      - "eslint-rules/**"
+      - "scripts/lint-config-smoke.mjs"
+      - ".github/workflows/eslint.yml"
+
+concurrency:
+  group: eslint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  eslint:
+    name: Lint (flat config + custom rules)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Verify Node.js 24
+        run: |
+          NODE_MAJOR=$(node -v | sed 's/v\([0-9]*\).*/\1/')
+          if [ "$NODE_MAJOR" != "24" ]; then
+            echo "::error::Expected Node.js 24, got $(node -v)"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      # Step 1 — Fail FAST and LOUD on config/plugin interop bugs
+      # (e.g. CJS `module.exports` inside an ESM project, missing rule.create).
+      - name: ESLint config + custom-rule interop smoke
+        run: node scripts/lint-config-smoke.mjs
+
+      # Step 2 — Prove ESLint can actually start against eslint.config.js
+      # by printing the resolved config for a representative file.
+      - name: ESLint flat-config self-check (print-config)
+        run: |
+          set -o pipefail
+          npx eslint --config eslint.config.js --print-config src/main.tsx > /tmp/eslint-resolved.json
+          BYTES=$(wc -c < /tmp/eslint-resolved.json)
+          echo "Resolved config size: ${BYTES} bytes"
+          if [ "${BYTES}" -lt 100 ]; then
+            echo "::error::eslint --print-config produced suspiciously small output (${BYTES} bytes)."
+            exit 1
+          fi
+          # Verify our custom rule is actually wired in.
+          if ! grep -q "admin-routing/no-new-admin-routes" /tmp/eslint-resolved.json; then
+            echo "::error::Custom rule admin-routing/no-new-admin-routes is NOT active in resolved config."
+            exit 1
+          fi
+
+      # Step 3 — Full lint run. Hard fail on any error; allow warnings.
+      - name: ESLint full run (errors fail the build)
+        run: npx eslint . --max-warnings=99999
+
+      - name: Lint summary
+        if: always()
+        run: |
+          {
+            echo "## 🧹 ESLint Report"
+            echo ""
+            echo "- Flat config: \`eslint.config.js\`"
+            echo "- Custom rules: \`eslint-rules/no-new-admin-routes.js\` (admin-routing/no-new-admin-routes)"
+            echo "- Interop smoke: \`scripts/lint-config-smoke.mjs\`"
+          } >> "$GITHUB_STEP_SUMMARY"
