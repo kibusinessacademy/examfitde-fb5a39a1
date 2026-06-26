@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { SITE_URL, PRODUCT_PRICES, generateOrganizationSchema } from '@/lib/seo';
+import { formatEuro } from '@/lib/priceFormat';
 
 export default function UnternehmenPage() {
   const structuredData = {
@@ -189,7 +190,7 @@ export default function UnternehmenPage() {
                         )}
                       </div>
                       <div key={`price-${i}`} className="bg-card p-4 text-right font-semibold">
-                        {tier.perSeat}€
+                        {formatEuro(tier.perSeat)}
                       </div>
                     </>
                   ))}
