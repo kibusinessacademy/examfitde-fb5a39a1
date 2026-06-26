@@ -54,7 +54,7 @@ export function GrowthBrandFooter({
             to={ctaUrl}
             className="text-xs font-medium text-primary hover:underline"
           >
-            Prüfungsreife kostenlos testen →
+            Prüfungsreife-Check starten →
           </Link>
         </div>
         {contentId && (
