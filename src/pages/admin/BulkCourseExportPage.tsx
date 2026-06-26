@@ -39,19 +39,29 @@ const CONCURRENCY = 2;
 export default function BulkCourseExportPage() {
   const { data: packages = [], isLoading } = useAdminVisiblePackages();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [rowState, setRowState] = useState<Record<string, RowState>>({});
   const [running, setRunning] = useState(false);
 
+  const statusCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of packages) m[p.status] = (m[p.status] || 0) + 1;
+    return m;
+  }, [packages]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return packages;
-    return packages.filter((p) =>
-      (p.canonical_title || "").toLowerCase().includes(q) ||
-      (p.beruf_display_name || "").toLowerCase().includes(q) ||
-      p.package_id.toLowerCase().includes(q),
-    );
-  }, [packages, search]);
+    return packages.filter((p) => {
+      if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        (p.canonical_title || "").toLowerCase().includes(q) ||
+        (p.beruf_display_name || "").toLowerCase().includes(q) ||
+        p.package_id.toLowerCase().includes(q)
+      );
+    });
+  }, [packages, search, statusFilter]);
 
   const selectedIds = useMemo(
     () => filtered.filter((p) => selected[p.package_id]).map((p) => p.package_id),
