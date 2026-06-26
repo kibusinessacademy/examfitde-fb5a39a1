@@ -11,6 +11,7 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, seoTitle } from '@/lib/seo';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { startProductCheckout } from '@/lib/checkout/startProductCheckout';
 
 // Sections
 import { ProductHero } from '@/components/shop/ProductHero';
