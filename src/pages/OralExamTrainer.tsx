@@ -102,6 +102,8 @@ export default function OralExamTrainer() {
   const [searchParams] = useSearchParams();
   const [phase, setPhase] = useState<ExamPhase>('setup');
   const [selectedCurriculum, setSelectedCurriculum] = useState<string | null>(() => searchParams.get('curriculum'));
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+
   const { t, isAcademic } = useTerminology(selectedCurriculum);
   const targetLang = useTargetLanguage();
   const speechLocale = STT_TTS_LOCALE[targetLang];
