@@ -5,10 +5,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Sparkles, PlayCircle } from 'lucide-react';
+import { Search, ShoppingCart, PlayCircle, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { formatEur } from '@/lib/timezone';
 import { useSellableCourses, cleanCourseTitle, TRACK_LABELS, type SellableCourse } from '@/hooks/useSellableCourses';
 import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
+import { startProductCheckout } from '@/lib/checkout/startProductCheckout';
 
 const ALL = '__ALL__';
 const PRICE_BUCKETS: Array<{ key: string; label: string; test: (c: SellableCourse) => boolean }> = [
