@@ -128,3 +128,84 @@ export const LEARNER_SAFE_MINICHECK_VISUAL_MAPPINGS = Object.freeze([
   },
 ] as const);
 
+// ---------------------------------------------------------------------------
+// Cut 6 — AI Draft Fixtures (Admin-only, NIEMALS learner-visible).
+// ---------------------------------------------------------------------------
+
+import type {
+  VisualAiDraftContext,
+  VisualAiRawOutput,
+} from "./ai-draft-contracts";
+
+const AI_FIXTURE_SOURCE_REF = "ssot://curriculum/fixture-curr#fixture-comp";
+
+/** Admin-only Fixture: gültiger AI-Draft-Kontext. */
+export const ADMIN_ONLY_AI_DRAFT_CONTEXT_FIXTURE: VisualAiDraftContext = {
+  artifact_id: "fixture-ai-art-1",
+  curriculum_id: "fixture-curr",
+  competence_id: "fixture-comp",
+  lesson_id: "fixture-lesson",
+  purpose: "learn",
+  competence_facets: { requires_sequence_understanding: true },
+  source_refs: [AI_FIXTURE_SOURCE_REF],
+};
+
+/** Admin-only Fixture: gültiger AI-Roh-Output, der die Pipeline passiert. */
+export const ADMIN_ONLY_AI_RAW_OUTPUT_FIXTURE_VALID: VisualAiRawOutput = {
+  title: "AI-Beispiel: Linearer Ablauf",
+  focus_question: "In welcher Reihenfolge laufen die Schritte ab?",
+  nodes: [
+    { id: "n1", role: "process_step", label: "Schritt A", source_ref: AI_FIXTURE_SOURCE_REF },
+    { id: "n2", role: "process_step", label: "Schritt B", source_ref: AI_FIXTURE_SOURCE_REF },
+    { id: "n3", role: "rule", label: "Pflichtprüfung", source_ref: AI_FIXTURE_SOURCE_REF },
+  ],
+  edges: [
+    { from: "n1", to: "n2", kind: "precedes", source_ref: AI_FIXTURE_SOURCE_REF },
+    { from: "n2", to: "n3", kind: "requires", source_ref: AI_FIXTURE_SOURCE_REF },
+  ],
+  misconceptions: [
+    {
+      kind: "false_order",
+      description: "Schritte werden vertauscht.",
+      source_ref: AI_FIXTURE_SOURCE_REF,
+    },
+  ],
+};
+
+/** Admin-only Fixture: enthält verbotene Hex-Farbe → muss blockieren. */
+export const ADMIN_ONLY_AI_RAW_OUTPUT_FIXTURE_HEX_COLOR: VisualAiRawOutput = {
+  nodes: [
+    {
+      id: "n1",
+      role: "process_step",
+      label: "Schritt #ff0000",
+      source_ref: AI_FIXTURE_SOURCE_REF,
+    },
+    { id: "n2", role: "process_step", label: "Schritt B", source_ref: AI_FIXTURE_SOURCE_REF },
+  ],
+  edges: [{ from: "n1", to: "n2", kind: "precedes", source_ref: AI_FIXTURE_SOURCE_REF }],
+};
+
+/** Admin-only Fixture: unbekannter Node Type → muss blockieren/verworfen werden. */
+export const ADMIN_ONLY_AI_RAW_OUTPUT_FIXTURE_UNKNOWN_NODE: VisualAiRawOutput = {
+  nodes: [
+    { id: "n1", role: "process_step", label: "Schritt A", source_ref: AI_FIXTURE_SOURCE_REF },
+    {
+      id: "n2",
+      role: "spaceship",
+      label: "Unsinnig",
+      source_ref: AI_FIXTURE_SOURCE_REF,
+    },
+  ],
+  edges: [{ from: "n1", to: "n2", kind: "precedes", source_ref: AI_FIXTURE_SOURCE_REF }],
+};
+
+/** Admin-only Fixture: fehlende source_refs → muss blockieren. */
+export const ADMIN_ONLY_AI_RAW_OUTPUT_FIXTURE_MISSING_REFS: VisualAiRawOutput = {
+  nodes: [
+    { id: "n1", role: "process_step", label: "Schritt A" },
+    { id: "n2", role: "process_step", label: "Schritt B" },
+  ],
+  edges: [{ from: "n1", to: "n2", kind: "precedes" }],
+};
+
