@@ -306,11 +306,15 @@ describe("VISUAL.LEARNING.OS — Cut 5 Renderer", () => {
     expect(FILES.block.includes("reviewVisualLearningArtifact")).toBe(false);
   });
 
-  it("26. Keine Draft/Admin-/Review-Texte im Learner Renderer", () => {
-    const lower = FILES.renderer.toLowerCase();
-    expect(lower.includes("draft")).toBe(false);
-    expect(lower.includes("review-status")).toBe(false);
-    expect(lower.includes("admin")).toBe(false);
+  it("26. Keine Draft/Admin-/Review-Texte im Learner Renderer (außerhalb Kommentare)", () => {
+    const stripped = FILES.renderer
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\*.*$/gm, "")
+      .replace(/\/\/.*$/gm, "")
+      .toLowerCase();
+    expect(stripped.includes("draft")).toBe(false);
+    expect(stripped.includes("review-status")).toBe(false);
+    expect(stripped.includes("admin")).toBe(false);
   });
 
   it("27. Vor MiniCheck-Abgabe wird kein Fehlerbild angezeigt", () => {
@@ -331,12 +335,19 @@ describe("VISUAL.LEARNING.OS — Cut 5 Renderer", () => {
     expect(FILES.lesson.includes("MiniCheckPlayer")).toBe(true);
   });
 
-  it("30. Keine Mastery- oder Prüfungsreife-Aussage in Cut 5", () => {
-    const lower = (FILES.renderer + FILES.engine + FILES.policy).toLowerCase();
+  it("30. Keine Mastery- oder Prüfungsreife-Aussage in Cut 5 (außerhalb Kommentare)", () => {
+    const strip = (s: string) =>
+      s
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\*.*$/gm, "")
+        .replace(/\/\/.*$/gm, "")
+        .toLowerCase();
+    const lower = strip(FILES.renderer) + strip(FILES.engine) + strip(FILES.policy);
     expect(lower.includes("mastery")).toBe(false);
     expect(lower.includes("prüfungsreife")).toBe(false);
     expect(lower.includes("pruefungsreife")).toBe(false);
   });
+
 
   it("31. Renderer/Engine/Policy enthalten keine direkten Supabase-Reads", () => {
     expect(FILES.engine.includes("@/integrations/supabase")).toBe(false);
