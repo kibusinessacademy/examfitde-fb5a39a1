@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("[berufos-waitlist] unhandled:", err);
-    return new Response(JSON.stringify({ error: "unhandled", detail: String(err) }), {
+    return new Response(JSON.stringify({ error: "internal_error", code: "ERR_UNHANDLED" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
