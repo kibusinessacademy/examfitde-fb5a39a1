@@ -513,6 +513,30 @@ export default function BulkCourseExportPage() {
                           <CheckCircle2 className="h-3 w-3" /> Fertig
                           {rs.variant === "with-player" && <Badge variant="outline" className="ml-1 text-[10px] py-0">+Player</Badge>}
                         </span>
+                        {rs.modulesSummary && (
+                          <div
+                            className="text-[11px] text-muted-foreground"
+                            title={
+                              rs.modulesSummary.completeness_ok === false
+                                ? `Vollständigkeit: ${rs.modulesSummary.issues?.join(" · ")}`
+                                : "Vollständigkeitsprüfung bestanden (modules.json ↔ lessons_all.json ↔ course_snapshot.json)"
+                            }
+                          >
+                            <strong className="text-foreground">{rs.modulesSummary.total_modules}</strong> Module ·{" "}
+                            <strong className="text-foreground">{rs.modulesSummary.total_lessons}</strong> Lektionen
+                            {rs.modulesSummary.completeness_ok === false && (
+                              <span className="text-destructive ml-1">⚠</span>
+                            )}
+                            {rs.modulesSummary.completeness_ok && (
+                              <span className="text-green-600 ml-1">✓</span>
+                            )}
+                          </div>
+                        )}
+                        {rs.startedAt && rs.finishedAt && (
+                          <div className="text-[10px] text-muted-foreground">
+                            ⏱ {Math.round((rs.finishedAt - rs.startedAt) / 100) / 10}s
+                          </div>
+                        )}
                         {rs.variant === "with-player" && rs.playerValidation && (
                           rs.playerValidation.complete ? (
                             <span className="text-green-600 flex items-center gap-1" title={rs.playerValidation.reason}>
@@ -532,6 +556,7 @@ export default function BulkCourseExportPage() {
                         )}
                       </div>
                     )}
+
                     {rs?.status === "error" && (
                       <span className="text-xs text-destructive flex items-center gap-1" title={rs.message}>
                         <XCircle className="h-3 w-3" /> {rs.message?.slice(0, 40) || "Fehler"}
