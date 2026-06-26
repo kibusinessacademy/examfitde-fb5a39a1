@@ -12,11 +12,18 @@ import LessonSections from './sections/LessonSections';
 import { useTranslatedLesson } from '@/hooks/i18n/useTranslatedContent';
 import { TranslationBadge } from '@/components/i18n/TranslationBadge';
 import VisualLearningBlock from '@/components/learning/VisualLearningBlock';
+import MiniCheckVisualFeedback from '@/components/learning/MiniCheckVisualFeedback';
 import {
   buildVisualLessonBlock,
   type VisualLessonStepPlacement,
 } from '@/lib/visual-learning-os/lesson-visual-block';
+import {
+  buildMiniCheckVisualFeedback,
+  type MiniCheckVisualAnswerSignal,
+  type MiniCheckVisualMapping,
+} from '@/lib/visual-learning-os/minicheck-visual-feedback';
 import type { PublishedVisualArtifact } from '@/lib/visual-learning-os/contracts';
+
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
 interface LessonContentProps {
