@@ -1,0 +1,79 @@
+name: Security — Dependency Hardening P0
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/**"
+      - "scripts/guards/security-vitest-ui-guard.mjs"
+      - "scripts/**"
+  push:
+    branches: [main]
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/guards/security-vitest-ui-guard.mjs"
+
+concurrency:
+  group: security-dep-hardening-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+jobs:
+  guard:
+    name: Vitest-UI + dev-server exposure guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Verify Node.js 24
+        run: |
+          NODE_MAJOR=$(node -v | sed 's/v\([0-9]*\).*/\1/')
+          if [ "$NODE_MAJOR" != "24" ]; then
+            echo "::error::Expected Node.js 24, got $(node -v)"; exit 1
+          fi
+      - name: Run hardening guard
+        run: node scripts/guards/security-vitest-ui-guard.mjs
+
+  audit:
+    name: npm audit (high+critical)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+      - run: npm ci --legacy-peer-deps
+      - name: npm audit (advisory only — do not fail build on transitive noise)
+        run: |
+          set +e
+          npm audit --audit-level=high --json > /tmp/audit.json
+          STATUS=$?
+          {
+            echo "## 🔒 Dependency Audit (High + Critical)"
+            echo ""
+            node -e "
+              const r = JSON.parse(require('fs').readFileSync('/tmp/audit.json','utf8'));
+              const v = r.metadata?.vulnerabilities || {};
+              console.log('| Severity | Count |');
+              console.log('|----------|-------|');
+              for (const k of ['critical','high','moderate','low','info']) {
+                console.log('| ' + k + ' | ' + (v[k] ?? 0) + ' |');
+              }
+            "
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Hard-fail only on CRITICAL.
+          CRIT=$(node -e "const r=JSON.parse(require('fs').readFileSync('/tmp/audit.json','utf8'));console.log(r.metadata?.vulnerabilities?.critical ?? 0)")
+          if [ "$CRIT" -gt 0 ]; then
+            echo "::error::Critical vulnerabilities present: $CRIT"
+            exit 1
+          fi
+          exit 0
