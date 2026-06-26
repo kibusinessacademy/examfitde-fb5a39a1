@@ -119,7 +119,7 @@ const live: SeoRoute[] = [
     ],
     faq: [
       { q: "Für welche Prüfungen ist ExamFit geeignet?", a: "IHK-Abschlussprüfung Teil 1 + 2, AEVO, Wirtschaftsfachwirt, Bilanzbuchhalter, Fachinformatiker Anwendungsentwicklung, Industriemeister sowie Sachkundeprüfungen wie §34a." },
-      { q: "Was kostet ExamFit?", a: "Der Selbsttest und Basis-Lernplan sind kostenlos. Vollzugriff auf Lernkurse und Simulationen ab 19 € pro Monat oder als Einmalkauf je Prüfung." },
+      { q: "Was kostet ExamFit?", a: "Der Selbsttest und Basis-Lernplan sind kostenlos. Vollzugriff auf Lernkurse und Simulationen einmalig 24,90 € pro Monat oder als Einmalkauf je Prüfung." },
       { q: "Wie funktioniert der KI-Tutor?", a: "Der Tutor nutzt Strict-RAG: Antworten basieren ausschließlich auf belegten Quellen aus dem Curriculum. Bei fehlender Quelle gibt er eine klare Refusal-Antwort statt zu raten." },
       { q: "Wie wird der Lernplan erstellt?", a: "Nach dem Selbsttest analysiert ExamFit deine Schwachstellen pro Handlungsfeld und priorisiert die Lerninhalte für die nächsten 4 Wochen automatisch." },
       { q: "Gibt es realistische Prüfungssimulationen?", a: "Ja – mit prüfungsnahen Aufgabenformaten der jeweiligen Prüfung (schriftlich + mündlich), inklusive Zeitlimit und Punkteauswertung. Originalprüfungen der IHK sind urheberrechtlich geschützt; ExamFit bildet Format, Struktur und Anforderungsniveau nach." },
@@ -172,7 +172,7 @@ const live: SeoRoute[] = [
     keyFacts: [
       { label: "Kurspfade", value: "IHK, AEVO, Bilanzbuchhalter, FIAE, Fachwirt, §34a" },
       { label: "Format", value: "Lektionen + Mini-Checks + Übungsfragen + KI-Tutor" },
-      { label: "Preise", value: "Free-Tier kostenlos, Komplettpakets ab 19 €" },
+      { label: "Preise", value: "Free-Tier kostenlos, Komplettpakets einmalig 24,90 €" },
       { label: "Updates", value: "Synchron mit DIHK-Rahmenstoffplänen" },
       { label: "Simulationen", value: "Prüfungsnahe Tests mit Readiness-Score" },
       { label: "Sprache", value: "Deutsch" },
@@ -234,7 +234,7 @@ const live: SeoRoute[] = [
     ],
     faq: [
       { q: "Wie starte ich mit ExamFit?", a: "Mache den kostenlosen Selbsttest – danach erhältst du einen 4-Wochen-Lernplan." },
-      { q: "Was kostet die Plattform?", a: "Selbsttest und Basis-Lernplan sind kostenlos. Vollzugriff ab 19 € / Monat oder als Einmalkauf je Prüfung." },
+      { q: "Was kostet die Plattform?", a: "Selbsttest und Basis-Lernplan sind kostenlos. Vollzugriff einmalig 24,90 € / Monat oder als Einmalkauf je Prüfung." },
       { q: "Kann ich monatlich kündigen?", a: "Ja, monatliche Abos sind jederzeit zum Monatsende kündbar." },
       { q: "Funktioniert der KI-Tutor offline?", a: "Nein, der KI-Tutor benötigt eine Internetverbindung." },
       { q: "Bekomme ich eine Rechnung?", a: "Ja, jede Bestellung erzeugt automatisch eine Rechnung mit ausgewiesener Umsatzsteuer (sofern umsatzsteuerlich anwendbar)." },
@@ -268,7 +268,7 @@ const live: SeoRoute[] = [
       { q: "Kann ich Teil 1 separat üben?", a: "Ja, beide Prüfungsteile haben eigene Lernpfade und Simulationen." },
       { q: "Wie übe ich die mündliche Prüfung?", a: "Im Fachgesprächs-Simulator stellt der KI-Tutor Fragen und Folgefragen aus deinem Berufsbild und gibt strukturiertes Feedback." },
       { q: "Brauche ich einen Account?", a: "Für den Selbsttest nicht. Für Lernplan und Fortschritts-Tracking ja." },
-      { q: "Was kostet das Training?", a: "Selbsttest kostenlos; Vollzugriff ab 19 € pro Monat oder Einmalkauf pro Prüfung." },
+      { q: "Was kostet das Training?", a: "Selbsttest kostenlos; Vollzugriff einmalig 24,90 € pro Monat oder Einmalkauf pro Prüfung." },
     ],
     sitemapGroup: "static",
     priority: 0.9,
@@ -343,12 +343,12 @@ const live: SeoRoute[] = [
       "Transparente Preise: kostenloser Selbsttest, B2C Komplettpaket 24,90 € einmalig pro Prüfung, Betriebs-Bundles pro Sitz, Bildungsträger-Konditionen auf Anfrage.",
     h1: "ExamFit-Preise",
     intro:
-      "ExamFit bietet drei Tarif-Segmente: (1) Privat – das B2C-Komplettpaket für eine Prüfung kostet einmalig 24,90 € (12 Monate Vollzugriff, kein Abo, monatliche Lerntarife ab 19 €/Monat alternativ verfügbar), (2) Betriebs-Bundles pro Sitz für Ausbildungsbetriebe inklusive Lernfortschritts-Reporting auf Handlungsfeld-Ebene, (3) Institutions-Konditionen mit individueller Abstimmung für Berufsschulen, Bildungsträger und Kammern. Alle Preise verstehen sich zzgl. Umsatzsteuer (sofern umsatzsteuerlich anwendbar), Rechnungen werden automatisch erzeugt und per E-Mail zugestellt. Der Selbsttest und der Basis-Lernplan sind dauerhaft kostenlos und ohne Zahlungsdaten nutzbar; ein Upgrade auf den Vollzugriff ist jederzeit möglich.",
+      "ExamFit bietet drei Tarif-Segmente: (1) Privat – das B2C-Komplettpaket für eine Prüfung kostet einmalig 24,90 € (12 Monate Vollzugriff, kein Abo, monatliche Lerntarife einmalig 24,90 €/Monat alternativ verfügbar), (2) Betriebs-Bundles pro Sitz für Ausbildungsbetriebe inklusive Lernfortschritts-Reporting auf Handlungsfeld-Ebene, (3) Institutions-Konditionen mit individueller Abstimmung für Berufsschulen, Bildungsträger und Kammern. Alle Preise verstehen sich zzgl. Umsatzsteuer (sofern umsatzsteuerlich anwendbar), Rechnungen werden automatisch erzeugt und per E-Mail zugestellt. Der Selbsttest und der Basis-Lernplan sind dauerhaft kostenlos und ohne Zahlungsdaten nutzbar; ein Upgrade auf den Vollzugriff ist jederzeit möglich.",
     contentHtml: `<p><strong>B2C Komplettpaket: 24,90 € einmalig</strong> – 12 Monate Vollzugriff auf eine Prüfung. <a href="/berufe">Jetzt Beruf wählen & kaufen</a>.</p>`,
     keyFacts: [
       { label: "Free", value: "Selbsttest + Basis-Lernplan – dauerhaft kostenlos" },
       { label: "Komplettpaket B2C", value: "24,90 € einmalig pro Prüfung, 12 Monate" },
-      { label: "Privat (Abo)", value: "Ab 19 € / Monat, monatlich kündbar" },
+      { label: "Privat (Abo)", value: "Einmalig 24,90 € pro Komplettpaket, 12 Monate Zugang" },
       { label: "Betriebe", value: "Pro Sitz, ab 5 Sitzen, mit Reporting" },
       { label: "Institutionen", value: "Konditionen auf Anfrage" },
       { label: "Zahlung", value: "SEPA, Kreditkarte, Rechnung" },
