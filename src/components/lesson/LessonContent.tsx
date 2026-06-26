@@ -42,7 +42,19 @@ interface LessonContentProps {
    * Wird NICHT aus der DB im Component geladen. Eltern-Komponente liefert sie.
    */
   visualArtifacts?: ReadonlyArray<PublishedVisualArtifact>;
+  /**
+   * VISUAL.LEARNING.OS — Cut 5.
+   * Optionale MiniCheck Visual Feedback Props. Komponente erzeugt KEINE
+   * Fachdiagnose, sondern rendert nur explizit übergebene Signale + Mappings.
+   */
+  miniCheckAnswerSignals?: ReadonlyArray<MiniCheckVisualAnswerSignal>;
+  miniCheckVisualMappings?: ReadonlyArray<MiniCheckVisualMapping>;
+  /** Pflicht für Sichtbarkeit des Fehlerbilds — niemals vor Abgabe true. */
+  miniCheckIsSubmitted?: boolean;
+  miniCheckId?: string;
+  miniCheckSourceRefs?: ReadonlyArray<string>;
   onH5PCompleted?: (score?: number, maxScore?: number) => void;
+
   onH5PProgress?: (progress: number) => void;
   onMiniCheckCompleted?: (score: number, maxScore: number) => void;
 }
