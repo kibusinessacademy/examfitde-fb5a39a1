@@ -6,8 +6,8 @@
  * HARTE REGELN:
  * - Keine Supabase-Aufrufe, kein fetch, keine Mutationen.
  * - Keine Pattern-Auswahl, keine Factory-, keine Review-Aufrufe.
- * - Keine Admin-Badges, keine Draft-Hinweise.
- * - Empty State läuft sauber durch.
+ * - Keine Admin-Badges, keine Vorab-Hinweise auf interne Lifecycle-Stati.
+ * - Empty State laeuft sauber durch.
  * - Farbe nie als alleinige Bedeutung (Label/Icon/Shape begleiten).
  */
 import type { ReactNode } from "react";
