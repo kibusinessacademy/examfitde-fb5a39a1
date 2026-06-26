@@ -760,8 +760,10 @@ const AppRoutes = () => {
             <Route path="/exam-trainer" element={<ExamTrainer />} />
             
             
-            <Route path="/oral-exam" element={<OralExamTrainer />} />
-            <Route path="/oral" element={<Navigate to="/oral-exam" replace />} />
+            {/* SSOT Konsolidierung 2026-06-26: /app/oral ist die einzige Trainer-Surface.
+                Alt-Routen redirecten mit Query-Erhalt (curriculum=…). */}
+            <Route path="/oral-exam" element={<OralExamRedirect />} />
+            <Route path="/oral" element={<OralExamRedirect />} />
             <Route path="/muendlich" element={<Navigate to="/muendliche-pruefung" replace />} />
             {/* Reality-QA: stable /tutor + /ai-tutor entry surfaces */}
             <Route path="/tutor" element={<TutorEntryPage />} />
