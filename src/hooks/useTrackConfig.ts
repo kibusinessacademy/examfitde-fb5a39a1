@@ -77,7 +77,7 @@ export const DEFAULT_FLAGS: Record<ProductTrack, FeatureFlags> = {
     has_minichecks: false,
     has_exam_trainer: true,
     has_exam_simulation: true,
-    has_oral_exam_trainer: false, // cert-based — resolved at runtime via resolveHasOralExam(), matches TRACK_CAPABILITIES SSOT
+    has_oral_exam_trainer: true, // SSOT 2026-06-26: Mündlicher Trainer ist Pflicht-Komponente jedes Pakets
     has_ai_tutor: true,
     has_handbook: true,
     ai_tutor_mode: 'limited_exam',
@@ -88,7 +88,7 @@ export const DEFAULT_FLAGS: Record<ProductTrack, FeatureFlags> = {
     has_minichecks: true,
     has_exam_trainer: true,
     has_exam_simulation: true,
-    has_oral_exam_trainer: false,
+    has_oral_exam_trainer: true, // SSOT 2026-06-26: Mündlicher Trainer ist Pflicht-Komponente jedes Pakets
     has_ai_tutor: true,
     has_handbook: true,
     ai_tutor_mode: 'full',
