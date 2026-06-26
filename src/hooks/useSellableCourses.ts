@@ -36,9 +36,7 @@ export function useSellableCourses() {
   return useQuery({
     queryKey: ['sellable-course-catalog'],
     queryFn: async (): Promise<SellableCourse[]> => {
-      const { data, error } = await supabase.rpc(
-        'public_sellable_course_catalog' as any
-      );
+      const { data, error } = await supabase.rpc('public_sellable_course_catalog');
       if (error) throw error;
       return (data ?? []) as unknown as SellableCourse[];
     },
