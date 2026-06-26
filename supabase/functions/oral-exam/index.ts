@@ -432,6 +432,8 @@ async function generateQuestionForSession(
       session_id: sessionId,
       competency_id: competency.id,
       learning_field_id: competency.learning_field.id,
+      topic_key: competency.learning_field?.code || null,
+      topic_label: competency.learning_field?.title || null,
       blueprint_id: bp.id,
       question_text: questionText,
       expected_answer_points: expectedPoints,
@@ -439,6 +441,7 @@ async function generateQuestionForSession(
       order_index: orderIndex,
       time_limit_seconds: mode === "simulation" ? 120 : 180,
     })
+
     .select()
     .single();
 
