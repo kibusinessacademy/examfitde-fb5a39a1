@@ -11,6 +11,7 @@ import {
   SEO_TEMPLATES,
   SITE_URL,
   PRODUCT_PRICES,
+  PRODUCT_PRICE_DISPLAY,
   generateCourseSchema,
   generateFAQSchema,
 } from '@/lib/seo';
