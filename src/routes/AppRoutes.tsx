@@ -381,7 +381,8 @@ const AppRoutes = () => {
         <Route path="/legal/datenschutz" element={<Navigate to="/datenschutz" replace />} />
         <Route path="/user/support" element={<Navigate to="/faq" replace />} />
         <Route path="/user/*" element={<Navigate to="/faq" replace />} />
-        <Route path="/shop/products" element={<Navigate to="/shop" replace />} />
+        <Route path="/shop/products" element={<Navigate to="/examfit" replace />} />
+        <Route path="/shop" element={<Navigate to="/examfit" replace />} />
         <Route path="/products" element={<Navigate to="/paket" replace />} />
         <Route path="/product/:slug" element={<LegacyParamRedirect to="/paket" />} />
         {/* Reality-Audit Fix: Header-Label "Komplettpaket" → Direkteingabe der Singular-/Plural-Variante 404-frei */}
@@ -480,8 +481,9 @@ const AppRoutes = () => {
         <Route path="/industries" element={<BerufOSModulePage slug="industries" />} />
         <Route path="/governance" element={<BerufOSModulePage slug="governance" />} />
 
-        {/* /examfit = ExamFit LearningOS Marketing-Homepage (vorher /) */}
-        <Route path="/examfit" element={<HomePageV1Legacy />} />
+        {/* /examfit = neue Shop-Landingpage (Routing in MainLayout-Block, siehe unten).
+            Legacy HomePageV1Legacy wird nicht mehr unter /examfit gemountet. */}
+
 
         {/* Berufs-KI — eigenständige Produktlinie */}
         <Route path="/berufs-ki" element={<BerufsKIHubPage />} />
@@ -739,7 +741,7 @@ const AppRoutes = () => {
           <Route path="/v1" element={<HomePageV1Legacy />} />
           {/* Funnel: Prüfungsreife-Check needs the marketing header for brand-trust + back-nav (Audit P0) */}
           <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />
-          <Route path="/shop" element={<ShopPage />} />
+          <Route path="/examfit" element={<ShopPage />} />
           <Route path="/courses" element={<CoursesPage />} />
           <Route path="/course/:slug" element={<CourseDetailPage />} />
           
