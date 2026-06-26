@@ -208,6 +208,37 @@ export default function LessonContent({
     return <VisualLearningBlock block={block} />;
   }, [stepKey, visualArtifacts, curriculumId, competenceId, lessonId]);
 
+  // VISUAL.LEARNING.OS — Cut 5: MiniCheck Visual Feedback (nach Abgabe).
+  const miniCheckFeedbackNode = useMemo(() => {
+    if (!miniCheckIsSubmitted) return null;
+    if (!miniCheckAnswerSignals || miniCheckAnswerSignals.length === 0) return null;
+    if (!curriculumId || !competenceId || !miniCheckId) return null;
+    const result = buildMiniCheckVisualFeedback({
+      context: {
+        curriculum_id: curriculumId,
+        competence_id: competenceId,
+        lesson_id: lessonId,
+        mini_check_id: miniCheckId,
+      },
+      signals: miniCheckAnswerSignals,
+      mappings: miniCheckVisualMappings ?? [],
+      artifacts: visualArtifacts ?? [],
+      source_refs: miniCheckSourceRefs,
+    });
+    return <MiniCheckVisualFeedback result={result} isSubmitted={miniCheckIsSubmitted} />;
+  }, [
+    miniCheckIsSubmitted,
+    miniCheckAnswerSignals,
+    miniCheckVisualMappings,
+    miniCheckId,
+    miniCheckSourceRefs,
+    visualArtifacts,
+    curriculumId,
+    competenceId,
+    lessonId,
+  ]);
+
+
   // i18n PR-3 wiring: resolve translated lesson body if available.
   const sourceHtml = useMemo(() => {
     const c = content as ContentData | null;
