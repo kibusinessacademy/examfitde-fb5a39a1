@@ -133,7 +133,7 @@ const PruefungstrainingDetailPage = () => {
       name: `Prüfungstraining ${name}`,
       description: `Bestehe deine ${chamber}-Prüfung ${name} sicher: ${questions}+ prüfungsnahe Aufgaben, Simulation & KI-Coach.`,
       url: `${SITE_URL}/pruefungstraining/${resolvedSlug}`,
-      price: 29.90,
+      price: 24.90,
       currency: 'EUR',
       courseMode: 'online',
       educationalLevel: cert.certification_level || 'Berufsausbildung',
