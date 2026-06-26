@@ -362,7 +362,7 @@ export default function BerufDetailPage() {
                 )}
               </Button>
               <Button asChild size="lg" variant="outline" onClick={() => trackCta('footer_quiz')}>
-                <Link to={quizHref}>Erst kostenlos testen</Link>
+                <Link to={quizHref}>Prüfungsreife-Check (4 Min.)</Link>
               </Button>
             </div>
           </div>
