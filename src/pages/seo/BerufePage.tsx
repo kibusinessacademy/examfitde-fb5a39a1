@@ -377,35 +377,46 @@ export default function BerufePage() {
                 <div className="mb-4 text-sm text-muted-foreground">
                   {filteredCourses.length} {filteredCourses.length === 1 ? 'Kurs' : 'Kurse'} gefunden
                 </div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   {filteredCourses.map((entry) => {
                     const Icon = getCategoryIcon(entry);
+                    const img = getBerufImage(entry.title, entry.kammer);
                     if (entry.isPublished) {
                       return (
-                        <Link key={entry.berufId} to={getBerufUrl(entry.publishedSlug || entry.slug)}>
-                          <Card className="glass-card hover:shadow-glow-sm transition-all duration-300 h-full group border-primary/20 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-accent" />
-                            <CardHeader className="pb-3">
-                              <div className="flex items-start justify-between gap-2">
-                                <Icon className="h-7 w-7 text-primary flex-shrink-0" />
-                                <div className="flex flex-wrap gap-1 justify-end">
-                                  <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
-                                    ✓ Verfügbar
+                        <Link
+                          key={entry.berufId}
+                          to={getBerufUrl(entry.publishedSlug || entry.slug)}
+                          className="group block"
+                        >
+                          <Card className="h-full overflow-hidden border border-border/60 bg-card hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                            <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                              <img
+                                src={img}
+                                alt=""
+                                loading="lazy"
+                                width={768}
+                                height={512}
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+                              <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                                <Badge className="bg-primary text-primary-foreground border-0 text-[11px] shadow-sm">
+                                  ✓ Verfügbar
+                                </Badge>
+                                {entry.kammer && (
+                                  <Badge variant="secondary" className="text-[11px] bg-background/90 text-foreground border-0 backdrop-blur-sm">
+                                    {entry.kammer}
                                   </Badge>
-                                  {entry.kammer && (
-                                    <Badge variant="outline" className="text-xs">{entry.kammer}</Badge>
-                                  )}
-                                </div>
+                                )}
                               </div>
-                              <CardTitle className="text-responsive-base group-hover:text-primary transition-colors leading-snug line-clamp-2">
-                                {entry.title}
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-0">
-                              {entry.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{entry.description}</p>
-                              )}
-                              <div className="flex items-center justify-between">
+                              <div className="absolute bottom-3 left-3 right-3">
+                                <h3 className="text-lg font-display font-semibold text-white leading-snug line-clamp-2 drop-shadow-md">
+                                  {entry.title}
+                                </h3>
+                              </div>
+                            </div>
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                                   {entry.ausbildungsdauerMonate && (
                                     <span className="flex items-center gap-1">
@@ -414,10 +425,9 @@ export default function BerufePage() {
                                   )}
                                   {entry.dqrNiveau && <span>DQR {entry.dqrNiveau}</span>}
                                 </div>
-                                <span className="text-sm text-primary flex items-center font-medium opacity-90 group-hover:opacity-100 transition-opacity">
-                                  Lernpfad starten <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                                <span className="text-sm text-primary flex items-center font-semibold group-hover:gap-2 gap-1 transition-all">
+                                  Lernpfad starten <ArrowRight className="h-4 w-4" />
                                 </span>
-
                               </div>
                             </CardContent>
                           </Card>
@@ -427,25 +437,33 @@ export default function BerufePage() {
 
                     // Unpublished → "Kurs anfragen"
                     return (
-                      <Card key={entry.berufId} className="glass-card h-full group border-dashed border-muted-foreground/20">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <Icon className="h-7 w-7 text-muted-foreground/60 flex-shrink-0" />
-                            <div className="flex flex-wrap gap-1 justify-end">
-                              <Badge variant="outline" className="text-xs text-muted-foreground">
-                                In Vorbereitung
-                              </Badge>
-                              {entry.kammer && (
-                                <Badge variant="outline" className="text-xs">{entry.kammer}</Badge>
-                              )}
-                            </div>
+                      <Card key={entry.berufId} className="h-full overflow-hidden border border-dashed border-border bg-card/60">
+                        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                          <img
+                            src={img}
+                            alt=""
+                            loading="lazy"
+                            width={768}
+                            height={512}
+                            className="h-full w-full object-cover opacity-50 grayscale"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
+                          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                            <Badge variant="outline" className="text-[11px] bg-background/90 text-muted-foreground backdrop-blur-sm">
+                              In Vorbereitung
+                            </Badge>
+                            {entry.kammer && (
+                              <Badge variant="outline" className="text-[11px] bg-background/90 backdrop-blur-sm">{entry.kammer}</Badge>
+                            )}
                           </div>
-                          <CardTitle className="text-responsive-base leading-snug line-clamp-2 text-muted-foreground">
-                            {entry.title}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="flex items-center justify-between">
+                          <div className="absolute bottom-3 left-3 right-3">
+                            <h3 className="text-lg font-display font-semibold text-foreground leading-snug line-clamp-2">
+                              {entry.title}
+                            </h3>
+                          </div>
+                        </div>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               {entry.ausbildungsdauerMonate && (
                                 <span className="flex items-center gap-1">
@@ -461,13 +479,14 @@ export default function BerufePage() {
                               className="text-xs gap-1"
                             >
                               <Bell className="h-3 w-3" />
-                              Kurs anfragen
+                              Benachrichtigen
                             </Button>
                           </div>
                         </CardContent>
                       </Card>
                     );
                   })}
+
                 </div>
               </>
             )}
