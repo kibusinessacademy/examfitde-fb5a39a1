@@ -5,7 +5,7 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { generateFAQSchema, generateCourseListSchema, SITE_URL, seoTitle } from '@/lib/seo';
 import { PRICING } from '@/config/pricing';
 import { StickyCTA } from '@/components/marketing/StickyCTA';
-import { CourseFinderSection } from '@/components/marketing/CourseFinderSection';
+import { SellableCoursesCatalog } from '@/components/shop/SellableCoursesCatalog';
 import { HowExamFitWorksSection } from '@/components/landing/HowExamFitWorksSection';
 import { DemoGallery } from '@/components/landing/demos/DemoGallery';
 import { HeroAccent } from '@/components/marketing/HeroAccent';
@@ -156,8 +156,10 @@ export default function HomePage() {
         {/* ─── 3. Produkt-Mockups: Score, Mastery, Aufgabe, KI, Mündlich ─── */}
         <DemoGallery />
 
-        {/* ─── 4. Kursfinder ─── */}
-        <CourseFinderSection />
+        {/* ─── 4. Kursfinder: Premium-Shopkatalog (Ausbildung/Weiterbildung/Zertifizierung) ─── */}
+        <div id="kursfinder">
+          <SellableCoursesCatalog />
+        </div>
 
         {/* ─── 5. Konkrete Ergebnisversprechen (Outcomes statt Marketing) ─── */}
         <section className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 bg-muted/30">
