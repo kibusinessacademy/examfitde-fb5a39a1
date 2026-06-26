@@ -30,15 +30,14 @@ function useSellableBundle(slug: string) {
   return useQuery({
     queryKey: ['sellable-bundle', slug],
     enabled: !!slug,
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_public_sellable_courses')
-        .select('product_slug, product_title, course_title, is_sellable, canonical_slug')
-        .or(`product_slug.eq.${slug},canonical_slug.eq.${slug}`)
-        .limit(1)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc(
+        'public_sellable_course_catalog' as any,
+      );
       if (error) throw error;
-      return data;
+      const rows = (data ?? []) as Array<{ product_slug: string | null; title: string }>;
+      return rows.find((r) => r.product_slug === slug) ?? null;
     },
   });
 }
