@@ -35,6 +35,7 @@ export function SellableCoursesCatalog() {
   const [catalog, setCatalog] = useState(ALL);
   const [trackFilter, setTrackFilter] = useState(ALL);
   const [priceBucket, setPriceBucket] = useState(ALL);
+  const [buyingId, setBuyingId] = useState<string | null>(null);
 
   const { chambers, catalogs, tracks } = useMemo(() => {
     const c = new Set<string>(), k = new Set<string>(), t = new Set<string>();
