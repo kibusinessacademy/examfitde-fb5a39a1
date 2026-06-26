@@ -71,7 +71,8 @@ function useCoursePackageContents(curriculumId: string, courseId: string) {
         // Schriftliche Pool-Größe — wir zählen über learning_fields → competencies → exam_questions.
         // Ein direkter Count über exam_questions setzt eine curriculum_id-Spalte voraus; sichere Variante
         // ist daher die Aggregation über die existierende Relation (siehe useCurriculumProductStats).
-        (supabase.from("learning_fields") as unknown as ReturnType<typeof supabase.from>)
+        // `as any` ist hier nötig, weil der verschachtelte select-Generic-Tree die TS-Inferenz sprengt.
+        (supabase.from("learning_fields") as any)
           .select("id, competencies(id, exam_questions(id))")
           .eq("curriculum_id", curriculumId),
         supabase
