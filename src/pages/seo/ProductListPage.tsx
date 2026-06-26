@@ -83,7 +83,7 @@ function ProductListPageComponent() {
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <Target className="h-6 w-6 text-primary" />
-                          <span className="font-bold text-gradient">{PRODUCT_PRICES.pruefungstraining} €</span>
+                          <span className="font-bold text-gradient">{PRODUCT_PRICE_DISPLAY}</span>
                         </div>
                         <CardTitle className="group-hover:text-primary transition-colors">
                           {beruf.title}
