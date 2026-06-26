@@ -323,9 +323,14 @@ export default function BerufDetailPage() {
           />
         </div>
 
-        <BerufReadinessBlock beruf={title} />
+        <BerufModulesBlock
+          beruf={title}
+          kammer={kammerLabel}
+          curriculumId={course.curriculumId}
+          courseId={course.courseId}
+        />
 
-        <BerufModulesBlock beruf={title} kammer={kammerLabel} />
+        <BerufReadinessBlock beruf={title} quizHref={quizHref} />
 
         <BerufPersonaBranches
           beruf={title}
@@ -343,7 +348,7 @@ export default function BerufDetailPage() {
               Bereit für die {title}-Prüfung?
             </h2>
             <p className="text-text-secondary">
-              Sichere dir direkt das Komplettpaket für {PRODUCT_PRICE_DISPLAY} oder starte
+              Sichere dir direkt das Prüfungspaket für {PRODUCT_PRICE_DISPLAY} oder starte
               vorher in 4 Minuten mit dem kostenlosen Prüfungsreife-Check.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -359,7 +364,7 @@ export default function BerufDetailPage() {
                     Weiterleitung …
                   </>
                 ) : (
-                  <>Komplettpaket sichern – {PRODUCT_PRICE_DISPLAY}</>
+                  <>Prüfungspaket kaufen – {PRODUCT_PRICE_DISPLAY}</>
                 )}
               </Button>
               <Button asChild size="lg" variant="outline" onClick={() => trackCta('footer_quiz')}>
@@ -368,6 +373,7 @@ export default function BerufDetailPage() {
             </div>
           </div>
         </section>
+
       </div>
 
       <BerufStickyCta
