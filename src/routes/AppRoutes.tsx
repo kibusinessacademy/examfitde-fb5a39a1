@@ -381,7 +381,8 @@ const AppRoutes = () => {
         <Route path="/legal/datenschutz" element={<Navigate to="/datenschutz" replace />} />
         <Route path="/user/support" element={<Navigate to="/faq" replace />} />
         <Route path="/user/*" element={<Navigate to="/faq" replace />} />
-        <Route path="/shop/products" element={<Navigate to="/shop" replace />} />
+        <Route path="/shop/products" element={<Navigate to="/examfit" replace />} />
+        <Route path="/shop" element={<Navigate to="/examfit" replace />} />
         <Route path="/products" element={<Navigate to="/paket" replace />} />
         <Route path="/product/:slug" element={<LegacyParamRedirect to="/paket" />} />
         {/* Reality-Audit Fix: Header-Label "Komplettpaket" → Direkteingabe der Singular-/Plural-Variante 404-frei */}
