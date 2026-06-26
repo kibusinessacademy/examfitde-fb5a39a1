@@ -258,7 +258,7 @@ export default function BerufDetailPage() {
     },
     {
       question: `Was kostet ExamFit für ${title}?`,
-      answer: `Das Komplettpaket kostet einmalig ${PRODUCT_PRICES.bundle} € – inklusive Lernkurs, Prüfungstrainer, KI-Tutor und mündlicher Simulation. 12 Monate Zugang. Kein Abo.`,
+      answer: `Das Komplettpaket kostet einmalig ${PRODUCT_PRICE_DISPLAY} – inklusive Lernkurs, Prüfungstrainer, KI-Tutor und mündlicher Simulation. 12 Monate Zugang. Kein Abo.`,
     },
     {
       question: `Gibt es eine mündliche Prüfungssimulation für ${title}?`,
