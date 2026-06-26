@@ -41,14 +41,28 @@ type PlayerValidation = {
   reason: string;
 };
 
+type ModulesSummary = {
+  total_modules: number;
+  total_lessons: number;
+  orphan_lessons?: number;
+  snapshot_module_count?: number | null;
+  snapshot_lesson_count?: number | null;
+  completeness_ok?: boolean;
+  issues?: string[];
+};
+
 type RowState = {
   status: "idle" | "queued" | "running" | "done" | "error";
   message?: string;
   url?: string;
   playerUrl?: string | null;
   playerValidation?: PlayerValidation;
+  modulesSummary?: ModulesSummary;
   variant?: "zip" | "with-player";
+  startedAt?: number;
+  finishedAt?: number;
 };
+
 
 
 const CONCURRENCY = 2;
