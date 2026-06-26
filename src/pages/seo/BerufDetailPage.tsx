@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowRight, BadgeCheck, Brain, GraduationCap, Loader2, Mic, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
@@ -14,6 +15,7 @@ import {
   generateFAQSchema,
 } from '@/lib/seo';
 import { TrackingEvents } from '@/lib/tracking/track';
+import { startProductCheckout } from '@/lib/checkout/startProductCheckout';
 import { BerufHero } from '@/components/landing/beruf/BerufHero';
 import { BerufReadinessBlock } from '@/components/landing/beruf/BerufReadinessBlock';
 import { BerufModulesBlock } from '@/components/landing/beruf/BerufModulesBlock';
@@ -35,6 +37,7 @@ export default function BerufDetailPage() {
   const { data: catalog, isLoading } = useHomepageCatalog();
   const heroRef = useRef<HTMLDivElement>(null);
   const [stickyVisible, setStickyVisible] = useState(false);
+  const [buying, setBuying] = useState(false);
 
   const course = catalog?.find((c) => c.slug === slug);
   const fallbackEntry = !course && slug
@@ -216,10 +219,36 @@ export default function BerufDetailPage() {
   const examConfig = getExamTarget(duration);
   const seo = SEO_TEMPLATES.beruf(title, kammerLabel, examConfig.label);
 
-  // Direkt auf kanonische, prerenderte Route — vermeidet Vercel 404 falls
-  // SPA-Fallback für /bundle/* nicht greift (siehe Memory hosting-spa-fallback).
-  const bundleHref = `/paket/${slug}`;
+  // /paket/[slug] ist redundant geworden: Beruf-Seite ist jetzt direkter
+  // Checkout-Einstieg. Wir nutzen den Beruf-Slug — create-guest-checkout
+  // löst Aliase via suggested_slug auf, falls product- und beruf-Slug abweichen.
+  const checkoutSlug = slug;
   const quizHref = `/pruefungscheck?source=beruf&slug=${encodeURIComponent(slug)}`;
+
+  const handleBuy = async (location: string) => {
+    if (buying) return;
+    trackCta(location);
+    setBuying(true);
+    try {
+      const res = await startProductCheckout(checkoutSlug, { source: `beruf_${location}` });
+      if (!res.ok) {
+        if (res.error_code === 'already_entitled') {
+          toast.success('Du hast dieses Komplettpaket bereits – wir leiten dich in dein Lernportal.');
+          window.location.href = '/learner';
+          return;
+        }
+        if (res.error_code === 'product_not_found' && (res.suggested_url || res.fallback_url)) {
+          window.location.href = res.suggested_url || res.fallback_url!;
+          return;
+        }
+        toast.error(res.error || 'Checkout konnte nicht gestartet werden.');
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Checkout-Fehler');
+    } finally {
+      setBuying(false);
+    }
+  };
 
   const faqs = [
     {
@@ -285,10 +314,11 @@ export default function BerufDetailPage() {
             beruf={title}
             kammer={kammerLabel}
             description={course.description}
-            bundleHref={bundleHref}
             quizHref={quizHref}
             onPrimaryCta={() => trackCta('hero_quiz')}
-            onSecondaryCta={() => trackCta('hero_bundle')}
+            onBuyCta={() => handleBuy('hero_buy')}
+            buying={buying}
+            priceLabel={`${PRODUCT_PRICES.bundle} €`}
           />
         </div>
 
@@ -312,15 +342,27 @@ export default function BerufDetailPage() {
               Bereit für die {title}-Prüfung?
             </h2>
             <p className="text-text-secondary">
-              Starte in 4 Minuten mit dem kostenlosen Prüfungsreife-Check oder sichere dir
-              direkt das Komplettpaket für {PRODUCT_PRICES.bundle} €.
+              Sichere dir direkt das Komplettpaket für {PRODUCT_PRICES.bundle} € oder starte
+              vorher in 4 Minuten mit dem kostenlosen Prüfungsreife-Check.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button asChild size="lg" onClick={() => trackCta('footer_quiz')}>
-                <Link to={quizHref}>Prüfungsreife testen</Link>
+              <Button
+                size="lg"
+                onClick={() => handleBuy('footer_buy')}
+                disabled={buying}
+                data-cta-location="beruf_footer_buy"
+              >
+                {buying ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Weiterleitung …
+                  </>
+                ) : (
+                  <>Komplettpaket sichern – {PRODUCT_PRICES.bundle} €</>
+                )}
               </Button>
-              <Button asChild size="lg" variant="outline" onClick={() => trackCta('footer_bundle')}>
-                <Link to={bundleHref}>Komplettpaket ansehen</Link>
+              <Button asChild size="lg" variant="outline" onClick={() => trackCta('footer_quiz')}>
+                <Link to={quizHref}>Erst kostenlos testen</Link>
               </Button>
             </div>
           </div>

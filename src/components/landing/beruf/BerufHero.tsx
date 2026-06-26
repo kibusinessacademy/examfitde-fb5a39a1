@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Clock, Mic, BookOpenCheck } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Clock, Mic, BookOpenCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
@@ -7,13 +7,23 @@ interface Props {
   beruf: string;
   kammer: string;
   description?: string | null;
-  bundleHref: string;
   quizHref: string;
   onPrimaryCta: () => void;
-  onSecondaryCta: () => void;
+  onBuyCta: () => void;
+  buying?: boolean;
+  priceLabel?: string;
 }
 
-export function BerufHero({ beruf, kammer, description, bundleHref, quizHref, onPrimaryCta, onSecondaryCta }: Props) {
+export function BerufHero({
+  beruf,
+  kammer,
+  description,
+  quizHref,
+  onPrimaryCta,
+  onBuyCta,
+  buying = false,
+  priceLabel = '24,90 €',
+}: Props) {
   return (
     <section className="relative overflow-hidden border-b border-border-subtle">
       <div
@@ -57,24 +67,32 @@ export function BerufHero({ beruf, kammer, description, bundleHref, quizHref, on
 
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <Button
-            asChild
             size="lg"
             className="h-12 px-6 text-base"
-            onClick={onPrimaryCta}
+            onClick={onBuyCta}
+            disabled={buying}
+            data-cta-location="beruf_hero_buy"
           >
-            <Link to={quizHref}>
-              Prüfungsanalyse starten
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
+            {buying ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Weiterleitung …
+              </>
+            ) : (
+              <>
+                Komplettpaket sichern – {priceLabel}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </>
+            )}
           </Button>
           <Button
             asChild
             size="lg"
             variant="outline"
             className="h-12 px-6 text-base"
-            onClick={onSecondaryCta}
+            onClick={onPrimaryCta}
           >
-            <Link to={bundleHref}>Komplettpaket ansehen</Link>
+            <Link to={quizHref}>Erst kostenlos testen</Link>
           </Button>
         </div>
 
