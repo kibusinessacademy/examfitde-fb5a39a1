@@ -18,7 +18,24 @@ const BUCKET = "beruf-images";
 const MODEL = "google/gemini-3.1-flash-image";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-function buildPrompt(title: string, kammer?: string | null): string {
+/**
+ * Per-slug prompt overrides for berufe whose generic "single apprentice on the
+ * job" framing doesn't match the actual exam context (e.g. AEVO is a *trainer*
+ * exam, not an apprentice exam).
+ */
+const PROMPT_OVERRIDES: Record<string, string> = {
+  "aevo-ausbildereignungspruefung": [
+    "Editorial documentary photograph of a confident female German Ausbilderin (vocational trainer, mid-30s, business-casual smart attire) actively teaching a small group of three to four young apprentices (Auszubildende, late teens / early 20s, mixed gender, workwear).",
+    "Setting: bright modern German Ausbildungswerkstatt or training classroom with workbenches, technical drawings on a whiteboard and tools visible in the background.",
+    "She is explaining something with engaged hand gestures while the apprentices listen attentively and take notes — natural, candid teaching moment, eye contact between trainer and learners.",
+    "Soft natural daylight from large windows, shallow depth of field, 35mm lens look, cinematic color grade, magazine quality.",
+    "Hyper-realistic, photojournalism style, no text, no logos, no watermark, no collage.",
+  ].join(" "),
+};
+
+function buildPrompt(slug: string, title: string, kammer?: string | null): string {
+  const override = PROMPT_OVERRIDES[slug];
+  if (override) return override;
   return [
     `Editorial documentary photograph of a young German apprentice (Auszubildende/r) actively working as "${title}" in an authentic German workplace.`,
     `The person wears realistic, profession-appropriate workwear or uniform for this specific trade.`,
@@ -66,7 +83,7 @@ async function generateAndStore(
   kammer: string | null,
 ) {
   try {
-    const prompt = buildPrompt(title, kammer);
+    const prompt = buildPrompt(slug, title, kammer);
     const b64 = await generateImageB64(prompt);
     const bytes = b64ToBytes(b64);
     const path = `${slug}.png`;

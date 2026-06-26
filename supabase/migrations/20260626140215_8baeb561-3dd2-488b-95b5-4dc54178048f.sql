@@ -1,0 +1,1 @@
+DELETE FROM public.beruf_image_cache WHERE slug = 'aevo-ausbildereignungspruefung';

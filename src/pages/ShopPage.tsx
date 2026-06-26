@@ -11,6 +11,7 @@ import { SEOHead } from '@/components/seo/SEOHead';
 import { SITE_URL, seoTitle } from '@/lib/seo';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { startProductCheckout } from '@/lib/checkout/startProductCheckout';
 
 // Sections
 import { ProductHero } from '@/components/shop/ProductHero';
@@ -99,13 +100,38 @@ export default function ShopPage() {
 
   const handleBuy = async () => {
     track('checkout_start', { curriculumId: selectedCurriculumId, product_key: mainProduct?.product_key });
-    if (!user) {
-      toast.error('Bitte melde dich an');
-      navigate('/auth');
-      return;
-    }
-    if (!mainProduct) return;
+
+    // Guest-first: resolve product slug for the selected curriculum and let
+    // startProductCheckout decide between guest- and authed-checkout. This
+    // matches the rest of the platform (Beruf-Hero etc.) and removes the
+    // login-wall on /examfit's "Jetzt kaufen".
     try {
+      let productSlug: string | null = null;
+      if (selectedCurriculumId) {
+        const { data: prod } = await supabase
+          .from('v_public_sellable_courses')
+          .select('product_slug')
+          .eq('curriculum_id', selectedCurriculumId)
+          .limit(1)
+          .maybeSingle();
+        productSlug = prod?.product_slug ?? null;
+      }
+
+      if (productSlug) {
+        const res = await startProductCheckout(productSlug, { source: 'examfit_shop' });
+        if (!res.ok && res.error && !res.already_entitled) {
+          toast.error(res.error);
+        }
+        return;
+      }
+
+      // Fallback: legacy authed flow (requires login)
+      if (!user) {
+        toast.error('Bitte melde dich an, um den Kauf abzuschließen.');
+        navigate('/auth');
+        return;
+      }
+      if (!mainProduct) return;
       await initiateCheckout(mainProduct.product_key, selectedCurriculumId!, 1);
     } catch {
       toast.error('Checkout fehlgeschlagen');
