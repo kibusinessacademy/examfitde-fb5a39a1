@@ -3,7 +3,11 @@
 -- Ergänzt demand_score (priority_score, Basis der bestehenden Keyword-/SEO-Recherche)
 -- und category (Ausbildung / Weiterbildung / Zertifizierung) für die Shop-Filter.
 
-CREATE OR REPLACE FUNCTION public.public_sellable_course_catalog()
+-- Bestehende Funktion hat eine andere Returns-Signatur (vor category/demand_score) —
+-- CREATE OR REPLACE FUNCTION schlägt bei geänderter Returns-Tabelle fehl, daher erst DROP.
+DROP FUNCTION IF EXISTS public.public_sellable_course_catalog();
+
+CREATE FUNCTION public.public_sellable_course_catalog()
 RETURNS TABLE(
   course_id uuid,
   curriculum_id uuid,
