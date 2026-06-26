@@ -272,8 +272,8 @@ export default function BerufDetailPage() {
       answer: `Auf dem ${kammerLabel}-Rahmenplan für ${title} und prüfungsnahen Aufgabenformaten. Inhalte sind nach Kompetenzbereichen gegliedert.`,
     },
     {
-      question: 'Kann ich zuerst kostenlos testen?',
-      answer: 'Ja. Der Prüfungsreife-Check dauert ca. 4 Minuten und liefert dir deinen Score sowie deine schwächsten Themen – ohne Anmeldung.',
+      question: 'Wie kann ich vor dem Kauf einschätzen, ob es passt?',
+      answer: 'Der Prüfungsreife-Check dauert ca. 4 Minuten und liefert dir deinen Score sowie deine schwächsten Themen – ohne Anmeldung. Anschließend kannst du das Komplettpaket für 24,90 € sichern.',
     },
   ];
 
