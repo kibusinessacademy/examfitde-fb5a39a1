@@ -11,6 +11,12 @@ import LessonAnswerCheck from './LessonAnswerCheck';
 import LessonSections from './sections/LessonSections';
 import { useTranslatedLesson } from '@/hooks/i18n/useTranslatedContent';
 import { TranslationBadge } from '@/components/i18n/TranslationBadge';
+import VisualLearningBlock from '@/components/learning/VisualLearningBlock';
+import {
+  buildVisualLessonBlock,
+  type VisualLessonStepPlacement,
+} from '@/lib/visual-learning-os/lesson-visual-block';
+import type { PublishedVisualArtifact } from '@/lib/visual-learning-os/contracts';
 const H5PPlayer = lazy(() => import('./H5PPlayer'));
 
 interface LessonContentProps {
@@ -23,9 +29,29 @@ interface LessonContentProps {
   competencyCode?: string | null;
   competencyTitle?: string | null;
   stepKey?: string | null;
+  /**
+   * VISUAL.LEARNING.OS — Cut 4.
+   * Optionale, learner-safe (bereits projizierte) Visual Artifacts.
+   * Wird NICHT aus der DB im Component geladen. Eltern-Komponente liefert sie.
+   */
+  visualArtifacts?: ReadonlyArray<PublishedVisualArtifact>;
   onH5PCompleted?: (score?: number, maxScore?: number) => void;
   onH5PProgress?: (progress: number) => void;
   onMiniCheckCompleted?: (score: number, maxScore: number) => void;
+}
+
+function mapStepKeyToVisualPlacement(
+  stepKey?: string | null,
+): VisualLessonStepPlacement | null {
+  if (!stepKey) return null;
+  const k = stepKey.toLowerCase();
+  if (k.includes('einstieg') || k === 'entry') return 'entry';
+  if (k.includes('verstehen') || k === 'understand') return 'understand';
+  if (k.includes('anwenden') || k === 'apply') return 'apply';
+  if (k.includes('wiederholen') || k === 'repeat') return 'repeat';
+  if (k.includes('mini_check') || k.includes('minicheck') || k === 'mini_check_context')
+    return 'mini_check_context';
+  return null;
 }
 
 interface ContentData {
@@ -128,6 +154,7 @@ export default function LessonContent({
   competencyCode,
   competencyTitle,
   stepKey,
+  visualArtifacts,
   onH5PCompleted,
   onH5PProgress,
   onMiniCheckCompleted
@@ -136,6 +163,25 @@ export default function LessonContent({
   const { data: dbMiniChecks, isLoading: dbMiniChecksLoading } = useLessonMiniChecks(lessonId);
   // Fetch answer key for interactive Einstieg/Anwenden steps
   const { data: answerKey } = useLessonAnswerKey(lessonId);
+
+  // VISUAL.LEARNING.OS — Cut 4: deterministisch berechneter Lesson Visual Block.
+  // Eingaben kommen ausschließlich aus Props (kein DB-Read im Component).
+  const visualBlockNode = useMemo(() => {
+    const placement = mapStepKeyToVisualPlacement(stepKey);
+    if (!placement) return null;
+    if (!visualArtifacts || visualArtifacts.length === 0) return null;
+    if (!curriculumId || !competenceId) return null;
+    const block = buildVisualLessonBlock({
+      placement,
+      lesson_context: {
+        curriculum_id: curriculumId,
+        competence_id: competenceId,
+        lesson_id: lessonId,
+      },
+      artifacts: visualArtifacts,
+    });
+    return <VisualLearningBlock block={block} />;
+  }, [stepKey, visualArtifacts, curriculumId, competenceId, lessonId]);
 
   // i18n PR-3 wiring: resolve translated lesson body if available.
   const sourceHtml = useMemo(() => {
@@ -241,6 +287,7 @@ export default function LessonContent({
     return (
       <div className="space-y-4">
         {i18nBadge}
+        {visualBlockNode}
         <LessonSections content={localizedContent} />
         {/* Answer check for Einstieg/Anwenden steps */}
         {answerKey && lessonId && (
@@ -273,17 +320,20 @@ export default function LessonContent({
     }
     
     return (
-      <MiniCheckPlayer
-        content={source}
-        lessonId={lessonId}
-        certificationId={certificationId}
-        competenceId={competenceId}
-        curriculumId={curriculumId}
-        competencyCode={competencyCode}
-        competencyTitle={competencyTitle}
-        stepKey={stepKey}
-        onCompleted={onMiniCheckCompleted}
-      />
+      <div className="space-y-4">
+        {visualBlockNode}
+        <MiniCheckPlayer
+          content={source}
+          lessonId={lessonId}
+          certificationId={certificationId}
+          competenceId={competenceId}
+          curriculumId={curriculumId}
+          competencyCode={competencyCode}
+          competencyTitle={competencyTitle}
+          stepKey={stepKey}
+          onCompleted={onMiniCheckCompleted}
+        />
+      </div>
     );
   }
 

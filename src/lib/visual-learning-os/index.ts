@@ -20,3 +20,8 @@ export * from "./visual-artifact-projection";
 
 // Cut 3
 export * from "./admin-preview";
+
+// Cut 4 — Lesson Integration
+export * from "./lesson-visual-policy";
+export * from "./lesson-visual-block";
+export * from "./fixtures";
