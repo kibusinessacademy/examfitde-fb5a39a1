@@ -176,7 +176,13 @@ export class ErrorBoundary extends Component<Props, State> {
                 ? 'Eine neue Version ist verfügbar. Bitte lade die Seite neu, um fortzufahren.'
                 : 'Ein unerwarteter Fehler ist aufgetreten. Du kannst es erneut versuchen oder zur Startseite zurückkehren.'}
             </p>
+            {errorId && !isChunkError && (
+              <p className="text-[11px] text-muted-foreground/80 font-mono">
+                Referenz-ID: <span className="select-all">{errorId}</span>
+              </p>
+            )}
           </div>
+
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {isChunkError ? (
