@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { SEOHead } from '@/components/seo/SEOHead';
@@ -20,6 +21,29 @@ import { BundleOutcomesBlock } from '@/components/landing/bundle/BundleOutcomesB
 import { BundleStickyCta } from '@/components/landing/bundle/BundleStickyCta';
 
 /**
+ * Sellable-Fallback: Wenn weder `berufe` noch `curriculum_products` einen
+ * Treffer für den Slug haben, ziehen wir den kanonischen Titel aus
+ * `v_public_sellable_courses` (SSOT für kaufbare Pakete). Damit landen
+ * Pakete wie z. B. AEVO/Fortbildungen nicht mehr auf der 404-Seite.
+ */
+function useSellableBundle(slug: string) {
+  return useQuery({
+    queryKey: ['sellable-bundle', slug],
+    enabled: !!slug,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('v_public_sellable_courses')
+        .select('product_slug, product_title, course_title, is_sellable, canonical_slug')
+        .or(`product_slug.eq.${slug},canonical_slug.eq.${slug}`)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+/**
  * BundleDetailPage (Phase B) — Bundle als Prüfungssystem positioniert.
  * Tracking: bestehende SSOT-Events (cta_click, product_view, checkout_start).
  * Kein neuer Event-Type, kein Backend-Touch, keine Logik-Duplizierung.
@@ -27,8 +51,15 @@ import { BundleStickyCta } from '@/components/landing/bundle/BundleStickyCta';
 function BundleDetailPageComponent() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const beruf = useSingleBeruf(slug || '');
+  const berufRaw = useSingleBeruf(slug || '');
   const product = useCurriculumProductBySlug(slug || '', 'bundle');
+  const { data: sellable } = useSellableBundle(slug || '');
+
+  // Wenn kein Beruf-Treffer, aber das Paket im Sellable-SSOT existiert, baue
+  // ein minimales beruf-Objekt (nur title wird im Render benutzt).
+  const beruf = berufRaw ?? (sellable
+    ? { title: sellable.product_title || sellable.course_title || slug || '' }
+    : undefined);
 
   const heroRef = useRef<HTMLDivElement>(null);
   const [showStickyCta, setShowStickyCta] = useState(false);
