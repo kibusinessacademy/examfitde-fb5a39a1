@@ -713,6 +713,7 @@ export default function OralExamTrainer() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <VoiceDiagnostics locale={speechLocale} />
             <div>
               <label className="text-sm font-medium mb-2 block">
                 {isAcademic ? 'Studiengang / Curriculum' : 'Ausbildungsberuf / Curriculum'}
