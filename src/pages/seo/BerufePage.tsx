@@ -305,7 +305,7 @@ export default function BerufePage() {
                   data-testid="berufe-handoff-microcopy"
                   className="mt-3 text-xs text-muted-foreground"
                 >
-                  Nach der Auswahl startet dein persönlicher Lernpfad — kostenlos testen, jederzeit kündbar.
+                  Nach der Auswahl sicherst du dir dein Komplettpaket für 24,90 € — 12 Monate Zugang, einmalig.
                 </p>
               </div>
             </div>
