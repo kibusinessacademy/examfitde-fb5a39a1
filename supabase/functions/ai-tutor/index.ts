@@ -493,6 +493,7 @@ async function postValidateTutorResponse(
   resolvedContext: Record<string, unknown>,
   generationId: string,
   professionName: string,
+  winningProvider: string = "openai",
 ) {
   try {
     const startTime = Date.now();
