@@ -274,7 +274,11 @@ async function logTurn(sbAdmin: any, params: {
 
 // ── Start Session ──────────────────────────────────────────────
 async function startSession(sbUser: any, sbAdmin: any, userId: string, params: any) {
-  const { curriculum_id, mode = "practice", total_questions = 5 } = params;
+  const { curriculum_id, mode = "practice", total_questions = 5, topic_keys = [] } = params;
+
+  const topicFilter: string[] = Array.isArray(topic_keys)
+    ? topic_keys.filter((k: any) => typeof k === "string" && k.length > 0)
+    : [];
 
   const { data: session, error } = await sbUser
     .from("oral_exam_sessions")
@@ -284,20 +288,21 @@ async function startSession(sbUser: any, sbAdmin: any, userId: string, params: a
       mode,
       total_questions,
       time_limit_minutes: mode === "simulation" ? 30 : null,
+      topic_filter: topicFilter,
     })
     .select()
     .single();
 
   if (error) throw error;
 
-  const firstQuestion = await generateQuestionForSession(sbUser, sbAdmin, userId, session.id, curriculum_id, 0, mode);
+  const firstQuestion = await generateQuestionForSession(sbUser, sbAdmin, userId, session.id, curriculum_id, 0, mode, topicFilter);
 
   await logTurn(sbAdmin, {
     sessionId: session.id,
     userId,
     phase: "ask",
     role: "examiner",
-    payload: { question: firstQuestion.question_text, blueprint_id: firstQuestion.blueprint_id },
+    payload: { question: firstQuestion.question_text, blueprint_id: firstQuestion.blueprint_id, topic_key: firstQuestion.topic_key },
     sourceBlueprintId: firstQuestion.blueprint_id,
     renderedQuestion: firstQuestion.question_text,
     sourceBlueprintQuestion: firstQuestion.source_blueprint_question || null,
@@ -306,6 +311,7 @@ async function startSession(sbUser: any, sbAdmin: any, userId: string, params: a
 
   return { session, firstQuestion };
 }
+
 
 // ── Generate Question (Blueprint-only, deterministic) ──────────
 async function generateQuestionForSession(
