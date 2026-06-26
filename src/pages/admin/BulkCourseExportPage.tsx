@@ -142,6 +142,22 @@ export default function BulkCourseExportPage() {
     toast.success(`Bulk-Export abgeschlossen (${queue.length} Pakete)`);
   }
 
+  async function forceRebuild(packageId: string) {
+    const ok = window.confirm(
+      "Force Rebuild: Paket wird auf 'queued' zurückgesetzt und vom Pipeline-Worker neu aufgebaut. Fortfahren?",
+    );
+    if (!ok) return;
+    const { data, error } = await (supabase as any).rpc("admin_force_rebuild_package", {
+      p_package_id: packageId,
+    });
+    if (error) {
+      toast.error(`Force Rebuild fehlgeschlagen: ${error.message}`);
+      return;
+    }
+    toast.success(`Paket neu eingereiht (vorher: ${data?.previous_status || "?"})`);
+    queueClient && queueClient.invalidateQueries({ queryKey: ["admin-visible-course-packages"] });
+  }
+
   const doneCount = Object.values(rowState).filter((r) => r.status === "done").length;
   const errorCount = Object.values(rowState).filter((r) => r.status === "error").length;
 
