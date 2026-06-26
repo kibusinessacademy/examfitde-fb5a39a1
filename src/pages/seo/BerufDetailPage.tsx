@@ -171,7 +171,7 @@ export default function BerufDetailPage() {
             <div className="text-center pt-4">
               <Button asChild size="lg" className="w-full sm:w-auto">
                 <Link to="/auth?intent=checkout&product=bundle">
-                  Komplettpaket sichern – 24,90 €
+                  Prüfungspaket kaufen – {PRODUCT_PRICE_DISPLAY}
                 </Link>
               </Button>
               <p className="mt-3 text-xs text-muted-foreground">
