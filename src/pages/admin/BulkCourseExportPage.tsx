@@ -236,6 +236,13 @@ export default function BulkCourseExportPage() {
 
   const doneCount = Object.values(rowState).filter((r) => r.status === "done").length;
   const errorCount = Object.values(rowState).filter((r) => r.status === "error").length;
+  const runningCount = Object.values(rowState).filter((r) => r.status === "running").length;
+  const queuedCount = Object.values(rowState).filter((r) => r.status === "queued").length;
+  const totalInFlight = doneCount + errorCount + runningCount + queuedCount;
+  const progressPct = totalInFlight > 0 ? Math.round(((doneCount + errorCount) / totalInFlight) * 100) : 0;
+  const totalModulesExported = Object.values(rowState).reduce((s, r) => s + (r.modulesSummary?.total_modules || 0), 0);
+  const totalLessonsExported = Object.values(rowState).reduce((s, r) => s + (r.modulesSummary?.total_lessons || 0), 0);
+
 
   return (
     <div className="container mx-auto p-6 space-y-6">
