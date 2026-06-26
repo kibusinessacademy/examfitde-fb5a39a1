@@ -1,5 +1,11 @@
 import "@testing-library/jest-dom";
 
+// Skip DOM polyfills when running in node environment (pure-logic tests).
+if (typeof window === "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).__VITEST_NODE_ENV_ONLY__ = true;
+} else {
+
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: (query: string) => ({
@@ -35,3 +41,6 @@ Object.defineProperty(window, "ResizeObserver", {
   writable: true,
   value: MockResizeObserver,
 });
+
+}
+
