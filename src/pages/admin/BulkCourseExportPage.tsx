@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
-import { Loader2, Download, CheckCircle2, XCircle, Package, Info, PlayCircle } from "lucide-react";
+import {
+  Loader2, Download, CheckCircle2, XCircle, Package, Info, PlayCircle,
+  RefreshCw, ExternalLink, ShieldCheck, ShieldAlert,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminVisiblePackages } from "@/hooks/useAdminVisiblePackages";
 import { Button } from "@/components/ui/button";
