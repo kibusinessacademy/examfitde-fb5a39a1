@@ -1,22 +1,19 @@
 /**
- * VISUAL.LEARNING.OS — Foundation barrel (Cut 1).
+ * VISUAL.LEARNING.OS — Public Barrel.
  *
- * Visueller Didaktik-Layer für ExamFit. Erzeugt, verwaltet und bewertet
- * visuelle Lern- und Prüfungsartefakte auf Basis von Frozen Curriculum,
- * Kompetenzen, Lessons und Blueprints.
+ * Cut 1: Contracts, Grammar, Pattern Registry, Assessment, Accessibility.
+ * Cut 2: Policy, Factory, Review-Gate, Frontend-Safe Projection.
  *
- * Cut 1 (Foundation) liefert NUR Contracts, Grammar, Pattern Registry,
- * Assessment-Rubrics und Accessibility-Regeln. Keine UI, keine Factory,
- * keine Generierung. Diese folgen in Cut 2+.
- *
- * Hard rules:
- *  - Frontend rendert nur APPROVED/PUBLISHED Artefakte.
- *  - Keine fachliche Bewertungslogik im Frontend.
- *  - Farbe trägt NIE allein Bedeutung (WCAG).
- *  - Jedes Artifact ist SSOT-gebunden (curriculum_id + competence_id).
+ * Hard rules: SSOT-bound, no DB/HTTP/LLM in this module, no frontend domain logic.
  */
 export * from "./contracts";
 export * from "./visual-grammar";
 export * from "./visual-pattern-registry";
 export * from "./visual-assessment";
 export * from "./visual-accessibility";
+
+// Cut 2
+export * from "./visual-artifact-policy";
+export * from "./visual-artifact-factory";
+export * from "./visual-artifact-review";
+export * from "./visual-artifact-projection";
