@@ -356,6 +356,7 @@ const CronHealthFullPage = lazyRetry(() => import('@/pages/admin/CronHealthFullP
 const GithubWorkflowsPage = lazyRetry(() => import('@/pages/admin/GithubWorkflowsPage'));
 const SsotGuardPage = lazyRetry(() => import('@/pages/admin/SsotGuardPage'));
 const StorageRealityPage = lazyRetry(() => import('@/pages/admin/StorageRealityPage'));
+const CatalogDiagnosticsPage = lazyRetry(() => import('@/pages/admin/CatalogDiagnosticsPage'));
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 const BulkCourseExportPage = lazyRetry(() => import('@/pages/admin/BulkCourseExportPage'));
 
@@ -882,6 +883,7 @@ const AppRoutes = () => {
           <Route path="governance/github-workflows" element={<GithubWorkflowsPage />} />
           <Route path="governance/ssot-guard" element={<SsotGuardPage />} />
           <Route path="governance/storage-reality" element={<StorageRealityPage />} />
+          <Route path="governance/catalog-diagnostics" element={<CatalogDiagnosticsPage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
 

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, GraduationCap, Clock, Award, Search, BookOpen, BadgeCheck, Briefcase, Filter, Bell, ShoppingCart, Sparkles, TrendingUp, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
 import publishedBerufeFallback from '@/data/publishedBerufeFallback.json';
 import { getBerufImage } from '@/lib/berufImage';
 import { useBerufImages } from '@/hooks/useBerufImages';
+import { useCatalogCacheSignal } from '@/hooks/useCatalogCacheSignal';
 
 
 /**
@@ -41,12 +42,37 @@ const FALLBACK_CATALOG: CatalogEntry[] = (publishedBerufeFallback as Array<{
   popularityScore: null,
 }));
 
+function DebugBadgeRow({ entry, status }: { entry: CatalogEntry; status: 'sellable' | 'upcoming' }) {
+  const usp = entry.description ? 'USP' : 'Fallback';
+  return (
+    <div className="flex flex-wrap gap-1 text-[10px] font-mono border border-dashed border-amber-500/60 rounded p-1.5 bg-amber-500/5">
+      <Badge variant="outline" className="text-[10px]">
+        {status === 'sellable' ? 'sellable=true' : 'sellable=false'}
+      </Badge>
+      <Badge variant="outline" className="text-[10px]">teaser={usp}</Badge>
+      {entry.dqrNiveau !== null && (
+        <Badge variant="outline" className="text-[10px]">DQR{entry.dqrNiveau}</Badge>
+      )}
+      {entry.ausbildungsdauerMonate !== null && (
+        <Badge variant="outline" className="text-[10px]">{entry.ausbildungsdauerMonate}M</Badge>
+      )}
+      <Badge variant="outline" className="text-[10px]">{entry.category ?? '—'}</Badge>
+      {entry.packageId && (
+        <Badge variant="outline" className="text-[10px]" title={entry.packageId}>pkg ✓</Badge>
+      )}
+    </div>
+  );
+}
+
 type CategoryFilter = 'all' | 'published' | 'upcoming';
 type KammerFilter = 'all' | 'IHK' | 'HWK' | string;
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export default function BerufePage() {
+  useCatalogCacheSignal(); // auto-invalidate when products/curricula/courses change
+  const [searchParams] = useSearchParams();
+  const debugMode = searchParams.get('debug') === 'catalog';
   const { data: catalogData, isLoading } = useFullCatalog();
   // SSOT: live-Katalog, sobald verfügbar — sonst statischer Build-Fallback,
   // damit Visitors NIE eine leere /berufe sehen (Reality-QA: ≥ 20 Links).
@@ -200,6 +226,11 @@ export default function BerufePage() {
       />
 
       <div className="min-h-screen">
+        {debugMode && (
+          <div className="bg-amber-500/10 border-b border-amber-500/40 text-amber-900 dark:text-amber-200 text-xs px-4 py-2 font-mono">
+            🔎 DEBUG-Mode aktiv (<code>?debug=catalog</code>) — jede Karte zeigt sellable-Flag, Teaser-Quelle und Roh-Felder. Admin-Report: <Link to="/admin/governance/catalog-diagnostics" className="underline">/admin/governance/catalog-diagnostics</Link>
+          </div>
+        )}
         {/* Hero — Premium */}
         <section className="relative overflow-hidden border-b border-border/40">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10" />
@@ -444,6 +475,9 @@ export default function BerufePage() {
                               </div>
                             </div>
                             <CardContent className="p-4 flex flex-col gap-3">
+                              {debugMode && (
+                                <DebugBadgeRow entry={entry} status="sellable" />
+                              )}
                               {entry.discoveryTeaser && (
                                 <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
                                   {entry.discoveryTeaser}
@@ -488,6 +522,9 @@ export default function BerufePage() {
                           </div>
                         </div>
                         <CardContent className="p-4 flex flex-col gap-3">
+                          {debugMode && (
+                            <DebugBadgeRow entry={entry} status="upcoming" />
+                          )}
                           {entry.discoveryTeaser && (
                             <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
                               {entry.discoveryTeaser}
