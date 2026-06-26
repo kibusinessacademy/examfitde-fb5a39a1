@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  let { packageId, courseId } = await req.json().catch(() => ({} as Record<string, unknown>));
+  let { packageId, courseId, includePlayer } = await req.json().catch(() => ({} as Record<string, unknown>));
 
   // If UI sends courseId: resolve latest package for that course
   if (!packageId && courseId) {
