@@ -42,6 +42,28 @@ const FALLBACK_CATALOG: CatalogEntry[] = (publishedBerufeFallback as Array<{
   popularityScore: null,
 }));
 
+function DebugBadgeRow({ entry, status }: { entry: CatalogEntry; status: 'sellable' | 'upcoming' }) {
+  const usp = entry.description ? 'USP' : 'Fallback';
+  return (
+    <div className="flex flex-wrap gap-1 text-[10px] font-mono border border-dashed border-amber-500/60 rounded p-1.5 bg-amber-500/5">
+      <Badge variant="outline" className="text-[10px]">
+        {status === 'sellable' ? 'sellable=true' : 'sellable=false'}
+      </Badge>
+      <Badge variant="outline" className="text-[10px]">teaser={usp}</Badge>
+      {entry.dqrNiveau !== null && (
+        <Badge variant="outline" className="text-[10px]">DQR{entry.dqrNiveau}</Badge>
+      )}
+      {entry.ausbildungsdauerMonate !== null && (
+        <Badge variant="outline" className="text-[10px]">{entry.ausbildungsdauerMonate}M</Badge>
+      )}
+      <Badge variant="outline" className="text-[10px]">{entry.category ?? '—'}</Badge>
+      {entry.packageId && (
+        <Badge variant="outline" className="text-[10px]" title={entry.packageId}>pkg ✓</Badge>
+      )}
+    </div>
+  );
+}
+
 type CategoryFilter = 'all' | 'published' | 'upcoming';
 type KammerFilter = 'all' | 'IHK' | 'HWK' | string;
 
