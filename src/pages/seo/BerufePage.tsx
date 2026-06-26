@@ -183,46 +183,87 @@ export default function BerufePage() {
       />
 
       <div className="min-h-screen">
-        {/* Hero */}
-        <section className="relative py-12 sm:py-16 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-primary/10" />
-          <div className="container relative z-10">
+        {/* Hero — Premium */}
+        <section className="relative overflow-hidden border-b border-border/40">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10" />
+          <div
+            aria-hidden
+            className="absolute -top-32 -right-32 w-[36rem] h-[36rem] rounded-full bg-primary/15 blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="absolute -bottom-40 -left-40 w-[32rem] h-[32rem] rounded-full bg-accent/15 blur-3xl"
+          />
+
+          <div className="container relative z-10 pt-10 pb-12 sm:pt-14 sm:pb-16">
             <Breadcrumbs items={[{ label: 'Kurskatalog' }]} className="mb-6" />
 
             <div className="max-w-3xl">
-              <h1 className="text-responsive-3xl sm:text-responsive-4xl md:text-responsive-5xl font-display font-bold mb-4">
-                <span className="text-gradient">Kurskatalog</span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-5">
+                <Sparkles className="h-3.5 w-3.5" />
+                ExamFit · Dein Prüfungstraining
+              </span>
+
+              <h1 className="font-display font-bold tracking-tight text-4xl sm:text-5xl md:text-6xl leading-[1.05] mb-5">
+                Bestehe deine Prüfung.
                 <br />
-                Alle Prüfungstrainings
+                <span className="text-gradient">Mit Plan, KI und Routine.</span>
               </h1>
-              <p className="text-lg text-muted-foreground mb-2">
-                {counts.published} veröffentlichte Kurse sofort verfügbar · {counts.upcoming} weitere in Vorbereitung.
-                <br />Dein Kurs fehlt? Jetzt anfragen!
-              </p>
-              {/* KIMI.3.1 HANDOFF microcopy — macht den Übergang zum Lernpfad explizit */}
-              <p
-                data-testid="berufe-handoff-microcopy"
-                className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs text-primary"
-              >
-                Nach der Auswahl startet dein persönlicher Lernpfad.
+
+              <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-2xl mb-8">
+                Geprüfte Lernpfade für über {counts.all} Ausbildungsberufe — von der ersten Lektion bis zum Prüfungstag. Starte heute und werde Teil der Generation, die ihre Abschlussprüfung souverän meistert.
               </p>
 
+              {/* Stats Strip */}
+              <div className="grid grid-cols-3 gap-3 sm:gap-6 mb-8 max-w-2xl">
+                <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm px-4 py-3 sm:px-5 sm:py-4">
+                  <div className="flex items-center gap-2 text-primary mb-1">
+                    <ShoppingCart className="h-4 w-4" />
+                    <span className="text-xs font-medium uppercase tracking-wider">Verfügbar</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-display font-bold">{counts.published}</div>
+                  <p className="text-xs text-muted-foreground">Kurse sofort startklar</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm px-4 py-3 sm:px-5 sm:py-4">
+                  <div className="flex items-center gap-2 text-accent mb-1">
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="text-xs font-medium uppercase tracking-wider">Pipeline</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-display font-bold">{counts.upcoming}</div>
+                  <p className="text-xs text-muted-foreground">Wöchentlich neu</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm px-4 py-3 sm:px-5 sm:py-4">
+                  <div className="flex items-center gap-2 text-primary mb-1">
+                    <ShieldCheck className="h-4 w-4" />
+                    <span className="text-xs font-medium uppercase tracking-wider">Geprüft</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-display font-bold">IHK · HWK</div>
+                  <p className="text-xs text-muted-foreground">Kammer-konform</p>
+                </div>
+              </div>
 
               {/* Search */}
-              <div className="relative max-w-xl">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <div className="relative max-w-2xl">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Beruf oder Kurs suchen..."
+                  placeholder="Finde deinen Beruf — z. B. Tierpfleger, Mechatroniker, Industriekaufmann …"
                   value={searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setLetterFilter(null); }}
-                  className="pl-10 h-12 text-lg bg-background/50"
+                  className="pl-12 h-14 text-base sm:text-lg bg-background/80 border-border/60 shadow-sm focus-visible:ring-primary/40"
                   aria-label="Beruf oder Kurs suchen"
                 />
+                <p
+                  data-testid="berufe-handoff-microcopy"
+                  className="mt-3 text-xs text-muted-foreground"
+                >
+                  Nach der Auswahl startet dein persönlicher Lernpfad — kostenlos testen, jederzeit kündbar.
+                </p>
               </div>
             </div>
           </div>
         </section>
+
 
         {/* Filter Bar */}
         <section className="sticky top-16 z-20 border-b bg-background/95 backdrop-blur-sm">
