@@ -537,8 +537,8 @@ Antworte NUR mit JSON:
       critical_issues: result.issues || [],
       suggested_fixes: result.correction_needed ? [{ type: "correction", reason: result.correction }] : [],
       corrected_content: result.correction_needed ? { correction: result.correction } : null,
-      input_tokens: data.usage?.input_tokens || 0,
-      output_tokens: data.usage?.output_tokens || 0,
+      input_tokens: valResult.usage?.input_tokens || 0,
+      output_tokens: valResult.usage?.output_tokens || 0,
       cost_eur: 0,
       latency_ms: latencyMs,
     });
@@ -854,6 +854,7 @@ REGELN für Humor-Nutzung:
     let aiResponse: Response | null = null;
     let streamOk = false;
     let streamStatus = 0;
+    let winningProvider: string = "openai";
 
     for (const candidate of streamChain) {
       try {
@@ -866,7 +867,10 @@ REGELN für Humor-Nutzung:
         aiResponse = attempt.raw;
         streamOk = attempt.ok;
         streamStatus = attempt.status;
-        if (streamOk) break;
+        if (streamOk) {
+          winningProvider = candidate.provider;
+          break;
+        }
         console.warn(`[ai-tutor] Provider ${candidate.provider}/${candidate.model} returned ${streamStatus}, trying next...`);
       } catch (e) {
         console.warn(`[ai-tutor] Provider ${candidate.provider}/${candidate.model} failed:`, e);
@@ -896,6 +900,12 @@ REGELN für Humor-Nutzung:
     const encoder = new TextEncoder();
 
     let fullResponse = "";
+    const isAnthropicStream = winningProvider === "anthropic";
+
+    const writeOpenAIDelta = async (text: string) => {
+      const payload = `data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`;
+      await writer.write(encoder.encode(payload));
+    };
 
     (async () => {
       let buffer = "";
@@ -905,7 +915,12 @@ REGELN für Humor-Nutzung:
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
           buffer += chunk;
-          await writer.write(encoder.encode(chunk));
+
+          // For OpenAI-compatible providers, pass through unchanged.
+          // For Anthropic native SSE, translate content_block_delta → OpenAI delta.
+          if (!isAnthropicStream) {
+            await writer.write(encoder.encode(chunk));
+          }
 
           let idx: number;
           while ((idx = buffer.indexOf("\n")) !== -1) {
@@ -914,18 +929,32 @@ REGELN für Humor-Nutzung:
             if (line.endsWith("\r")) line = line.slice(0, -1);
             if (!line.startsWith("data: ")) continue;
             const jsonStr = line.slice(6).trim();
-            if (!jsonStr || jsonStr === "[DONE]") continue;
+            if (!jsonStr) continue;
+            if (jsonStr === "[DONE]") continue;
             try {
               const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) fullResponse += content;
+              if (isAnthropicStream) {
+                // Anthropic SSE: {"type":"content_block_delta","delta":{"type":"text_delta","text":"..."}}
+                if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta" && parsed.delta.text) {
+                  fullResponse += parsed.delta.text;
+                  await writeOpenAIDelta(parsed.delta.text);
+                }
+              } else {
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) fullResponse += content;
+              }
             } catch { /* partial */ }
           }
+        }
+        // Emit final [DONE] for anthropic so the client's loop terminates cleanly.
+        if (isAnthropicStream) {
+          await writer.write(encoder.encode("data: [DONE]\n\n"));
         }
       } catch (e) {
         console.error("[ai-tutor] stream error:", e);
       } finally {
         writer.close();
+
 
         if (generationId) {
           await supabase.from("ai_generations").update({
