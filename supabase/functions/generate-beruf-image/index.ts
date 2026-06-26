@@ -76,8 +76,12 @@ async function generateAndStore(
       cacheControl: "31536000",
     });
     if (upErr) throw upErr;
-    const { data: pub } = sb.storage.from(BUCKET).getPublicUrl(path);
-    const image_url = pub.publicUrl;
+    // Private bucket → long-lived signed URL (1 year)
+    const { data: signed, error: signErr } = await sb.storage
+      .from(BUCKET)
+      .createSignedUrl(path, 60 * 60 * 24 * 365);
+    if (signErr || !signed?.signedUrl) throw signErr ?? new Error("sign url failed");
+    const image_url = signed.signedUrl;
     await sb.from("beruf_image_cache").upsert({
       slug,
       title,
