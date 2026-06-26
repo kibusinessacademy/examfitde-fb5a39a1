@@ -397,9 +397,29 @@ export default function BulkCourseExportPage() {
                       </span>
                     )}
                     {rs?.status === "done" && (
-                      <span className="text-xs text-green-600 flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Fertig
-                      </span>
+                      <div className="text-xs space-y-1">
+                        <span className="text-green-600 flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Fertig
+                          {rs.variant === "with-player" && <Badge variant="outline" className="ml-1 text-[10px] py-0">+Player</Badge>}
+                        </span>
+                        {rs.variant === "with-player" && rs.playerValidation && (
+                          rs.playerValidation.complete ? (
+                            <span className="text-green-600 flex items-center gap-1" title={rs.playerValidation.reason}>
+                              <ShieldCheck className="h-3 w-3" /> player/ validiert
+                            </span>
+                          ) : (
+                            <span className="text-destructive flex items-start gap-1" title={rs.playerValidation.reason}>
+                              <ShieldAlert className="h-3 w-3 mt-0.5 shrink-0" />
+                              <span>
+                                player/ fehlt
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  Hinweis: includePlayer=true senden
+                                </div>
+                              </span>
+                            </span>
+                          )
+                        )}
+                      </div>
                     )}
                     {rs?.status === "error" && (
                       <span className="text-xs text-destructive flex items-center gap-1" title={rs.message}>
@@ -409,10 +429,17 @@ export default function BulkCourseExportPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1 flex-wrap">
+                      {rs?.playerUrl && (
+                        <Button asChild size="sm" variant="default" title="Offline-Player direkt im Browser öffnen (gehostet, kein Entpacken nötig)">
+                          <a href={rs.playerUrl} target="_blank" rel="noopener noreferrer">
+                            <PlayCircle className="h-3 w-3 mr-1" /> Im Player ansehen
+                          </a>
+                        </Button>
+                      )}
                       {pkg.status === "published" && pkg.course_id && (
                         <Button asChild size="sm" variant="outline" title="Im Web-Player ansehen">
                           <a href={`/course/${pkg.course_id}`} target="_blank" rel="noopener noreferrer">
-                            <PlayCircle className="h-3 w-3 mr-1" /> Player
+                            <PlayCircle className="h-3 w-3 mr-1" /> Web-Player
                           </a>
                         </Button>
                       )}
@@ -443,20 +470,19 @@ export default function BulkCourseExportPage() {
                           <Download className="h-3 w-3 mr-1" /> Export
                         </Button>
                       )}
-                      {pkg.status === "published" && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={running || rs?.status === "running"}
-                          onClick={() => exportOne(pkg.package_id, pkg.course_id, true)}
-                          title="ZIP inkl. selbst-startendem Offline-HTML-Player"
-                        >
-                          <PlayCircle className="h-3 w-3 mr-1" /> + Player
-                          <ExternalLink className="h-3 w-3 ml-1 opacity-50" />
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={running || rs?.status === "running"}
+                        onClick={() => exportOne(pkg.package_id, pkg.course_id, true)}
+                        title="ZIP inkl. Offline-HTML-Player + direkter Hosting-URL (includePlayer=true)"
+                      >
+                        <PlayCircle className="h-3 w-3 mr-1" /> + Player
+                        <ExternalLink className="h-3 w-3 ml-1 opacity-50" />
+                      </Button>
                     </div>
                   </TableCell>
+
                 </TableRow>
               );
             })}
