@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, GraduationCap, Clock, Award, Search, BookOpen, BadgeCheck, Briefcase, Filter, Bell, ShoppingCart, Sparkles, TrendingUp, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
 import publishedBerufeFallback from '@/data/publishedBerufeFallback.json';
 import { getBerufImage } from '@/lib/berufImage';
 import { useBerufImages } from '@/hooks/useBerufImages';
+import { useCatalogCacheSignal } from '@/hooks/useCatalogCacheSignal';
 
 
 /**
@@ -47,6 +48,9 @@ type KammerFilter = 'all' | 'IHK' | 'HWK' | string;
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 export default function BerufePage() {
+  useCatalogCacheSignal(); // auto-invalidate when products/curricula/courses change
+  const [searchParams] = useSearchParams();
+  const debugMode = searchParams.get('debug') === 'catalog';
   const { data: catalogData, isLoading } = useFullCatalog();
   // SSOT: live-Katalog, sobald verfügbar — sonst statischer Build-Fallback,
   // damit Visitors NIE eine leere /berufe sehen (Reality-QA: ≥ 20 Links).
