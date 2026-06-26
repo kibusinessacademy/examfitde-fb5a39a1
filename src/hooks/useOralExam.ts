@@ -24,7 +24,10 @@ export interface OralExamSession {
   strengths: string[] | null;
   weaknesses: string[] | null;
   improvement_suggestions: string[] | null;
+  topic_filter?: string[] | null;
+  topic_scores?: TopicScore[] | null;
 }
+
 
 export interface OralExamQuestion {
   id: string;
