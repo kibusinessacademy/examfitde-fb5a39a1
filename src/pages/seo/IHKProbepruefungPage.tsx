@@ -25,7 +25,7 @@ export default function IHKProbepruefungPage() {
     <>
       <SEOHead
         title="IHK-Probeprüfung online – Prüfungssimulation mit Auswertung | ExamFit"
-        description="IHK-Probeprüfung online machen: Realistische Prüfungssimulation mit Zeitvorgabe, Bestehensindikator und Lernfeld-Auswertung. Jetzt kostenlos testen!"
+        description="IHK-Probeprüfung online machen: Realistische Prüfungssimulation mit Zeitvorgabe, Bestehensindikator und Lernfeld-Auswertung. Komplettpaket bereits ab 24,90 €."
         canonical={`${SITE_URL}/ihk-probepruefung`}
         structuredData={[generateBreadcrumbSchema(breadcrumbs), generateFAQSchema(FAQS)]}
       />
