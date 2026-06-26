@@ -1017,7 +1017,13 @@ REGELN für Humor-Nutzung:
     })();
 
     return new Response(readable, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "X-Tutor-Provider": winningProvider,
+        "X-Tutor-SSE-Status": String(streamStatus),
+        "Access-Control-Expose-Headers": "X-Tutor-Provider,X-Tutor-SSE-Status,X-Tutor-Reason",
+      },
     });
 
   } catch (error) {
