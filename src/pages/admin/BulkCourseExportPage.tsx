@@ -32,11 +32,23 @@ const STATUS_OPTIONS = [
   { value: "archived", label: "Archived" },
 ];
 
+type PlayerValidation = {
+  requested: boolean;
+  has_player_index_html: boolean;
+  has_player_data_json: boolean;
+  complete: boolean;
+  reason: string;
+};
+
 type RowState = {
   status: "idle" | "queued" | "running" | "done" | "error";
   message?: string;
   url?: string;
+  playerUrl?: string | null;
+  playerValidation?: PlayerValidation;
+  variant?: "zip" | "with-player";
 };
+
 
 const CONCURRENCY = 2;
 
@@ -93,7 +105,7 @@ export default function BulkCourseExportPage() {
   }
 
   async function exportOne(packageId: string, courseId: string | null, includePlayer = false) {
-    setRowState((s) => ({ ...s, [packageId]: { status: "running" } }));
+    setRowState((s) => ({ ...s, [packageId]: { status: "running", variant: includePlayer ? "with-player" : "zip" } }));
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("export-course-package", {
@@ -101,7 +113,11 @@ export default function BulkCourseExportPage() {
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       });
       if (res.error) throw res.error;
-      const data = res.data as { downloadUrl?: string };
+      const data = res.data as {
+        downloadUrl?: string;
+        playerUrl?: string | null;
+        player_validation?: PlayerValidation;
+      };
       if (!data?.downloadUrl) throw new Error("Keine Download-URL erhalten");
       // trigger browser download
       const a = document.createElement("a");
@@ -111,7 +127,21 @@ export default function BulkCourseExportPage() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setRowState((s) => ({ ...s, [packageId]: { status: "done", url: data.downloadUrl } }));
+      setRowState((s) => ({
+        ...s,
+        [packageId]: {
+          status: "done",
+          url: data.downloadUrl,
+          playerUrl: data.playerUrl ?? null,
+          playerValidation: data.player_validation,
+          variant: includePlayer ? "with-player" : "zip",
+        },
+      }));
+      if (includePlayer && data.player_validation && !data.player_validation.complete) {
+        toast.error(`Player-Validierung fehlgeschlagen: ${data.player_validation.reason}`);
+      } else if (includePlayer && data.playerUrl) {
+        toast.success("Player-Hosting-URL bereit (7 Tage gültig)");
+      }
     } catch (e: any) {
       setRowState((s) => ({
         ...s,
@@ -119,6 +149,7 @@ export default function BulkCourseExportPage() {
       }));
     }
   }
+
 
   async function runBulk() {
     if (selectedIds.length === 0) {
@@ -366,9 +397,29 @@ export default function BulkCourseExportPage() {
                       </span>
                     )}
                     {rs?.status === "done" && (
-                      <span className="text-xs text-green-600 flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Fertig
-                      </span>
+                      <div className="text-xs space-y-1">
+                        <span className="text-green-600 flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Fertig
+                          {rs.variant === "with-player" && <Badge variant="outline" className="ml-1 text-[10px] py-0">+Player</Badge>}
+                        </span>
+                        {rs.variant === "with-player" && rs.playerValidation && (
+                          rs.playerValidation.complete ? (
+                            <span className="text-green-600 flex items-center gap-1" title={rs.playerValidation.reason}>
+                              <ShieldCheck className="h-3 w-3" /> player/ validiert
+                            </span>
+                          ) : (
+                            <span className="text-destructive flex items-start gap-1" title={rs.playerValidation.reason}>
+                              <ShieldAlert className="h-3 w-3 mt-0.5 shrink-0" />
+                              <span>
+                                player/ fehlt
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  Hinweis: includePlayer=true senden
+                                </div>
+                              </span>
+                            </span>
+                          )
+                        )}
+                      </div>
                     )}
                     {rs?.status === "error" && (
                       <span className="text-xs text-destructive flex items-center gap-1" title={rs.message}>
@@ -378,10 +429,17 @@ export default function BulkCourseExportPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1 flex-wrap">
+                      {rs?.playerUrl && (
+                        <Button asChild size="sm" variant="default" title="Offline-Player direkt im Browser öffnen (gehostet, kein Entpacken nötig)">
+                          <a href={rs.playerUrl} target="_blank" rel="noopener noreferrer">
+                            <PlayCircle className="h-3 w-3 mr-1" /> Im Player ansehen
+                          </a>
+                        </Button>
+                      )}
                       {pkg.status === "published" && pkg.course_id && (
                         <Button asChild size="sm" variant="outline" title="Im Web-Player ansehen">
                           <a href={`/course/${pkg.course_id}`} target="_blank" rel="noopener noreferrer">
-                            <PlayCircle className="h-3 w-3 mr-1" /> Player
+                            <PlayCircle className="h-3 w-3 mr-1" /> Web-Player
                           </a>
                         </Button>
                       )}
@@ -412,20 +470,19 @@ export default function BulkCourseExportPage() {
                           <Download className="h-3 w-3 mr-1" /> Export
                         </Button>
                       )}
-                      {pkg.status === "published" && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={running || rs?.status === "running"}
-                          onClick={() => exportOne(pkg.package_id, pkg.course_id, true)}
-                          title="ZIP inkl. selbst-startendem Offline-HTML-Player"
-                        >
-                          <PlayCircle className="h-3 w-3 mr-1" /> + Player
-                          <ExternalLink className="h-3 w-3 ml-1 opacity-50" />
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={running || rs?.status === "running"}
+                        onClick={() => exportOne(pkg.package_id, pkg.course_id, true)}
+                        title="ZIP inkl. Offline-HTML-Player + direkter Hosting-URL (includePlayer=true)"
+                      >
+                        <PlayCircle className="h-3 w-3 mr-1" /> + Player
+                        <ExternalLink className="h-3 w-3 ml-1 opacity-50" />
+                      </Button>
                     </div>
                   </TableCell>
+
                 </TableRow>
               );
             })}

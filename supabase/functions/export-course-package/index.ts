@@ -1656,7 +1656,23 @@ Hinweise:
 
     const bytes = await zip.generateAsync({ type: "uint8array" });
 
-    // ── Upload to Storage ──
+    // ── Validation: confirm player/* files are actually in the ZIP when requested ──
+    const zipEntries = Object.keys(zip.files);
+    const hasPlayerIndex = zipEntries.includes("player/index.html");
+    const hasPlayerData = zipEntries.includes("player/data.json");
+    const playerValidation = {
+      requested: !!includePlayer,
+      has_player_index_html: hasPlayerIndex,
+      has_player_data_json: hasPlayerData,
+      complete: !!includePlayer && hasPlayerIndex && hasPlayerData,
+      reason: !includePlayer
+        ? "includePlayer=false — Player wurde bewusst nicht eingebettet. Sende includePlayer=true, um Offline-Player + Hosting-URL zu erzeugen."
+        : (hasPlayerIndex && hasPlayerData)
+          ? "player/index.html und player/data.json sind im ZIP enthalten."
+          : `player/-Ordner unvollständig (index.html=${hasPlayerIndex}, data.json=${hasPlayerData}). Re-Export mit includePlayer=true nötig.`,
+    };
+
+    // ── Upload ZIP to Storage ──
     const bucket = "exports";
     const pkgTitle = safeFilename(String((pkg as Record<string, unknown>).title || packageId));
     const dateStr = new Date().toISOString().split("T")[0];
@@ -1673,6 +1689,41 @@ Hinweise:
       .createSignedUrl(path, 3600);
     if (signErr) return json({ error: signErr.message }, 500);
 
+    // ── Direct-hosting URL for Player (only when validation is complete) ──
+    let playerUrl: string | null = null;
+    let playerHostPath: string | null = null;
+    if (playerValidation.complete) {
+      try {
+        const indexBytes = await zip.file("player/index.html")!.async("uint8array");
+        const dataBytes = await zip.file("player/data.json")!.async("uint8array");
+        const playerBase = `packages/${packageId}/player`;
+        const indexPath = `${playerBase}/index.html`;
+        const dataPath = `${playerBase}/data.json`;
+        // index.html is fully self-contained (data inlined in <script>), so signed URL works standalone
+        const [{ error: e1 }, { error: e2 }] = await Promise.all([
+          sb.storage.from(bucket).upload(indexPath, indexBytes, {
+            contentType: "text/html; charset=utf-8",
+            upsert: true,
+          }),
+          sb.storage.from(bucket).upload(dataPath, dataBytes, {
+            contentType: "application/json",
+            upsert: true,
+          }),
+        ]);
+        if (e1 || e2) {
+          console.log(`[export] Player host upload error: ${e1?.message || e2?.message}`);
+        } else {
+          const { data: ps } = await sb.storage.from(bucket).createSignedUrl(indexPath, 7 * 24 * 3600);
+          if (ps?.signedUrl) {
+            playerUrl = ps.signedUrl;
+            playerHostPath = indexPath;
+          }
+        }
+      } catch (e) {
+        console.log(`[export] Player host error: ${(e as Error).message}`);
+      }
+    }
+
     // QW #15: Compute export checksum for delta detection
     const exportChecksum = await (async () => {
       const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
@@ -1684,7 +1735,7 @@ Hinweise:
     await sb.from("course_package_outputs").upsert(
       {
         package_id: packageId,
-        output_key: "export_zip",
+        output_key: includePlayer ? "export_zip_with_player" : "export_zip",
         payload: {
           downloadUrl: signed.signedUrl,
           bucket,
@@ -1694,6 +1745,9 @@ Hinweise:
           blocks: manifest.blocks,
           red_flags_summary: { total: (redFlags as any).total_flags, critical: (redFlags as any).critical },
           checksum: exportChecksum,
+          player_validation: playerValidation,
+          playerUrl,
+          playerHostPath,
         },
         last_exported_at: new Date().toISOString(),
         export_checksum: exportChecksum,
@@ -1706,12 +1760,15 @@ Hinweise:
       downloadUrl: signed.signedUrl,
       fileName: path,
       fileSize: bytes.length,
-      export_version: "6.1-integrity-guard",
+      export_version: "6.2-player-host",
       blocks: manifest.blocks,
       red_flags: { total: (redFlags as any).total_flags, critical: (redFlags as any).critical, high: (redFlags as any).high },
       integrity_check: { status: integrityCheck.status, issues: integrityCheck.issues_count, critical: integrityCheck.critical_count },
+      player_validation: playerValidation,
+      playerUrl,
       manifest,
     });
+
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[export-course-package] Error:", message);
