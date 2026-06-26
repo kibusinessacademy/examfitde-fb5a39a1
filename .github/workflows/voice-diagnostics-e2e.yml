@@ -1,0 +1,84 @@
+name: Voice Diagnostics E2E
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'src/components/oral/VoiceDiagnostics.tsx'
+      - 'src/pages/OralExamTrainer.tsx'
+      - 'tests/e2e/voice-diagnostics.spec.ts'
+      - 'tests/e2e/voice-diagnostics.spec.ts-snapshots/**'
+      - '.github/workflows/voice-diagnostics-e2e.yml'
+      - 'playwright.config.ts'
+  pull_request:
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: voice-diagnostics-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  voice-diagnostics-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      PLAYWRIGHT_BASE_URL: ${{ secrets.E2E_BASE_URL || 'https://examfitde.lovable.app' }}
+      E2E_LEARNER_EMAIL: ${{ secrets.E2E_LEARNER_EMAIL || 'learner@learner.de' }}
+      E2E_LEARNER_PASSWORD: ${{ secrets.E2E_LEARNER_PASSWORD || 'ExamFit_Test_2026!' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright (chromium)
+        run: npx playwright install --with-deps chromium
+
+      # Snapshot-Regression: harte Failures NUR, wenn Baseline existiert.
+      # Erst-Baselines manuell anlegen mit:
+      #   npx playwright test tests/e2e/voice-diagnostics.spec.ts --update-snapshots
+      # und committen. expect.soft() im Spec verhindert harten Stopp davor.
+      - name: Run Voice Diagnostics E2E
+        env:
+          PW_TEST_TRACE: 'on-first-retry'
+          PW_TEST_SCREENSHOT: 'only-on-failure'
+          PW_TEST_VIDEO: 'retain-on-failure'
+        run: |
+          npx playwright test tests/e2e/voice-diagnostics.spec.ts \
+            --retries=2 \
+            --reporter=line,html \
+            --trace=on-first-retry \
+            --output=test-results
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-diagnostics-e2e-report-${{ github.run_attempt }}
+          path: playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload test-results (traces, screenshots, videos)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-diagnostics-e2e-artifacts-${{ github.run_attempt }}
+          path: |
+            test-results/**
+            **/trace.zip
+            **/*.png
+            **/*.webm
+          retention-days: 14
+          if-no-files-found: ignore
