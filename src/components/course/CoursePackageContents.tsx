@@ -29,10 +29,14 @@ import {
 interface Props {
   curriculumId: string;
   courseId: string;
-  /** Bereits geladene Lesson-Anzahl (vermeidet zusätzliche Query). */
-  lessonCount: number;
+  /** Bereits geladene Lesson-Anzahl. Wird ansonsten per head-count nachgezogen. */
+  lessonCount?: number;
   /** Optional: bereits geladene Modulanzahl (rein informativ). */
   moduleCount?: number;
+  /** Optional: ersetzt die "Im Kurspaket enthalten"-Überschrift. */
+  headingOverride?: string;
+  /** Optional: Eyebrow-Text über der Überschrift. */
+  eyebrow?: string;
 }
 
 interface PackageInfo {
