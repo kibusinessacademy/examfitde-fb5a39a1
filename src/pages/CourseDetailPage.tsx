@@ -14,6 +14,8 @@ import { Paywall } from "@/components/shop/Paywall";
 import { Loader2, Clock, BookOpen, ArrowLeft, PlayCircle, Zap, HelpCircle, ChevronDown } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { SEOHead } from "@/components/seo/SEOHead";
+import { getBerufImage } from "@/lib/berufImage";
+import { useBerufImages } from "@/hooks/useBerufImages";
 
 interface Course {
   id: string;
