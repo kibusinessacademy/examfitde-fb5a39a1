@@ -57,7 +57,7 @@ function BundleDetailPageComponent() {
   // Wenn kein Beruf-Treffer, aber das Paket im Sellable-SSOT existiert, baue
   // ein minimales beruf-Objekt (nur title wird im Render benutzt).
   const beruf = berufRaw ?? (sellable
-    ? { title: sellable.product_title || sellable.course_title || slug || '' }
+    ? { title: sellable.title || slug || '' }
     : undefined);
 
   const heroRef = useRef<HTMLDivElement>(null);
