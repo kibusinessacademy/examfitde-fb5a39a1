@@ -29,9 +29,29 @@ interface LessonContentProps {
   competencyCode?: string | null;
   competencyTitle?: string | null;
   stepKey?: string | null;
+  /**
+   * VISUAL.LEARNING.OS — Cut 4.
+   * Optionale, learner-safe (bereits projizierte) Visual Artifacts.
+   * Wird NICHT aus der DB im Component geladen. Eltern-Komponente liefert sie.
+   */
+  visualArtifacts?: ReadonlyArray<PublishedVisualArtifact>;
   onH5PCompleted?: (score?: number, maxScore?: number) => void;
   onH5PProgress?: (progress: number) => void;
   onMiniCheckCompleted?: (score: number, maxScore: number) => void;
+}
+
+function mapStepKeyToVisualPlacement(
+  stepKey?: string | null,
+): VisualLessonStepPlacement | null {
+  if (!stepKey) return null;
+  const k = stepKey.toLowerCase();
+  if (k.includes('einstieg') || k === 'entry') return 'entry';
+  if (k.includes('verstehen') || k === 'understand') return 'understand';
+  if (k.includes('anwenden') || k === 'apply') return 'apply';
+  if (k.includes('wiederholen') || k === 'repeat') return 'repeat';
+  if (k.includes('mini_check') || k.includes('minicheck') || k === 'mini_check_context')
+    return 'mini_check_context';
+  return null;
 }
 
 interface ContentData {
