@@ -51,6 +51,8 @@ export const ROUTE_PATTERNS: readonly string[] = [
   // Public diagnostic
   "/pruefungscheck",
   "/pruefungscheck/:slug",
+  "/minicheck",
+  "/minicheck/:sessionId",
 
   // ExamFit@work
   "/work",
