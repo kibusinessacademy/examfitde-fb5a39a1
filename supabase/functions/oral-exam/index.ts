@@ -356,7 +356,7 @@ async function generateQuestionForSession(
 
 
   // ── FIX 3: Deterministic selection (no Math.random) ──────────
-  const pool = available.length > 0 ? available : competencies;
+  const pool = available.length > 0 ? available : pool0;
 
   // Sort by exam_relevance_tier ASC (tier 1 = most relevant first), then by code
   const sorted = pool.sort((a: any, b: any) => {
