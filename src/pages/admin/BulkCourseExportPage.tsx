@@ -41,14 +41,28 @@ type PlayerValidation = {
   reason: string;
 };
 
+type ModulesSummary = {
+  total_modules: number;
+  total_lessons: number;
+  orphan_lessons?: number;
+  snapshot_module_count?: number | null;
+  snapshot_lesson_count?: number | null;
+  completeness_ok?: boolean;
+  issues?: string[];
+};
+
 type RowState = {
   status: "idle" | "queued" | "running" | "done" | "error";
   message?: string;
   url?: string;
   playerUrl?: string | null;
   playerValidation?: PlayerValidation;
+  modulesSummary?: ModulesSummary;
   variant?: "zip" | "with-player";
+  startedAt?: number;
+  finishedAt?: number;
 };
+
 
 
 const CONCURRENCY = 2;
@@ -114,7 +128,8 @@ export default function BulkCourseExportPage() {
   }
 
   async function exportOne(packageId: string, courseId: string | null, includePlayer = false) {
-    setRowState((s) => ({ ...s, [packageId]: { status: "running", variant: includePlayer ? "with-player" : "zip" } }));
+    const startedAt = Date.now();
+    setRowState((s) => ({ ...s, [packageId]: { status: "running", variant: includePlayer ? "with-player" : "zip", startedAt } }));
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("export-course-package", {
@@ -126,7 +141,14 @@ export default function BulkCourseExportPage() {
         downloadUrl?: string;
         playerUrl?: string | null;
         player_validation?: PlayerValidation;
+        modules_summary?: ModulesSummary;
+        error?: string;
+        message?: string;
       };
+      if (data?.error === "completeness_check_failed") {
+        const issues = data.modules_summary?.issues?.join(" · ") || "Vollständigkeitsprüfung fehlgeschlagen";
+        throw new Error(`Vollständigkeitsprüfung fehlgeschlagen: ${issues}`);
+      }
       if (!data?.downloadUrl) throw new Error("Keine Download-URL erhalten");
       // trigger browser download
       const a = document.createElement("a");
@@ -143,7 +165,10 @@ export default function BulkCourseExportPage() {
           url: data.downloadUrl,
           playerUrl: data.playerUrl ?? null,
           playerValidation: data.player_validation,
+          modulesSummary: data.modules_summary,
           variant: includePlayer ? "with-player" : "zip",
+          startedAt,
+          finishedAt: Date.now(),
         },
       }));
       if (includePlayer && data.player_validation && !data.player_validation.complete) {
@@ -151,13 +176,19 @@ export default function BulkCourseExportPage() {
       } else if (includePlayer && data.playerUrl) {
         toast.success("Player-Hosting-URL bereit (7 Tage gültig)");
       }
+      if (data.modules_summary) {
+        toast.success(
+          `Export fertig: ${data.modules_summary.total_modules} Module · ${data.modules_summary.total_lessons} Lektionen`,
+        );
+      }
     } catch (e: any) {
       setRowState((s) => ({
         ...s,
-        [packageId]: { status: "error", message: e?.message || "Unbekannter Fehler" },
+        [packageId]: { status: "error", message: e?.message || "Unbekannter Fehler", startedAt, finishedAt: Date.now() },
       }));
     }
   }
+
 
 
   async function runBulk() {
@@ -205,6 +236,13 @@ export default function BulkCourseExportPage() {
 
   const doneCount = Object.values(rowState).filter((r) => r.status === "done").length;
   const errorCount = Object.values(rowState).filter((r) => r.status === "error").length;
+  const runningCount = Object.values(rowState).filter((r) => r.status === "running").length;
+  const queuedCount = Object.values(rowState).filter((r) => r.status === "queued").length;
+  const totalInFlight = doneCount + errorCount + runningCount + queuedCount;
+  const progressPct = totalInFlight > 0 ? Math.round(((doneCount + errorCount) / totalInFlight) * 100) : 0;
+  const totalModulesExported = Object.values(rowState).reduce((s, r) => s + (r.modulesSummary?.total_modules || 0), 0);
+  const totalLessonsExported = Object.values(rowState).reduce((s, r) => s + (r.modulesSummary?.total_lessons || 0), 0);
+
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -307,7 +345,44 @@ export default function BulkCourseExportPage() {
         </div>
       </div>
 
+      {totalInFlight > 0 && (
+        <div className="rounded-lg border bg-card p-4 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium flex items-center gap-2">
+              {running || runningCount > 0 ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              )}
+              Bulk-Export Fortschritt
+            </span>
+            <span className="text-muted-foreground">
+              {doneCount + errorCount} / {totalInFlight} · {progressPct}%
+            </span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+            <span>🟢 {doneCount} fertig</span>
+            <span>🔵 {runningCount} laufen</span>
+            <span>⏳ {queuedCount} warten</span>
+            {errorCount > 0 && <span className="text-destructive">🔴 {errorCount} Fehler</span>}
+            {totalModulesExported > 0 && (
+              <span className="ml-auto">
+                Σ <strong className="text-foreground">{totalModulesExported}</strong> Module ·{" "}
+                <strong className="text-foreground">{totalLessonsExported}</strong> Lektionen exportiert
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="border rounded-lg overflow-hidden">
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -438,6 +513,30 @@ export default function BulkCourseExportPage() {
                           <CheckCircle2 className="h-3 w-3" /> Fertig
                           {rs.variant === "with-player" && <Badge variant="outline" className="ml-1 text-[10px] py-0">+Player</Badge>}
                         </span>
+                        {rs.modulesSummary && (
+                          <div
+                            className="text-[11px] text-muted-foreground"
+                            title={
+                              rs.modulesSummary.completeness_ok === false
+                                ? `Vollständigkeit: ${rs.modulesSummary.issues?.join(" · ")}`
+                                : "Vollständigkeitsprüfung bestanden (modules.json ↔ lessons_all.json ↔ course_snapshot.json)"
+                            }
+                          >
+                            <strong className="text-foreground">{rs.modulesSummary.total_modules}</strong> Module ·{" "}
+                            <strong className="text-foreground">{rs.modulesSummary.total_lessons}</strong> Lektionen
+                            {rs.modulesSummary.completeness_ok === false && (
+                              <span className="text-destructive ml-1">⚠</span>
+                            )}
+                            {rs.modulesSummary.completeness_ok && (
+                              <span className="text-green-600 ml-1">✓</span>
+                            )}
+                          </div>
+                        )}
+                        {rs.startedAt && rs.finishedAt && (
+                          <div className="text-[10px] text-muted-foreground">
+                            ⏱ {Math.round((rs.finishedAt - rs.startedAt) / 100) / 10}s
+                          </div>
+                        )}
                         {rs.variant === "with-player" && rs.playerValidation && (
                           rs.playerValidation.complete ? (
                             <span className="text-green-600 flex items-center gap-1" title={rs.playerValidation.reason}>
@@ -457,6 +556,7 @@ export default function BulkCourseExportPage() {
                         )}
                       </div>
                     )}
+
                     {rs?.status === "error" && (
                       <span className="text-xs text-destructive flex items-center gap-1" title={rs.message}>
                         <XCircle className="h-3 w-3" /> {rs.message?.slice(0, 40) || "Fehler"}
