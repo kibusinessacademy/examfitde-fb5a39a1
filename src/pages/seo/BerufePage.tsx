@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, GraduationCap, Clock, Award, Search, BookOpen, BadgeCheck, Briefcase, Filter, Bell, ShoppingCart } from 'lucide-react';
+import { ArrowRight, GraduationCap, Clock, Award, Search, BookOpen, BadgeCheck, Briefcase, Filter, Bell, ShoppingCart, Sparkles, TrendingUp, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,8 @@ import { generateOrganizationSchema, generateBreadcrumbSchema, SITE_URL, getBeru
 import { useState, useMemo, useCallback } from 'react';
 import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
 import publishedBerufeFallback from '@/data/publishedBerufeFallback.json';
+import { getBerufImage } from '@/lib/berufImage';
+
 
 /**
  * Static fallback catalog — bundled at build time so /berufe always renders
@@ -181,46 +183,87 @@ export default function BerufePage() {
       />
 
       <div className="min-h-screen">
-        {/* Hero */}
-        <section className="relative py-12 sm:py-16 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-primary/10" />
-          <div className="container relative z-10">
+        {/* Hero — Premium */}
+        <section className="relative overflow-hidden border-b border-border/40">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10" />
+          <div
+            aria-hidden
+            className="absolute -top-32 -right-32 w-[36rem] h-[36rem] rounded-full bg-primary/15 blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="absolute -bottom-40 -left-40 w-[32rem] h-[32rem] rounded-full bg-accent/15 blur-3xl"
+          />
+
+          <div className="container relative z-10 pt-10 pb-12 sm:pt-14 sm:pb-16">
             <Breadcrumbs items={[{ label: 'Kurskatalog' }]} className="mb-6" />
 
             <div className="max-w-3xl">
-              <h1 className="text-responsive-3xl sm:text-responsive-4xl md:text-responsive-5xl font-display font-bold mb-4">
-                <span className="text-gradient">Kurskatalog</span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-5">
+                <Sparkles className="h-3.5 w-3.5" />
+                ExamFit · Dein Prüfungstraining
+              </span>
+
+              <h1 className="font-display font-bold tracking-tight text-4xl sm:text-5xl md:text-6xl leading-[1.05] mb-5">
+                Bestehe deine Prüfung.
                 <br />
-                Alle Prüfungstrainings
+                <span className="text-gradient">Mit Plan, KI und Routine.</span>
               </h1>
-              <p className="text-lg text-muted-foreground mb-2">
-                {counts.published} veröffentlichte Kurse sofort verfügbar · {counts.upcoming} weitere in Vorbereitung.
-                <br />Dein Kurs fehlt? Jetzt anfragen!
-              </p>
-              {/* KIMI.3.1 HANDOFF microcopy — macht den Übergang zum Lernpfad explizit */}
-              <p
-                data-testid="berufe-handoff-microcopy"
-                className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs text-primary"
-              >
-                Nach der Auswahl startet dein persönlicher Lernpfad.
+
+              <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-2xl mb-8">
+                Geprüfte Lernpfade für über {counts.all} Ausbildungsberufe — von der ersten Lektion bis zum Prüfungstag. Starte heute und werde Teil der Generation, die ihre Abschlussprüfung souverän meistert.
               </p>
 
+              {/* Stats Strip */}
+              <div className="grid grid-cols-3 gap-3 sm:gap-6 mb-8 max-w-2xl">
+                <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm px-4 py-3 sm:px-5 sm:py-4">
+                  <div className="flex items-center gap-2 text-primary mb-1">
+                    <ShoppingCart className="h-4 w-4" />
+                    <span className="text-xs font-medium uppercase tracking-wider">Verfügbar</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-display font-bold">{counts.published}</div>
+                  <p className="text-xs text-muted-foreground">Kurse sofort startklar</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm px-4 py-3 sm:px-5 sm:py-4">
+                  <div className="flex items-center gap-2 text-accent mb-1">
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="text-xs font-medium uppercase tracking-wider">Pipeline</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-display font-bold">{counts.upcoming}</div>
+                  <p className="text-xs text-muted-foreground">Wöchentlich neu</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm px-4 py-3 sm:px-5 sm:py-4">
+                  <div className="flex items-center gap-2 text-primary mb-1">
+                    <ShieldCheck className="h-4 w-4" />
+                    <span className="text-xs font-medium uppercase tracking-wider">Geprüft</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-display font-bold">IHK · HWK</div>
+                  <p className="text-xs text-muted-foreground">Kammer-konform</p>
+                </div>
+              </div>
 
               {/* Search */}
-              <div className="relative max-w-xl">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <div className="relative max-w-2xl">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Beruf oder Kurs suchen..."
+                  placeholder="Finde deinen Beruf — z. B. Tierpfleger, Mechatroniker, Industriekaufmann …"
                   value={searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setLetterFilter(null); }}
-                  className="pl-10 h-12 text-lg bg-background/50"
+                  className="pl-12 h-14 text-base sm:text-lg bg-background/80 border-border/60 shadow-sm focus-visible:ring-primary/40"
                   aria-label="Beruf oder Kurs suchen"
                 />
+                <p
+                  data-testid="berufe-handoff-microcopy"
+                  className="mt-3 text-xs text-muted-foreground"
+                >
+                  Nach der Auswahl startet dein persönlicher Lernpfad — kostenlos testen, jederzeit kündbar.
+                </p>
               </div>
             </div>
           </div>
         </section>
+
 
         {/* Filter Bar */}
         <section className="sticky top-16 z-20 border-b bg-background/95 backdrop-blur-sm">
@@ -334,35 +377,46 @@ export default function BerufePage() {
                 <div className="mb-4 text-sm text-muted-foreground">
                   {filteredCourses.length} {filteredCourses.length === 1 ? 'Kurs' : 'Kurse'} gefunden
                 </div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   {filteredCourses.map((entry) => {
                     const Icon = getCategoryIcon(entry);
+                    const img = getBerufImage(entry.title, entry.kammer);
                     if (entry.isPublished) {
                       return (
-                        <Link key={entry.berufId} to={getBerufUrl(entry.publishedSlug || entry.slug)}>
-                          <Card className="glass-card hover:shadow-glow-sm transition-all duration-300 h-full group border-primary/20 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-accent" />
-                            <CardHeader className="pb-3">
-                              <div className="flex items-start justify-between gap-2">
-                                <Icon className="h-7 w-7 text-primary flex-shrink-0" />
-                                <div className="flex flex-wrap gap-1 justify-end">
-                                  <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
-                                    ✓ Verfügbar
+                        <Link
+                          key={entry.berufId}
+                          to={getBerufUrl(entry.publishedSlug || entry.slug)}
+                          className="group block"
+                        >
+                          <Card className="h-full overflow-hidden border border-border/60 bg-card hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                            <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                              <img
+                                src={img}
+                                alt=""
+                                loading="lazy"
+                                width={768}
+                                height={512}
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+                              <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                                <Badge className="bg-primary text-primary-foreground border-0 text-[11px] shadow-sm">
+                                  ✓ Verfügbar
+                                </Badge>
+                                {entry.kammer && (
+                                  <Badge variant="secondary" className="text-[11px] bg-background/90 text-foreground border-0 backdrop-blur-sm">
+                                    {entry.kammer}
                                   </Badge>
-                                  {entry.kammer && (
-                                    <Badge variant="outline" className="text-xs">{entry.kammer}</Badge>
-                                  )}
-                                </div>
+                                )}
                               </div>
-                              <CardTitle className="text-responsive-base group-hover:text-primary transition-colors leading-snug line-clamp-2">
-                                {entry.title}
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-0">
-                              {entry.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{entry.description}</p>
-                              )}
-                              <div className="flex items-center justify-between">
+                              <div className="absolute bottom-3 left-3 right-3">
+                                <h3 className="text-lg font-display font-semibold text-white leading-snug line-clamp-2 drop-shadow-md">
+                                  {entry.title}
+                                </h3>
+                              </div>
+                            </div>
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                                   {entry.ausbildungsdauerMonate && (
                                     <span className="flex items-center gap-1">
@@ -371,10 +425,9 @@ export default function BerufePage() {
                                   )}
                                   {entry.dqrNiveau && <span>DQR {entry.dqrNiveau}</span>}
                                 </div>
-                                <span className="text-sm text-primary flex items-center font-medium opacity-90 group-hover:opacity-100 transition-opacity">
-                                  Lernpfad starten <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                                <span className="text-sm text-primary flex items-center font-semibold group-hover:gap-2 gap-1 transition-all">
+                                  Lernpfad starten <ArrowRight className="h-4 w-4" />
                                 </span>
-
                               </div>
                             </CardContent>
                           </Card>
@@ -384,25 +437,33 @@ export default function BerufePage() {
 
                     // Unpublished → "Kurs anfragen"
                     return (
-                      <Card key={entry.berufId} className="glass-card h-full group border-dashed border-muted-foreground/20">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <Icon className="h-7 w-7 text-muted-foreground/60 flex-shrink-0" />
-                            <div className="flex flex-wrap gap-1 justify-end">
-                              <Badge variant="outline" className="text-xs text-muted-foreground">
-                                In Vorbereitung
-                              </Badge>
-                              {entry.kammer && (
-                                <Badge variant="outline" className="text-xs">{entry.kammer}</Badge>
-                              )}
-                            </div>
+                      <Card key={entry.berufId} className="h-full overflow-hidden border border-dashed border-border bg-card/60">
+                        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                          <img
+                            src={img}
+                            alt=""
+                            loading="lazy"
+                            width={768}
+                            height={512}
+                            className="h-full w-full object-cover opacity-50 grayscale"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
+                          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                            <Badge variant="outline" className="text-[11px] bg-background/90 text-muted-foreground backdrop-blur-sm">
+                              In Vorbereitung
+                            </Badge>
+                            {entry.kammer && (
+                              <Badge variant="outline" className="text-[11px] bg-background/90 backdrop-blur-sm">{entry.kammer}</Badge>
+                            )}
                           </div>
-                          <CardTitle className="text-responsive-base leading-snug line-clamp-2 text-muted-foreground">
-                            {entry.title}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="flex items-center justify-between">
+                          <div className="absolute bottom-3 left-3 right-3">
+                            <h3 className="text-lg font-display font-semibold text-foreground leading-snug line-clamp-2">
+                              {entry.title}
+                            </h3>
+                          </div>
+                        </div>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               {entry.ausbildungsdauerMonate && (
                                 <span className="flex items-center gap-1">
@@ -418,13 +479,14 @@ export default function BerufePage() {
                               className="text-xs gap-1"
                             >
                               <Bell className="h-3 w-3" />
-                              Kurs anfragen
+                              Benachrichtigen
                             </Button>
                           </div>
                         </CardContent>
                       </Card>
                     );
                   })}
+
                 </div>
               </>
             )}
