@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 /**
  * VISUAL.LEARNING.OS — Cut 3 Tests.
  *
