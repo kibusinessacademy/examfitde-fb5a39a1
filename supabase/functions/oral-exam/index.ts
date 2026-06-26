@@ -274,7 +274,11 @@ async function logTurn(sbAdmin: any, params: {
 
 // ── Start Session ──────────────────────────────────────────────
 async function startSession(sbUser: any, sbAdmin: any, userId: string, params: any) {
-  const { curriculum_id, mode = "practice", total_questions = 5 } = params;
+  const { curriculum_id, mode = "practice", total_questions = 5, topic_keys = [] } = params;
+
+  const topicFilter: string[] = Array.isArray(topic_keys)
+    ? topic_keys.filter((k: any) => typeof k === "string" && k.length > 0)
+    : [];
 
   const { data: session, error } = await sbUser
     .from("oral_exam_sessions")
@@ -284,20 +288,21 @@ async function startSession(sbUser: any, sbAdmin: any, userId: string, params: a
       mode,
       total_questions,
       time_limit_minutes: mode === "simulation" ? 30 : null,
+      topic_filter: topicFilter,
     })
     .select()
     .single();
 
   if (error) throw error;
 
-  const firstQuestion = await generateQuestionForSession(sbUser, sbAdmin, userId, session.id, curriculum_id, 0, mode);
+  const firstQuestion = await generateQuestionForSession(sbUser, sbAdmin, userId, session.id, curriculum_id, 0, mode, topicFilter);
 
   await logTurn(sbAdmin, {
     sessionId: session.id,
     userId,
     phase: "ask",
     role: "examiner",
-    payload: { question: firstQuestion.question_text, blueprint_id: firstQuestion.blueprint_id },
+    payload: { question: firstQuestion.question_text, blueprint_id: firstQuestion.blueprint_id, topic_key: firstQuestion.topic_key },
     sourceBlueprintId: firstQuestion.blueprint_id,
     renderedQuestion: firstQuestion.question_text,
     sourceBlueprintQuestion: firstQuestion.source_blueprint_question || null,
@@ -306,6 +311,7 @@ async function startSession(sbUser: any, sbAdmin: any, userId: string, params: a
 
   return { session, firstQuestion };
 }
+
 
 // ── Generate Question (Blueprint-only, deterministic) ──────────
 async function generateQuestionForSession(
@@ -316,6 +322,7 @@ async function generateQuestionForSession(
   curriculumId: string,
   orderIndex: number,
   mode: "practice" | "simulation" = "practice",
+  topicFilter: string[] = [],
 ) {
   const professionName = await loadProfessionName(sbAdmin, curriculumId);
 
@@ -328,9 +335,15 @@ async function generateQuestionForSession(
       learning_field:learning_fields!inner(id, title, code, curriculum_id)
     `)
     .eq("learning_fields.curriculum_id", curriculumId)
-    .limit(100);
+    .limit(200);
 
   if (!competencies?.length) throw new Error("No competencies found for curriculum");
+
+  // Optional topic filter: keep only competencies whose learning_field.code matches
+  const filtered = (topicFilter?.length ?? 0) > 0
+    ? competencies.filter((c: any) => topicFilter.includes(c.learning_field?.code))
+    : competencies;
+  const pool0 = filtered.length > 0 ? filtered : competencies;
 
   // Avoid repeats
   const { data: usedQuestions } = await sbUser
@@ -339,10 +352,11 @@ async function generateQuestionForSession(
     .eq("session_id", sessionId);
 
   const usedCompIds = new Set((usedQuestions || []).map((q: any) => q.competency_id));
-  const available = competencies.filter((c: any) => !usedCompIds.has(c.id));
+  const available = pool0.filter((c: any) => !usedCompIds.has(c.id));
+
 
   // ── FIX 3: Deterministic selection (no Math.random) ──────────
-  const pool = available.length > 0 ? available : competencies;
+  const pool = available.length > 0 ? available : pool0;
 
   // Sort by exam_relevance_tier ASC (tier 1 = most relevant first), then by code
   const sorted = pool.sort((a: any, b: any) => {
@@ -418,6 +432,8 @@ async function generateQuestionForSession(
       session_id: sessionId,
       competency_id: competency.id,
       learning_field_id: competency.learning_field.id,
+      topic_key: competency.learning_field?.code || null,
+      topic_label: competency.learning_field?.title || null,
       blueprint_id: bp.id,
       question_text: questionText,
       expected_answer_points: expectedPoints,
@@ -425,6 +441,7 @@ async function generateQuestionForSession(
       order_index: orderIndex,
       time_limit_seconds: mode === "simulation" ? 120 : 180,
     })
+
     .select()
     .single();
 
@@ -552,7 +569,9 @@ async function generateQuestion(sbUser: any, sbAdmin: any, userId: string, param
 
   const question = await generateQuestionForSession(
     sbUser, sbAdmin, userId, session_id, session.curriculum_id, session.current_question_index, session.mode,
+    Array.isArray(session.topic_filter) ? session.topic_filter : [],
   );
+
 
   // ── FIX 4: Log turn ─────────────────────────────────────────
   await logTurn(sbAdmin, {
@@ -797,6 +816,38 @@ async function finishSession(sbUser: any, sbAdmin: any, userId: string, params: 
     if (q.missed_points) q.missed_points.forEach((p: string) => allWeaknesses.add(p));
   });
 
+  // ── Per-Thema-Aggregation für Replay/Filter ─────────────────
+  const topicMap = new Map<string, {
+    topic_key: string; topic_label: string;
+    f: number; s: number; b: number; p: number; n: number; answered: number;
+  }>();
+  for (const q of questions as any[]) {
+    const key = q.topic_key || 'allgemein';
+    const label = q.topic_label || 'Allgemein';
+    const t = topicMap.get(key) || { topic_key: key, topic_label: label, f: 0, s: 0, b: 0, p: 0, n: 0, answered: 0 };
+    t.f += Number(q.fachlichkeit_score || 0);
+    t.s += Number(q.struktur_score || 0);
+    t.b += Number(q.begriffssicherheit_score || 0);
+    t.p += Number(q.praxisbezug_score || 0);
+    t.n += 1;
+    if (q.user_answer) t.answered += 1;
+    topicMap.set(key, t);
+  }
+  const topicScores = Array.from(topicMap.values()).map(t => {
+    const f = t.f / t.n, s = t.s / t.n, b = t.b / t.n, p = t.p / t.n;
+    return {
+      topic_key: t.topic_key,
+      topic_label: t.topic_label,
+      questions_total: t.n,
+      questions_answered: t.answered,
+      fachlichkeit_pct: Math.round(f * 100 * 10) / 10,
+      struktur_pct: Math.round(s * 100 * 10) / 10,
+      begriffssicherheit_pct: Math.round(b * 100 * 10) / 10,
+      praxisbezug_pct: Math.round(p * 100 * 10) / 10,
+      overall_pct: Math.round((f * EVAL_WEIGHTS.fachlichkeit + s * EVAL_WEIGHTS.struktur + b * EVAL_WEIGHTS.begriffssicherheit + p * EVAL_WEIGHTS.praxisbezug) * 100 * 10) / 10,
+    };
+  }).sort((a, b) => a.topic_label.localeCompare(b.topic_label));
+
   const { data: session, error } = await sbUser
     .from("oral_exam_sessions")
     .update({
@@ -810,7 +861,9 @@ async function finishSession(sbUser: any, sbAdmin: any, userId: string, params: 
       strengths: Array.from(allStrengths).slice(0, 5),
       weaknesses: Array.from(allWeaknesses).slice(0, 5),
       improvement_suggestions: Array.from(allWeaknesses).slice(0, 3).map((w) => `Vertiefen Sie: ${w}`),
+      topic_scores: topicScores,
     })
+
     .eq("id", session_id)
     .select()
     .single();
@@ -839,6 +892,8 @@ async function finishSession(sbUser: any, sbAdmin: any, userId: string, params: 
         begriffssicherheit: avgBegrif * 100,
         praxisbezug: avgPraxis * 100,
       },
+      topic_scores: topicScores,
     },
+
   };
 }

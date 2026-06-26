@@ -102,6 +102,8 @@ export default function OralExamTrainer() {
   const [searchParams] = useSearchParams();
   const [phase, setPhase] = useState<ExamPhase>('setup');
   const [selectedCurriculum, setSelectedCurriculum] = useState<string | null>(() => searchParams.get('curriculum'));
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+
   const { t, isAcademic } = useTerminology(selectedCurriculum);
   const targetLang = useTargetLanguage();
   const speechLocale = STT_TTS_LOCALE[targetLang];
@@ -292,6 +294,21 @@ export default function OralExamTrainer() {
   );
   const curriculumTitle = curricula?.find(c => c.id === selectedCurriculum)?.title;
 
+  // Themen (Lernfelder) für aktives Curriculum
+  const { data: topics } = useQuery({
+    queryKey: ['oral-exam-topics', selectedCurriculum],
+    enabled: !!selectedCurriculum,
+    queryFn: async () => {
+      const sb = supabase as any;
+      const { data } = await sb
+        .from('learning_fields')
+        .select('id, code, title')
+        .eq('curriculum_id', selectedCurriculum)
+        .order('code', { ascending: true });
+      return (data || []) as Array<{ id: string; code: string; title: string }>;
+    },
+  });
+
   const {
     session,
     currentQuestion,
@@ -306,8 +323,10 @@ export default function OralExamTrainer() {
   } = useOralExam({
     curriculumId: selectedCurriculum || '',
     mode: 'practice',
-    totalQuestions: 5
+    totalQuestions: 5,
+    topicKeys: selectedTopics,
   });
+
 
   // Browser-native TTS via Web Speech API. Persona-Effekt entsteht über die
   // Fragelogik (oral-exam Engine + Followup-Chains), nicht über Stimm-Variation.
@@ -777,7 +796,47 @@ export default function OralExamTrainer() {
               )}
             </div>
 
+            {selectedCurriculum && topics && topics.length > 0 && (
+              <div data-testid="oral-topic-filter">
+                <label className="text-sm font-medium mb-2 block">
+                  Themen (Lernfelder) — optional einschränken
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={selectedTopics.length === 0 ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedTopics([])}
+                  >
+                    Alle Themen
+                  </Button>
+                  {topics.map(tp => {
+                    const active = selectedTopics.includes(tp.code);
+                    return (
+                      <Button
+                        key={tp.id}
+                        type="button"
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedTopics(prev =>
+                          active ? prev.filter(c => c !== tp.code) : [...prev, tp.code]
+                        )}
+                      >
+                        {tp.code} · {tp.title}
+                      </Button>
+                    );
+                  })}
+                </div>
+                {selectedTopics.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {selectedTopics.length} Thema(s) gewählt — Fragen werden gezielt aus diesen Lernfeldern gezogen.
+                  </p>
+                )}
+              </div>
+            )}
+
             <Separator />
+
 
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <h4 className="font-medium">So funktioniert's:</h4>
@@ -818,6 +877,11 @@ export default function OralExamTrainer() {
                 Prüferfrage
               </CardTitle>
               <div className="flex gap-2 flex-wrap items-center">
+                {(currentQuestion as any).topic_label && (
+                  <Badge variant="outline" className="text-xs" data-testid="oral-question-topic">
+                    Thema: {(currentQuestion as any).topic_label}
+                  </Badge>
+                )}
                 <Badge variant={phase === 'question' ? 'secondary' : 'default'}>
                   {phase === 'question' ? 'Frage wird vorgelesen...' : 'Bereit zum Antworten'}
                 </Badge>
@@ -826,6 +890,7 @@ export default function OralExamTrainer() {
                     Voice: Browser
                   </Badge>
                 )}
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -1140,6 +1205,33 @@ export default function OralExamTrainer() {
                 </div>
               ))}
             </div>
+
+            {Array.isArray((session as any).topic_scores) && (session as any).topic_scores.length > 0 && (
+              <div className="space-y-3" data-testid="oral-topic-breakdown">
+                <h4 className="font-medium">Ergebnis pro Thema (Lernfeld)</h4>
+                <div className="grid gap-2">
+                  {(session as any).topic_scores.map((t: any) => (
+                    <div key={t.topic_key} className="p-3 rounded-lg bg-muted/40 border flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{t.topic_label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t.questions_answered}/{t.questions_total} beantwortet
+                          {' · '}F {Math.round(t.fachlichkeit_pct)}%
+                          {' · S '}{Math.round(t.struktur_pct)}%
+                          {' · B '}{Math.round(t.begriffssicherheit_pct)}%
+                          {' · P '}{Math.round(t.praxisbezug_pct)}%
+                        </p>
+                      </div>
+                      <div className={cn("text-lg font-bold", getScoreColor((t.overall_pct || 0) / 100))}>
+                        {Math.round(t.overall_pct)}%
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+
 
             <div className="grid md:grid-cols-2 gap-4">
               {session.strengths && session.strengths.length > 0 && (
