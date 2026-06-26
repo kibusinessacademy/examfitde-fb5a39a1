@@ -741,7 +741,6 @@ const AppRoutes = () => {
           <Route path="/v1" element={<HomePageV1Legacy />} />
           {/* Funnel: Prüfungsreife-Check needs the marketing header for brand-trust + back-nav (Audit P0) */}
           <Route path="/pruefungsreife-check" element={<PruefungsreifeCheck />} />
-          <Route path="/shop" element={<Navigate to="/examfit" replace />} />
           <Route path="/examfit" element={<ShopPage />} />
           <Route path="/courses" element={<CoursesPage />} />
           <Route path="/course/:slug" element={<CourseDetailPage />} />
