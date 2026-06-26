@@ -1019,7 +1019,7 @@ REGELN für Humor-Nutzung:
         }
 
         if (generationId && validMode !== AI_MODES.EXAM) {
-          postValidateTutorResponse(supabase, user.id, message, fullResponse, resolvedContext, generationId, professionName).catch(console.error);
+          postValidateTutorResponse(supabase, user.id, message, fullResponse, resolvedContext, generationId, professionName, winningProvider).catch(console.error);
         }
       }
     })();
