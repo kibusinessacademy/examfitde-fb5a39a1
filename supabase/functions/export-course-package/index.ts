@@ -1084,13 +1084,37 @@ Deno.serve(async (req) => {
     zip.file("4_didaktik/mastery_model.json", JSON.stringify(masteryModel, null, 2));
     zip.file("4_didaktik/course_snapshot.json", JSON.stringify(courseSnapshot || {}, null, 2));
     // ── modules.json: explicit per-module breakdown with lesson IDs for completeness audits ──
+    // Also runs a hard completeness check vs. lessons_all.json + course_snapshot.json
+    // and ABORTS the export on mismatches (P10 — Vollständigkeitsprüfung).
+    let modulesSummary: {
+      total_modules: number;
+      total_lessons: number;
+      orphan_lessons: number;
+      snapshot_module_count: number | null;
+      snapshot_lesson_count: number | null;
+      completeness_ok: boolean;
+      issues: string[];
+    } = {
+      total_modules: 0,
+      total_lessons: 0,
+      orphan_lessons: 0,
+      snapshot_module_count: null,
+      snapshot_lesson_count: null,
+      completeness_ok: true,
+      issues: [],
+    };
     {
       const csAny = (courseSnapshot || {}) as Record<string, unknown>;
       const mods = ((csAny.modules as unknown[]) || []) as Record<string, unknown>[];
       const lessonsByModule = new Map<string, Record<string, unknown>[]>();
+      const orphanLessons: Record<string, unknown>[] = [];
+      const moduleIdSet = new Set(mods.map((m) => String(m.id)));
       for (const l of allLessons as Record<string, unknown>[]) {
         const mid = String(l.module_id || "");
-        if (!mid) continue;
+        if (!mid || !moduleIdSet.has(mid)) {
+          orphanLessons.push(l);
+          continue;
+        }
         if (!lessonsByModule.has(mid)) lessonsByModule.set(mid, []);
         lessonsByModule.get(mid)!.push(l);
       }
@@ -1111,11 +1135,77 @@ Deno.serve(async (req) => {
           })),
         };
       });
+
+      // Completeness audit — sum of per-module lesson_counts must equal total lessons
+      const issues: string[] = [];
+      const summedLessons = modulesExport.reduce((s, m) => s + m.lesson_count, 0);
+      const totalLessons = (allLessons || []).length;
+      if (summedLessons + orphanLessons.length !== totalLessons) {
+        issues.push(`lesson_sum_mismatch: modules_sum=${summedLessons} + orphans=${orphanLessons.length} ≠ lessons_all=${totalLessons}`);
+      }
+      if (orphanLessons.length > 0) {
+        issues.push(`orphan_lessons: ${orphanLessons.length} lesson(s) reference a module_id missing from course_snapshot.modules`);
+      }
+      // Snapshot cross-check (only when snapshot exposes counts)
+      const snapModuleCount = Array.isArray((csAny as any).modules) ? (csAny as any).modules.length : null;
+      const snapLessonCount = (() => {
+        if (typeof (csAny as any).lesson_count === "number") return (csAny as any).lesson_count;
+        if (Array.isArray((csAny as any).lessons)) return (csAny as any).lessons.length;
+        if (Array.isArray((csAny as any).modules)) {
+          let n = 0;
+          for (const mm of (csAny as any).modules) {
+            if (Array.isArray(mm?.lessons)) n += mm.lessons.length;
+            else if (typeof mm?.lesson_count === "number") n += mm.lesson_count;
+          }
+          return n > 0 ? n : null;
+        }
+        return null;
+      })();
+      if (snapModuleCount != null && snapModuleCount !== modulesExport.length) {
+        issues.push(`snapshot_module_count_drift: snapshot=${snapModuleCount} vs modules.json=${modulesExport.length}`);
+      }
+      if (snapLessonCount != null && snapLessonCount !== totalLessons) {
+        issues.push(`snapshot_lesson_count_drift: snapshot=${snapLessonCount} vs lessons_all=${totalLessons}`);
+      }
+
+      modulesSummary = {
+        total_modules: modulesExport.length,
+        total_lessons: totalLessons,
+        orphan_lessons: orphanLessons.length,
+        snapshot_module_count: snapModuleCount,
+        snapshot_lesson_count: snapLessonCount,
+        completeness_ok: issues.length === 0,
+        issues,
+      };
+
       zip.file("4_didaktik/modules.json", JSON.stringify({
         total_modules: modulesExport.length,
-        total_lessons: allLessons.length,
+        total_lessons: totalLessons,
+        orphan_lesson_count: orphanLessons.length,
+        snapshot_module_count: snapModuleCount,
+        snapshot_lesson_count: snapLessonCount,
+        completeness_ok: issues.length === 0,
+        completeness_issues: issues,
         modules: modulesExport,
+        orphan_lessons: orphanLessons.map((l) => ({
+          lesson_id: l.lesson_id,
+          title: l.title,
+          module_id: l.module_id,
+        })),
       }, null, 2));
+
+      // Hard abort on completeness mismatches (P10).
+      if (issues.length > 0) {
+        console.error("[export] Completeness check FAILED:", issues);
+        return json(
+          {
+            error: "completeness_check_failed",
+            message: "Export abgebrochen: modules.json stimmt nicht mit lessons_all.json / course_snapshot.json überein.",
+            modules_summary: modulesSummary,
+          },
+          422,
+        );
+      }
     }
 
     zip.file("4_didaktik/handbook.md", handbookMd);
