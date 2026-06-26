@@ -327,6 +327,35 @@ export default function BulkCourseExportPage() {
                     <Badge variant="outline">{pkg.status}</Badge>
                   </TableCell>
                   <TableCell>
+                    <div className="flex flex-col gap-1 text-xs">
+                      {pkg.status === "published" ? (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <ShieldCheck className="h-3 w-3" /> Live published
+                        </span>
+                      ) : (
+                        <>
+                          <span
+                            className={`flex items-center gap-1 ${pkg.integrity_passed ? "text-green-600" : "text-destructive"}`}
+                            title="Integrity-Gate: alle Pflicht-Komponenten vorhanden & valide"
+                          >
+                            {pkg.integrity_passed ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
+                            Integrity {pkg.integrity_passed ? "OK" : "fehlt"}
+                          </span>
+                          <span
+                            className={`flex items-center gap-1 ${pkg.council_approved ? "text-green-600" : "text-destructive"}`}
+                            title="Council-Approval: Quality-Council hat Freigabe erteilt"
+                          >
+                            {pkg.council_approved ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
+                            Council {pkg.council_approved ? "OK" : "fehlt"}
+                          </span>
+                          {pkg.status === "done" && (!pkg.integrity_passed || !pkg.council_approved) && (
+                            <span className="text-muted-foreground">→ blockiert Publish</span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     {!rs && <span className="text-xs text-muted-foreground">—</span>}
                     {rs?.status === "queued" && (
                       <span className="text-xs text-muted-foreground">In Warteschlange…</span>
@@ -348,22 +377,54 @@ export default function BulkCourseExportPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {rs?.status === "done" && rs.url ? (
-                      <Button asChild size="sm" variant="outline">
-                        <a href={rs.url} target="_blank" rel="noopener noreferrer">
-                          <Download className="h-3 w-3 mr-1" /> Erneut
-                        </a>
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={running || rs?.status === "running"}
-                        onClick={() => exportOne(pkg.package_id, pkg.course_id)}
-                      >
-                        <Download className="h-3 w-3 mr-1" /> Export
-                      </Button>
-                    )}
+                    <div className="flex justify-end gap-1 flex-wrap">
+                      {pkg.status === "published" && pkg.course_id && (
+                        <Button asChild size="sm" variant="outline" title="Im Web-Player ansehen">
+                          <a href={`/course/${pkg.course_id}`} target="_blank" rel="noopener noreferrer">
+                            <PlayCircle className="h-3 w-3 mr-1" /> Player
+                          </a>
+                        </Button>
+                      )}
+                      {pkg.status === "failed" && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => forceRebuild(pkg.package_id)}
+                          title="Status zurück auf 'queued' setzen und Pipeline neu starten"
+                        >
+                          <RefreshCw className="h-3 w-3 mr-1" /> Force Rebuild
+                        </Button>
+                      )}
+                      {rs?.status === "done" && rs.url ? (
+                        <Button asChild size="sm" variant="outline">
+                          <a href={rs.url} target="_blank" rel="noopener noreferrer">
+                            <Download className="h-3 w-3 mr-1" /> Erneut
+                          </a>
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={running || rs?.status === "running"}
+                          onClick={() => exportOne(pkg.package_id, pkg.course_id, false)}
+                          title="ZIP-Export ohne Player (Daten + Handbuch)"
+                        >
+                          <Download className="h-3 w-3 mr-1" /> Export
+                        </Button>
+                      )}
+                      {pkg.status === "published" && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={running || rs?.status === "running"}
+                          onClick={() => exportOne(pkg.package_id, pkg.course_id, true)}
+                          title="ZIP inkl. selbst-startendem Offline-HTML-Player"
+                        >
+                          <PlayCircle className="h-3 w-3 mr-1" /> + Player
+                          <ExternalLink className="h-3 w-3 ml-1 opacity-50" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );
