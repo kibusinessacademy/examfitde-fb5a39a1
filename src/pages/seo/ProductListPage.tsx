@@ -45,7 +45,7 @@ function ProductListPageComponent() {
                 Alles in einem Produkt: Prüfungssimulation, KI-Coach, mündliche Prüfung & Prüfungswissen.
               </p>
               <div className="flex items-end gap-3 mb-6">
-                <span className="text-4xl font-bold text-gradient">{PRODUCT_PRICES.pruefungstraining} €</span>
+                <span className="text-4xl font-bold text-gradient">{PRODUCT_PRICE_DISPLAY}</span>
                 <span className="text-muted-foreground mb-1">einmalig · 12 Monate</span>
               </div>
               <div className="flex flex-wrap gap-3">
