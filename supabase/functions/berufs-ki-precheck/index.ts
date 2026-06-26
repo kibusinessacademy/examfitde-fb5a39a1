@@ -147,7 +147,7 @@ Antworte NUR via Tool-Call.`;
     return j({ ok: true, precheck: parsed, status: newStatus });
   } catch (e) {
     console.error(e);
-    return j({ error: "server_error", message: (e as Error).message }, 500);
+    return j({ error: "internal_error", code: "ERR_SERVER" }, 500);
   }
 });
 
