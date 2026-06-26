@@ -287,6 +287,7 @@ export default function LessonContent({
     return (
       <div className="space-y-4">
         {i18nBadge}
+        {visualBlockNode}
         <LessonSections content={localizedContent} />
         {/* Answer check for Einstieg/Anwenden steps */}
         {answerKey && lessonId && (
