@@ -51,11 +51,11 @@ interface Counts {
   miniCheckSets: number;
 }
 
-function useCoursePackageContents(curriculumId: string, courseId: string) {
+function useCoursePackageContents(curriculumId: string, courseId: string, hasExternalLessonCount: boolean) {
   return useQuery({
-    queryKey: ["course-package-contents", curriculumId, courseId],
-    queryFn: async (): Promise<{ pkg: PackageInfo; counts: Counts }> => {
-      const [pkgRes, handbookRes, oralRes, examRes, miniRes] = await Promise.all([
+    queryKey: ["course-package-contents", curriculumId, courseId, hasExternalLessonCount],
+    queryFn: async (): Promise<{ pkg: PackageInfo; counts: Counts; lessonCount: number }> => {
+      const [pkgRes, handbookRes, oralRes, examRes, miniRes, lessonRes] = await Promise.all([
         supabase
           .from("course_packages")
           .select("track, feature_flags")
@@ -72,10 +72,6 @@ function useCoursePackageContents(curriculumId: string, courseId: string) {
           .from("oral_exam_blueprints")
           .select("id", { count: "exact", head: true })
           .eq("curriculum_id", curriculumId),
-        // Schriftliche Pool-Größe — wir zählen über learning_fields → competencies → exam_questions.
-        // Ein direkter Count über exam_questions setzt eine curriculum_id-Spalte voraus; sichere Variante
-        // ist daher die Aggregation über die existierende Relation (siehe useCurriculumProductStats).
-        // `as any` ist hier nötig, weil der verschachtelte select-Generic-Tree die TS-Inferenz sprengt.
         (supabase.from("learning_fields") as any)
           .select("id, competencies(id, exam_questions(id))")
           .eq("curriculum_id", curriculumId),
@@ -83,6 +79,12 @@ function useCoursePackageContents(curriculumId: string, courseId: string) {
           .from("minicheck_sets")
           .select("id", { count: "exact", head: true })
           .eq("course_id", courseId),
+        hasExternalLessonCount
+          ? Promise.resolve({ count: 0 })
+          : supabase
+              .from("lessons")
+              .select("id", { count: "exact", head: true })
+              .eq("course_id", courseId),
       ]);
 
       const track = ((pkgRes.data?.track as ProductTrack | undefined) ?? "AUSBILDUNG_VOLL");
@@ -107,6 +109,7 @@ function useCoursePackageContents(curriculumId: string, courseId: string) {
           examQuestions,
           miniCheckSets: miniRes.count ?? 0,
         },
+        lessonCount: (lessonRes as { count: number | null }).count ?? 0,
       };
     },
     enabled: !!curriculumId && !!courseId,
