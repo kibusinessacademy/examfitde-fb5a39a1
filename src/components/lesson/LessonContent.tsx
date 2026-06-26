@@ -320,17 +320,20 @@ export default function LessonContent({
     }
     
     return (
-      <MiniCheckPlayer
-        content={source}
-        lessonId={lessonId}
-        certificationId={certificationId}
-        competenceId={competenceId}
-        curriculumId={curriculumId}
-        competencyCode={competencyCode}
-        competencyTitle={competencyTitle}
-        stepKey={stepKey}
-        onCompleted={onMiniCheckCompleted}
-      />
+      <div className="space-y-4">
+        {visualBlockNode}
+        <MiniCheckPlayer
+          content={source}
+          lessonId={lessonId}
+          certificationId={certificationId}
+          competenceId={competenceId}
+          curriculumId={curriculumId}
+          competencyCode={competencyCode}
+          competencyTitle={competencyTitle}
+          stepKey={stepKey}
+          onCompleted={onMiniCheckCompleted}
+        />
+      </div>
     );
   }
 
