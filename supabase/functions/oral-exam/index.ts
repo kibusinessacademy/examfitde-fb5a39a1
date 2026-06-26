@@ -892,6 +892,8 @@ async function finishSession(sbUser: any, sbAdmin: any, userId: string, params: 
         begriffssicherheit: avgBegrif * 100,
         praxisbezug: avgPraxis * 100,
       },
+      topic_scores: topicScores,
     },
+
   };
 }
