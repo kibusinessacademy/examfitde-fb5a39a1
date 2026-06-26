@@ -877,6 +877,11 @@ export default function OralExamTrainer() {
                 Prüferfrage
               </CardTitle>
               <div className="flex gap-2 flex-wrap items-center">
+                {(currentQuestion as any).topic_label && (
+                  <Badge variant="outline" className="text-xs" data-testid="oral-question-topic">
+                    Thema: {(currentQuestion as any).topic_label}
+                  </Badge>
+                )}
                 <Badge variant={phase === 'question' ? 'secondary' : 'default'}>
                   {phase === 'question' ? 'Frage wird vorgelesen...' : 'Bereit zum Antworten'}
                 </Badge>
@@ -885,6 +890,7 @@ export default function OralExamTrainer() {
                     Voice: Browser
                   </Badge>
                 )}
+
                 <Button
                   variant="outline"
                   size="sm"
