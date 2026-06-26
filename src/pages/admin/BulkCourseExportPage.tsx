@@ -105,7 +105,7 @@ export default function BulkCourseExportPage() {
   }
 
   async function exportOne(packageId: string, courseId: string | null, includePlayer = false) {
-    setRowState((s) => ({ ...s, [packageId]: { status: "running" } }));
+    setRowState((s) => ({ ...s, [packageId]: { status: "running", variant: includePlayer ? "with-player" : "zip" } }));
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("export-course-package", {
@@ -113,7 +113,11 @@ export default function BulkCourseExportPage() {
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
       });
       if (res.error) throw res.error;
-      const data = res.data as { downloadUrl?: string };
+      const data = res.data as {
+        downloadUrl?: string;
+        playerUrl?: string | null;
+        player_validation?: PlayerValidation;
+      };
       if (!data?.downloadUrl) throw new Error("Keine Download-URL erhalten");
       // trigger browser download
       const a = document.createElement("a");
@@ -123,7 +127,21 @@ export default function BulkCourseExportPage() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setRowState((s) => ({ ...s, [packageId]: { status: "done", url: data.downloadUrl } }));
+      setRowState((s) => ({
+        ...s,
+        [packageId]: {
+          status: "done",
+          url: data.downloadUrl,
+          playerUrl: data.playerUrl ?? null,
+          playerValidation: data.player_validation,
+          variant: includePlayer ? "with-player" : "zip",
+        },
+      }));
+      if (includePlayer && data.player_validation && !data.player_validation.complete) {
+        toast.error(`Player-Validierung fehlgeschlagen: ${data.player_validation.reason}`);
+      } else if (includePlayer && data.playerUrl) {
+        toast.success("Player-Hosting-URL bereit (7 Tage gültig)");
+      }
     } catch (e: any) {
       setRowState((s) => ({
         ...s,
@@ -131,6 +149,7 @@ export default function BulkCourseExportPage() {
       }));
     }
   }
+
 
   async function runBulk() {
     if (selectedIds.length === 0) {
