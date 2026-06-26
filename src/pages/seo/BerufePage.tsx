@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, GraduationCap, Clock, Award, Search, BookOpen, BadgeCheck, Briefcase, Filter, Bell, ShoppingCart } from 'lucide-react';
+import { ArrowRight, GraduationCap, Clock, Award, Search, BookOpen, BadgeCheck, Briefcase, Filter, Bell, ShoppingCart, Sparkles, TrendingUp, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,8 @@ import { generateOrganizationSchema, generateBreadcrumbSchema, SITE_URL, getBeru
 import { useState, useMemo, useCallback } from 'react';
 import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
 import publishedBerufeFallback from '@/data/publishedBerufeFallback.json';
+import { getBerufImage } from '@/lib/berufImage';
+
 
 /**
  * Static fallback catalog — bundled at build time so /berufe always renders
