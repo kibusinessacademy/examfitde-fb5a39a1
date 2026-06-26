@@ -111,7 +111,8 @@ export async function startProductCheckout(
     // statt rotem Toast → Re-Auth-Redirect.
     const msg = (error.message || "").toLowerCase();
     if (msg.includes("not authenticated") || msg.includes("401") || msg.includes("non-2xx")) {
-      redirectToAuth();
+      const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+      window.location.href = `/auth?next=${next}&intent=checkout`;
       return { ok: false, error: "Bitte melde dich erneut an, um den Kauf abzuschließen." };
     }
     return { ok: false, error: error.message };
