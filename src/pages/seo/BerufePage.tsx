@@ -400,6 +400,7 @@ export default function BerufePage() {
                     const fallbackImg = getBerufImage(entry.title, entry.kammer);
                     const realImg = imageBySlug.get(entry.publishedSlug || entry.slug);
                     const img = realImg || fallbackImg;
+                    if (entry.isPublished) {
                       return (
                         <Link
                           key={entry.berufId}
