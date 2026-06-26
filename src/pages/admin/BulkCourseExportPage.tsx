@@ -160,7 +160,7 @@ export default function BulkCourseExportPage() {
       return;
     }
     toast.success(`Paket neu eingereiht (vorher: ${data?.previous_status || "?"})`);
-    queueClient && queueClient.invalidateQueries({ queryKey: ["admin-visible-course-packages"] });
+    queryClient.invalidateQueries({ queryKey: ["admin-visible-course-packages"] });
   }
 
   const doneCount = Object.values(rowState).filter((r) => r.status === "done").length;
