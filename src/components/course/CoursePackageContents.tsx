@@ -257,11 +257,18 @@ export function CoursePackageContents({
   return (
     <section aria-labelledby="package-contents-heading" className="mb-8">
       <div className="flex items-baseline justify-between mb-3">
-        <h2 id="package-contents-heading" className="text-xl font-display font-semibold">
-          Im Kurspaket enthalten
-        </h2>
+        <div>
+          {eyebrow && (
+            <p className="text-xs font-semibold uppercase tracking-wider text-petrol-600 dark:text-mint-400 mb-1">
+              {eyebrow}
+            </p>
+          )}
+          <h2 id="package-contents-heading" className="text-xl font-display font-semibold">
+            {headingOverride ?? "Im Kurspaket enthalten"}
+          </h2>
+        </div>
         <span className="text-xs text-muted-foreground">
-          {cards.length} Komponenten
+          {cards.length} {cards.length === 1 ? "Modul" : "Module"}
         </span>
       </div>
 
