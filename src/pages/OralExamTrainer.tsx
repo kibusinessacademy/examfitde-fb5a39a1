@@ -713,7 +713,17 @@ export default function OralExamTrainer() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <VoiceDiagnostics locale={speechLocale} />
+            <VoiceDiagnostics
+              locale={speechLocale}
+              onResult={(r) => {
+                // Auto-Fallback: bei warn/fail Speech-UI ausblenden →
+                // alle `speechSupported && …`-Gates fallen automatisch auf Texteingabe zurück.
+                const apiAvailable =
+                  typeof window !== 'undefined' &&
+                  ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+                setSpeechSupported(apiAvailable && r.overall === 'ok');
+              }}
+            />
             <div>
               <label className="text-sm font-medium mb-2 block">
                 {isAcademic ? 'Studiengang / Curriculum' : 'Ausbildungsberuf / Curriculum'}

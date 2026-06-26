@@ -6,12 +6,22 @@
  * Mic-Permission, ein kurzes Test-Recording (auto-stop) und
  * eine TTS-Testphrase. Speichert keine Audio-Daten.
  *
+ * Auto-Re-Check bei:
+ *  - Mount
+ *  - onvoiceschanged (Browser lädt TTS-Stimmen nach)
+ *  - visibilitychange (Tab-Wechsel zurück)
+ *  - PermissionStatus.onchange (Mic-Berechtigung verändert)
+ *
+ * Liefert Ergebnis per onResult-Callback nach oben, damit das
+ * Parent-UI bei „warn"/„fail" automatisch auf Texteingabe-Fallback
+ * umschalten und Speech-UI deaktivieren kann.
+ *
  * Kein externer Voice-Provider (BRIDGE: bleibt browser-native).
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Activity, CheckCircle2, AlertTriangle, XCircle, Loader2 } from 'lucide-react';
+import { Activity, CheckCircle2, AlertTriangle, XCircle, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Status = 'ok' | 'warn' | 'fail';
@@ -23,7 +33,7 @@ interface Check {
   detail: string;
 }
 
-interface DiagnosticsResult {
+export interface DiagnosticsResult {
   overall: Status;
   checks: Check[];
   ranAt: string;
@@ -47,11 +57,27 @@ function StatusIcon({ status }: { status: Status }) {
   return <XCircle className="h-4 w-4" />;
 }
 
-export function VoiceDiagnostics({ locale = 'de-DE' }: { locale?: string }) {
+export interface VoiceDiagnosticsProps {
+  locale?: string;
+  /** Wird nach jedem Lauf aufgerufen — Parent kann Speech-UI darauf basierend disablen. */
+  onResult?: (result: DiagnosticsResult) => void;
+  /** TTS-Testphrase nur beim ersten manuellen Lauf abspielen, nicht bei jedem Auto-Re-Check. */
+  speakTestPhrase?: boolean;
+}
+
+export function VoiceDiagnostics({
+  locale = 'de-DE',
+  onResult,
+  speakTestPhrase = true,
+}: VoiceDiagnosticsProps) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<DiagnosticsResult | null>(null);
+  const hasRunOnceRef = useRef(false);
+  const onResultRef = useRef(onResult);
+  useEffect(() => { onResultRef.current = onResult; }, [onResult]);
 
-  const run = useCallback(async () => {
+  const run = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     setRunning(true);
     const checks: Check[] = [];
 
@@ -84,12 +110,18 @@ export function VoiceDiagnostics({ locale = 'de-DE' }: { locale?: string }) {
     if (hasTTS) {
       voicesCount = window.speechSynthesis.getVoices().length;
       if (voicesCount === 0) {
-        // Voices laden manchmal asynchron — kurz warten.
         await new Promise<void>((resolve) => {
           const t = setTimeout(resolve, 800);
-          window.speechSynthesis.onvoiceschanged = () => {
+          const prev = window.speechSynthesis.onvoiceschanged;
+          window.speechSynthesis.onvoiceschanged = (ev) => {
             clearTimeout(t);
+            // restore listener so unseren globalen Watcher nicht killen
+            window.speechSynthesis.onvoiceschanged = prev;
             resolve();
+            // re-trigger prev wenn vorhanden
+            if (typeof prev === 'function') {
+              try { (prev as (e: Event) => void).call(window.speechSynthesis, ev); } catch { /* noop */ }
+            }
           };
         });
         voicesCount = window.speechSynthesis.getVoices().length;
@@ -136,9 +168,15 @@ export function VoiceDiagnostics({ locale = 'de-DE' }: { locale?: string }) {
     });
 
     // 5) Test-Recording (kurz, kein Speichern)
+    //    Bei silent-Re-Check überspringen, damit Auto-Refresh nicht den Mic-Prompt erneut triggert.
     let recOk: Status = 'fail';
     let recDetail = 'getUserMedia nicht verfügbar.';
-    if (navigator.mediaDevices?.getUserMedia) {
+    if (silent && permState !== 'granted') {
+      recOk = permState === 'denied' ? 'fail' : 'warn';
+      recDetail = silent
+        ? 'Übersprungen (Auto-Re-Check) — manueller Lauf testet Mikrofon erneut.'
+        : recDetail;
+    } else if (navigator.mediaDevices?.getUserMedia) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const tracks = stream.getAudioTracks();
@@ -146,7 +184,6 @@ export function VoiceDiagnostics({ locale = 'de-DE' }: { locale?: string }) {
           ? `Mikrofon "${tracks[0].label || 'default'}" erreichbar.`
           : 'Stream ohne Audio-Track.';
         recOk = tracks.length > 0 ? 'ok' : 'warn';
-        // Sofort wieder freigeben — nichts gespeichert.
         tracks.forEach((t) => t.stop());
       } catch (err) {
         const name = (err as DOMException)?.name ?? 'Error';
@@ -169,22 +206,27 @@ export function VoiceDiagnostics({ locale = 'de-DE' }: { locale?: string }) {
       detail: recDetail,
     });
 
-    // 6) TTS-Testphrase (technisch ausgelöst, kein Warten auf Audio)
+    // 6) TTS-Testphrase (technisch ausgelöst, kein Warten auf Audio).
+    //    Bei silent-Re-Check NICHT erneut sprechen, sonst quatscht der Browser ungefragt.
     let ttsOk: Status = 'fail';
     let ttsDetail = 'Keine TTS-API.';
     if (hasTTS) {
       try {
-        const u = new SpeechSynthesisUtterance('Voice-Diagnose erfolgreich.');
-        u.lang = locale;
-        u.volume = 1;
-        u.rate = 1;
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(u);
+        if (!silent && speakTestPhrase) {
+          const u = new SpeechSynthesisUtterance('Voice-Diagnose erfolgreich.');
+          u.lang = locale;
+          u.volume = 1;
+          u.rate = 1;
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(u);
+        }
         ttsOk = voicesCount > 0 ? 'ok' : 'warn';
         ttsDetail =
           voicesCount > 0
-            ? 'TTS-Phrase wurde ausgelöst (jetzt hörbar, falls Lautsprecher aktiv).'
-            : 'TTS-Aufruf akzeptiert, aber keine Stimme geladen — ggf. stumm.';
+            ? silent
+              ? 'TTS einsatzbereit (Auto-Re-Check, ohne Test-Ton).'
+              : 'TTS-Phrase wurde ausgelöst (jetzt hörbar, falls Lautsprecher aktiv).'
+            : 'TTS-API ohne geladene Stimme — ggf. stumm.';
       } catch (err) {
         ttsDetail = `TTS-Fehler: ${(err as Error).message}`;
         ttsOk = 'fail';
@@ -197,7 +239,6 @@ export function VoiceDiagnostics({ locale = 'de-DE' }: { locale?: string }) {
       detail: ttsDetail,
     });
 
-    // Gesamt-Ampel: 1× fail → rot, 1× warn → gelb, sonst grün.
     const overall: Status = checks.some((c) => c.status === 'fail')
       ? 'fail'
       : checks.some((c) => c.status === 'warn')
@@ -211,10 +252,57 @@ export function VoiceDiagnostics({ locale = 'de-DE' }: { locale?: string }) {
     };
     setResult(out);
     setRunning(false);
-    // Diagnose-Result auch in der Konsole für Support-Zwecke.
+    hasRunOnceRef.current = true;
     // eslint-disable-next-line no-console
-    console.info('[VoiceDiagnostics]', out);
-  }, [locale]);
+    console.info('[VoiceDiagnostics]', { silent, ...out });
+    onResultRef.current?.(out);
+  }, [locale, speakTestPhrase]);
+
+  // Auto-Run bei Mount (silent — kein Mic-Prompt, kein Test-Ton).
+  useEffect(() => {
+    void run({ silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-Re-Check bei Browser-Voice-Änderung.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const handler = () => { void run({ silent: true }); };
+    window.speechSynthesis.addEventListener?.('voiceschanged', handler);
+    return () => {
+      window.speechSynthesis.removeEventListener?.('voiceschanged', handler);
+    };
+  }, [run]);
+
+  // Auto-Re-Check bei Tab-Wechsel zurück.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && hasRunOnceRef.current) {
+        void run({ silent: true });
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [run]);
+
+  // Auto-Re-Check bei Mic-Permission-Wechsel.
+  useEffect(() => {
+    const nav = navigator as Navigator & {
+      permissions?: { query: (d: { name: PermissionName }) => Promise<PermissionStatus> };
+    };
+    if (!nav.permissions?.query) return;
+    let status: PermissionStatus | null = null;
+    nav.permissions
+      .query({ name: 'microphone' as PermissionName })
+      .then((s) => {
+        status = s;
+        s.onchange = () => { void run({ silent: true }); };
+      })
+      .catch(() => { /* noop */ });
+    return () => { if (status) status.onchange = null; };
+  }, [run]);
+
+  const isInitial = !result;
 
   return (
     <div className="rounded-lg border bg-card/50 p-4 space-y-3" data-testid="voice-diagnostics">
@@ -235,17 +323,22 @@ export function VoiceDiagnostics({ locale = 'de-DE' }: { locale?: string }) {
         <Button
           size="sm"
           variant="outline"
-          onClick={run}
+          onClick={() => run({ silent: false })}
           disabled={running}
-          data-testid="voice-diagnostics-start"
+          data-testid={isInitial ? 'voice-diagnostics-start' : 'voice-diagnostics-rerun'}
         >
           {running ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               Prüfe …
             </>
-          ) : (
+          ) : isInitial ? (
             'Voice-Diagnose starten'
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Erneut testen
+            </>
           )}
         </Button>
       </div>
@@ -271,9 +364,13 @@ export function VoiceDiagnostics({ locale = 'de-DE' }: { locale?: string }) {
       )}
 
       {result && result.overall !== 'ok' && (
-        <p className="text-xs text-muted-foreground">
-          Hinweis: <strong>Texteingabe ist immer verfügbar</strong> — die Prüfung
-          lässt sich auch ohne Mikrofon/Sprachausgabe vollständig durchführen.
+        <p
+          className="text-xs text-muted-foreground"
+          data-testid="voice-diagnostics-fallback-hint"
+        >
+          Hinweis: <strong>Texteingabe ist aktiv</strong> — Sprachaufnahme/-ausgabe
+          wurde automatisch deaktiviert, weil mindestens ein Check fehlschlug. Du
+          kannst die Prüfung vollständig per Tastatur durchführen.
         </p>
       )}
     </div>
