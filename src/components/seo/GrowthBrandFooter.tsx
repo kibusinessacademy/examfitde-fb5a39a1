@@ -127,7 +127,7 @@ export function GrowthBrandFooter({
           to={ctaUrl}
           className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         >
-          Prüfungsreife kostenlos testen
+          Prüfungsreife-Check starten
         </Link>
         <Link
           to={`/shop?utm_source=${utmSource}&utm_medium=growth_page`}
