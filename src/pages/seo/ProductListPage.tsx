@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useBerufPages } from '@/hooks/useSEOPages';
-import { SITE_URL, PRODUCT_PRICES, PRODUCT_PRICE_DISPLAY } from '@/lib/seo';
+import { SITE_URL, PRODUCT_PRICE_DISPLAY } from '@/lib/seo';
 import { PRICING } from '@/config/pricing';
 
 /**
