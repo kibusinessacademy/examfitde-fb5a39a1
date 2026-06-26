@@ -282,8 +282,9 @@ export default function BulkCourseExportPage() {
               <TableHead>Titel</TableHead>
               <TableHead>Beruf</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-56">Gates</TableHead>
               <TableHead className="w-44">Export</TableHead>
-              <TableHead className="w-32 text-right">Aktion</TableHead>
+              <TableHead className="w-72 text-right">Aktion</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
