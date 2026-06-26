@@ -89,17 +89,18 @@ export default function BerufOSHub() {
           )}
           <span className="berufos-chip">
             <span className="dot" />
-            IHK-Prüfung · Adaptive Vorbereitung · KI-Tutor mit Quellen
+            Prüfungsfragen · Adaptive Vorbereitung · KI-Tutor · Mündliche Prüfung
           </span>
 
-          {/* P0.1 Hero: 5-Sekunden-Erklärung der IHK-Prüfung + primärer CTA „Prüfung starten". */}
+          {/* P0.1 Hero: 5-Sekunden-Erklärung der Prüfung + primärer CTA „Prüfung starten". */}
           <h1 className="mt-6 text-4xl md:text-6xl lg:text-7xl font-semibold tracking-tight leading-[1.1] max-w-4xl">
-            <span className="berufos-gradient-text inline-block pb-1">Bestehe deine IHK-Prüfung</span>
+            <span className="berufos-gradient-text inline-block pb-1">Bestehe deine Prüfung</span>
             <span className="block">— sicher und stressfrei.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg berufos-text-dim leading-relaxed">
-            ExamFit bereitet dich in 4 Wochen auf deine IHK-Abschlussprüfung vor: adaptiver Lernplan,
-            KI-Tutor mit Quellen, prüfungsnahe Simulationen und mündliches Fachgespräch.
+            ExamFit bereitet dich in 4 Wochen auf deine Abschlussprüfung vor: auf dich abgestimmter
+            Lernplan, KI-Tutor mit Quellen, prüfungsnahe Simulationen, Prüfungsfragen und mündliches
+            Fachgespräch.
             <strong className="text-foreground"> Einmalig 24,90 €</strong> · 12 Monate Zugang · Kein Abo.
           </p>
           <div className="mt-10 flex flex-wrap gap-3">
