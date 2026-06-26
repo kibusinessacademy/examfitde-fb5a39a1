@@ -55,7 +55,7 @@ function useCoursePackageContents(curriculumId: string, courseId: string, hasExt
   return useQuery({
     queryKey: ["course-package-contents", curriculumId, courseId, hasExternalLessonCount],
     queryFn: async (): Promise<{ pkg: PackageInfo; counts: Counts; lessonCount: number }> => {
-      const [pkgRes, handbookRes, oralRes, examRes, miniRes] = await Promise.all([
+      const [pkgRes, countsRes] = await Promise.all([
         supabase
           .from("course_packages")
           .select("track, feature_flags")
@@ -63,26 +63,15 @@ function useCoursePackageContents(curriculumId: string, courseId: string, hasExt
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
-        supabase
-          .from("handbook_chapters")
-          .select("id", { count: "exact", head: true })
-          .eq("curriculum_id", curriculumId)
-          .eq("is_published", true),
-        supabase
-          .from("oral_exam_blueprints")
-          .select("id", { count: "exact", head: true })
-          .eq("curriculum_id", curriculumId),
-        (supabase.from("learning_fields") as any)
-          .select("id, competencies(id, exam_questions(id))")
-          .eq("curriculum_id", curriculumId),
-        supabase
-          .from("minicheck_sets")
-          .select("id", { count: "exact", head: true })
-          .eq("course_id", courseId),
+        // SECURITY DEFINER RPC: liefert öffentliche Aggregat-Counts, ohne
+        // sensitive Tabellen (oral_exam_blueprints, minicheck_sets) zu öffnen.
+        (supabase.rpc as any)("public_course_package_counts", {
+          p_curriculum_id: curriculumId,
+          p_course_id: courseId,
+        }),
       ]);
 
       // Lesson-Count via modules → lessons (lessons hat keine course_id-Spalte).
-      // Wird nur ausgeführt, wenn die UI keinen externen Count übergibt.
       let lessonCount = 0;
       if (!hasExternalLessonCount) {
         const modulesRes = await supabase
@@ -106,20 +95,15 @@ function useCoursePackageContents(curriculumId: string, courseId: string, hasExt
         ...((pkgRes.data?.feature_flags as Partial<FeatureFlags> | null) ?? {}),
       };
 
-      let examQuestions = 0;
-      for (const lf of (examRes.data ?? []) as Array<{ competencies?: Array<{ exam_questions?: Array<{ id: string }> }> }>) {
-        for (const c of lf.competencies ?? []) {
-          examQuestions += (c.exam_questions ?? []).length;
-        }
-      }
+      const raw = (countsRes.data ?? {}) as Record<string, number | null>;
 
       return {
         pkg: { track, flags },
         counts: {
-          handbookChapters: handbookRes.count ?? 0,
-          oralBlueprints: oralRes.count ?? 0,
-          examQuestions,
-          miniCheckSets: miniRes.count ?? 0,
+          handbookChapters: Number(raw.handbook_chapters ?? 0),
+          oralBlueprints: Number(raw.oral_blueprints ?? 0),
+          examQuestions: Number(raw.exam_questions ?? 0),
+          miniCheckSets: Number(raw.minicheck_sets ?? 0),
         },
         lessonCount,
       };
