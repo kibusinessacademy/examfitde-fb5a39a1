@@ -285,16 +285,17 @@ export default function BerufDetailPage() {
             beruf={title}
             kammer={kammerLabel}
             description={course.description}
+            price={PRODUCT_PRICES.bundle}
             bundleHref={bundleHref}
             quizHref={quizHref}
-            onPrimaryCta={() => trackCta('hero_quiz')}
-            onSecondaryCta={() => trackCta('hero_bundle')}
+            onPrimaryCta={() => trackCta('hero_bundle')}
+            onSecondaryCta={() => trackCta('hero_quiz')}
           />
         </div>
 
-        <BerufReadinessBlock beruf={title} />
-
         <BerufModulesBlock beruf={title} kammer={kammerLabel} />
+
+        <BerufReadinessBlock beruf={title} />
 
         <BerufPersonaBranches
           beruf={title}
