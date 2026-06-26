@@ -300,7 +300,7 @@ export default function FrageDesTagsPage() {
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
                 <Link to="/pruefungscheck">
                   <Button className="gradient-primary text-primary-foreground rounded-xl group w-full sm:w-auto">
-                    Prüfungsreife kostenlos testen
+                    Prüfungsreife-Check starten
                     <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </Link>
