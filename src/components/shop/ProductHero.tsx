@@ -47,7 +47,7 @@ export function ProductHero({ title, chamberType, catalogType, onBuyClick, isChe
             onClick={onBuyClick}
             disabled={isCheckoutLoading}
           >
-            {isCheckoutLoading ? 'Wird geladen...' : `Jetzt Prüfungstraining starten – ${priceDisplay}`}
+            {isCheckoutLoading ? 'Wird geladen...' : `Jetzt kaufen – ${priceDisplay}`}
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
           <Button
