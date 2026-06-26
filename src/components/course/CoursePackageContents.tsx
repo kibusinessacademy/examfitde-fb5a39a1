@@ -55,7 +55,7 @@ function useCoursePackageContents(curriculumId: string, courseId: string, hasExt
   return useQuery({
     queryKey: ["course-package-contents", curriculumId, courseId, hasExternalLessonCount],
     queryFn: async (): Promise<{ pkg: PackageInfo; counts: Counts; lessonCount: number }> => {
-      const [pkgRes, handbookRes, oralRes, examRes, miniRes, lessonRes] = await Promise.all([
+      const [pkgRes, handbookRes, oralRes, examRes, miniRes] = await Promise.all([
         supabase
           .from("course_packages")
           .select("track, feature_flags")
@@ -79,13 +79,25 @@ function useCoursePackageContents(curriculumId: string, courseId: string, hasExt
           .from("minicheck_sets")
           .select("id", { count: "exact", head: true })
           .eq("course_id", courseId),
-        hasExternalLessonCount
-          ? Promise.resolve({ count: 0 })
-          : supabase
-              .from("lessons")
-              .select("id", { count: "exact", head: true })
-              .eq("course_id", courseId),
       ]);
+
+      // Lesson-Count via modules → lessons (lessons hat keine course_id-Spalte).
+      // Wird nur ausgeführt, wenn die UI keinen externen Count übergibt.
+      let lessonCount = 0;
+      if (!hasExternalLessonCount) {
+        const modulesRes = await supabase
+          .from("modules")
+          .select("id")
+          .eq("course_id", courseId);
+        const moduleIds = (modulesRes.data ?? []).map((m: { id: string }) => m.id);
+        if (moduleIds.length > 0) {
+          const lessonsRes = await supabase
+            .from("lessons")
+            .select("id", { count: "exact", head: true })
+            .in("module_id", moduleIds);
+          lessonCount = lessonsRes.count ?? 0;
+        }
+      }
 
       const track = ((pkgRes.data?.track as ProductTrack | undefined) ?? "AUSBILDUNG_VOLL");
       const defaults = DEFAULT_FLAGS[track] ?? DEFAULT_FLAGS.AUSBILDUNG_VOLL;
@@ -109,7 +121,7 @@ function useCoursePackageContents(curriculumId: string, courseId: string, hasExt
           examQuestions,
           miniCheckSets: miniRes.count ?? 0,
         },
-        lessonCount: (lessonRes as { count: number | null }).count ?? 0,
+        lessonCount,
       };
     },
     enabled: !!curriculumId && !!courseId,
@@ -127,8 +139,20 @@ type ContentCard = {
   accent: string;
 };
 
-export function CoursePackageContents({ curriculumId, courseId, lessonCount, moduleCount }: Props) {
-  const { data, isLoading } = useCoursePackageContents(curriculumId, courseId);
+export function CoursePackageContents({
+  curriculumId,
+  courseId,
+  lessonCount: lessonCountProp,
+  moduleCount,
+  headingOverride,
+  eyebrow,
+}: Props) {
+  const { data, isLoading } = useCoursePackageContents(
+    curriculumId,
+    courseId,
+    typeof lessonCountProp === "number",
+  );
+  const lessonCount = typeof lessonCountProp === "number" ? lessonCountProp : (data?.lessonCount ?? 0);
 
   const cards = useMemo<ContentCard[]>(() => {
     if (!data) return [];
