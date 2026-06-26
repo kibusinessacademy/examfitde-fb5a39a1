@@ -611,9 +611,126 @@ Deno.serve(async (req) => {
       } else if (meta.checkout_source === 'create-payment') {
         // ── B2C/B2B Product-Checkout fulfillment (SSOT via orders → trigger) ──
         try {
-          const userId = meta.user_id;
+          let userId = meta.user_id as string | undefined;
           const rawProductId = meta.product_id;
           const flow = meta.flow; // 'paywall_variant' | 'pricing_plan'
+
+          // ── GUEST CHECKOUT account-claim ──
+          // If session originated from create-guest-checkout (is_guest='true'),
+          // no userId is present yet. We resolve / create an auth user for the
+          // Stripe customer e-mail and send a recovery link so the buyer can
+          // claim the account by setting a password. Audit + idempotent.
+          if (!userId && meta.is_guest === 'true') {
+            const guestEmail = (session.customer_details?.email
+              || session.customer_email
+              || '').toLowerCase().trim();
+            if (!guestEmail) {
+              logStep("SKIP guest fulfillment (no customer email on session)", { sessionId: session.id });
+            } else {
+              try {
+                // Try to find an existing auth user by email.
+                let foundUserId: string | null = null;
+                const { data: list } = await adminClient.auth.admin.listUsers({
+                  page: 1, perPage: 1, // listUsers doesn't filter by email server-side; fallback below.
+                } as any);
+                // Fallback: search the local profiles table for the email mapping if listUsers
+                // doesn't return the right user. For Supabase >=2.45 we can also try getUserByEmail.
+                const adminAny = (adminClient as any).auth.admin;
+                if (typeof adminAny.getUserByEmail === 'function') {
+                  const { data: u } = await adminAny.getUserByEmail(guestEmail);
+                  if (u?.user?.id) foundUserId = u.user.id;
+                }
+                if (!foundUserId && list?.users) {
+                  // Heuristic match in case getUserByEmail is unavailable.
+                  const hit = list.users.find((u: any) => (u.email || '').toLowerCase() === guestEmail);
+                  if (hit) foundUserId = hit.id;
+                }
+
+                let isNewUser = false;
+                if (!foundUserId) {
+                  const created = await adminClient.auth.admin.createUser({
+                    email: guestEmail,
+                    email_confirm: true,
+                    user_metadata: {
+                      created_via: 'guest_checkout',
+                      stripe_session_id: session.id,
+                      full_name: session.customer_details?.name ?? null,
+                    },
+                  });
+                  if (created.error) {
+                    // Race: another webhook tick created the user → re-lookup.
+                    if (typeof adminAny.getUserByEmail === 'function') {
+                      const { data: u } = await adminAny.getUserByEmail(guestEmail);
+                      foundUserId = u?.user?.id ?? null;
+                    }
+                    if (!foundUserId) {
+                      logStep("ERROR: guest auth.admin.createUser failed", { error: created.error.message });
+                    }
+                  } else {
+                    foundUserId = created.data.user?.id ?? null;
+                    isNewUser = true;
+                  }
+                }
+
+                if (foundUserId) {
+                  userId = foundUserId;
+
+                  // Send password-setup link (idempotent – stripe will re-deliver
+                  // the webhook only if we 5xx, which we don't on link failures).
+                  if (isNewUser) {
+                    try {
+                      const appUrl = Deno.env.get("APP_URL") || "https://berufos.com";
+                      const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
+                        type: 'recovery',
+                        email: guestEmail,
+                        options: { redirectTo: `${appUrl}/auth/reset-password?guest=1&session_id=${session.id}` },
+                      } as any);
+                      if (linkErr) {
+                        logStep("WARN: guest recovery link generation failed", { error: linkErr.message });
+                      } else {
+                        // Persist link for account-claim email (sequence-worker holt sich pending Items).
+                        const actionLink = (linkData as any)?.properties?.action_link
+                          ?? (linkData as any)?.action_link ?? null;
+                        await adminClient.from('email_delivery_queue').insert({
+                          recipient_email: guestEmail,
+                          sequence_type: 'guest_account_claim_v1',
+                          step_number: 1,
+                          scheduled_for: new Date().toISOString(),
+                          status: 'pending',
+                          idempotency_key: `guest_claim:${session.id}`,
+                          personalization: {
+                            action_link: actionLink,
+                            full_name: session.customer_details?.name ?? null,
+                            stripe_session_id: session.id,
+                          },
+                        }).then(({ error }) => {
+                          if (error) logStep("WARN: email_delivery_queue insert failed", { error: error.message });
+                        });
+                      }
+                    } catch (linkE) {
+                      logStep("WARN: guest claim link flow errored (non-blocking)", { error: String(linkE) });
+                    }
+                  }
+
+                  await adminClient.from('auto_heal_log').insert({
+                    action_type: isNewUser ? 'guest_checkout_user_created' : 'guest_checkout_user_matched',
+                    target_type: 'auth.users',
+                    target_id: userId,
+                    result_status: 'success',
+                    metadata: {
+                      stripe_session_id: session.id,
+                      email: guestEmail,
+                      product_slug: meta.product_slug ?? null,
+                      source: 'stripe-webhook:guest',
+                    },
+                  });
+                  logStep("Guest fulfillment: user resolved", { userId, isNewUser, email: guestEmail });
+                }
+              } catch (guestErr) {
+                logStep("ERROR: guest user resolve/create failed", { error: String(guestErr) });
+              }
+            }
+          }
 
           if (!userId || !rawProductId) {
             logStep("SKIP create-payment fulfillment (missing user_id/product_id)", { meta });

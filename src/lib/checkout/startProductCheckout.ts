@@ -49,32 +49,48 @@ export async function startProductCheckout(
   const sourcePage =
     typeof window !== "undefined" ? window.location.pathname : null;
 
-  // Auth-Gate: ohne gültige Session kein B2C-Checkout (orders.buyer_user_id NOT NULL).
-  // getUser() validiert den JWT serverseitig — getSession() würde abgelaufene/stale
-  // localStorage-Einträge als truthy zurückgeben und der Edge-Call würde mit
-  // "User not authenticated" als 401 fehlschlagen (siehe edge-logs 2026-05-18).
-  const redirectToAuth = () => {
-    if (typeof window !== "undefined") {
-      const next = encodeURIComponent(
-        `${window.location.pathname}${window.location.search}`,
-      );
-      window.location.href = `/auth?next=${next}&intent=checkout`;
-    }
-  };
+  // ── Guest-Checkout first ──
+  // Wir bevorzugen Sofortkauf ohne Login: wenn keine gültige Session da ist,
+  // gehen wir direkt in `create-guest-checkout`. Stripe sammelt E-Mail und
+  // Adresse selbst; der Webhook legt anschließend einen Account an und
+  // verschickt einen Magic-/Recovery-Link zum Passwort-Setzen
+  // (`/auth/account-claim?session_id=…`). Nur wenn die Edge-Function einen
+  // 4xx-/5xx-Fehler liefert, fallen wir auf den klassischen Login-Pfad zurück.
+  const { data: userData } = await supabase.auth.getUser();
+  const isAuthed = !!userData?.user;
 
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !userData?.user) {
-    redirectToAuth();
+  if (!isAuthed) {
+    const { data, error } = await supabase.functions.invoke("create-guest-checkout", {
+      body: {
+        product_slug: productSlug,
+        anonymous_id: getAnonymousId(),
+        session_id: getSessionId(),
+        source: ctx.source ?? "startProductCheckout_guest",
+        persona_type: ctx.persona_type ?? null,
+        source_page: sourcePage,
+      },
+    });
+    if (!error && (data as CheckoutResult)?.ok && (data as CheckoutResult).checkout_url) {
+      window.location.href = (data as CheckoutResult).checkout_url!;
+      return data as CheckoutResult;
+    }
+    // Strukturierte Fehler (unbekannter Slug, ambiguous, nicht kaufbar) sollen
+    // dem User angezeigt werden — kein Login-Redirect für diese Fälle.
+    if (!error && data && (data as CheckoutResult)?.error_code) {
+      return data as CheckoutResult;
+    }
+    // Sonst Fallback: klassischer Login-Gate (Order-Trigger braucht echten User).
+    const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+    window.location.href = `/auth?next=${next}&intent=checkout`;
     return { ok: false, error: "Bitte melde dich an, um den Kauf abzuschließen." };
   }
 
-  // Session-Token explizit lesen — supabase.functions.invoke hängt den JWT in
-  // bestimmten Webview-/Refresh-Konstellationen nicht zuverlässig an. Ohne JWT
-  // sieht die Edge-Function nur den publishable-Key und antwortet 401.
+  // Session-Token für authentifizierte Käufe (orders.buyer_user_id NOT NULL).
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData?.session?.access_token;
   if (!accessToken) {
-    redirectToAuth();
+    const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+    window.location.href = `/auth?next=${next}&intent=checkout`;
     return { ok: false, error: "Sitzung abgelaufen. Bitte erneut anmelden." };
   }
 
@@ -95,7 +111,8 @@ export async function startProductCheckout(
     // statt rotem Toast → Re-Auth-Redirect.
     const msg = (error.message || "").toLowerCase();
     if (msg.includes("not authenticated") || msg.includes("401") || msg.includes("non-2xx")) {
-      redirectToAuth();
+      const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+      window.location.href = `/auth?next=${next}&intent=checkout`;
       return { ok: false, error: "Bitte melde dich erneut an, um den Kauf abzuschließen." };
     }
     return { ok: false, error: error.message };
