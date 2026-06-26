@@ -219,10 +219,31 @@ export default function BerufDetailPage() {
   const examConfig = getExamTarget(duration);
   const seo = SEO_TEMPLATES.beruf(title, kammerLabel, examConfig.label);
 
-  // Direkt auf kanonische, prerenderte Route — vermeidet Vercel 404 falls
-  // SPA-Fallback für /bundle/* nicht greift (siehe Memory hosting-spa-fallback).
-  const bundleHref = `/paket/${slug}`;
+  // /paket/[slug] ist redundant geworden: Beruf-Seite ist jetzt direkter
+  // Checkout-Einstieg. Slug fürs Tracking/Checkout aus dem Catalog ableiten.
+  const checkoutSlug = course.productSlug || slug;
   const quizHref = `/pruefungscheck?source=beruf&slug=${encodeURIComponent(slug)}`;
+
+  const handleBuy = async (location: string) => {
+    if (buying) return;
+    trackCta(location);
+    setBuying(true);
+    try {
+      const res = await startProductCheckout(checkoutSlug, { source: `beruf_${location}` });
+      if (!res.ok) {
+        if (res.error_code === 'already_entitled') {
+          toast.success('Du hast dieses Komplettpaket bereits – wir leiten dich in dein Lernportal.');
+          window.location.href = '/learner';
+          return;
+        }
+        toast.error(res.error || 'Checkout konnte nicht gestartet werden.');
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Checkout-Fehler');
+    } finally {
+      setBuying(false);
+    }
+  };
 
   const faqs = [
     {
