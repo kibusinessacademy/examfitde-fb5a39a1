@@ -158,7 +158,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return this.props.fallback;
     }
 
-    const { isChunkError, error } = this.state;
+    const { isChunkError, error, errorId } = this.state;
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
