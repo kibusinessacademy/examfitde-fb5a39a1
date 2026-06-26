@@ -189,7 +189,7 @@ export default function UnternehmenPage() {
                         )}
                       </div>
                       <div key={`price-${i}`} className="bg-card p-4 text-right font-semibold">
-                        {tier.perSeat}€
+                        {formatEuro(tier.perSeat)}
                       </div>
                     </>
                   ))}

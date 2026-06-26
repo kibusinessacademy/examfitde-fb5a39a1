@@ -465,9 +465,9 @@ export const SEO_TEMPLATES = {
 };
 
 // Product pricing — Bundle-only SSOT (24,90 €)
-// Es gibt nur EIN kaufbares Produkt: bundle.
-// Legacy-Keys (lernkurs, pruefungstrainer) bleiben als Aliase für 24,90 € erhalten,
-// damit alte Importe nicht brechen — sie repräsentieren KEINE separat kaufbaren Produkte.
+// ⚠️ NUMERIC values — for JSON-LD/Schema.org/Stripe/Tracking ONLY.
+// Für UI-Anzeige IMMER `formatEuro()` aus '@/lib/priceFormat' oder `PRODUCT_PRICE_DISPLAY` nutzen.
+// Direkte Interpolation `${PRODUCT_PRICES.bundle} €` erzeugt "24.9 €" und ist verboten.
 export const PRODUCT_PRICES = {
   pruefungstraining: 24.9,
   bundle: 24.9,
@@ -476,7 +476,8 @@ export const PRODUCT_PRICES = {
   pruefungstrainer: 24.9,
 } as const;
 
-export const PRODUCT_PRICE_DISPLAY = '24,90 €';
+// UI display string (German format). Zentral in src/lib/priceFormat.ts -> formatEuro().
+export const PRODUCT_PRICE_DISPLAY = '24,90\u00A0€';
 
 // URL structure helpers — Bundle-only.
 // Optional product-Parameter wird ignoriert/normalisiert auf '/bundle/:slug'.
