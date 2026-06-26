@@ -796,7 +796,47 @@ export default function OralExamTrainer() {
               )}
             </div>
 
+            {selectedCurriculum && topics && topics.length > 0 && (
+              <div data-testid="oral-topic-filter">
+                <label className="text-sm font-medium mb-2 block">
+                  Themen (Lernfelder) — optional einschränken
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={selectedTopics.length === 0 ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedTopics([])}
+                  >
+                    Alle Themen
+                  </Button>
+                  {topics.map(tp => {
+                    const active = selectedTopics.includes(tp.code);
+                    return (
+                      <Button
+                        key={tp.id}
+                        type="button"
+                        variant={active ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedTopics(prev =>
+                          active ? prev.filter(c => c !== tp.code) : [...prev, tp.code]
+                        )}
+                      >
+                        {tp.code} · {tp.title}
+                      </Button>
+                    );
+                  })}
+                </div>
+                {selectedTopics.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {selectedTopics.length} Thema(s) gewählt — Fragen werden gezielt aus diesen Lernfeldern gezogen.
+                  </p>
+                )}
+              </div>
+            )}
+
             <Separator />
+
 
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <h4 className="font-medium">So funktioniert's:</h4>
