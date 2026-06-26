@@ -87,7 +87,7 @@ interface UseOralExamOptions {
 }
 
 
-export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 5 }: UseOralExamOptions) {
+export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 5, topicKeys = [] }: UseOralExamOptions) {
   const [session, setSession] = useState<OralExamSession | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<OralExamQuestion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -105,6 +105,7 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
           curriculum_id: curriculumId,
           mode,
           total_questions: totalQuestions,
+          topic_keys: topicKeys,
           lang: targetLang,
         }
       });
@@ -127,7 +128,8 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
     } finally {
       setIsLoading(false);
     }
-  }, [curriculumId, mode, totalQuestions, toast, targetLang]);
+  }, [curriculumId, mode, totalQuestions, topicKeys, toast, targetLang]);
+
 
 
 
