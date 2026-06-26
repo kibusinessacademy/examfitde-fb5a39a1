@@ -357,6 +357,7 @@ const GithubWorkflowsPage = lazyRetry(() => import('@/pages/admin/GithubWorkflow
 const SsotGuardPage = lazyRetry(() => import('@/pages/admin/SsotGuardPage'));
 const StorageRealityPage = lazyRetry(() => import('@/pages/admin/StorageRealityPage'));
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
+const BulkCourseExportPage = lazyRetry(() => import('@/pages/admin/BulkCourseExportPage'));
 
 import { PathAwareLoadingFallback } from '@/components/seo/PathAwareLoadingFallback';
 
