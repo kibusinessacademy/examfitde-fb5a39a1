@@ -220,8 +220,9 @@ export default function BerufDetailPage() {
   const seo = SEO_TEMPLATES.beruf(title, kammerLabel, examConfig.label);
 
   // /paket/[slug] ist redundant geworden: Beruf-Seite ist jetzt direkter
-  // Checkout-Einstieg. Slug fürs Tracking/Checkout aus dem Catalog ableiten.
-  const checkoutSlug = course.productSlug || slug;
+  // Checkout-Einstieg. Wir nutzen den Beruf-Slug — create-guest-checkout
+  // löst Aliase via suggested_slug auf, falls product- und beruf-Slug abweichen.
+  const checkoutSlug = slug;
   const quizHref = `/pruefungscheck?source=beruf&slug=${encodeURIComponent(slug)}`;
 
   const handleBuy = async (location: string) => {
@@ -234,6 +235,10 @@ export default function BerufDetailPage() {
         if (res.error_code === 'already_entitled') {
           toast.success('Du hast dieses Komplettpaket bereits – wir leiten dich in dein Lernportal.');
           window.location.href = '/learner';
+          return;
+        }
+        if (res.error_code === 'product_not_found' && (res.suggested_url || res.fallback_url)) {
+          window.location.href = res.suggested_url || res.fallback_url!;
           return;
         }
         toast.error(res.error || 'Checkout konnte nicht gestartet werden.');
