@@ -359,7 +359,7 @@ export default function BerufDetailPage() {
                     Weiterleitung …
                   </>
                 ) : (
-                  <>Komplettpaket sichern – {PRODUCT_PRICES.bundle} €</>
+                  <>Komplettpaket sichern – {PRODUCT_PRICE_DISPLAY}</>
                 )}
               </Button>
               <Button asChild size="lg" variant="outline" onClick={() => trackCta('footer_quiz')}>
