@@ -43,6 +43,22 @@ export interface OralExamQuestion {
   ai_feedback: string | null;
   covered_points: string[] | null;
   missed_points: string[] | null;
+  topic_key?: string | null;
+  topic_label?: string | null;
+  learning_field_id?: string | null;
+  competency_id?: string | null;
+}
+
+export interface TopicScore {
+  topic_key: string;
+  topic_label: string;
+  questions_total: number;
+  questions_answered: number;
+  fachlichkeit_pct: number;
+  struktur_pct: number;
+  begriffssicherheit_pct: number;
+  praxisbezug_pct: number;
+  overall_pct: number;
 }
 
 export interface EvaluationResult {
@@ -64,7 +80,9 @@ interface UseOralExamOptions {
   curriculumId: string;
   mode?: 'practice' | 'simulation';
   totalQuestions?: number;
+  topicKeys?: string[];
 }
+
 
 export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 5 }: UseOralExamOptions) {
   const [session, setSession] = useState<OralExamSession | null>(null);
