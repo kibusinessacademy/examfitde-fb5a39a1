@@ -401,10 +401,14 @@ export default function BerufePage() {
                     const realImg = imageBySlug.get(entry.publishedSlug || entry.slug);
                     const img = realImg || fallbackImg;
                     if (entry.isPublished) {
+                      const detailUrl =
+                        entry.category && entry.category !== 'ausbildung'
+                          ? `/paket/${entry.publishedSlug || entry.slug}`
+                          : getBerufUrl(entry.publishedSlug || entry.slug);
                       return (
                         <Link
                           key={entry.berufId}
-                          to={getBerufUrl(entry.publishedSlug || entry.slug)}
+                          to={detailUrl}
                           className="group block"
                         >
                           <Card className="h-full overflow-hidden border border-border/60 bg-card hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
@@ -427,6 +431,11 @@ export default function BerufePage() {
                                     {entry.kammer}
                                   </Badge>
                                 )}
+                                {entry.categoryLabel && entry.category !== 'ausbildung' && (
+                                  <Badge variant="secondary" className="text-[11px] bg-background/90 text-foreground border-0 backdrop-blur-sm">
+                                    {entry.categoryLabel}
+                                  </Badge>
+                                )}
                               </div>
                               <div className="absolute bottom-3 left-3 right-3">
                                 <h3 className="text-lg font-display font-semibold text-white leading-snug line-clamp-2 drop-shadow-md">
@@ -434,18 +443,15 @@ export default function BerufePage() {
                                 </h3>
                               </div>
                             </div>
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                  {entry.ausbildungsdauerMonate && (
-                                    <span className="flex items-center gap-1">
-                                      <Clock className="h-3.5 w-3.5" />{entry.ausbildungsdauerMonate} Mon.
-                                    </span>
-                                  )}
-                                  {entry.dqrNiveau && <span>DQR {entry.dqrNiveau}</span>}
-                                </div>
+                            <CardContent className="p-4 flex flex-col gap-3">
+                              {entry.discoveryTeaser && (
+                                <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                                  {entry.discoveryTeaser}
+                                </p>
+                              )}
+                              <div className="flex items-center justify-end">
                                 <span className="text-sm text-primary flex items-center font-semibold group-hover:gap-2 gap-1 transition-all">
-                                  Lernpfad starten <ArrowRight className="h-4 w-4" />
+                                  Jetzt kaufen <ArrowRight className="h-4 w-4" />
                                 </span>
                               </div>
                             </CardContent>
@@ -481,16 +487,13 @@ export default function BerufePage() {
                             </h3>
                           </div>
                         </div>
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              {entry.ausbildungsdauerMonate && (
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3.5 w-3.5" />{entry.ausbildungsdauerMonate} Mon.
-                                </span>
-                              )}
-                              {entry.dqrNiveau && <span>DQR {entry.dqrNiveau}</span>}
-                            </div>
+                        <CardContent className="p-4 flex flex-col gap-3">
+                          {entry.discoveryTeaser && (
+                            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                              {entry.discoveryTeaser}
+                            </p>
+                          )}
+                          <div className="flex items-center justify-end">
                             <Button
                               size="sm"
                               variant="outline"
