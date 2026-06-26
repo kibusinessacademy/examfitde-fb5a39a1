@@ -1,12 +1,15 @@
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { Target, AlertTriangle, ArrowRight } from 'lucide-react';
 
 interface Props {
   beruf: string;
+  quizHref?: string;
 }
 
-export function BerufReadinessBlock({ beruf }: Props) {
+export function BerufReadinessBlock({ beruf, quizHref }: Props) {
   return (
     <section className="container max-w-5xl py-12 md:py-16 space-y-8">
       <div className="max-w-2xl space-y-3">
@@ -20,7 +23,18 @@ export function BerufReadinessBlock({ beruf }: Props) {
           ExamFit priorisiert die Themen, die deine Prüfungsreife für die {beruf}-Prüfung am
           stärksten verbessern – statt dich quer durch jeden Rahmenplan-Punkt zu schicken.
         </p>
+        {quizHref && (
+          <div className="pt-2">
+            <Button asChild variant="outline" size="lg" data-cta-location="beruf_readiness_quiz">
+              <Link to={quizHref}>
+                Prüfungsreife-Check starten
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
+
 
       <div className="grid md:grid-cols-3 gap-4">
         {/* Readiness-Score */}

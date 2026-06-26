@@ -29,10 +29,14 @@ import {
 interface Props {
   curriculumId: string;
   courseId: string;
-  /** Bereits geladene Lesson-Anzahl (vermeidet zusätzliche Query). */
-  lessonCount: number;
+  /** Bereits geladene Lesson-Anzahl. Wird ansonsten per head-count nachgezogen. */
+  lessonCount?: number;
   /** Optional: bereits geladene Modulanzahl (rein informativ). */
   moduleCount?: number;
+  /** Optional: ersetzt die "Im Kurspaket enthalten"-Überschrift. */
+  headingOverride?: string;
+  /** Optional: Eyebrow-Text über der Überschrift. */
+  eyebrow?: string;
 }
 
 interface PackageInfo {
@@ -47,10 +51,10 @@ interface Counts {
   miniCheckSets: number;
 }
 
-function useCoursePackageContents(curriculumId: string, courseId: string) {
+function useCoursePackageContents(curriculumId: string, courseId: string, hasExternalLessonCount: boolean) {
   return useQuery({
-    queryKey: ["course-package-contents", curriculumId, courseId],
-    queryFn: async (): Promise<{ pkg: PackageInfo; counts: Counts }> => {
+    queryKey: ["course-package-contents", curriculumId, courseId, hasExternalLessonCount],
+    queryFn: async (): Promise<{ pkg: PackageInfo; counts: Counts; lessonCount: number }> => {
       const [pkgRes, handbookRes, oralRes, examRes, miniRes] = await Promise.all([
         supabase
           .from("course_packages")
@@ -68,10 +72,6 @@ function useCoursePackageContents(curriculumId: string, courseId: string) {
           .from("oral_exam_blueprints")
           .select("id", { count: "exact", head: true })
           .eq("curriculum_id", curriculumId),
-        // Schriftliche Pool-Größe — wir zählen über learning_fields → competencies → exam_questions.
-        // Ein direkter Count über exam_questions setzt eine curriculum_id-Spalte voraus; sichere Variante
-        // ist daher die Aggregation über die existierende Relation (siehe useCurriculumProductStats).
-        // `as any` ist hier nötig, weil der verschachtelte select-Generic-Tree die TS-Inferenz sprengt.
         (supabase.from("learning_fields") as any)
           .select("id, competencies(id, exam_questions(id))")
           .eq("curriculum_id", curriculumId),
@@ -80,6 +80,24 @@ function useCoursePackageContents(curriculumId: string, courseId: string) {
           .select("id", { count: "exact", head: true })
           .eq("course_id", courseId),
       ]);
+
+      // Lesson-Count via modules → lessons (lessons hat keine course_id-Spalte).
+      // Wird nur ausgeführt, wenn die UI keinen externen Count übergibt.
+      let lessonCount = 0;
+      if (!hasExternalLessonCount) {
+        const modulesRes = await supabase
+          .from("modules")
+          .select("id")
+          .eq("course_id", courseId);
+        const moduleIds = (modulesRes.data ?? []).map((m: { id: string }) => m.id);
+        if (moduleIds.length > 0) {
+          const lessonsRes = await supabase
+            .from("lessons")
+            .select("id", { count: "exact", head: true })
+            .in("module_id", moduleIds);
+          lessonCount = lessonsRes.count ?? 0;
+        }
+      }
 
       const track = ((pkgRes.data?.track as ProductTrack | undefined) ?? "AUSBILDUNG_VOLL");
       const defaults = DEFAULT_FLAGS[track] ?? DEFAULT_FLAGS.AUSBILDUNG_VOLL;
@@ -103,6 +121,7 @@ function useCoursePackageContents(curriculumId: string, courseId: string) {
           examQuestions,
           miniCheckSets: miniRes.count ?? 0,
         },
+        lessonCount,
       };
     },
     enabled: !!curriculumId && !!courseId,
@@ -120,8 +139,20 @@ type ContentCard = {
   accent: string;
 };
 
-export function CoursePackageContents({ curriculumId, courseId, lessonCount, moduleCount }: Props) {
-  const { data, isLoading } = useCoursePackageContents(curriculumId, courseId);
+export function CoursePackageContents({
+  curriculumId,
+  courseId,
+  lessonCount: lessonCountProp,
+  moduleCount,
+  headingOverride,
+  eyebrow,
+}: Props) {
+  const { data, isLoading } = useCoursePackageContents(
+    curriculumId,
+    courseId,
+    typeof lessonCountProp === "number",
+  );
+  const lessonCount = typeof lessonCountProp === "number" ? lessonCountProp : (data?.lessonCount ?? 0);
 
   const cards = useMemo<ContentCard[]>(() => {
     if (!data) return [];
@@ -226,11 +257,18 @@ export function CoursePackageContents({ curriculumId, courseId, lessonCount, mod
   return (
     <section aria-labelledby="package-contents-heading" className="mb-8">
       <div className="flex items-baseline justify-between mb-3">
-        <h2 id="package-contents-heading" className="text-xl font-display font-semibold">
-          Im Kurspaket enthalten
-        </h2>
+        <div>
+          {eyebrow && (
+            <p className="text-xs font-semibold uppercase tracking-wider text-petrol-600 dark:text-mint-400 mb-1">
+              {eyebrow}
+            </p>
+          )}
+          <h2 id="package-contents-heading" className="text-xl font-display font-semibold">
+            {headingOverride ?? "Im Kurspaket enthalten"}
+          </h2>
+        </div>
         <span className="text-xs text-muted-foreground">
-          {cards.length} Komponenten
+          {cards.length} {cards.length === 1 ? "Modul" : "Module"}
         </span>
       </div>
 
