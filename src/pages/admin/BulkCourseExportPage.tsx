@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminVisiblePackages } from "@/hooks/useAdminVisiblePackages";
+import { useAdminPublishReadinessBatch } from "@/hooks/useAdminPublishReadinessBatch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -79,6 +80,14 @@ export default function BulkCourseExportPage() {
       );
     });
   }, [packages, search, statusFilter]);
+
+  // Fetch full publish-gate signals for all non-published packages on the current page
+  // — keeps the UI honest about Open Steps, Meta-Drift, Bronze etc.
+  const gateProbeIds = useMemo(
+    () => filtered.filter((p) => p.status !== "published").map((p) => p.package_id),
+    [filtered],
+  );
+  const { data: readinessMap = {} } = useAdminPublishReadinessBatch(gateProbeIds);
 
   const selectedIds = useMemo(
     () => filtered.filter((p) => selected[p.package_id]).map((p) => p.package_id),
@@ -363,27 +372,54 @@ export default function BulkCourseExportPage() {
                         <span className="flex items-center gap-1 text-green-600">
                           <ShieldCheck className="h-3 w-3" /> Live published
                         </span>
-                      ) : (
-                        <>
+                      ) : (() => {
+                        const r = readinessMap[pkg.package_id];
+                        const s = r?.signals ?? {};
+                        const integrityOk = s.INTEGRITY_OK ?? pkg.integrity_passed;
+                        const councilOk = s.COUNCIL_OK ?? pkg.council_approved;
+                        const openSteps = !!s.OPEN_STEPS_REMAIN;
+                        const metaDrift = !!s.STEP_DONE_WITHOUT_META_OK;
+                        const bronzeReview = !!s.BRONZE_REVIEW_REQUIRED;
+                        const finalStatus = r?.final_status;
+                        const Row = ({ ok, label, hint, force }: { ok: boolean; label: string; hint: string; force?: "warn" | "ok" }) => (
                           <span
-                            className={`flex items-center gap-1 ${pkg.integrity_passed ? "text-green-600" : "text-destructive"}`}
-                            title="Integrity-Gate: alle Pflicht-Komponenten vorhanden & valide"
+                            className={`flex items-center gap-1 ${force === "warn" ? "text-amber-600" : ok ? "text-green-600" : "text-destructive"}`}
+                            title={hint}
                           >
-                            {pkg.integrity_passed ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
-                            Integrity {pkg.integrity_passed ? "OK" : "fehlt"}
+                            {ok && force !== "warn" ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
+                            {label}
                           </span>
-                          <span
-                            className={`flex items-center gap-1 ${pkg.council_approved ? "text-green-600" : "text-destructive"}`}
-                            title="Council-Approval: Quality-Council hat Freigabe erteilt"
-                          >
-                            {pkg.council_approved ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
-                            Council {pkg.council_approved ? "OK" : "fehlt"}
-                          </span>
-                          {pkg.status === "done" && (!pkg.integrity_passed || !pkg.council_approved) && (
-                            <span className="text-muted-foreground">→ blockiert Publish</span>
-                          )}
-                        </>
-                      )}
+                        );
+                        return (
+                          <>
+                            <Row ok={!!integrityOk} label={`Integrity ${integrityOk ? "OK" : "fehlt"}`} hint="Integrity-Gate: alle Pflicht-Komponenten valide" />
+                            <Row ok={!!councilOk} label={`Council ${councilOk ? "OK" : "fehlt"}`} hint="Quality-Council Approval" />
+                            {r && (
+                              <>
+                                <Row ok={!openSteps} label={openSteps ? `Open Steps (${r.open_step_count ?? "?"})` : "Steps geschlossen"} hint="package_steps mit Status ≠ done/skipped" />
+                                <Row ok={!metaDrift} label={metaDrift ? `Meta-Drift (${r.drift_step_count ?? "?"})` : "Meta OK"} hint="Steps mit status=done aber meta.ok≠true" />
+                                <Row force={bronzeReview ? "warn" : "ok"} ok={!bronzeReview} label={bronzeReview ? "Bronze Review nötig" : "Bronze OK"} hint="Bronze-Score 75–84 erfordert Manual Approval" />
+                                {finalStatus && (
+                                  <span
+                                    className={`mt-1 inline-flex items-center gap-1 font-medium ${
+                                      finalStatus === "publishable" ? "text-green-700" :
+                                      finalStatus === "rebuilding" ? "text-amber-700" :
+                                      finalStatus === "review_required" ? "text-amber-700" :
+                                      "text-destructive"
+                                    }`}
+                                    title="Aggregierter Publish-Status aus admin_check_publish_readiness()"
+                                  >
+                                    → {finalStatus}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                            {!r && pkg.status === "done" && (
+                              <span className="text-muted-foreground">Gates werden geprüft…</span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </TableCell>
                   <TableCell>
