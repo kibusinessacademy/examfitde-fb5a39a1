@@ -369,6 +369,7 @@ const CatalogDiagnosticsPage = lazyRetry(() => import('@/pages/admin/CatalogDiag
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 const BulkCourseExportPage = lazyRetry(() => import('@/pages/admin/BulkCourseExportPage'));
 const VisualLearningReviewPage = lazyRetry(() => import('@/pages/admin/VisualLearningReviewPage'));
+const VisualLearningArtifactWorkflowPage = lazyRetry(() => import('@/pages/admin/VisualLearningArtifactWorkflowPage'));
 
 import { PathAwareLoadingFallback } from '@/components/seo/PathAwareLoadingFallback';
 
@@ -899,6 +900,7 @@ const AppRoutes = () => {
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
           <Route path="governance/visual-learning-review" element={<VisualLearningReviewPage />} />
+          <Route path="governance/visual-learning-workflow" element={<VisualLearningArtifactWorkflowPage />} />
 
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
           <Route path="berufs-ki/quality" element={<BerufsKIQualityPage />} />
