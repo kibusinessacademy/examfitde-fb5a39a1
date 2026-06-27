@@ -38,6 +38,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 export default function CoursesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [categoryByCurriculum, setCategoryByCurriculum] = useState<Record<string, string>>({});
