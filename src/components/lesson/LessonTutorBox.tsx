@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useAITutor, AI_MODES, AI_ROLES, type AIRole } from '@/hooks/useAITutor';
 import { useTargetLanguage } from '@/hooks/i18n/useTranslatedContent';
 import { LearnerAnswerSurface } from '@/components/learner/LearnerAnswerSurface';
+import { LearnLessonCard } from '@/components/learner/LearnLessonCard';
 import type { LearnerInteractionSpec } from '@/lib/lif/learner-interaction-contract';
 import { cn } from '@/lib/utils';
 
