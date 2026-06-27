@@ -39,9 +39,12 @@ describe("Cross-SSOT Consistency", () => {
       it("hasHandbook ↔ has_handbook flag", () => {
         expect(cap.hasHandbook).toBe(flags.has_handbook);
       });
-      it("hasOralExam (static default) ↔ has_oral_exam_trainer flag", () => {
-        // Both represent static defaults — cert-based resolution is separate
-        expect(cap.hasOralExam).toBe(flags.has_oral_exam_trainer);
+      it("flags.has_oral_exam_trainer reflects packaging-SSOT (2026-06-26: always true)", () => {
+        // Packaging-SSOT divergiert bewusst von capabilities: Mündlicher
+        // Trainer ist Pflicht-Komponente jedes Pakets (Memory:
+        // examfit/visual-learning-os + 2026-06-26 SSOT). Step-Composition
+        // bleibt cert/track-getrieben via resolveHasOralExam().
+        expect(flags.has_oral_exam_trainer).toBe(true);
       });
 
       // capabilities ↔ interpreter functions
