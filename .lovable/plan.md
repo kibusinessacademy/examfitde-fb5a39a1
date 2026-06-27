@@ -1,79 +1,91 @@
-## Wave 3 — Dashboard & Kartenmigration
+## Phase B.1 — IAP E2E Smoke & Regression Gate
 
-Reines UI/UX-Refactor auf die bestehenden examfit-ds Primitives (`HeroSurface`, `ImageCard`, `FloatingChip`, `GlassPanel`, `ProgressMeter`, `LearnLessonCard`). Keine Änderungen an Daten, Hooks, RLS, Curriculum, Unlock, Paywall, LIF.OS.1 oder API.
+Repo-real plan, an bestehende SSOT (`validate-iap-receipt` → `verify-ios-receipt`/`verify-android-purchase` → `store_receipts` → `create_store_entitlement` → `entitlements` → `check_product_access_by_curriculum`) angedockt. **Keine neue Architektur, keine Shadow-Tabellen, kein Client-Unlock.**
 
-### Scope-Übersicht (Surfaces)
+### A) Admin-Smoke-Harness (UI)
 
-| Surface | Datei | Wave-3-Aktion |
-|---|---|---|
-| Dashboard | `src/pages/LearnerDashboard.tsx` | Personalisierte HeroSurface („Willkommen zurück" + Prüfungsreife + nächstes Lernziel + Continue-CTA) und `LearningDashboardGrid` mit 6 ImageCards (Weiterlernen / Prüfung / Tutor / Mündlich / Fortschritt / Schwächen) |
-| Kursübersicht | `src/pages/CoursesPage.tsx` | HeroSurface-Header + Liste auf ImageCard (Bild, Titel, Kurzbeschreibung, ProgressMeter, FloatingChips, CTA „Weiterlernen") |
-| Kursdetail | `src/pages/CourseDetailPage.tsx` | HeroSurface-Header (Bild, Beruf, Chips), Module/Kompetenzen-Block bleibt funktional, ersetzt nur Hülle/Badges durch ImageCard + FloatingChip |
-| Berufsdetail | `src/pages/berufos/*` (BerufeBerufPage o. ä.) + `BerufOSHub.tsx` | HeroSurface + ImageCard-Grid für Kurse/Module |
-| Lernübersicht | falls vorhanden (`Learn*Page`) | HeroSurface-Wrapper |
+Neu: `src/pages/admin/MobileIAPSmokePage.tsx`, eingehängt unter `/admin/tools/mobile-iap-smoke` (analog `mobile-bundle-builder`).
 
-### Teil C — FloatingChip Standardvarianten
+- Admin-Gate via vorhandenem AdminGuard im Routenbaum (kein neuer Auth-Pfad).
+- Form: Plattform (ios/android) · SKU-Select (gelesen aus `platform_skus where is_active`) · Curriculum-Select · Test-Case-Dropdown (`happy | duplicate | invalid | expired`).
+- Aktionen rufen ausschließlich `supabase.functions.invoke('validate-iap-receipt', …)` + `useIAPReceiptValidation` (für Cache-Invalidation).
+- Anschließend Access-Check über `useProductAccessByCurriculum(curriculum_id)`-Hook und Anzeige des Player-Unlock-Status (nur Hook-Ergebnis, **kein** Direct-Read auf `entitlements`/`store_receipts`).
+- UI-States: `idle | submitting | receipt_stored | entitlement_created | access_confirmed | player_unlocked | duplicate_handled | invalid_blocked | failed(reason)`.
+- Server-Antwort (`receipt_id`, `entitlement_id`, `duplicate`, `expires_at`, `error`) wird ohne Raw-Receipt angezeigt.
 
-Ergänzung `FloatingChip` um feste, dokumentierte Variants:
-`kurs · ihk · pruefung · tutor · muendlich · neu · empfohlen · dauer · schwierigkeit · fortschritt · ki`
+### B) Smoke-Cases (Test-Payload-Builder)
 
-Alle bestehenden `<Badge>`/Inline-Pills in den migrierten Surfaces werden ersetzt. **Außerhalb der migrierten Seiten bleibt `Badge` zunächst stehen** (Wave 4-Cleanup), damit Wave 3 freezeable bleibt.
+Test-Receipts werden client-seitig im Harness gebaut (synthetisch, kein Live-Apple/Google-Call), markiert mit Präfix `SMOKE-`:
 
-### Teil G — Spacing Token Pass
+| Case | Payload-Strategie |
+| --- | --- |
+| iOS happy | `transaction_id = "SMOKE-IOS-<uuid>"`, `receipt_data="SMOKE_SANDBOX"` |
+| Android happy | `purchase_token = "SMOKE-AND-<uuid>"`, `order_id = transaction_id` |
+| Duplicate | zweiter Call mit identischem `transaction_id`/`purchase_token` → erwartet `duplicate:true` aus Verifier |
+| Invalid | unbekannte SKU `SMOKE-INVALID-SKU` → Verifier wirft "Unknown SKU" |
+| Expired/refunded | Heute noch kein Status-Update-Pfad im Verifier. Im UI als **TODO-Card** mit Link zu Issue `[IAP.STATUS.LIFECYCLE]` ausweisen (Blocker-Code: `not_implemented_status_lifecycle`), Smoke-Run liefert "skipped". |
 
-Einheitliche Container-Klassen für migrierte Seiten:
-- Page-Container: `container mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-10 sm:space-y-14`
-- Card-Grids: `gap-6 sm:gap-8 grid-cols-1 md:grid-cols-2`
-- Hero → Grid: `mb-10 sm:mb-14`
+Hinweis: bestehende Verifier hardcoden `environment: 'production'`. Der Harness setzt am `store_receipts.environment` nichts direkt — Markierung läuft über `SMOKE-`-Präfix im `transaction_id`. Ein nachgeschaltetes **Cleanup-RPC** (siehe Migration unten) räumt Smoke-Receipts/-Entitlements idempotent ab; Harness ruft es vor jedem Run.
 
-### Personalisierter Dashboard-Hero (Empfehlung übernommen)
+### C) Backend — minimaler additiver Schreibpfad
 
-`DashboardHero`-Komponente (neu, unter `src/components/dashboard/DashboardHero.tsx`):
-- linke Spalte: „Willkommen zurück, {name}" + nächstes Lernziel (Lesson-Title) + Continue-CTA (Deep-Link zur letzten Lesson)
-- rechte Spalte: ProgressMeter „Prüfungsreife" + Mastery-%
+Eine Migration:
 
-Daten kommen ausschließlich aus bereits vorhandenen Hooks (`useLearnerProgress`, `useExamReadiness`, vorhandene Queries) — keine neuen Requests.
+- `public.cleanup_iap_smoke_artifacts(p_user_id uuid)` SECURITY DEFINER, admin-only via `has_role(_, 'admin')`. Löscht `entitlements` + `store_receipts` mit `transaction_id LIKE 'SMOKE-%'` für den aufrufenden Admin-User. Audit-Eintrag via `fn_emit_audit` (`action='iap_smoke_cleanup'`).
+- GRANT EXECUTE auf `authenticated`. Funktion selbst prüft `has_role`.
 
-### CI / Guards
+Kein neuer Entitlement-Pfad — Cleanup ist reine Test-Hygiene und kann nichts schreiben außer löschen.
 
-- `scripts/guard-no-raw-hex.mjs` bleibt aktiv (kein `#RRGGBB` in examfit-ds-Primitives).
-- Neuer Soft-Guard: `scripts/guard-card-family.mjs` warnt (nicht fail), wenn in `src/pages/{LearnerDashboard,CoursesPage,CourseDetailPage,berufos/**}` direkte `<Card>`-Imports aus `@/components/ui/card` auftauchen — Liste schrittweise leeren.
+### D) Regression Tests
 
-### Tests
+Neue Vitest-Suite `src/__tests__/iap/iap-ssot-contract.test.ts`:
 
-- Vitest Snapshot/Behavior:
-  - `LearningDashboardGrid` (6 Karten, korrekte CTAs, ARIA-Labels)
-  - `DashboardHero` (Fallback-Name, fehlendes nächstes Ziel, Continue-CTA disabled)
-  - `FloatingChip` Variant-Matrix
-  - `CoursesPage` Card-Renderer (ProgressMeter & Chips)
-- Playwright Mobile-Suite erweitern um Routen `/dashboard`, `/kurse`, `/berufe/<slug>`:
-  - 4 Viewports × 2 Themes
-  - Asserts: kein horizontaler Overflow, alle CTAs ≥ 44px, alle `<img>` haben `alt`
-- Akzeptanz: alle Vitest grün, Playwright `overflow=False` über alle 24 Runs
+1. Static-Scan: `validate-iap-receipt/index.ts` ruft nur `verify-ios-receipt` oder `verify-android-purchase` (regex über Source).
+2. `verify-ios-receipt` ruft `create_store_entitlement` (kein direkter Insert in `entitlements`).
+3. Gleiches für Android.
+4. `useIAPReceiptValidation` invalidiert alle Pflicht-Cache-Keys (`product-access`, `product-access-by-curriculum`, `entitlements`, `user-entitlements-legacy`, `course-access`, `learner-course-grants`).
 
-### Accessibility
+Neue Playwright-Spec `tests/e2e/mobile-iap-smoke.spec.ts` (nur lauffähig wenn Admin-Login verfügbar; sonst skip): durchläuft Harness happy/duplicate/invalid und assertiert die UI-States. Folgt dem `tests/e2e/_helpers.ts`-Pattern.
 
-- Buttons in den neuen Karten: `min-h-11 min-w-11`
-- Alle Hero/Card-`<img>`: `loading="lazy"` + verbindlicher `alt`
-- Hover-Lift + Focus-Ring (Tailwind `focus-visible:ring-2 ring-ring`)
-- Kontrast wird über bestehende Tokens (`text-foreground` auf `bg-card`) garantiert
+### E) Guard / Static Check
 
-### Out-of-Scope (explizit nicht angefasst)
+Neuer Lint-Sweep-Test `src/__tests__/guards/iap-shadow-paths.test.ts`:
 
-- `LessonPlayer` (Wave 2 freeze)
-- Curriculum, Unlock-Logik, Paywall
-- Datenmodelle, Edge Functions, RLS
-- Globale Badge-Verdrängung außerhalb der migrierten Surfaces (Wave 4)
-- Motion/Microinteractions (Wave 4)
+- Verbietet außerhalb von `supabase/functions/**` und `src/admin/**`:
+  - `.from('entitlements')` (read/write)
+  - `.from('store_receipts')` (read/write)
+  - Identifier `grantMobileAccess`, `unlockCourseLocally`, `createMobileEntitlement`, `validateReceiptClientSide`
+  - localStorage-Keys: `mobile_access`, `course_unlocked`, `iap_entitlement`, `local_entitlement`
+- Verbietet außerhalb `validate-iap-receipt`: zweite Dispatcher (regex auf neue Funktionen mit `verify-(ios|android)` plus Auth-Header).
 
-### Reihenfolge der Umsetzung
+### F) Observability
 
-1. `FloatingChip`-Variants + Tests
-2. `DashboardHero` Komponente + Tests
-3. `LearnerDashboard.tsx` Migration (Hero + Grid)
-4. `CoursesPage.tsx` Migration
-5. `CourseDetailPage.tsx` Hero + Hülle
-6. Berufsseiten (`BerufOSHub` + Detail)
-7. Spacing-Pass über alle migrierten Seiten
-8. Vitest + Playwright Wave-3-Run, Report nach `/mnt/documents/wave3-mobile-qa/`
-9. Memory-Update: Wave 3 freeze
+Harness-Ergebnistabelle pro Run: `platform · sku · curriculum_id · dispatcher_status · verifier_result · duplicate · receipt_id (hash-truncated) · entitlement_id · access_check (bool) · player_unlock (bool) · error_code`. Keine PII, kein Raw-Receipt.
+
+### Dateien
+
+```text
+NEU  src/pages/admin/MobileIAPSmokePage.tsx
+NEU  src/components/admin/iap-smoke/SmokeRunner.tsx
+NEU  src/components/admin/iap-smoke/SmokeResultRow.tsx
+NEU  src/lib/iap/smoke-payloads.ts
+NEU  src/__tests__/iap/iap-ssot-contract.test.ts
+NEU  src/__tests__/guards/iap-shadow-paths.test.ts
+NEU  tests/e2e/mobile-iap-smoke.spec.ts
+NEU  supabase/migrations/<ts>_iap_smoke_cleanup.sql
+EDIT src/routes/AppRoutes.tsx                     (+1 lazy import, +1 Route)
+EDIT src/admin/pageDescriptions.ts                (Eintrag für neue Page)
+NEU  .lovable/memory/features/iap-e2e-smoke-phase-b1.md
+```
+
+### Definition-of-Done-Checkliste
+
+1. iOS/Android/Duplicate/Invalid Smoke laufen aus dem Harness grün.
+2. Expired/refunded als dokumentierter Blocker mit Trace-Code sichtbar.
+3. Vitest-Contract-Suite + Guard-Suite grün.
+4. Playwright-Spec passt zu vorhandener Admin-Auth-Helper (oder skip-marked, wenn keine Admin-Session).
+5. Player-Unlock im Harness kommt **ausschließlich** aus `useProductAccessByCurriculum`.
+6. Keine neue Tabelle, kein zweiter Entitlement-Schreibpfad, keine direkten Client-Reads auf `entitlements`/`store_receipts`.
+7. Memory-File dokumentiert Plattformen/SKUs/getroffene Funktionen/offene Sandbox-Grenzen.
+
+Bestätige den Plan, dann setze ich ihn 1:1 um.
