@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
  */
 
 export const CHIP_VARIANTS = [
+  // Wave-2 originals (behalten — keine Breaking Changes für bestehende Surfaces)
   'exam',
   'course',
   'tutor',
@@ -17,6 +18,17 @@ export const CHIP_VARIANTS = [
   'time',
   'ihk',
   'neutral',
+  // Wave-3 Standard-Sprache (siehe Plan Teil C). Aliases mappen auf bestehende
+  // Token-Sets, damit das Badge-System eine einzige Komponente bleibt.
+  'kurs',          // alias → course
+  'pruefung',      // alias → exam
+  'muendlich',     // alias → oral
+  'neu',           // alias → tutor (info-Set)
+  'empfohlen',     // alias → fav (recommendation-Set)
+  'dauer',         // alias → time
+  'schwierigkeit', // alias → exam (current-Set)
+  'fortschritt',   // alias → course (done-Set)
+  'ki',            // alias → tutor (info-Set)
 ] as const;
 export type FloatingChipVariant = (typeof CHIP_VARIANTS)[number];
 
@@ -29,6 +41,16 @@ const VARIANT_CLASS: Record<FloatingChipVariant, string> = {
   time: 'bg-status-locked-subtle text-status-locked-fg border-status-locked-border',
   ihk: 'bg-status-info-subtle text-status-info-fg border-status-info-border',
   neutral: 'bg-card/85 text-text-secondary border-border',
+  // Aliases — gleiche Token-Sets wie ihre Kanonischen
+  kurs: 'bg-status-done-subtle text-status-done-fg border-status-done-border',
+  pruefung: 'bg-status-current-subtle text-status-current-fg border-status-current-border',
+  muendlich: 'bg-status-recommendation-subtle text-status-recommendation-fg border-status-recommendation-border',
+  neu: 'bg-status-info-subtle text-status-info-fg border-status-info-border',
+  empfohlen: 'bg-status-recommendation-subtle text-status-recommendation-fg border-status-recommendation-border',
+  dauer: 'bg-status-locked-subtle text-status-locked-fg border-status-locked-border',
+  schwierigkeit: 'bg-status-current-subtle text-status-current-fg border-status-current-border',
+  fortschritt: 'bg-status-done-subtle text-status-done-fg border-status-done-border',
+  ki: 'bg-status-info-subtle text-status-info-fg border-status-info-border',
 };
 
 export interface FloatingChipProps {

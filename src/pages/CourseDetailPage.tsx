@@ -17,6 +17,7 @@ import { SEOHead } from "@/components/seo/SEOHead";
 import { getBerufImage } from "@/lib/berufImage";
 import { useBerufImages } from "@/hooks/useBerufImages";
 import { CoursePackageContents } from "@/components/course/CoursePackageContents";
+import { FloatingChip } from "@/components/examfit-ds";
 
 interface Course {
   id: string;
@@ -315,21 +316,18 @@ export default function CourseDetailPage() {
             <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
               <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-2" data-testid="course-title">{course.title}</h1>
               <p className="text-muted-foreground max-w-2xl mb-4">{course.description}</p>
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2">
                 {course.estimated_duration && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    {course.estimated_duration} Minuten
-                  </div>
+                  <FloatingChip variant="dauer" icon={<Clock className="h-3 w-3" />}>
+                    {course.estimated_duration} Min.
+                  </FloatingChip>
                 )}
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <BookOpen className="h-4 w-4" />
+                <FloatingChip variant="kurs" icon={<BookOpen className="h-3 w-3" />}>
                   {modules.length} Module
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <PlayCircle className="h-4 w-4" />
+                </FloatingChip>
+                <FloatingChip variant="fortschritt" icon={<PlayCircle className="h-3 w-3" />}>
                   {lessons.length} Lektionen
-                </div>
+                </FloatingChip>
               </div>
             </div>
           </div>

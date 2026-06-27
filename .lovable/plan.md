@@ -1,53 +1,79 @@
+## Wave 3 — Dashboard & Kartenmigration
 
-# EXAMFIT.DESIGN.SYSTEM.OS.1 — Wave 2 + 3 Rollout
+Reines UI/UX-Refactor auf die bestehenden examfit-ds Primitives (`HeroSurface`, `ImageCard`, `FloatingChip`, `GlassPanel`, `ProgressMeter`, `LearnLessonCard`). Keine Änderungen an Daten, Hooks, RLS, Curriculum, Unlock, Paywall, LIF.OS.1 oder API.
 
-Großes Paket. Wave 1 (Tokens + Primitives in `src/components/examfit-ds/`) ist live. Jetzt: konsistente Anwendung über die wichtigsten Lern- und Verkaufsflächen. **Keine LIF/Curriculum/Pricing-Logik anfassen — nur Presentation-Layer.**
+### Scope-Übersicht (Surfaces)
 
-## Reihenfolge & Scope
+| Surface | Datei | Wave-3-Aktion |
+|---|---|---|
+| Dashboard | `src/pages/LearnerDashboard.tsx` | Personalisierte HeroSurface („Willkommen zurück" + Prüfungsreife + nächstes Lernziel + Continue-CTA) und `LearningDashboardGrid` mit 6 ImageCards (Weiterlernen / Prüfung / Tutor / Mündlich / Fortschritt / Schwächen) |
+| Kursübersicht | `src/pages/CoursesPage.tsx` | HeroSurface-Header + Liste auf ImageCard (Bild, Titel, Kurzbeschreibung, ProgressMeter, FloatingChips, CTA „Weiterlernen") |
+| Kursdetail | `src/pages/CourseDetailPage.tsx` | HeroSurface-Header (Bild, Beruf, Chips), Module/Kompetenzen-Block bleibt funktional, ersetzt nur Hülle/Badges durch ImageCard + FloatingChip |
+| Berufsdetail | `src/pages/berufos/*` (BerufeBerufPage o. ä.) + `BerufOSHub.tsx` | HeroSurface + ImageCard-Grid für Kurse/Module |
+| Lernübersicht | falls vorhanden (`Learn*Page`) | HeroSurface-Wrapper |
 
-### Schritt 1 — Lesson HeroSurface-Header (P0, höchster Lernimpact)
-- Neuer `src/components/lesson/LessonHeroHeader.tsx` auf Basis `<HeroSurface area="learn">`.
-- Slots: Kurs-/Modul-Breadcrumb, `<ProgressMeter shape="bar" showPercent>` plus „Lektion X von Y", `<FloatingChip variant="time">` Restdauer, Back/Home-Buttons.
-- `src/components/lesson/LessonHeader.tsx` bleibt als Fallback exportiert; `LessonPlayer.tsx` rendert neuen Header.
-- Sticky verhalten erhalten, `prefers-reduced-motion` safe.
-- Tests: Snapshot + a11y (progressbar role, „Lektion X von Y" sichtbar).
+### Teil C — FloatingChip Standardvarianten
 
-### Schritt 2 — Tutor- und Oral-Exam-Seiten DS2.0-Pass
-- `src/pages/AiTutorPage.tsx` (bzw. Tutor-Surface): Hero-Block via `<HeroSurface area="tutor">`, Status-/Modus-Chips via `<FloatingChip variant="tutor">`, sekundäre Panels in `<GlassPanel>`. Keine Änderung an Chat-Logik.
-- `src/pages/OralExamTrainer.tsx` (bzw. Hauptseite des Oral-Trainers): `<HeroSurface area="oral">` für Header, Topic-/Mic-Status als `<FloatingChip variant="oral">`, Voice-Diagnostics-Box als `<GlassPanel>`. Keine Logik an Voice/SSE.
-- Shop: `/examfit`-Landing + `/berufe`-Hub und `ProductHeroSection`: Hero auf `<HeroSurface area="shop">` mappen, Trust-/Pricing-Chips via `<FloatingChip>`. Pricing-Texte unverändert (24,90 € SSOT).
+Ergänzung `FloatingChip` um feste, dokumentierte Variants:
+`kurs · ihk · pruefung · tutor · muendlich · neu · empfohlen · dauer · schwierigkeit · fortschritt · ki`
 
-### Schritt 3 — Learning Dashboard mit großen Cards
-- Neue Seite `src/pages/dashboard/LearningDashboardPage.tsx`, gemountet unter bestehender Dashboard-Route (`/dashboard` bzw. `/app`), `AppCoursesPage` als Tab erhalten.
-- 6 große `<ImageCard>`s:
-  1. Lernkurs → `/app/learn`
-  2. Prüfung (Simulation) → `/app/exam`
-  3. KI-Tutor → `/app/tutor`
-  4. Mündliche Prüfung → `/app/oral`
-  5. Fortschritt (mit `<ProgressMeter shape="ring" showPercent>`)
-  6. Schwächen (Top-Fehler-Topics, read-only Liste)
-- Fallback-Gradient pro Karte über `fallbackArea`. Daten kommen aus bestehenden Hooks (`useAccountSummary`, vorhandene Progress-Selectors) — keine neuen Queries.
+Alle bestehenden `<Badge>`/Inline-Pills in den migrierten Surfaces werden ersetzt. **Außerhalb der migrierten Seiten bleibt `Badge` zunächst stehen** (Wave 4-Cleanup), damit Wave 3 freezeable bleibt.
 
-### Schritt 4 — Kompetenzkarten (ImageCard-Layouts)
-- Neuer `src/components/competence/CompetenceImageCard.tsx`: 3 Modi `course | exam | tutor` (steuert `fallbackArea` + Action-Label).
-- `topRight`-Slot: `<FloatingChip variant="fav">` (Favorit-Toggle, lokaler State) + `<FloatingChip variant="time">` mit geschätzter Dauer.
-- Eingesetzt in: Kompetenzliste auf `/app/learn`, Prüfungs-Topic-Auswahl, Tutor-Themenpicker. Bilder via vorhandenem `useBerufImages` / Kompetenz-Image-Hook (Fallback Gradient).
+### Teil G — Spacing Token Pass
 
-### Schritt 5 — Guards & Tests
-- Vitest:
-  - `LessonHeroHeader` Render + Progress-Rolle
-  - `CompetenceImageCard` Variants + Chips
-  - `LearningDashboardPage` rendert 6 Karten, jede mit `data-testid="examfit-image-card"`
-- `scripts/guard-no-raw-hex.mjs` auf neue Pfade erweitern (`src/components/lesson/LessonHeroHeader.tsx`, `src/components/competence/**`, `src/pages/dashboard/LearningDashboardPage.tsx`).
-- LIF-Guards bleiben grün: `LearnerAnswerSurface` weiter einzige Antwort-Komponente.
+Einheitliche Container-Klassen für migrierte Seiten:
+- Page-Container: `container mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-10 sm:space-y-14`
+- Card-Grids: `gap-6 sm:gap-8 grid-cols-1 md:grid-cols-2`
+- Hero → Grid: `mb-10 sm:mb-14`
 
-## Technische Constraints
+### Personalisierter Dashboard-Hero (Empfehlung übernommen)
 
-- Keine Hex-Werte. Nur `bg-hero-*`, `rounded-card-*`, `shadow-card|hero`, `status-*` Tokens.
-- Kein Refactor an: LIF.OS.1, Curriculum, Pricing, Stripe, Auth, RLS, Edge-Functions.
-- Keine neuen Routen — bestehende Dashboard-Route übernimmt das neue Layout, vorherige Inhalte als Tab/Sub-View.
-- Mobile-first (411px Viewport getestet), Bottom-Actions stabil.
-- Wave 4 (Motion-Feedback) ausdrücklich NICHT in diesem Paket.
+`DashboardHero`-Komponente (neu, unter `src/components/dashboard/DashboardHero.tsx`):
+- linke Spalte: „Willkommen zurück, {name}" + nächstes Lernziel (Lesson-Title) + Continue-CTA (Deep-Link zur letzten Lesson)
+- rechte Spalte: ProgressMeter „Prüfungsreife" + Mastery-%
 
-## Ergebnis
-Ein durchgängiges DS2.0-Erscheinungsbild über Lesson · Tutor · Oral · Shop · Dashboard, mit konsistenten Hero-, Glass-, Chip- und Card-Komponenten — ohne Eingriff in Fach- oder Interaktionslogik.
+Daten kommen ausschließlich aus bereits vorhandenen Hooks (`useLearnerProgress`, `useExamReadiness`, vorhandene Queries) — keine neuen Requests.
+
+### CI / Guards
+
+- `scripts/guard-no-raw-hex.mjs` bleibt aktiv (kein `#RRGGBB` in examfit-ds-Primitives).
+- Neuer Soft-Guard: `scripts/guard-card-family.mjs` warnt (nicht fail), wenn in `src/pages/{LearnerDashboard,CoursesPage,CourseDetailPage,berufos/**}` direkte `<Card>`-Imports aus `@/components/ui/card` auftauchen — Liste schrittweise leeren.
+
+### Tests
+
+- Vitest Snapshot/Behavior:
+  - `LearningDashboardGrid` (6 Karten, korrekte CTAs, ARIA-Labels)
+  - `DashboardHero` (Fallback-Name, fehlendes nächstes Ziel, Continue-CTA disabled)
+  - `FloatingChip` Variant-Matrix
+  - `CoursesPage` Card-Renderer (ProgressMeter & Chips)
+- Playwright Mobile-Suite erweitern um Routen `/dashboard`, `/kurse`, `/berufe/<slug>`:
+  - 4 Viewports × 2 Themes
+  - Asserts: kein horizontaler Overflow, alle CTAs ≥ 44px, alle `<img>` haben `alt`
+- Akzeptanz: alle Vitest grün, Playwright `overflow=False` über alle 24 Runs
+
+### Accessibility
+
+- Buttons in den neuen Karten: `min-h-11 min-w-11`
+- Alle Hero/Card-`<img>`: `loading="lazy"` + verbindlicher `alt`
+- Hover-Lift + Focus-Ring (Tailwind `focus-visible:ring-2 ring-ring`)
+- Kontrast wird über bestehende Tokens (`text-foreground` auf `bg-card`) garantiert
+
+### Out-of-Scope (explizit nicht angefasst)
+
+- `LessonPlayer` (Wave 2 freeze)
+- Curriculum, Unlock-Logik, Paywall
+- Datenmodelle, Edge Functions, RLS
+- Globale Badge-Verdrängung außerhalb der migrierten Surfaces (Wave 4)
+- Motion/Microinteractions (Wave 4)
+
+### Reihenfolge der Umsetzung
+
+1. `FloatingChip`-Variants + Tests
+2. `DashboardHero` Komponente + Tests
+3. `LearnerDashboard.tsx` Migration (Hero + Grid)
+4. `CoursesPage.tsx` Migration
+5. `CourseDetailPage.tsx` Hero + Hülle
+6. Berufsseiten (`BerufOSHub` + Detail)
+7. Spacing-Pass über alle migrierten Seiten
+8. Vitest + Playwright Wave-3-Run, Report nach `/mnt/documents/wave3-mobile-qa/`
+9. Memory-Update: Wave 3 freeze
