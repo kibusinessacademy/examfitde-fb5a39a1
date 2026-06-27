@@ -289,9 +289,30 @@ export default function StoreReleaseCenterPage() {
                               <CheckCircle2 className="size-3 mr-1" /> Google OK
                             </Button>
                           )}
+                          <Button size="sm" variant="secondary"
+                            disabled={busy === `${r.course_id}:android:build:dry`}
+                            onClick={() => dispatchBuild(r.course_id, "android", true)}>
+                            <Hammer className="size-3 mr-1" /> Android Dry-Run
+                          </Button>
+                          <Button size="sm" variant="secondary"
+                            disabled={busy === `${r.course_id}:android:build:live`}
+                            onClick={() => dispatchBuild(r.course_id, "android", false)}>
+                            <Rocket className="size-3 mr-1" /> Android Internal
+                          </Button>
+                          <Button size="sm" variant="secondary"
+                            disabled={busy === `${r.course_id}:ios:build:dry`}
+                            onClick={() => dispatchBuild(r.course_id, "ios", true)}>
+                            <Hammer className="size-3 mr-1" /> iOS Dry-Run
+                          </Button>
+                          <Button size="sm" variant="secondary"
+                            disabled={busy === `${r.course_id}:ios:build:live`}
+                            onClick={() => dispatchBuild(r.course_id, "ios", false)}>
+                            <Rocket className="size-3 mr-1" /> iOS TestFlight
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
+
                   ))}
                 </TableBody>
               </Table>
