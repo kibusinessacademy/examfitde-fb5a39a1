@@ -56,7 +56,7 @@ export default function StoreReleaseCenterPage() {
         .select("*")
         .order("course_title", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as Row[];
+      return (data ?? []) as unknown as Row[];
     },
   });
 
