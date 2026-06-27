@@ -54,6 +54,7 @@ import { RouteIdentityBlock } from '@/components/learner/RouteIdentityBlock';
 import { OutcomeHintBlock } from '@/components/learner/OutcomeHintBlock';
 import { useOsBeruf } from '@/lib/os/os-identity';
 import { LearningDashboardGrid } from '@/components/dashboard/LearningDashboardGrid';
+import { DashboardHero } from '@/components/dashboard/DashboardHero';
 
 export default function LearnerDashboard() {
   const { user, isAdmin } = useAuth();
