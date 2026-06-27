@@ -287,8 +287,40 @@ export function LearnLessonCard({
       )}
 
       {/* Answer-Surface — always reachable, mobile-first */}
-      {answerSurface && (
+      {answerSurface ? (
         <div data-testid="learn-lesson-answer-slot">{answerSurface}</div>
+      ) : (
+        // Info-Karte ohne Eingabefläche → einheitliche „Weiter zur Übung"-CTA,
+        // damit der Lernfluss geschlossen wirkt (LIF.OS.1 · Wave-2-Polish).
+        (() => {
+          const nextAction = orderedActions.find((a) => a.kind === 'next');
+          if (!nextAction) return null;
+          return (
+            <div
+              className="rounded-lg border border-border bg-surface-raised/40 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+              data-testid="learn-lesson-next-cta"
+            >
+              <p className="text-sm text-text-secondary [text-wrap:balance]">
+                Bereit für die nächste Aufgabe?
+              </p>
+              <button
+                type="button"
+                onClick={nextAction.onClick}
+                disabled={nextAction.disabled || nextAction.busy}
+                className={cn(
+                  'inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors',
+                  'min-h-11 w-full sm:w-auto whitespace-normal text-center [text-wrap:balance]',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                  ACTION_VARIANT.next,
+                )}
+                data-testid="learn-lesson-next-cta-button"
+              >
+                <span>Weiter zur Übung</span>
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          );
+        })()
       )}
 
       {/* Bottom-Actions — stable order: back · save · check · next */}
