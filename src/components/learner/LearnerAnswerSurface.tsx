@@ -68,7 +68,9 @@ export function LearnerAnswerSurface({
     ? InstanceType<NonNullable<AnySpeech>> | null
     : null>(null);
 
-  const allowVoice = (spec.expectedInput === 'text' || spec.expectedInput === 'voice') && (spec.allowVoice ?? spec.expectedInput === 'voice' ?? false);
+  const allowVoice =
+    (spec.expectedInput === 'text' || spec.expectedInput === 'voice') &&
+    (spec.allowVoice ?? spec.expectedInput === 'voice');
   const isText = spec.expectedInput === 'text' || spec.expectedInput === 'voice';
   const actions = useMemo<ReadonlyArray<AnswerActionKind>>(
     () => (spec.actions && spec.actions.length > 0 ? spec.actions : ['submit']),
