@@ -310,14 +310,15 @@ describe("STORE.OPS.INTELLIGENCE.OS.1 — recommendations", () => {
   const baseArgs = () => ({
     risk: aggregateRisk(0, 0, 0),
     confidence: computeConfidence({ items: [], runs: [], actions: [] }),
-    topBlockers: [],
-    topFailures: [],
-    actionStats: [],
+    topBlockers: [] as ReturnType<typeof topBlockers>,
+    topFailures: [] as ReturnType<typeof topFailures>,
+    actionStats: [] as ReturnType<typeof actionSuccessRates>,
     runs: [] as AutopilotRunSnapshot[],
     batches: [] as BatchSnapshot[],
-    clusters: [],
-    trends: [],
+    clusters: [] as ReturnType<typeof clusterBlockers>,
+    trends: [] as ReturnType<typeof computeTrends>,
   });
+
   it("returns NO_ACTION_REQUIRED when no signal", () => {
     const r = buildRecommendations(baseArgs());
     expect(r.map((x) => x.code)).toContain("NO_ACTION_REQUIRED");
