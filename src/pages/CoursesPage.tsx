@@ -150,175 +150,160 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="py-6 sm:py-8 md:py-12 px-3 sm:px-4">
+    <div className="container mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12 space-y-10 sm:space-y-14">
       <SEOHead
         title="Lernkurse & Prüfungstraining"
         description="Alle Lernkurse für IHK-Abschlussprüfung, Fachwirt, Meister, AEVO und Zertifikate – mit echten Prüfungsfragen, KI-Tutor und adaptivem Lernplan."
         canonical="https://berufos.com/courses"
       />
-      <div className="container mx-auto max-w-6xl">
-        {/* Header */}
-        <div className="text-center mb-8 md:mb-12">
-          <h1 className="text-2xl sm:text-3xl md:text-5xl font-display font-bold mb-3 md:mb-4">
-            Dein <span className="text-gradient">Prüfungstraining</span>
+
+      {/* ━━━ Wave 3 · HeroSurface Header ━━━ */}
+      <HeroSurface area="learn" radius="card-xl" testId="courses-hero">
+        <div className="max-w-3xl space-y-3">
+          <FloatingChip variant="kurs" icon={<BookOpen className="h-3 w-3" />}>
+            Prüfungstraining
+          </FloatingChip>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-semibold leading-tight text-text-primary">
+            Dein Prüfungstraining
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Prüfungsrelevantes Wissen basierend auf offiziellen Rahmenlehrplänen – 
+          <p className="text-sm sm:text-base text-text-secondary max-w-2xl">
+            Prüfungsrelevantes Wissen basierend auf offiziellen Rahmenlehrplänen –
             gezielt aufbereitet für deine Abschlussprüfung.
           </p>
         </div>
+      </HeroSurface>
 
-        {/* Search + Filter Bar (#5) */}
-        {courses.length > 0 && (
-          <div className="mb-6 flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Kurs suchen..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-9 pr-9"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  aria-label="Suche zurücksetzen"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </button>
-              )}
-            </div>
-            {user && enrollments.length > 0 && (
-              <div className="flex gap-1.5">
-                {(['all', 'enrolled', 'completed'] as const).map(f => (
-                  <Button
-                    key={f}
-                    variant={filter === f ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setFilter(f)}
-                    className="text-xs"
-                  >
-                    {f === 'all' ? 'Alle' : f === 'enrolled' ? 'Aktiv' : 'Abgeschlossen'}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Category Chips — nur sichtbar bei ≥2 Kategorien */}
-        {availableCategories.length >= 2 && (
-          <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Nach Kategorie filtern">
-            <Button
-              variant={category === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setCategory('all')}
-              className="text-xs rounded-full"
-            >
-              Alle ({courses.length})
-            </Button>
-            {availableCategories.map(({ key, label, count }) => (
-              <Button
-                key={key}
-                variant={category === key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setCategory(key)}
-                className="text-xs rounded-full"
-              >
-                {label} ({count})
-              </Button>
-            ))}
-          </div>
-        )}
-
-        {/* Courses Grid */}
-        {filteredCourses.length === 0 ? (
-          <div className="glass-card rounded-2xl p-12 text-center">
-            <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">
-              {search ? 'Keine Ergebnisse' : 'Noch kein Prüfungstraining verfügbar'}
-            </h3>
-            <p className="text-muted-foreground">
-              {search ? 'Versuche einen anderen Suchbegriff.' : 'Neue Prüfungstrainings werden bald hinzugefügt. Schau später wieder vorbei!'}
-            </p>
+      {/* Search + Filter Bar */}
+      {courses.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              placeholder="Kurs suchen..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 pr-9 min-h-11"
+              aria-label="Kurs suchen"
+            />
             {search && (
-              <Button variant="outline" className="mt-4" onClick={() => setSearch('')}>
-                Suche zurücksetzen
-              </Button>
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Suche zurücksetzen"
+                className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
             )}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredCourses.map((course) => (
-              <Card key={course.id} className="glass-card border-border hover:border-primary/30 transition-all duration-300 group overflow-hidden">
-                {/* Thumbnail — Reihenfolge: explizites course.thumbnail → AI-Foto aus Cache → Kategorie-Fallback */}
-                <div className="aspect-video bg-muted relative overflow-hidden">
-                  {(() => {
-                    const src =
-                      course.thumbnail_url ||
-                      imageBySlug.get(course.id) ||
-                      getBerufImage(course.title);
-                    return (
-                      <img
-                        src={src}
-                        alt={course.title}
-                        loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    );
-                  })()}
-                  
-                  {/* Status Badges */}
-                  <div className="absolute top-3 left-3 flex gap-2">
-                    {isCompleted(course.id) && (
-                      <Badge className="bg-success/90 text-success-foreground">
-                        <CheckCircle className="h-3 w-3 mr-1" />
+          {user && enrollments.length > 0 && (
+            <div className="flex gap-1.5">
+              {(['all', 'enrolled', 'completed'] as const).map(f => (
+                <Button
+                  key={f}
+                  variant={filter === f ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setFilter(f)}
+                  className="text-xs min-h-11"
+                >
+                  {f === 'all' ? 'Alle' : f === 'enrolled' ? 'Aktiv' : 'Abgeschlossen'}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Category Chips */}
+      {availableCategories.length >= 2 && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Nach Kategorie filtern">
+          <Button
+            variant={category === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setCategory('all')}
+            className="text-xs rounded-full min-h-11"
+          >
+            Alle ({courses.length})
+          </Button>
+          {availableCategories.map(({ key, label, count }) => (
+            <Button
+              key={key}
+              variant={category === key ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCategory(key)}
+              className="text-xs rounded-full min-h-11"
+            >
+              {label} ({count})
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {/* Courses Grid — Wave 3 ImageCard */}
+      {filteredCourses.length === 0 ? (
+        <div className="rounded-card-lg border border-border bg-card p-12 text-center shadow-card">
+          <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" aria-hidden="true" />
+          <h3 className="text-xl font-semibold mb-2">
+            {search ? 'Keine Ergebnisse' : 'Noch kein Prüfungstraining verfügbar'}
+          </h3>
+          <p className="text-muted-foreground">
+            {search ? 'Versuche einen anderen Suchbegriff.' : 'Neue Prüfungstrainings werden bald hinzugefügt. Schau später wieder vorbei!'}
+          </p>
+          {search && (
+            <Button variant="outline" className="mt-4 min-h-11" onClick={() => setSearch('')}>
+              Suche zurücksetzen
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
+          data-testid="courses-grid"
+        >
+          {filteredCourses.map((course) => {
+            const src =
+              course.thumbnail_url ||
+              imageBySlug.get(course.id) ||
+              getBerufImage(course.title);
+            const enrolled = isEnrolled(course.id);
+            const completed = isCompleted(course.id);
+            const cta = enrolled ? 'Weiterlernen' : 'Training starten';
+            return (
+              <ImageCard
+                key={course.id}
+                title={course.title}
+                description={course.description || 'Keine Beschreibung verfügbar'}
+                image={src}
+                imageAlt={course.title}
+                fallbackArea="learn"
+                actionLabel={cta}
+                onClick={() => navigate(`/course/${course.id}`)}
+                topRight={
+                  <>
+                    {completed && (
+                      <FloatingChip variant="fortschritt" icon={<CheckCircle className="h-3 w-3" />}>
                         Abgeschlossen
-                      </Badge>
+                      </FloatingChip>
                     )}
-                    {isEnrolled(course.id) && !isCompleted(course.id) && (
-                      <Badge className="bg-primary/90 text-primary-foreground">
-                        Eingeschrieben
-                      </Badge>
+                    {!completed && enrolled && (
+                      <FloatingChip variant="kurs" icon={<Play className="h-3 w-3" />}>
+                        Aktiv
+                      </FloatingChip>
                     )}
-                  </div>
-                </div>
-
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xl font-display group-hover:text-primary transition-colors">
-                    {course.title}
-                  </CardTitle>
-                  <CardDescription className="line-clamp-2">
-                    {course.description || 'Keine Beschreibung verfügbar'}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="pt-0">
-                  {/* Meta Info */}
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                    {course.estimated_duration && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
+                    {course.estimated_duration ? (
+                      <FloatingChip variant="dauer" icon={<Clock className="h-3 w-3" />}>
                         {course.estimated_duration} Min.
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action Button */}
-                  <Link to={`/course/${course.id}`}>
-                    <Button className="w-full gradient-primary text-primary-foreground shadow-glow-sm group-hover:shadow-glow transition-all">
-                      {isEnrolled(course.id) ? 'Fortsetzen' : 'Training starten'}
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+                      </FloatingChip>
+                    ) : null}
+                  </>
+                }
+                testId={`course-card-${course.id}`}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
+
