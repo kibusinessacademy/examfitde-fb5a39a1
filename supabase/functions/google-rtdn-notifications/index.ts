@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { normalizeGoogleRtdnEvent } from "../_shared/iap-status-lifecycle.ts";
+import { applyLifecycleEvent } from "../_shared/iap-lifecycle-bridge.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
