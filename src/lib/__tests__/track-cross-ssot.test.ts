@@ -120,8 +120,8 @@ describe("EXAM_FIRST_PLUS cert-based oral exam cross-SSOT", () => {
   it("canSupportOralExam is true", () => {
     expect(TRACK_CAPABILITIES.EXAM_FIRST_PLUS.canSupportOralExam).toBe(true);
   });
-  it("DEFAULT_FLAGS has_oral_exam_trainer is false", () => {
-    expect(DEFAULT_FLAGS.EXAM_FIRST_PLUS.has_oral_exam_trainer).toBe(false);
+  it("DEFAULT_FLAGS has_oral_exam_trainer is true (packaging-SSOT 2026-06-26)", () => {
+    expect(DEFAULT_FLAGS.EXAM_FIRST_PLUS.has_oral_exam_trainer).toBe(true);
   });
   it("resolver with cert enabled → steps include oral", () => {
     const req = getRequiredSteps("EXAM_FIRST_PLUS", { oral_exam_enabled: true });
