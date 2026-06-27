@@ -1,7 +1,7 @@
 /**
  * REVIEW.READY.GATE.OS.1 — Deterministic Scoring Weights
  */
-export const SCORE_WEIGHTS = {
+export const SCORE_WEIGHTS: Record<string, number> = {
   manifest: 15,
   listing: 15,
   screenshots: 10,
@@ -11,7 +11,7 @@ export const SCORE_WEIGHTS = {
   tests: 10,
   governance: 5,
   known_limitations: 5,
-} as const;
+};
 
 export const TOTAL_SCORE = Object.values(SCORE_WEIGHTS).reduce((a, b) => a + b, 0); // 100
 
