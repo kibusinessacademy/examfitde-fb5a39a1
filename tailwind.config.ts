@@ -284,6 +284,10 @@ export default {
         glow: "var(--shadow-glow)",
         "glow-sm": "0 0 10px hsl(168 64% 50% / 0.2)",
         "glow-lg": "0 0 40px hsl(168 64% 50% / 0.3)",
+        // EXAMFIT.DESIGN.SYSTEM.OS.1
+        card: "var(--shadow-card)",
+        "card-hover": "var(--shadow-card-hover)",
+        hero: "var(--shadow-hero)",
         // ── Elevation system v2 (cool-tinted, not dirty-black) ──
         "elev-1": "0 1px 2px 0 hsl(215 30% 20% / 0.04), 0 1px 3px 0 hsl(215 30% 20% / 0.06)",
         "elev-2": "0 2px 4px -1px hsl(215 30% 20% / 0.06), 0 4px 8px -2px hsl(215 30% 20% / 0.08)",
