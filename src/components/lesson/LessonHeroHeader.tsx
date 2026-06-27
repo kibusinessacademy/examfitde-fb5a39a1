@@ -129,7 +129,7 @@ export default function LessonHeroHeader({
             <div className="flex items-center gap-2 shrink-0">
               {stepLabel && stepIdx >= 0 && (
                 <FloatingChip
-                  variant="info"
+                  variant="course"
                   icon={<Layers className="h-3 w-3" />}
                   className="hidden sm:inline-flex"
                   testId="lesson-hero-step-chip"
