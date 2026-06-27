@@ -46,6 +46,7 @@ interface Course {
   id: string;
   title: string;
   curriculum_id: string | null;
+  thumbnail_url: string | null;
 }
 
 interface LessonProgress {
@@ -165,7 +166,7 @@ export default function LessonPlayer() {
         const [courseResult, lessonsResult] = await Promise.all([
           supabase
             .from('courses')
-            .select('id, title, curriculum_id')
+            .select('id, title, curriculum_id, thumbnail_url')
             .eq('id', moduleData.course_id)
             .single(),
           supabase
@@ -421,6 +422,10 @@ export default function LessonPlayer() {
         courseId={course.id}
         courseTitle={course.title}
         moduleTitle={module.title}
+        competencyTitle={competency.title}
+        competencyCode={competency.code}
+        stepKey={lesson.step}
+        imageUrl={course.thumbnail_url}
         progress={getModuleProgress()}
         currentIndex={getCurrentLessonIndex()}
         totalLessons={siblingLessons.length}

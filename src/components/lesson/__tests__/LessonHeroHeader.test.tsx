@@ -43,4 +43,33 @@ describe('LessonHeroHeader (DS2.0)', () => {
     expect(screen.getByLabelText(/Zurück zum Kurs/i)).toBeTruthy();
     expect(screen.getByLabelText(/Zur Startseite/i)).toBeTruthy();
   });
+
+  it('renders competency label when provided', () => {
+    renderHeader({ competencyTitle: 'Beschaffung optimieren', competencyCode: 'K2.1' });
+    expect(screen.getByLabelText('Kompetenz').textContent).toContain('K2.1');
+    expect(screen.getByLabelText('Kompetenz').textContent).toContain('Beschaffung optimieren');
+  });
+
+  it('renders step chip from STEP_CONFIG', () => {
+    renderHeader({ stepKey: 'anwenden' });
+    const chip = screen.getByTestId('lesson-hero-step-chip');
+    expect(chip.textContent).toMatch(/Schritt\s*3\s*\/\s*7/);
+    expect(chip.textContent).toContain('Anwenden');
+  });
+
+  it('renders image when imageUrl is provided (image path)', () => {
+    renderHeader({ imageUrl: 'https://example.test/lesson.jpg' });
+    const slot = screen.getByTestId('lesson-hero-image-slot');
+    expect(slot.getAttribute('data-has-image')).toBe('true');
+    expect(slot.querySelector('img')?.getAttribute('src')).toBe('https://example.test/lesson.jpg');
+  });
+
+  it('renders gradient-only fallback when imageUrl is missing (no layout shift)', () => {
+    renderHeader({ imageUrl: null });
+    const slot = screen.getByTestId('lesson-hero-image-slot');
+    expect(slot.getAttribute('data-has-image')).toBe('false');
+    expect(slot.querySelector('img')).toBeNull();
+    // Reserved height must remain so layout does not shift when image arrives.
+    expect(slot.className).toMatch(/h-20/);
+  });
 });
