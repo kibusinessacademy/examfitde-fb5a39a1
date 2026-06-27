@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Apple, Smartphone, Camera, FileText, CheckCircle2, AlertCircle, Hammer, Rocket } from "lucide-react";
+import { ReviewReadyCard } from "./storeReleaseCenter/ReviewReadyCard";
 
 type Row = {
   course_id: string;
@@ -192,6 +193,10 @@ export default function StoreReleaseCenterPage() {
         <Card><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">Apple Screenshots</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{summary.shotsApple}</CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-xs text-muted-foreground">Google Screenshots</CardTitle></CardHeader><CardContent className="text-2xl font-semibold">{summary.shotsGoogle}</CardContent></Card>
       </div>
+
+      <ReviewReadyCard />
+
+
 
       <Card>
         <CardHeader>
