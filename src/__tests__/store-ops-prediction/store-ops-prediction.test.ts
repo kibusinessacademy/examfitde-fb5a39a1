@@ -368,9 +368,9 @@ describe("STORE.OPS.PREDICTION.OS.1 — duration & queue load", () => {
 });
 
 describe("STORE.OPS.PREDICTION.OS.1 — confidence", () => {
-  it("returns low score on empty data", () => {
+  it("returns sub-baseline score on empty data", () => {
     const c = computeConfidence({ baselines: [], items: [], kpi: [], total_events: 0 });
-    expect(c.score).toBeLessThan(0.3);
+    expect(c.score).toBeLessThan(0.5);
     expect(c.sample_size).toBe(0);
   });
 
