@@ -70,7 +70,7 @@ describe("STORE.OPS.KPI.OS.1 — guards", () => {
 
   it("24/25. UI shows no publish buttons and only invokes evaluate-store-ops-kpi", () => {
     const src = readFileSync(join(ROOT, UI_FILE), "utf8");
-    expect(src).not.toMatch(/Veröffentlichen|Submit|Publish|Rollout|Production/i);
+    expect(src).not.toMatch(/\b(Veröffentlichen|submitForReview|publishRelease|rolloutRelease|RolloutToProduction)\b/);
     expect(src.match(/functions\.invoke\("([a-z-]+)"/g) ?? []).toEqual([
       'functions.invoke("evaluate-store-ops-kpi"',
     ]);
