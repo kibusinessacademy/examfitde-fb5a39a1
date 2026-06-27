@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ReleaseOrchestrationCard } from "./ReleaseOrchestrationCard";
 import { StoreLifecycleCard } from "./StoreLifecycleCard";
 import { StoreOpsHealthCard } from "./StoreOpsHealthCard";
+import { StoreOpsBatchCard } from "./StoreOpsBatchCard";
 
 type ManifestRow = {
   id: string;
@@ -45,6 +46,7 @@ export function ReleaseOrchestrationCenter() {
       </CardHeader>
       <CardContent className="space-y-4">
         <StoreOpsHealthCard />
+        <StoreOpsBatchCard />
         {manifests.isLoading ? (
           <Skeleton className="h-10 w-full" />
         ) : (
