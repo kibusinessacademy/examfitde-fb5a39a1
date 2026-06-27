@@ -1,0 +1,126 @@
+name: store-build-android
+
+# Android AAB build skeleton (MOBILE.COURSE.PACKAGE.OS.1 — Welle 2).
+#
+# Production publishing is intentionally NOT supported. Maximum upload target
+# is Google Play Internal Track, and only when explicitly invoked with
+# dry_run=false AND all required signing/publishing secrets are present.
+#
+# Required secrets (configure in Workspace → Build Secrets):
+#   ANDROID_KEYSTORE_BASE64
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+#   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON     (only required for upload)
+#   STORE_RELEASE_STATUS_CALLBACK_SECRET (callback to Lovable Cloud)
+#   SUPABASE_URL                         (callback target)
+#
+# When any required secret is missing the workflow exits cleanly with stage
+# "missing_secrets" — no fail-hard.
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_id:
+        description: mobile_course_app_manifest.id
+        required: true
+      course_id:
+        required: true
+      product_id:
+        required: false
+      curriculum_id:
+        required: false
+      build_number:
+        required: false
+      package_artifact_url:
+        description: signed URL to existing mobile package zip
+        required: false
+      package_reference:
+        description: alternative reference (e.g. course_package_outputs row id)
+        required: false
+      dry_run:
+        description: "If true (default), build is simulated; no signing, no upload."
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-build-android-${{ inputs.manifest_id }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MANIFEST_ID: ${{ inputs.manifest_id }}
+      COURSE_ID: ${{ inputs.course_id }}
+      PRODUCT_ID: ${{ inputs.product_id }}
+      CURRICULUM_ID: ${{ inputs.curriculum_id }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      PACKAGE_ARTIFACT_URL: ${{ inputs.package_artifact_url }}
+      PACKAGE_REFERENCE: ${{ inputs.package_reference }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      PLATFORM: android
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      STORE_RELEASE_STATUS_CALLBACK_SECRET: ${{ secrets.STORE_RELEASE_STATUS_CALLBACK_SECRET }}
+    steps:
+      - name: Guard – callback secrets
+        id: guard
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$STORE_RELEASE_STATUS_CALLBACK_SECRET" ]; then
+            echo "::warning::Callback secrets missing. Workflow exiting cleanly (no-op)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - if: steps.guard.outputs.skip == 'true'
+        run: echo "missing_secrets" && exit 0
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+
+      - name: Report queued
+        run: node scripts/store-build/report-status.mjs queued
+
+      - name: Fetch / generate mobile package
+        env:
+          STAGE_HINT: package_fetch
+        run: node scripts/store-build/build-android.mjs fetch-package
+
+      - name: Validate mobile package
+        run: node scripts/store-build/validate-mobile-package.mjs
+
+      - name: Report package_validated
+        run: node scripts/store-build/report-status.mjs package_validated
+
+      - name: Build Android (AAB)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: node scripts/store-build/build-android.mjs build
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-build-android-${{ inputs.manifest_id }}
+          path: out/store-build-android/
+          if-no-files-found: ignore
+
+      - name: Optional Internal Track upload (Google Play)
+        if: ${{ inputs.dry_run == 'false' }}
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: node scripts/store-build/build-android.mjs upload-internal
+
+      - name: Final status callback
+        if: always()
+        run: node scripts/store-build/report-status.mjs final

@@ -1,0 +1,126 @@
+name: store-build-ios
+
+# iOS IPA build skeleton (MOBILE.COURSE.PACKAGE.OS.1 — Welle 2).
+#
+# Production submission to App Review is intentionally NOT supported.
+# Maximum upload target is TestFlight, and only when invoked with
+# dry_run=false AND all required Apple secrets are present.
+#
+# Required secrets:
+#   APPLE_TEAM_ID
+#   APPLE_BUNDLE_ID
+#   APP_STORE_CONNECT_KEY_ID
+#   APP_STORE_CONNECT_ISSUER_ID
+#   APP_STORE_CONNECT_API_KEY_BASE64
+#   IOS_CERTIFICATE_BASE64
+#   IOS_CERTIFICATE_PASSWORD
+#   IOS_PROVISIONING_PROFILE_BASE64
+#   STORE_RELEASE_STATUS_CALLBACK_SECRET
+#   SUPABASE_URL
+#
+# Workflow exits cleanly with stage "missing_secrets" if callback secrets are
+# missing. Signing/upload steps are skipped (not fail-hard) when their secrets
+# are missing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_id:
+        required: true
+      course_id:
+        required: true
+      product_id:
+        required: false
+      curriculum_id:
+        required: false
+      build_number:
+        required: false
+      package_artifact_url:
+        required: false
+      package_reference:
+        required: false
+      dry_run:
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-build-ios-${{ inputs.manifest_id }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      MANIFEST_ID: ${{ inputs.manifest_id }}
+      COURSE_ID: ${{ inputs.course_id }}
+      PRODUCT_ID: ${{ inputs.product_id }}
+      CURRICULUM_ID: ${{ inputs.curriculum_id }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      PACKAGE_ARTIFACT_URL: ${{ inputs.package_artifact_url }}
+      PACKAGE_REFERENCE: ${{ inputs.package_reference }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      PLATFORM: ios
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      STORE_RELEASE_STATUS_CALLBACK_SECRET: ${{ secrets.STORE_RELEASE_STATUS_CALLBACK_SECRET }}
+    steps:
+      - name: Guard – callback secrets
+        id: guard
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$STORE_RELEASE_STATUS_CALLBACK_SECRET" ]; then
+            echo "::warning::Callback secrets missing. Workflow exiting cleanly (no-op)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+      - if: steps.guard.outputs.skip == 'true'
+        run: echo "missing_secrets" && exit 0
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+
+      - name: Report queued
+        run: node scripts/store-build/report-status.mjs queued
+
+      - name: Fetch / generate mobile package
+        run: node scripts/store-build/build-ios.mjs fetch-package
+
+      - name: Validate mobile package
+        run: node scripts/store-build/validate-mobile-package.mjs
+
+      - name: Report package_validated
+        run: node scripts/store-build/report-status.mjs package_validated
+
+      - name: Build iOS (IPA)
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: node scripts/store-build/build-ios.mjs build
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-build-ios-${{ inputs.manifest_id }}
+          path: out/store-build-ios/
+          if-no-files-found: ignore
+
+      - name: Optional TestFlight upload
+        if: ${{ inputs.dry_run == 'false' }}
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: node scripts/store-build/build-ios.mjs upload-testflight
+
+      - name: Final status callback
+        if: always()
+        run: node scripts/store-build/report-status.mjs final
