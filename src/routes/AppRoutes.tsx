@@ -902,6 +902,8 @@ const AppRoutes = () => {
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
           <Route path="governance/visual-learning-review" element={<VisualLearningReviewPage />} />
           <Route path="governance/visual-learning-workflow" element={<VisualLearningArtifactWorkflowPage />} />
+          {/* EXAMFIT.DESIGN.SYSTEM.OS.1 — Wave 1 admin demo */}
+          <Route path="design/examfit-ds" element={<ExamFitDesignSystemDemoPage />} />
 
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
           <Route path="berufs-ki/quality" element={<BerufsKIQualityPage />} />
