@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react';
-import { ChevronDown, ChevronUp, Info, Lightbulb } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronUp, Info, Lightbulb } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
