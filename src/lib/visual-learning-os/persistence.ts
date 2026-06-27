@@ -59,7 +59,8 @@ export function validateVisualArtifactPersistenceCandidate(
       ),
     );
   }
-  if (!isVloPersistedStatus(a.status)) {
+  const persisted = mapContractToPersistedStatus(a.status);
+  if (!persisted) {
     blockers.push(
       vloPersistBlocker("VLO_PERSIST_INVALID_STATUS", `Status '${a.status}' ist unzulässig.`),
     );
@@ -68,8 +69,8 @@ export function validateVisualArtifactPersistenceCandidate(
   // AI drafts may only persist as draft or needs_review.
   if (
     input.is_ai_draft &&
-    a.status !== "draft" &&
-    a.status !== "needs_review"
+    persisted !== "draft" &&
+    persisted !== "needs_review"
   ) {
     blockers.push(
       vloPersistBlocker(
