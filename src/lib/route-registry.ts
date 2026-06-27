@@ -293,6 +293,7 @@ export const ROUTE_PATTERNS: readonly string[] = [
   "/admin/growth",
   "/admin/growth-intelligence",
   "/admin/governance/architecture",
+  "/admin/governance/catalog-diagnostics",
   "/admin/platform-conscience",
   "/admin/runbook/integrity-check",
   "/admin/security/findings",
