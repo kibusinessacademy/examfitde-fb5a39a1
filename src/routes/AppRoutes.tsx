@@ -356,6 +356,7 @@ const ArchitecturePage = lazyRetry(() => import('@/pages/admin/governance/Archit
 const BackgroundAgentRuntimePage = lazyRetry(() => import('@/pages/admin/governance/BackgroundAgentRuntimePage'));
 const CourseProfitabilityPage = lazyRetry(() => import('@/pages/admin/governance/CourseProfitabilityPage'));
 const PipelineHealthPage = lazyRetry(() => import('@/pages/admin/governance/PipelineHealthPage'));
+const SeoHealthPage = lazyRetry(() => import('@/pages/admin/governance/SeoHealthPage'));
 const ExamFitDesignSystemDemoPage = lazyRetry(() => import('@/pages/design/ExamFitDesignSystemDemo'));
 const BerufOSGraphPage = lazyRetry(() => import('@/pages/admin/BerufOSGraphPage'));
 const PlatformConsciencePage = lazyRetry(() => import('@/pages/admin/PlatformConsciencePage'));
