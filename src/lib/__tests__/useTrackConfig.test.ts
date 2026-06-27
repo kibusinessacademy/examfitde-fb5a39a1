@@ -61,21 +61,21 @@ describe("DEFAULT_FLAGS", () => {
     expect(f.ai_tutor_mode).toBe("exam_only");
   });
 
-  it("EXAM_FIRST_PLUS has handbook, no learning, oral is cert-based (static false)", () => {
+  it("EXAM_FIRST_PLUS has handbook, no learning, oral trainer mandatory (SSOT 2026-06-26)", () => {
     const f = DEFAULT_FLAGS.EXAM_FIRST_PLUS;
     expect(f.has_learning_course).toBe(false);
     expect(f.has_handbook).toBe(true);
-    expect(f.has_oral_exam_trainer).toBe(false); // cert-based — resolved at runtime
+    expect(f.has_oral_exam_trainer).toBe(true); // SSOT 2026-06-26: Pflicht-Komponente
     expect(f.has_minichecks).toBe(false);
     expect(f.ai_tutor_mode).toBe("limited_exam");
   });
 
-  it("STUDIUM has learning + minichecks, no oral", () => {
+  it("STUDIUM has learning + minichecks + oral trainer (SSOT 2026-06-26)", () => {
     const f = DEFAULT_FLAGS.STUDIUM;
     expect(f.has_learning_course).toBe(true);
     expect(f.has_minichecks).toBe(true);
     expect(f.has_handbook).toBe(true);
-    expect(f.has_oral_exam_trainer).toBe(false);
+    expect(f.has_oral_exam_trainer).toBe(true); // SSOT 2026-06-26: Pflicht-Komponente
     expect(f.ai_tutor_mode).toBe("full");
   });
 
