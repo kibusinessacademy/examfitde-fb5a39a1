@@ -33,13 +33,13 @@ describe('Wave 3 · <DashboardHero />', () => {
     );
     const cta = screen.getByTestId('dashboard-hero-cta');
     expect(cta).toBeInTheDocument();
-    expect(cta.querySelector('a')?.getAttribute('href')).toBe('/app/lernpfad?lesson=42');
+    expect(cta.getAttribute('href')).toBe('/app/lernpfad?lesson=42');
   });
 
   it('shows "Beruf wählen" CTA when no next goal exists', () => {
     renderHero({ name: 'Mia', nextGoalLabel: null, nextGoalHref: null });
     const cta = screen.getByTestId('dashboard-hero-cta');
-    expect(cta.querySelector('a')?.getAttribute('href')).toBe('/berufe');
+    expect(cta.getAttribute('href')).toBe('/berufe');
     expect(cta).toHaveTextContent(/Beruf wählen/i);
   });
 
