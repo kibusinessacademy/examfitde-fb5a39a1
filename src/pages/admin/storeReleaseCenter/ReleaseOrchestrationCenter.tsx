@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReleaseOrchestrationCard } from "./ReleaseOrchestrationCard";
 import { StoreLifecycleCard } from "./StoreLifecycleCard";
+import { StoreOpsHealthCard } from "./StoreOpsHealthCard";
 
 type ManifestRow = {
   id: string;
@@ -43,6 +44,7 @@ export function ReleaseOrchestrationCenter() {
         <CardTitle>Release Orchestration Center</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <StoreOpsHealthCard />
         {manifests.isLoading ? (
           <Skeleton className="h-10 w-full" />
         ) : (
