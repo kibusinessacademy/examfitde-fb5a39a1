@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useAITutor, AI_MODES, AI_ROLES, type AIRole } from '@/hooks/useAITutor';
 import { useTargetLanguage } from '@/hooks/i18n/useTranslatedContent';
 import { LearnerAnswerSurface } from '@/components/learner/LearnerAnswerSurface';
+import { LearnLessonCard } from '@/components/learner/LearnLessonCard';
 import type { LearnerInteractionSpec } from '@/lib/lif/learner-interaction-contract';
 import { cn } from '@/lib/utils';
 
@@ -143,15 +144,15 @@ export default function LessonTutorBox({ context, className }: LessonTutorBoxPro
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
 
   return (
-    <Card
-      className={cn('glass-card max-w-4xl mx-auto mb-8 border-primary/15', className)}
+    <div
+      className={cn('max-w-4xl mx-auto mb-8', className)}
       data-testid="lesson-tutor-box"
     >
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-surface-raised/40 transition-colors rounded-t-lg"
+            className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left rounded-lg border border-border bg-card hover:bg-surface-raised/40 transition-colors"
             aria-expanded={open}
             aria-controls="lesson-tutor-panel"
           >
@@ -176,127 +177,137 @@ export default function LessonTutorBox({ context, className }: LessonTutorBoxPro
           </button>
         </CollapsibleTrigger>
 
-        <CollapsibleContent id="lesson-tutor-panel">
-          <CardContent className="pt-0 pb-5 px-5 space-y-4">
-            {!sufficient ? (
+        <CollapsibleContent id="lesson-tutor-panel" className="mt-3">
+          {!sufficient ? (
+            <Card className="border-border">
+              <CardContent className="p-5">
+                <div
+                  className="flex items-start gap-3 rounded-md border border-warning/30 bg-warning-bg-subtle p-4 text-sm"
+                  data-testid="lesson-tutor-fail-closed"
+                  role="status"
+                >
+                  <Lock className="h-4 w-4 mt-0.5 shrink-0 text-warning" />
+                  <p className="text-foreground">
+                    Dazu habe ich in dieser Lektion noch keine geprüfte Grundlage.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <LearnLessonCard
+              testId="lesson-tutor-card"
+              header="AI-Tutor zur Lektion"
+              step={context.competencyCode ? `Kompetenz ${context.competencyCode}` : 'Lernhilfe'}
+              status="current"
+              task="Wähle eine Lernhilfe — der Tutor antwortet kontextgebunden auf deine Lektion."
+              answerSurface={
+                lastAssistant
+                  ? (() => {
+                      const lifSpec: LearnerInteractionSpec = {
+                        surfaceId: `lesson_tutor.${activeAction ?? 'reply'}`,
+                        expectedInput: 'text',
+                        allowVoice: true,
+                        answerLabel: '✍️ Deine Antwort an den Tutor',
+                        placeholder:
+                          'Schreib deine Antwort — der Tutor gibt dir präzises Feedback.',
+                        minChars: 2,
+                        maxChars: 2000,
+                        actions: ['submit'],
+                      };
+                      const langDirective =
+                        targetLang !== 'de' ? `\n\n[language: respond in ${targetLang}]` : '';
+                      return (
+                        <LearnerAnswerSurface
+                          spec={lifSpec}
+                          busy={isLoading}
+                          onSubmit={(payload) => {
+                            if (payload.kind !== 'text') return;
+                            const tagged =
+                              `${payload.value.trim()}${langDirective}\n\n[lesson_context: lesson_id=${context.lessonId} ` +
+                              `competency_id=${context.competencyId} step=${context.stepKey ?? '-'}` +
+                              (context.sectionKey ? ` section=${context.sectionKey}` : '') +
+                              ` ui_lang=${targetLang}]`;
+                            sendMessage(tagged);
+                          }}
+                        />
+                      );
+                    })()
+                  : undefined
+              }
+            >
               <div
-                className="flex items-start gap-3 rounded-md border border-warning/30 bg-warning-bg-subtle p-4 text-sm"
-                data-testid="lesson-tutor-fail-closed"
-                role="status"
+                className="flex flex-wrap gap-2"
+                role="group"
+                aria-label="Tutor-Lernhilfen"
+                data-testid="lesson-tutor-actions"
               >
-                <Lock className="h-4 w-4 mt-0.5 shrink-0 text-warning" />
-                <p className="text-foreground">
-                  Dazu habe ich in dieser Lektion noch keine geprüfte Grundlage.
-                </p>
+                {ACTIONS.map((action) => (
+                  <Button
+                    key={action.key}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isLoading}
+                    onClick={() => handleAction(action)}
+                    data-action={action.key}
+                    className="rounded-full"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                    {action.label}
+                  </Button>
+                ))}
+                {messages.length > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={isLoading}
+                    onClick={() => {
+                      clearMessages();
+                      setActiveAction(null);
+                    }}
+                    className="rounded-full text-muted-foreground"
+                  >
+                    Zurücksetzen
+                  </Button>
+                )}
               </div>
-            ) : (
-              <>
-                <div
-                  className="flex flex-wrap gap-2"
-                  role="group"
-                  aria-label="Tutor-Lernhilfen"
-                  data-testid="lesson-tutor-actions"
-                >
-                  {ACTIONS.map((action) => (
-                    <Button
-                      key={action.key}
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={isLoading}
-                      onClick={() => handleAction(action)}
-                      data-action={action.key}
-                      className="rounded-full"
-                    >
-                      <Sparkles className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-                      {action.label}
-                    </Button>
-                  ))}
-                  {messages.length > 0 && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={isLoading}
-                      onClick={() => {
-                        clearMessages();
-                        setActiveAction(null);
-                      }}
-                      className="rounded-full text-muted-foreground"
-                    >
-                      Zurücksetzen
-                    </Button>
-                  )}
-                </div>
 
-                <div
-                  className="rounded-md border border-border bg-surface-raised p-4 min-h-[88px]"
-                  data-testid="lesson-tutor-output"
-                  aria-live="polite"
-                  aria-busy={isLoading}
-                >
-                  {isLoading && !lastAssistant && (
-                    <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Tutor denkt nach …
-                    </p>
-                  )}
-                  {!isLoading && !lastAssistant && (
-                    <p className="text-sm text-muted-foreground">
-                      Wähle eine Lernhilfe oben — der Tutor antwortet kontextgebunden auf deine Lektion.
-                    </p>
-                  )}
-                  {lastAssistant && (
-                    <div className="prose prose-sm max-w-none">
-                      <ReactMarkdown>{lastAssistant.content}</ReactMarkdown>
-                    </div>
-                  )}
-                </div>
-
-                {/* LIF.OS.1 — universal learner answer surface.
-                    Sichtbar, sobald der Tutor mindestens eine Antwort/Frage gesendet hat.
-                    Verhindert den „Schreib deine Antwort"-Zustand ohne Eingabefeld. */}
-                {lastAssistant && (() => {
-                  const lifSpec: LearnerInteractionSpec = {
-                    surfaceId: `lesson_tutor.${activeAction ?? 'reply'}`,
-                    expectedInput: 'text',
-                    allowVoice: true,
-                    answerLabel: '✍️ Deine Antwort an den Tutor',
-                    placeholder: 'Schreib deine Antwort — der Tutor gibt dir präzises Feedback.',
-                    minChars: 2,
-                    maxChars: 2000,
-                    actions: ['submit'],
-                  };
-                  const langDirective = targetLang !== 'de' ? `\n\n[language: respond in ${targetLang}]` : '';
-                  return (
-                    <LearnerAnswerSurface
-                      spec={lifSpec}
-                      busy={isLoading}
-                      onSubmit={(payload) => {
-                        if (payload.kind !== 'text') return;
-                        const tagged =
-                          `${payload.value.trim()}${langDirective}\n\n[lesson_context: lesson_id=${context.lessonId} ` +
-                          `competency_id=${context.competencyId} step=${context.stepKey ?? '-'}` +
-                          (context.sectionKey ? ` section=${context.sectionKey}` : '') +
-                          ` ui_lang=${targetLang}]`;
-                        sendMessage(tagged);
-                      }}
-                    />
-                  );
-                })()}
-
-                {activeAction && (
-                  <p className="text-xs text-muted-foreground">
-                    Kontext: Kompetenz {context.competencyCode ?? '–'}
-                    {context.competencyTitle ? ` · ${context.competencyTitle}` : ''}
-                    {context.stepKey ? ` · Schritt ${context.stepKey}` : ''}
+              <div
+                className="rounded-md border border-border bg-surface-raised p-4 min-h-[88px]"
+                data-testid="lesson-tutor-output"
+                aria-live="polite"
+                aria-busy={isLoading}
+              >
+                {isLoading && !lastAssistant && (
+                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Tutor denkt nach …
                   </p>
                 )}
-              </>
-            )}
-          </CardContent>
+                {!isLoading && !lastAssistant && (
+                  <p className="text-sm text-muted-foreground">
+                    Wähle eine Lernhilfe oben — der Tutor antwortet kontextgebunden auf deine Lektion.
+                  </p>
+                )}
+                {lastAssistant && (
+                  <div className="prose prose-sm max-w-none">
+                    <ReactMarkdown>{lastAssistant.content}</ReactMarkdown>
+                  </div>
+                )}
+              </div>
+
+              {activeAction && (
+                <p className="text-xs text-muted-foreground">
+                  Kontext: Kompetenz {context.competencyCode ?? '–'}
+                  {context.competencyTitle ? ` · ${context.competencyTitle}` : ''}
+                  {context.stepKey ? ` · Schritt ${context.stepKey}` : ''}
+                </p>
+              )}
+            </LearnLessonCard>
+          )}
         </CollapsibleContent>
       </Collapsible>
-    </Card>
+    </div>
   );
 }

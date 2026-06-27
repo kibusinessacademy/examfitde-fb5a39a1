@@ -97,4 +97,24 @@ describe('<LessonTutorBox />', () => {
     expect(screen.queryByText('Erklär mir das einfacher')).toBeNull();
     expect(sendMessage).not.toHaveBeenCalled();
   });
+
+  // EXAMFIT.CARD.SYSTEM.OS.1 — Welle C migration guards
+  it('wraps the sufficient-context state in the ExamFit LearnLessonCard standard', () => {
+    render(<LessonTutorBox context={fullCtx} />);
+    fireEvent.click(screen.getByRole('button', { name: /AI-Tutor/i }));
+    // The tutor must be rendered inside the standard learn lesson card.
+    expect(screen.getByTestId('lesson-tutor-card')).toBeInTheDocument();
+    // Header/task come from the card surface (consistent text-hierarchy).
+    expect(screen.getByTestId('learn-lesson-header')).toHaveTextContent(/AI-Tutor/);
+    expect(screen.getByTestId('learn-lesson-task')).toHaveTextContent(/Lernhilfe/);
+  });
+
+  it('keeps the fail-closed warning soft (no learner hardlock outside paywall)', () => {
+    render(<LessonTutorBox context={{ lessonId: 'les-1' }} />);
+    fireEvent.click(screen.getByRole('button', { name: /AI-Tutor/i }));
+    const warning = screen.getByTestId('lesson-tutor-fail-closed');
+    expect(warning).toHaveAttribute('role', 'status');
+    // explicitly: not a blocking dialog / alert
+    expect(warning.getAttribute('role')).not.toBe('alertdialog');
+  });
 });

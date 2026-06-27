@@ -104,6 +104,30 @@ export default {
             "bg-subtle": "hsl(var(--status-info-bg-subtle))",
             border: "hsl(var(--status-info-border))",
           },
+          done: {
+            DEFAULT: "hsl(var(--status-done))",
+            fg: "hsl(var(--status-done-fg))",
+            subtle: "hsl(var(--status-done-subtle))",
+            border: "hsl(var(--status-done-border))",
+          },
+          current: {
+            DEFAULT: "hsl(var(--status-current))",
+            fg: "hsl(var(--status-current-fg))",
+            subtle: "hsl(var(--status-current-subtle))",
+            border: "hsl(var(--status-current-border))",
+          },
+          recommendation: {
+            DEFAULT: "hsl(var(--status-recommendation))",
+            fg: "hsl(var(--status-recommendation-fg))",
+            subtle: "hsl(var(--status-recommendation-subtle))",
+            border: "hsl(var(--status-recommendation-border))",
+          },
+          locked: {
+            DEFAULT: "hsl(var(--status-locked))",
+            fg: "hsl(var(--status-locked-fg))",
+            subtle: "hsl(var(--status-locked-subtle))",
+            border: "hsl(var(--status-locked-border))",
+          },
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",

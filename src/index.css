@@ -124,6 +124,29 @@
     --status-info-bg-subtle: 189 80% 94%;
     --status-info-border: 189 70% 78%;
 
+    /* ── Learn Status Tokens (ExamFit Card v1) — Lernfortschritt-Semantik ──
+       done = abgeschlossen · current = aktiv · recommendation = empfohlen (soft)
+       error = Fehler/Korrektur · locked = nur Paywall-Hardlock */
+    --status-done: 142 76% 36%;
+    --status-done-fg: 142 76% 28%;
+    --status-done-subtle: 142 60% 94%;
+    --status-done-border: 142 50% 78%;
+
+    --status-current: 168 64% 38%;
+    --status-current-fg: 168 64% 28%;
+    --status-current-subtle: 168 60% 94%;
+    --status-current-border: 168 50% 78%;
+
+    --status-recommendation: 38 92% 50%;
+    --status-recommendation-fg: 38 70% 32%;
+    --status-recommendation-subtle: 38 92% 94%;
+    --status-recommendation-border: 38 80% 75%;
+
+    --status-locked: 222 12% 45%;
+    --status-locked-fg: 222 12% 30%;
+    --status-locked-subtle: 220 13% 94%;
+    --status-locked-border: 220 13% 82%;
+
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 168 64% 45%;
@@ -270,6 +293,27 @@
     --status-info-subtle: 189 60% 14%;
     --status-info-bg-subtle: 189 60% 14%;
     --status-info-border: 189 50% 28%;
+
+    /* ── Learn Status Tokens (dark) ── */
+    --status-done: 142 71% 50%;
+    --status-done-fg: 142 60% 72%;
+    --status-done-subtle: 142 50% 14%;
+    --status-done-border: 142 40% 28%;
+
+    --status-current: 168 64% 55%;
+    --status-current-fg: 168 64% 72%;
+    --status-current-subtle: 168 50% 14%;
+    --status-current-border: 168 40% 28%;
+
+    --status-recommendation: 38 92% 55%;
+    --status-recommendation-fg: 38 92% 72%;
+    --status-recommendation-subtle: 38 60% 14%;
+    --status-recommendation-border: 38 50% 30%;
+
+    --status-locked: 220 13% 60%;
+    --status-locked-fg: 220 13% 72%;
+    --status-locked-subtle: 222 25% 18%;
+    --status-locked-border: 222 20% 30%;
 
     --border: 181 50% 20%;
     --input: 181 50% 20%;
