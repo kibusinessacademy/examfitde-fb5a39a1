@@ -23,6 +23,7 @@ import {
 } from "@/lib/visual-learning-os/persistence.functions";
 import { reviewVisualLearningArtifact } from "@/lib/visual-learning-os/visual-artifact-review";
 import { isAllowedVloTransition } from "@/lib/visual-learning-os/persistence-policy";
+import { createAdminPreviewArtifact } from "@/lib/visual-learning-os/admin-preview";
 
 import VisualArtifactPreview from "@/components/admin/visual-learning/VisualArtifactPreview";
 import VisualArtifactReviewPanel from "@/components/admin/visual-learning/VisualArtifactReviewPanel";
