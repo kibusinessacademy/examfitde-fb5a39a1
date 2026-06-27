@@ -32,7 +32,7 @@ describe('shouldNoindexHost', () => {
   it('is the inverse of isSeoAuthorityHost', () => {
     expect(shouldNoindexHost('berufos.com')).toBe(false);
     expect(shouldNoindexHost('www.berufos.com')).toBe(false);
-    expect(shouldNoindexHost('berufos.com')).toBe(true); // legacy → noindex
+    expect(shouldNoindexHost('examfit.de')).toBe(true); // legacy → noindex
     expect(shouldNoindexHost('examfitde.lovable.app')).toBe(true);
     expect(shouldNoindexHost('berufos.vercel.app')).toBe(true);
     expect(shouldNoindexHost('localhost')).toBe(true);
