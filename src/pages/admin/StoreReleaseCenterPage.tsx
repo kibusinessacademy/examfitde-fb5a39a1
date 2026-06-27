@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Apple, Smartphone, Camera, FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { Apple, Smartphone, Camera, FileText, CheckCircle2, AlertCircle, Hammer, Rocket } from "lucide-react";
 
 type Row = {
   course_id: string;
