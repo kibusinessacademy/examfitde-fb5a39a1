@@ -89,7 +89,7 @@ export function StoreOpsAutopilotCard() {
       <CardHeader>
         <CardTitle>StoreOps Autopilot</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Empfehlungen + sichere Operator-Aktionen. Niemals Publish, Submit oder Rollout.
+          Empfehlungen + sichere Operator-Aktionen. Niemals Veröffentlichen, Einreichen oder Ausrollen.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
