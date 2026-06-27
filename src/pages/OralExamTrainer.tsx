@@ -47,6 +47,7 @@ import {
   reportEntryFallbackCtaClick,
 } from '@/lib/monitoring/entryFallbackSignal';
 import { useTargetLanguage, STT_TTS_LOCALE } from '@/hooks/i18n/useTranslatedContent';
+import { HeroSurface } from '@/components/examfit-ds';
 
 type ExamPhase = 'setup' | 'question' | 'listening' | 'evaluation' | 'results';
 
@@ -637,12 +638,12 @@ export default function OralExamTrainer() {
       )}
       data-testid="oral-exam-surface"
     >
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
+      <HeroSurface area="oral" radius="card-lg" className="mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-3 text-text-primary">
           <Mic className="h-8 w-8 text-primary" />
           {t('oralTitle')}
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-text-secondary mt-2">
           {t('oralSubline')}
         </p>
         {/* Oral Activation v2 — Persona/Dual-Examiner-Sichtbarkeit */}
@@ -675,7 +676,7 @@ export default function OralExamTrainer() {
             )}
           </div>
         )}
-      </div>
+      </HeroSurface>
 
       <PageExplainer
         title={t('oralHowTitle')}

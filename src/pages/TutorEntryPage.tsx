@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { ArrowRight, Brain, Sparkles } from 'lucide-react';
 import { SITE_URL } from '@/lib/seo';
+import { HeroSurface, FloatingChip } from '@/components/examfit-ds';
 import {
   reportEntryFallbackView,
   reportEntryFallbackCtaClick,
@@ -64,19 +65,21 @@ export default function TutorEntryPage() {
         canonical={`${SITE_URL}/tutor`}
       />
       <main className="min-h-screen container max-w-2xl py-12 px-4">
-        <header className="mb-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
-            <Sparkles className="h-3 w-3" /> KI-Tutor mit Quellen
+        <HeroSurface area="tutor" radius="card-lg" className="mb-8">
+          <div className="text-center">
+            <FloatingChip variant="tutor" icon={<Sparkles className="h-3 w-3" />} className="mb-4">
+              KI-Tutor mit Quellen
+            </FloatingChip>
+            <h1 className="text-3xl sm:text-4xl font-display font-bold mb-3 text-text-primary">
+              <Brain className="inline h-8 w-8 mr-2 text-primary" />
+              Frag deinen Prüfungs-Tutor
+            </h1>
+            <p className="text-text-secondary max-w-xl mx-auto">
+              Stelle eine Frage zu deinem Prüfungsstoff. Der KI-Tutor antwortet auf
+              Basis deines Curriculums mit nachvollziehbaren Quellen.
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-display font-bold mb-3">
-            <Brain className="inline h-8 w-8 mr-2 text-primary" />
-            Frag deinen Prüfungs-Tutor
-          </h1>
-          <p className="text-muted-foreground">
-            Stelle eine Frage zu deinem Prüfungsstoff. Der KI-Tutor antwortet auf
-            Basis deines Curriculums mit nachvollziehbaren Quellen.
-          </p>
-        </header>
+        </HeroSurface>
 
         <Card className="mb-6">
           <CardContent className="p-5">

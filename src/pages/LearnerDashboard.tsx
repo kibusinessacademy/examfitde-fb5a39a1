@@ -53,6 +53,7 @@ import {
 import { RouteIdentityBlock } from '@/components/learner/RouteIdentityBlock';
 import { OutcomeHintBlock } from '@/components/learner/OutcomeHintBlock';
 import { useOsBeruf } from '@/lib/os/os-identity';
+import { LearningDashboardGrid } from '@/components/dashboard/LearningDashboardGrid';
 
 export default function LearnerDashboard() {
   const { user, isAdmin } = useAuth();
@@ -126,6 +127,26 @@ export default function LearnerDashboard() {
             </Button>
           </Link>
         )}
+
+        {/* ━━━ EXAMFIT.DESIGN.SYSTEM.OS.1 — Wave 3: Learning Dashboard Grid ━━━
+            6 große DS2.0-Cards (Lernkurs, Prüfung, KI-Tutor, Mündlich, Fortschritt, Schwächen). */}
+        <div className="mb-6 -mx-1 sm:mx-0">
+          <LearningDashboardGrid
+            overallProgress={(() => {
+              const enr = (dashboard?.enrollments ?? []) as DashboardEnrollment[];
+              if (!enr.length) return 0;
+              const avg =
+                enr.reduce((acc, e) => {
+                  const total = e.total_lessons || 0;
+                  const done = e.completed_lessons || 0;
+                  return acc + (total > 0 ? (done / total) * 100 : 0);
+                }, 0) / enr.length;
+              return Math.max(0, Math.min(100, Math.round(avg)));
+            })()}
+            topWeaknesses={[]}
+          />
+        </div>
+
 
         {/* ━━━ Primary Next-Step (single dominant CTA) ━━━
             KIMI.2: Quick-Actions sind sekundär und collapsen unter „Weitere Aktionen". */}
