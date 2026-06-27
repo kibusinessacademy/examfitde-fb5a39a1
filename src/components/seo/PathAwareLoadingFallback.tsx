@@ -134,14 +134,14 @@ function renderDemoJourney() {
 function renderExamSim() {
   return wrap(
     'exam-simulation',
-    `<h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">Schriftliche Prüfung simulieren.</h1><p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:640px;">Prüfungsnahe Simulation mit Zeitlimit, gemischten Aufgabenformaten und Readiness-Score.</p><p style="margin:0;display:flex;gap:12px;flex-wrap:wrap;"><a href="/app/dashboard" data-cta-location="exam_sim_loading_start" style="${btnPrimary}">Simulation starten →</a><a href="/berufe" data-cta-location="exam_sim_loading_berufe" style="${btnSecondary}">Beruf auswählen</a></p>`,
+    `<h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">Schriftliche Prüfung simulieren.</h1><p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:640px;">Prüfungsnahe Simulation mit Zeitlimit, gemischten Aufgabenformaten und Readiness-Score.</p><p style="margin:0;display:flex;gap:12px;flex-wrap:wrap;"><a href="/dashboard" data-cta-location="exam_sim_loading_start" style="${btnPrimary}">Simulation starten →</a><a href="/berufe" data-cta-location="exam_sim_loading_berufe" style="${btnSecondary}">Beruf auswählen</a></p>`,
   );
 }
 
 function renderMiniCheck() {
   return wrap(
     'minicheck',
-    `<h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">In 3 Minuten Wissensstand prüfen.</h1><p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:640px;">Fünf gezielte Fragen pro Kompetenz, sofortige Auswertung, klarer nächster Schritt.</p><p style="margin:0;display:flex;gap:12px;flex-wrap:wrap;"><a href="/app/dashboard" data-cta-location="minicheck_loading_start" style="${btnPrimary}">MiniCheck starten →</a><a href="/berufe" data-cta-location="minicheck_loading_berufe" style="${btnSecondary}">Beruf auswählen</a></p>`,
+    `<h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">In 3 Minuten Wissensstand prüfen.</h1><p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:640px;">Fünf gezielte Fragen pro Kompetenz, sofortige Auswertung, klarer nächster Schritt.</p><p style="margin:0;display:flex;gap:12px;flex-wrap:wrap;"><a href="/dashboard" data-cta-location="minicheck_loading_start" style="${btnPrimary}">MiniCheck starten →</a><a href="/berufe" data-cta-location="minicheck_loading_berufe" style="${btnSecondary}">Beruf auswählen</a></p>`,
   );
 }
 
@@ -155,7 +155,7 @@ function renderTutor() {
 function renderOral() {
   return wrap(
     'oral',
-    `<h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">Übe das mündliche Fachgespräch.</h1><p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:640px;">Realistische Prüfer-Persona, adaptive Folgefragen, strukturiertes Feedback. Sprechen oder tippen — beides gleichwertig bewertet.</p><p style="margin:0;display:flex;gap:12px;flex-wrap:wrap;"><a href="/app/dashboard" data-cta-location="oral_loading_start" style="${btnPrimary}">Trainer starten →</a><a href="/berufe" data-cta-location="oral_loading_berufe" style="${btnSecondary}">Beruf auswählen</a></p>`,
+    `<h1 style="font-size:36px;line-height:1.15;margin:0 0 12px;">Übe das mündliche Fachgespräch.</h1><p style="font-size:17px;color:#334155;margin:0 0 24px;max-width:640px;">Realistische Prüfer-Persona, adaptive Folgefragen, strukturiertes Feedback. Sprechen oder tippen — beides gleichwertig bewertet.</p><p style="margin:0;display:flex;gap:12px;flex-wrap:wrap;"><a href="/dashboard" data-cta-location="oral_loading_start" style="${btnPrimary}">Trainer starten →</a><a href="/berufe" data-cta-location="oral_loading_berufe" style="${btnSecondary}">Beruf auswählen</a></p>`,
   );
 }
 
