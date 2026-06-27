@@ -304,10 +304,12 @@ export default function VisualLearningArtifactWorkflowPage() {
                 </div>
               </div>
 
-              <VisualArtifactPreview
-                source={createAdminPreviewArtifact(detail.artifact_json, { note: "workflow_preview" })}
-                sourceRefs={detail.source_refs}
-              />
+              {(() => {
+                const pv = createAdminPreviewArtifact(detail.artifact_json);
+                return pv.ok ? (
+                  <VisualArtifactPreview source={pv.preview} sourceRefs={detail.source_refs} />
+                ) : null;
+              })()}
               {reviewResultForApprove ? (
                 <VisualArtifactReviewPanel review={reviewResultForApprove} />
               ) : null}
