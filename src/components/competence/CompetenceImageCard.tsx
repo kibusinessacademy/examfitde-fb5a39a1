@@ -88,12 +88,24 @@ export function CompetenceImageCard({
       testId={testId}
       topRight={
         <>
-          <button
-            type="button"
+          {/* Span+role=button vermeidet ungültiges Button-in-Button-Nesting,
+              wenn die äußere ImageCard interaktiv (onClick) gerendert wird. */}
+          <span
+            role="button"
+            tabIndex={0}
             onClick={handleFavClick}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                const next = !fav;
+                setFav(next);
+                onToggleFavorite?.(next);
+              }
+            }}
             aria-label={fav ? 'Favorit entfernen' : 'Als Favorit markieren'}
             aria-pressed={fav}
-            className="inline-flex"
+            className="inline-flex cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
             data-testid="competence-fav-toggle"
           >
             <FloatingChip
@@ -102,7 +114,7 @@ export function CompetenceImageCard({
             >
               {fav ? 'Favorit' : 'Merken'}
             </FloatingChip>
-          </button>
+          </span>
           {estimatedTimeLabel && (
             <FloatingChip
               variant="time"
