@@ -1,15 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Loader2, Clock, BookOpen, ArrowRight, CheckCircle, Search, X } from 'lucide-react';
+import { Loader2, Clock, BookOpen, Search, X, CheckCircle, Play } from 'lucide-react';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { getBerufImage } from '@/lib/berufImage';
 import { useBerufImages } from '@/hooks/useBerufImages';
+import { HeroSurface, ImageCard, FloatingChip } from '@/components/examfit-ds';
 
 interface Course {
   id: string;
