@@ -12,8 +12,8 @@ describe('isSeoAuthorityHost', () => {
     ['www.berufos.com', true],
     ['BERUFOS.COM', true],
     [' berufos.com ', true],
-    ['berufos.com', false], // Legacy redirect domain — no longer authority (Hardcut 2026-05-25)
-    ['berufos.com', false],
+    ['examfit.de', false], // Legacy redirect domain — no longer authority (Hardcut 2026-05-25)
+    ['www.examfit.de', false],
     ['examfitde.lovable.app', false],
     ['id-preview--ad51e8f9.lovable.app', false],
     ['berufos.vercel.app', false],
