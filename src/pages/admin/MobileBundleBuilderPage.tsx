@@ -33,7 +33,6 @@ interface Course {
   title: string;
   slug: string;
   status: string;
-  visibility: string;
   manifest?: Manifest | null;
 }
 
@@ -47,9 +46,8 @@ export default function MobileBundleBuilderPage() {
     setLoading(true);
     const { data: cs } = await supabase
       .from("courses")
-      .select("id, title, slug, status, visibility")
-      .eq("status", "active")
-      .eq("visibility", "public")
+      .select("id, title, slug, status")
+      .eq("status", "published")
       .order("title");
     const { data: ms } = await supabase
       .from("mobile_course_app_manifest")
