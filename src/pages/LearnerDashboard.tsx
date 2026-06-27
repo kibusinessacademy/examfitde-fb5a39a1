@@ -109,20 +109,30 @@ export default function LearnerDashboard() {
 
   return (
     <div className="py-4 sm:py-8 px-3 sm:px-4">
-      <div className="container mx-auto max-w-3xl">
-        {/* ━━━ Route Identity (KIMI.2 QFAF Q1+Q2) ━━━ */}
-        <RouteIdentityBlock
-          eyebrow={`Hallo, ${user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Lernende:r'}`}
-          title="Dashboard"
-          subtitle="Hier steuerst du deine komplette IHK-Prüfungsvorbereitung — Lernpfad, Tutor und Prüfungssimulation an einem Ort, damit du jeden Tag näher an die bestandene Prüfung kommst."
-          contextLine={beruf?.label ? `Aktiver Beruf: ${beruf.label}` : 'Wähle deinen Beruf, um Lernpfad, Tutor und Prüfungssimulation zu aktivieren.'}
-          description="ExamFit Dashboard: dein zentraler Lern-Hub für IHK-Prüfungsvorbereitung mit Lernpfad, Tutor und Prüfungssimulation."
-          testId="dashboard-identity"
-          className="mb-4"
+      <div className="container mx-auto max-w-5xl space-y-6 sm:space-y-8">
+        {/* ━━━ EXAMFIT.DESIGN.SYSTEM.OS.1 — Wave 3: Personalisierter Hero ━━━
+            Begrüßung + nächstes Lernziel + Prüfungsreife-Ring. */}
+        <DashboardHero
+          name={user?.user_metadata?.full_name || user?.email?.split('@')[0]}
+          contextLabel={beruf?.label ?? null}
+          nextGoalLabel={nextStep.kind === 'choose_beruf' ? null : nextStep.rationale}
+          nextGoalHref={nextStep.kind === 'choose_beruf' ? null : nextStep.to}
+          readinessPct={(() => {
+            const enr = (dashboard?.enrollments ?? []) as DashboardEnrollment[];
+            if (!enr.length) return 0;
+            const avg =
+              enr.reduce((acc, e) => {
+                const total = e.total_lessons || 0;
+                const done = e.completed_lessons || 0;
+                return acc + (total > 0 ? (done / total) * 100 : 0);
+              }, 0) / enr.length;
+            return Math.max(0, Math.min(100, Math.round(avg)));
+          })()}
         />
+
         {isAdmin && (
           <Link to="/admin/command">
-            <Button variant="ghost" size="sm" className="mb-3 h-8 text-xs">
+            <Button variant="ghost" size="sm" className="mb-1 h-8 text-xs">
               <Sparkles className="h-3 w-3 mr-1" />
               Admin
             </Button>
@@ -131,7 +141,7 @@ export default function LearnerDashboard() {
 
         {/* ━━━ EXAMFIT.DESIGN.SYSTEM.OS.1 — Wave 3: Learning Dashboard Grid ━━━
             6 große DS2.0-Cards (Lernkurs, Prüfung, KI-Tutor, Mündlich, Fortschritt, Schwächen). */}
-        <div className="mb-6 -mx-1 sm:mx-0">
+        <div className="-mx-1 sm:mx-0">
           <LearningDashboardGrid
             overallProgress={(() => {
               const enr = (dashboard?.enrollments ?? []) as DashboardEnrollment[];
@@ -147,6 +157,7 @@ export default function LearnerDashboard() {
             topWeaknesses={[]}
           />
         </div>
+
 
 
         {/* ━━━ Primary Next-Step (single dominant CTA) ━━━
