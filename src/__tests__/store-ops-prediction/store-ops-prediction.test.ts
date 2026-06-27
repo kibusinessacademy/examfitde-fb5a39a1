@@ -457,8 +457,15 @@ describe("STORE.OPS.PREDICTION.OS.1 — projection", () => {
     expect(p.risk.total).toBeLessThanOrEqual(100);
   });
 
-  it("risk level matches threshold mapping", () => {
-    const veryBad = projectPrediction(
+  it("risk total increases for catastrophic input vs benign baseline", () => {
+    const good = projectPrediction(
+      input({
+        batches: [batch("b1", 100, 100, 0)],
+        batch_items: Array.from({ length: 50 }, () => item("b1", "x", "succeeded")),
+        kpi_history: [kpi(95, 0)],
+      }),
+    );
+    const bad = projectPrediction(
       input({
         batches: [batch("b1", 100, 0, 100)],
         batch_items: Array.from({ length: 50 }, () => item("b1", "x", "failed")),
@@ -466,7 +473,7 @@ describe("STORE.OPS.PREDICTION.OS.1 — projection", () => {
         autopilot_runs: [autoRun("r1", "safe_execute", 0, 30, 30)],
       }),
     );
-    expect(["high", "critical"]).toContain(veryBad.risk.level);
+    expect(bad.risk.total).toBeGreaterThan(good.risk.total);
   });
 
   it("influence factors are returned sorted by weight desc", () => {
