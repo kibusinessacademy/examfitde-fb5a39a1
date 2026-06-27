@@ -129,6 +129,41 @@ export default function StoreReleaseCenterPage() {
     }
   }
 
+  async function dispatchBuild(courseId: string, platform: "android" | "ios", dryRun: boolean) {
+    const key = `${courseId}:${platform}:build:${dryRun ? "dry" : "live"}`;
+    setBusy(key);
+    try {
+      // Resolve manifest_id for this course
+      const { data: manifest, error: mErr } = await supabase
+        .from("mobile_course_app_manifest" as any)
+        .select("id")
+        .eq("course_id", courseId)
+        .maybeSingle();
+      if (mErr) throw mErr;
+      if (!manifest) {
+        toast.error("Kein Mobile-Manifest – bitte zuerst im Mobile Bundle Builder anlegen.");
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("store-release-dispatch-build", {
+        body: { manifest_id: (manifest as any).id, platform, dry_run: dryRun },
+      });
+      if (error) throw error;
+      const result = data as any;
+      if (result?.dispatch === "workflow_dispatched") {
+        toast.success(`${platform === "android" ? "Android" : "iOS"} ${dryRun ? "Dry-Run" : (platform === "android" ? "Internal" : "TestFlight")} Build angestoßen.`);
+      } else if (result?.dispatch === "manual_required") {
+        toast.info(`Queued – GitHub Dispatch Token fehlt. Workflow manuell starten: store-build-${platform}.yml`);
+      } else {
+        toast.success("Queued.");
+      }
+      qc.invalidateQueries({ queryKey: ["store-release-status"] });
+    } catch (e: any) {
+      toast.error(`Build-Dispatch fehlgeschlagen: ${e?.message ?? e}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const summary = useMemo(() => {
     const r = rows ?? [];
     return {
