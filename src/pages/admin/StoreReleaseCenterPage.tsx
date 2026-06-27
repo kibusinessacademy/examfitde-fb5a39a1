@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Apple, Smartphone, Camera, FileText, CheckCircle2, AlertCircle, Hammer, Rocket } from "lucide-react";
 import { ReviewReadyCard } from "./storeReleaseCenter/ReviewReadyCard";
+import { ReleaseOrchestrationCenter } from "./storeReleaseCenter/ReleaseOrchestrationCenter";
 
 type Row = {
   course_id: string;
@@ -195,6 +196,10 @@ export default function StoreReleaseCenterPage() {
       </div>
 
       <ReviewReadyCard />
+
+      <ReleaseOrchestrationCenter />
+
+
 
 
 
