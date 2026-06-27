@@ -1,18 +1,31 @@
 // COURSE.PROFIT.OS.1 — Admin-only profitability evaluator.
 // Loads sellable products + sales aggregates, runs Pure SSOT projector,
 // persists append-only snapshots (idempotent per inputs_hash).
-import { requireAdmin, handleCors, json } from "../_shared/adminGuard.ts";
+import { requireAdmin, handleCors, json, corsHeaders } from "../_shared/adminGuard.ts";
 import { project, type EvalInput } from "../_shared/courseProfitability/index.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const DEFAULT_WINDOW_DAYS = 90;
+const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 
 Deno.serve(async (req) => {
   const cors = handleCors(req);
   if (cors) return cors;
 
-  const ctx = await requireAdmin(req);
-  if (ctx instanceof Response) return ctx;
-  const sb = ctx.sb;
+  // Cron bypass: trusted scheduler uses x-cron-secret header.
+  const cronHeader = req.headers.get("x-cron-secret") ?? "";
+  let sb: ReturnType<typeof createClient>;
+  if (CRON_SECRET && cronHeader && cronHeader === CRON_SECRET) {
+    sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+  } else {
+    const ctx = await requireAdmin(req);
+    if (ctx instanceof Response) return ctx;
+    sb = ctx.sb;
+  }
 
   let body: { product_id?: string; window_days?: number; limit?: number } = {};
   try { body = await req.json(); } catch { /* ok */ }
