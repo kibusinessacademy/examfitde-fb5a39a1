@@ -47,7 +47,7 @@ describe("pipelineHealth — action queue", () => {
       stuck: [{ id: "abc12345", worker_pool: "p", job_type: "X", running_for_seconds: 2400, attempts: 3, last_error: null }],
     }));
     expect(p.action_queue[0].code).toBe("STUCK_RUNNING");
-    expect(p.action_queue[0].severity).toBe("high");
+    expect(p.action_queue[0].severity).toBe("critical");
   });
   it("flags CANCEL_LOOP only above threshold", () => {
     const p = project(baseInputs({
