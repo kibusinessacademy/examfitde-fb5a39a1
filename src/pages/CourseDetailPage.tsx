@@ -17,6 +17,7 @@ import { SEOHead } from "@/components/seo/SEOHead";
 import { getBerufImage } from "@/lib/berufImage";
 import { useBerufImages } from "@/hooks/useBerufImages";
 import { CoursePackageContents } from "@/components/course/CoursePackageContents";
+import { FloatingChip } from "@/components/examfit-ds";
 
 interface Course {
   id: string;
