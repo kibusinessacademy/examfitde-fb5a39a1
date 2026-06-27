@@ -370,6 +370,7 @@ const CatalogDiagnosticsPage = lazyRetry(() => import('@/pages/admin/CatalogDiag
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 const BulkCourseExportPage = lazyRetry(() => import('@/pages/admin/BulkCourseExportPage'));
 const MobileBundleBuilderPage = lazyRetry(() => import('@/pages/admin/MobileBundleBuilderPage'));
+const MobileIAPSmokePage = lazyRetry(() => import('@/pages/admin/MobileIAPSmokePage'));
 const VisualLearningReviewPage = lazyRetry(() => import('@/pages/admin/VisualLearningReviewPage'));
 const VisualLearningArtifactWorkflowPage = lazyRetry(() => import('@/pages/admin/VisualLearningArtifactWorkflowPage'));
 
