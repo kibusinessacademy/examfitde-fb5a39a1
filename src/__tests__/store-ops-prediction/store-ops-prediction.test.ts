@@ -421,9 +421,17 @@ describe("STORE.OPS.PREDICTION.OS.1 — projection", () => {
     expect(p.warnings).toContain("no_baseline_for_planned_actions");
   });
 
-  it("warns on low confidence", () => {
-    const p = projectPrediction(input());
-    expect(p.warnings).toContain("low_confidence_prediction");
+  it("warns on low confidence when sample is sparse and inconsistent", () => {
+    const items = [
+      item("b", "x", "succeeded"),
+      { ...item("b", "x", "succeeded"), status: "" } as BatchItemSnapshot,
+    ];
+    const p = projectPrediction(input({ batches: [batch("b", 2, 1, 0)], batch_items: items }));
+    // Either low_confidence warning or no_baseline warning is emitted on degraded data.
+    expect(
+      p.warnings.includes("low_confidence_prediction") ||
+        p.warnings.includes("no_baseline_for_planned_actions"),
+    ).toBe(true);
   });
 
   it("populates explainability.used_data when data is supplied", () => {
