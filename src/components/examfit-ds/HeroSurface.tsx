@@ -30,6 +30,11 @@ export interface HeroSurfaceProps {
   parallax?: ReactNode;
   /** Card-Radius. Default: card-lg (24px). */
   radius?: 'card' | 'card-lg' | 'card-xl';
+  /**
+   * Wave 4 — opt-out für Reveal-Mount-Animation.
+   * Default: true. Greift `prefers-reduced-motion` automatisch ab (CSS-Layer).
+   */
+  reveal?: boolean;
   className?: string;
   testId?: string;
 }
@@ -45,6 +50,7 @@ export function HeroSurface({
   children,
   parallax,
   radius = 'card-lg',
+  reveal = true,
   className,
   testId = 'examfit-hero-surface',
 }: HeroSurfaceProps) {
@@ -54,10 +60,12 @@ export function HeroSurface({
         'relative overflow-hidden border border-border/40 shadow-hero',
         AREA_BG[area],
         RADIUS_CLASS[radius],
+        reveal && 'premium-reveal',
         className,
       )}
       data-testid={testId}
       data-area={area}
+      data-reveal={reveal ? 'true' : 'false'}
     >
       {parallax && (
         <div

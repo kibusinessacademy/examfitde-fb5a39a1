@@ -73,6 +73,9 @@ export function FloatingChip({
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1',
         'text-[11px] sm:text-xs font-medium shadow-sm',
+        // Wave 4 — subtle tactile transition (reduced-motion-safe via global guard)
+        'transition-[transform,box-shadow,background-color] duration-[var(--motion-fast,150ms)] ease-[var(--ease-out,ease-out)]',
+        'hover:shadow-md motion-safe:hover:scale-[1.03]',
         VARIANT_CLASS[variant],
         className,
       )}

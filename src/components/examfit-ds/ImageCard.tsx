@@ -62,11 +62,13 @@ export function ImageCard({
       className={cn(
         'group relative w-full overflow-hidden text-left',
         'rounded-card-lg border border-border bg-card shadow-card',
-        'transition-[transform,box-shadow] duration-base ease-out',
-        isInteractive && 'hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        // Wave 4 — premium tactile lift + premium focus glow.
+        // `premium-lift` / `premium-focus` sind reduced-motion-safe (CSS-Layer).
+        isInteractive && 'premium-lift premium-focus cursor-pointer focus-visible:outline-none',
         className,
       )}
       data-testid={testId}
+      data-interactive={isInteractive ? 'true' : 'false'}
     >
       <div className="relative aspect-[16/9] w-full overflow-hidden">
         {image ? (
