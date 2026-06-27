@@ -31,3 +31,10 @@ Apple: `APPLE_CERT_P12_BASE64`, `APPLE_CERT_PASSWORD`, `APPLE_BUNDLE_ID`, `APPLE
 
 ## Operational Risk
 193 verkaufsbereite Pakete × Per-Course-App = 386 Store-Listings. User-Entscheidung dokumentiert. Empfehlung Phase B: Hybrid (1 ExamFit-Shell + 3-5 Hero-Kurse).
+
+## Phase B — IAP Receipt Validation (2026-06-27)
+- Edge fn: `validate-iap-receipt` (verify_jwt off; validates user JWT in code).
+- Dispatcher only — delegates to existing `verify-ios-receipt` / `verify-android-purchase`, which already call Apple/Google APIs, dedupe via `store_receipts`, and create entitlements via `create_store_entitlement` RPC.
+- Returns normalized `{ success, platform, receipt_id, entitlement_id, expires_at, duplicate? }`.
+- Client hook: `src/hooks/useIAPReceiptValidation.ts` — invalidates `product-access*`, `entitlements`, `course-access`, `learner-course-grants` query keys so the course player unlocks immediately after a successful IAP purchase.
+- SSOT-Guard: no new entitlement path — reuses existing `entitlements` table + `create_store_entitlement` SECURITY DEFINER RPC.
