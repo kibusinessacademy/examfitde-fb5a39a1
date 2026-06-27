@@ -50,7 +50,11 @@ describe("STORE.PUBLISH.ORCHESTRATION.OS.1 — no-publish guard", () => {
     const files = SCAN_DIRS.flatMap((p) => walk(resolve(root, p)));
     const offenders: string[] = [];
     for (const f of files) {
-      const src = readFileSync(f, "utf8");
+      const raw = readFileSync(f, "utf8");
+      // Strip block comments and line comments — doc strings may legitimately
+      // name what we forbid in code.
+      const src = raw.replace(/\/\*[\s\S]*?\*\//g, "").split("\n")
+        .filter((l) => !l.trim().startsWith("//")).join("\n");
       for (const needle of FORBIDDEN) {
         if (src.includes(needle)) offenders.push(`${f} → ${needle}`);
       }
