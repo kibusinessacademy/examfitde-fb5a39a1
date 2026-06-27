@@ -94,7 +94,23 @@ export function ProgressMeter({
   const stroke = 5;
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
-  const dashOffset = circumference * (1 - pct / 100);
+  const targetOffset = circumference * (1 - pct / 100);
+  // Wave 4 — Mount-Animation: Ring zeichnet sich von 0% auf pct, sobald reduced-motion nicht aktiv ist.
+  const prefersReduced =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const [renderedOffset, setRenderedOffset] = useState<number>(
+    prefersReduced ? targetOffset : circumference,
+  );
+  useEffect(() => {
+    if (prefersReduced) {
+      setRenderedOffset(targetOffset);
+      return;
+    }
+    const id = window.requestAnimationFrame(() => setRenderedOffset(targetOffset));
+    return () => window.cancelAnimationFrame(id);
+  }, [targetOffset, prefersReduced]);
   return (
     <div
       className={cn('relative inline-flex items-center justify-center', className)}
@@ -125,9 +141,9 @@ export function ProgressMeter({
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
+          strokeDashoffset={renderedOffset}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          className="transition-[stroke-dashoffset] duration-base ease-out"
+          className="motion-safe:transition-[stroke-dashoffset] motion-safe:duration-slow motion-safe:ease-out"
         />
       </svg>
       {showPercent && (
