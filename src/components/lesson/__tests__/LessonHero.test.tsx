@@ -1,6 +1,18 @@
-import { render, screen } from '@testing-library/react';
+import { render as rtlRender, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LessonHero from '@/components/lesson/LessonHero';
+import type { ReactElement, ReactNode } from 'react';
+
+// LessonHero uses useTranslatedLesson() which calls useQuery — wrap every
+// render in a fresh QueryClientProvider so the hook can resolve a client.
+function render(ui: ReactElement, opts?: Parameters<typeof rtlRender>[1]) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const Wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+  return rtlRender(ui, { wrapper: Wrapper, ...opts });
+}
 
 const baseProps = {
   rawTitle: 'LF06-K01: Grundlagen von Betriebliches Gesundheitsmanagement verstehen und erklären',

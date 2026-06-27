@@ -184,7 +184,7 @@ export default function VerwaltungGovernancePage() {
                   automatisch mit der ersten Sitzung.
                 </p>
                 <Link
-                  to="/admin/oral-exam"
+                  to="/app/oral"
                   className="inline-flex items-center text-primary hover:underline"
                 >
                   Oral-Exam Übersicht öffnen →
