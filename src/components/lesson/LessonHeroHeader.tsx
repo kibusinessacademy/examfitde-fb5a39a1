@@ -73,7 +73,7 @@ export default function LessonHeroHeader({
           {/* Reserved image strip — always renders to prevent layout shift.
               Gradient-only when no image is provided. */}
           <div
-            className="relative -m-4 mb-3 h-20 sm:h-24 w-[calc(100%+2rem)] bg-gradient-learn"
+            className="relative -mx-5 -mt-5 sm:-mx-8 sm:-mt-8 mb-3 h-20 sm:h-24 w-[calc(100%+2.5rem)] sm:w-[calc(100%+4rem)] bg-gradient-learn"
             data-testid="lesson-hero-image-slot"
             data-has-image={hasImage ? 'true' : 'false'}
             aria-hidden="true"
@@ -131,10 +131,11 @@ export default function LessonHeroHeader({
                 <FloatingChip
                   variant="course"
                   icon={<Layers className="h-3 w-3" />}
-                  className="hidden sm:inline-flex"
+                  className="inline-flex"
                   testId="lesson-hero-step-chip"
                 >
-                  Schritt {stepIdx + 1}/{STEP_ORDER.length} · {stepLabel}
+                  <span className="sm:hidden">{stepIdx + 1}/{STEP_ORDER.length}</span>
+                  <span className="hidden sm:inline">Schritt {stepIdx + 1}/{STEP_ORDER.length} · {stepLabel}</span>
                 </FloatingChip>
               )}
               {estimatedTimeLabel && (
