@@ -1,81 +1,98 @@
+## EXAMFIT.DESIGN.SYSTEM.OS.1 — Plan
 
-## Befund — Edge Function Sprawl
+Ziel: Aus den HeyGen-Prinzipien (Hero-Gradients, große Karten, Bild-First, Glas/Chips, weiche Schatten) eine **eigene** ExamFit-Designsprache machen — ruhig, prüfungsnah, motivierend, ohne Kinderlern-Optik. Aufbauend auf Welle C (`LearnLessonCard`) und LIF.OS.1, **nicht** als Reset.
 
-| Kennzahl | Wert |
-|---|---|
-| Edge Functions gesamt | **562** |
-| TypeScript LOC | **194.171** |
-| Aktiv per Cron getriggert | **67** (Hot Path) |
-| Manuell/HTTP-aufgerufen | ~495 (Cold Tail) |
-| Größte Datei | `package-generate-exam-pool/index.ts` (**153 KB**) |
-| Top-10 Monster | >50 KB pro `index.ts`, zusammen ~890 KB |
+Lieferung in 4 Wellen, jede für sich abgeschlossen und PR-fähig. Wave 1 ist Pflicht-Foundation; Wave 2–4 bauen darauf auf und können einzeln gestoppt werden.
 
-### Cluster (nach Prefix)
-- `admin-*` 41, `package-*` 35, `generate-*` 28, `seo-*` 20, `curriculum-*` 16, `kimi-*` 11, `berufski-*` 11, `qualification-*` 12, `ops-*` 11, `pipeline-*` 10, `system-*` 9, `control-*` 9, `validate-*` 8, `executive-*` 6, `distribution-*` 6 …
+---
 
-### Laufzeit-Signale (letzte 24h)
-- **1 Funktion mit 100% 5xx** — 2/2 Aufrufe Timeout @ 150s (function_id `def3f108…`)
-- **2 Funktionen knapp am Limit**: avg 94s + 118s pro Call (Cold-Start oder ineffizient)
-- 4xx-Aufkommen unauffällig, dominiert von einzelnen Functions
+### Wave 1 — Foundation Tokens & Primitives (P0, ein PR)
 
-### Architektur-Freeze
-Core (`safe-tool`, Clustering, Memory Bridge, Council DAG, Job Runner) ist **FROZEN** → EXTEND_ONLY. Wir konsolidieren um den Kern herum, ohne ihn umzubauen.
+Pure-SSOT, keine sichtbare Seitenänderung außer der neuen `/design/examfit-ds` Demo-Seite.
 
-## Plan
+1. **Token-Erweiterung in `index.css` + `tailwind.config.ts`**
+   - Bereichs-Gradients als CSS-Variablen:
+     `--surface-hero-learn` (Türkis→Blau→Grün), `--surface-hero-exam` (Blau→Türkis), `--surface-hero-tutor` (Grün→Petrol), `--surface-hero-oral` (Orange→Rot), `--surface-hero-shop` (Violett→Blau). Light + Dark.
+   - Radius-Skala: `--radius-card-sm: 16px`, `--radius-card: 20px`, `--radius-card-lg: 24px`, `--radius-card-xl: 28px`.
+   - Shadow-Skala: `--shadow-card`, `--shadow-card-hover`, `--shadow-hero` (sehr weich, dezent).
+   - Glass-Tokens: `--glass-bg`, `--glass-border`, `--glass-blur` (nur `filter:`, kein `backdrop-filter` als Pflicht — siehe Guard).
+   - Erweiterung Tailwind: `rounded-card / card-lg / card-xl`, `shadow-card / shadow-card-hover / shadow-hero`, `bg-hero-learn / -exam / -tutor / -oral / -shop`.
 
-### Phase A — Diagnose-First (read-only, 1 Schritt, sofort)
-Wir bauen einen Auto-Audit, **bevor** wir konsolidieren — sonst arbeiten wir blind.
+2. **Primitive-Komponenten** unter `src/components/examfit-ds/`
+   - `<HeroSurface area="learn|exam|tutor|oral|shop" />` — Verlaufsfläche + optionaler Parallax-Slot, sehr dezente Frame-basierte Bewegung.
+   - `<ImageCard />` — große Bildkarte (Bild, Titel, Eyebrow, optional Chip-Reihe, Hover-Lift).
+   - `<FloatingChip variant="exam|course|tutor|oral|fav|time|ihk" />` — Pill mit Icon-Slot.
+   - `<GlassPanel />` — leichter Frost-Container (über `filter: blur()`, nicht `backdrop-filter`).
+   - `<ProgressMeter shape="bar|dots|ring" value=... total=...>` — vereinheitlicht die heute uneinheitlichen Progress-Anzeigen.
 
-1. **Neue Read-Only Edge-Function `admin-edge-fn-inventory`**
-   - Listet alle 562 Functions mit:
-     - LOC, Bytes, exists-in-cron, exists-in-job-map, last-modified
-     - 24h-Aufrufe, p95-Latenz, 5xx-Rate (aus `function_edge_logs`)
-     - Markiert: Cold (0 Calls/7d), Slow (>30s p95), Failing (>10% 5xx), Huge (>30KB)
-   - Admin-Karte `/admin/governance/edge-fn-health` mit Triage-Tabelle und CSV-Export
-   - **Kein Code wird gelöscht** — nur Sichtbarkeit
-   - Aufwand: 1 Function + 1 Page
+3. **Erweiterung `<LearnLessonCard />`**
+   - Neue Props (additiv, keine Breaking Changes): `area` (für Hero-Gradient-Eyebrow), `image` (optionales Hero-Bild oben), `tone="calm|focused|exam"` (steuert Padding/Akzent).
+   - Default-Look bleibt unverändert — bestehende Tests + Migrationen brechen nicht.
 
-### Phase B — Hot-Path Reparatur (gezielt, hoher Impact)
-Nur die Functions anfassen, die laut Logs *jetzt* Probleme verursachen:
+4. **Guards / Tests**
+   - Vitest-Snapshot pro Primitive.
+   - CI-Guard (`scripts/guard-no-raw-hex.mjs` erweitern): keine Hex-Werte in `src/components/examfit-ds/**`; nur Tokens.
+   - CI-Guard: `backdrop-filter:` nur in einer Allowlist (sandbox/render-safe).
+   - `src/pages/design/ExamFitDesignSystemDemo.tsx` (admin-only Route `/admin/design/examfit-ds`) zeigt alle Primitives lebendig — als Reality-Check.
 
-1. **Timeout-Function (def3f108…) identifizieren und fixen** — Name via Inventory aus Phase A
-2. **94s/118s-Functions** — Performance-Audit: typischerweise N+1 Supabase-Calls, fehlende `select(...)` Filter, oder synchronously waiting on AI
-3. **Top-10 Monster** auf Quick-Wins prüfen:
-   - Reduzierter Output (kein `select('*')`)
-   - Streaming statt Buffer für AI Calls
-   - Prompt-Trimming (Tokens), max_tokens runter, JSON-Mode statt Free-Text
-   - Shared Helpers in `_shared/` extrahieren (kein Logic-Rewrite)
+---
 
-### Phase C — Prompt & Output Audit (KI-Functions)
-Scope: nur Functions die `LOVABLE_API_KEY`/AI-Gateway nutzen.
-Pro Function:
-- System-Prompt: Länge messen, redundanten Boilerplate entfernen
-- Response-Format: free-text → strict JSON schema wo möglich
-- Model-Choice: `gemini-3-flash` als Default; `gemini-3-pro` nur wo nötig
-- max_tokens cap, temperature explizit setzen
-- Token-Budget-Audit ins `ai_invocation_log` (falls vorhanden) schreiben
+### Wave 2 — Lesson Hero & Kompetenz-Bilder (P1)
 
-### Phase D — Cold-Tail Konsolidierung (vorsichtig)
-Functions mit **0 Aufrufen in 30 Tagen** und keiner Cron/Job-Map-Bindung:
-- Generierter Vorschlag pro Cluster (z.B. 5–10 verwandte `seo-*` Helper)
-- Pro Vorschlag: separater PR/Migration, einzeln approven
-- **Niemals Bulk-Delete** — Architecture Freeze respektieren
-- Audit in `auto_heal_log` Action `edge_fn_consolidation`
+5. **Lesson Hero** im LessonPlayer
+   - Oberer Bereich jeder Lektion wird zur `<HeroSurface area="learn">` mit: Eyebrow „Schritt X von Y · Modus", H1 (Kompetenztitel), `<ProgressMeter shape="bar">` mit Prozent.
+   - Komplett über bestehende Felder gespeist — keine Schema-Änderung.
 
-### Leitplanken
-- Phase A bringt Daten — danach entscheidet der User pro Cluster
-- Kein Architektur-Umbau in Core-Functions (`job-runner`, `content-runner`, `_shared/*`)
-- Jede gelöschte/zusammengelegte Function: Migration-Audit + Cron-Map-Update
-- Prompt-Änderungen: A/B per Feature-Flag wenn Endkunden-sichtbar
+6. **Kompetenz-Bilder** (read-only Reuse)
+   - Wiederverwendung der bestehenden Beruf/Keyword-Bildpipeline (`generate-beruf-image`, `useBerufImages`) auf Kompetenzebene; **kein** neuer Generator, kein neuer Cache. Mapping über bereits existierende Keyword-Felder.
+   - Fallback: gradient-only Hero, wenn kein Bild verfügbar (kein Layout-Shift).
 
-## Empfohlene Reihenfolge
+7. **Tests**: Snapshot LessonPlayer-Hero, Fallback-Pfad ohne Bild.
 
-1. **Sofort:** Phase A (Inventory & Health-Card) — gibt Entscheidungsgrundlage
-2. **Nach Review:** Phase B (3–5 Hot-Path-Fixes) — schnellster ROI, stoppt aktive 5xx
-3. **Separat freigeben:** Phase C (KI-Prompt-Audit, batchweise)
-4. **Optional, langfristig:** Phase D (Cold-Tail-Konsolidierung in kleinen Wellen)
+---
 
-## Frage
-**562 Functions können nicht in einem Schritt "konsolidiert" werden.** Empfehlung: ich baue jetzt **Phase A** (Inventory + Health-Karte), dann entscheidest du anhand realer Daten welche Cluster wir in Phase B–D anpacken.
+### Wave 3 — Learning Dashboard & Karten-Migration (P1)
 
-Alternative: wenn du einen konkreten Cluster sofort meinst (z.B. `kimi-*` zusammenlegen, `seo-*` aufräumen), nenn ihn — dann skippen wir Phase A und gehen direkt rein.
+8. **Dashboard-Karten** auf `<ImageCard />` umstellen
+   - „Lernkurs · Prüfung · KI-Tutor · Mündliche Prüfung · Fortschritt · Schwächen" als 2-Spalten-Grid (mobile-first).
+   - Bestehende Daten-Hooks bleiben — nur Präsentation.
+
+9. **Floating-Chip-Pass** auf Kursdetail-/Berufsseiten
+   - Ersetzt heutige inkonsistente Badge-Reihen durch `<FloatingChip />`.
+   - Visual-only.
+
+10. **Tests**: Render-Tests, Chip-Reihenfolge stabil, Accessibility-Labels.
+
+---
+
+### Wave 4 — Motion-Feedback (P2, optional)
+
+11. **Sehr dezente Lernmomente** (alle hinter `prefers-reduced-motion`):
+    - Progress-Bar fließt (220 ms, ease-out).
+    - Richtige Antwort → einmaliger grüner Glow am Card-Border (status-done).
+    - Falsche Antwort → 80 ms Shake.
+    - Kompetenz abgeschlossen → minimaler Konfetti-Sprite (ein einzelner Burst, kein Dauerloop).
+12. Keine Animation in Tutor/Streaming-Flows, keine Hover-Glows auf der ganzen Seite — nur an definierten Lernmomenten.
+
+---
+
+### Hart NICHT in diesem System
+
+- Keine neue Input-/Antwortkomponente (LIF.OS.1 bleibt einzige Quelle).
+- Keine Curriculum-/Blueprint-/Unlock-Logik-Änderung.
+- Keine Paywall-/Pricing-Änderung.
+- Keine `backdrop-filter`-Pflicht (Render-Sicherheit).
+- Keine Hex-Farben in `examfit-ds/**`.
+- Keine zweite Card-Familie neben `LearnLessonCard` für Lernschritte — Visual-Cards (`ImageCard`) sind für Navigation/Übersicht, **nicht** für Lernschritte.
+
+---
+
+### Reihenfolge & Entscheidungspunkte
+
+Standardvorschlag: **Wave 1 jetzt komplett bauen** (Tokens + Primitives + Demo + Guards). Danach kurzes Review der Demo-Seite, dann Wave 2 → 3 → 4 nacheinander mit jeweils eigener Freigabe.
+
+### Offene Entscheidungen vor Wave 1
+
+1. **Gradient-Charakter**: ruhig-dezent (deine Cut-3-Linie „professioneller Prüfungstrainer, nicht Kinder-App") oder etwas plakativer wie HeyGen? Vorschlag: dezent — Sättigung ~60 %, kein Neon.
+2. **Scope Wave 1**: nur Tokens + Primitives + Demo-Seite, **ohne** echte Seitenänderung — bestätigt?
+3. **Bilder Kompetenz-Ebene (Wave 2)**: Reuse vorhandener Pipeline ok? (keine neuen Edge-Functions, kein neues Storage-Bucket)
