@@ -4,7 +4,7 @@
  * Rollback NEVER calls a Store API. It only proposes a previously-approved
  * candidate as the rollback target. A human still performs the manual rollback.
  */
-import type { CandidateSnapshot, LifecycleState } from "./contracts";
+import type { CandidateSnapshot, LifecycleState } from "./contracts.ts";
 
 export type RollbackBlockerCode =
   | "NO_PRIOR_APPROVED"

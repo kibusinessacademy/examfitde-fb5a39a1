@@ -1,9 +1,9 @@
 /**
  * STORE.LIFECYCLE.OS.1 — Version policy (pure)
  */
-import type { CandidateSnapshot } from "./contracts";
-import { classifyFeedback } from "./storeFeedback";
-import type { StoreFeedbackInput } from "./contracts";
+import type { CandidateSnapshot } from "./contracts.ts";
+import { classifyFeedback } from "./storeFeedback.ts";
+import type { StoreFeedbackInput } from "./contracts.ts";
 
 export type VersionAction =
   | "same_version_metadata_fix"

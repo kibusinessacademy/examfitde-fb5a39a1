@@ -1,7 +1,7 @@
 /**
  * STORE.LIFECYCLE.OS.1 — Lifecycle state machine (pure)
  */
-import type { LifecycleEventType, LifecycleState } from "./contracts";
+import type { LifecycleEventType, LifecycleState } from "./contracts.ts";
 
 const T: Record<LifecycleState, Partial<Record<LifecycleEventType, LifecycleState>>> = {
   not_submitted: {

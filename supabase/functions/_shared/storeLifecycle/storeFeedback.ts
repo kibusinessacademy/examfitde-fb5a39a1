@@ -6,7 +6,7 @@ import type {
   LifecycleState,
   StoreFeedbackInput,
   StoreFeedbackType,
-} from "./contracts";
+} from "./contracts.ts";
 
 export interface FeedbackEffect {
   next_event: LifecycleEventType;

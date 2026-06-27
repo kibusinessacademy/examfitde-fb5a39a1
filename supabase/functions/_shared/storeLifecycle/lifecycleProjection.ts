@@ -13,9 +13,9 @@ import type {
   PlatformProjection,
   StoreFeedbackInput,
   StorePlatform,
-} from "./contracts";
-import { classifyFeedback } from "./storeFeedback";
-import { evaluateRollback } from "./rollbackPolicy";
+} from "./contracts.ts";
+import { classifyFeedback } from "./storeFeedback.ts";
+import { evaluateRollback } from "./rollbackPolicy.ts";
 
 export interface ProjectionInput {
   current_candidate: CandidateSnapshot | null;

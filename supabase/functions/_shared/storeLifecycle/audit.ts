@@ -5,7 +5,7 @@ import type {
   LifecycleEvent,
   LifecycleEventType,
   StoreFeedbackInput,
-} from "./contracts";
+} from "./contracts.ts";
 
 export type LifecycleAuditEventName =
   | "lifecycle_event_recorded"
