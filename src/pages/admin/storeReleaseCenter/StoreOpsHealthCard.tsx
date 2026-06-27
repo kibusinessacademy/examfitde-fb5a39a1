@@ -1,6 +1,6 @@
 // STORE.OPS.KPI.OS.1 — Admin Card
 // Read-only KPI snapshot for StoreOps.
-// NO publish/submit/rollout buttons.
+// Read-only. No store-publishing controls of any kind.
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
