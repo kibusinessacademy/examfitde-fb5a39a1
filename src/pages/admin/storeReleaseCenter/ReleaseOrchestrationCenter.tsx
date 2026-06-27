@@ -13,6 +13,7 @@ import { StoreOpsHealthCard } from "./StoreOpsHealthCard";
 import { StoreOpsBatchCard } from "./StoreOpsBatchCard";
 import { StoreOpsAutopilotCard } from "./StoreOpsAutopilotCard";
 import { StoreOpsIntelligenceCard } from "./StoreOpsIntelligenceCard";
+import { StoreOpsPredictionCard } from "./StoreOpsPredictionCard";
 
 type ManifestRow = {
   id: string;
@@ -51,6 +52,7 @@ export function ReleaseOrchestrationCenter() {
         <StoreOpsBatchCard />
         <StoreOpsAutopilotCard />
         <StoreOpsIntelligenceCard />
+        <StoreOpsPredictionCard />
 
         {manifests.isLoading ? (
           <Skeleton className="h-10 w-full" />
