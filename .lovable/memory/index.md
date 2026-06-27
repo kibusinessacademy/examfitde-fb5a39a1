@@ -461,3 +461,5 @@ MOBILE.COURSE.PACKAGE.OS.1 Welle 2 (2026-06-27) — CI Build & Upload Skeletons.
 - [STORE.OPS.KPI.OS.1](mem://features/store-ops-kpi-os-1) — Aggregated StoreOps KPIs, bottlenecks, health score; no publish/IAP changes
 - [STORE.OPS.BATCH.OS.1](mem://features/store-ops-batch-os-1) — Multi-manifest batch orchestration of safe StoreOps actions; allow-list, append-only items, no publish/submit/rollout
 - [STORE.OPS.AUTOPILOT.OS.1](mem://features/store-ops-autopilot-os-1) — Store Ops Autopilot: 4 modes, deterministic risk/plan, allow-list executor; never publishes/submits/rolls out
+- [STORE.OPS.INTELLIGENCE.OS.1](mem://features/store-ops-intelligence-os-1) — Deterministic decision-intelligence layer: blockers/failures/clusters/trends, explainable risk + confidence, allow-list recommendations; read-only, append-only runs/findings, no publish/submit/rollout
+
