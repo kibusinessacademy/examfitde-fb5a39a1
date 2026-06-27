@@ -11,6 +11,7 @@ import type {
 } from "./contracts";
 import { projectPublishedVisualArtifact } from "./visual-artifact-projection";
 import type { VisualArtifactReviewResult } from "./visual-artifact-review";
+import type { VisualArtifactStatus } from "./contracts";
 import {
   isAllowedVloTransition,
   isVloPersistedStatus,
@@ -20,6 +21,30 @@ import {
   type VloPersistedStatus,
   type VloPersistWarning,
 } from "./persistence-policy";
+
+/**
+ * Contract status uses 'review'; persistence FSM uses 'needs_review'.
+ * Map deterministically.
+ */
+export function mapContractToPersistedStatus(
+  s: VisualArtifactStatus,
+): VloPersistedStatus | null {
+  if (s === "draft") return "draft";
+  if (s === "review") return "needs_review";
+  if (s === "approved") return "approved";
+  if (s === "published") return "published";
+  return null;
+}
+
+export function mapPersistedToContractStatus(
+  s: VloPersistedStatus,
+): VisualArtifactStatus | null {
+  if (s === "draft") return "draft";
+  if (s === "needs_review") return "review";
+  if (s === "approved") return "approved";
+  if (s === "published") return "published";
+  return null; // archived has no contract counterpart
+}
 
 export interface VisualArtifactPersistenceCandidate {
   artifact: VisualLearningArtifact;
