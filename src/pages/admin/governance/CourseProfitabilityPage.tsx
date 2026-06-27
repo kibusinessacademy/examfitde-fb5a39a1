@@ -68,6 +68,55 @@ function downloadCsv(rows: any[]) {
   URL.revokeObjectURL(url);
 }
 
+type SnapshotRow = {
+  id: string;
+  product_id: string;
+  product_title: string | null;
+  product_slug: string | null;
+  class: string;
+  recommendation_code: string;
+  recommendation_reason: string;
+  units_sold: number;
+  gross_revenue_cents: number;
+  net_revenue_cents: number;
+  stripe_fees_cents: number;
+  refunds_cents: number;
+  ai_cost_cents: number;
+  build_cost_cents: number;
+  overhead_cents: number;
+  total_cost_cents: number;
+  margin_cents: number;
+  margin_ratio: number;
+  payback_units: number | null;
+  confidence: number;
+  window_days: number;
+  evaluator_version: string;
+  created_at: string;
+};
+
+function normalize(rows: any[]): SnapshotRow[] {
+  return rows.map((r) => ({
+    ...r,
+    product_id: r.product_id ?? "",
+    class: r.class ?? "insufficient_data",
+    recommendation_code: r.recommendation_code ?? "HOLD",
+    recommendation_reason: r.recommendation_reason ?? "",
+    units_sold: r.units_sold ?? 0,
+    gross_revenue_cents: r.gross_revenue_cents ?? 0,
+    net_revenue_cents: r.net_revenue_cents ?? 0,
+    stripe_fees_cents: r.stripe_fees_cents ?? 0,
+    refunds_cents: r.refunds_cents ?? 0,
+    ai_cost_cents: r.ai_cost_cents ?? 0,
+    build_cost_cents: r.build_cost_cents ?? 0,
+    overhead_cents: r.overhead_cents ?? 0,
+    total_cost_cents: r.total_cost_cents ?? 0,
+    margin_cents: r.margin_cents ?? 0,
+    margin_ratio: r.margin_ratio ?? 0,
+    confidence: r.confidence ?? 0,
+    window_days: r.window_days ?? 90,
+  }));
+}
+
 export default function CourseProfitabilityPage() {
   const qc = useQueryClient();
   const [windowDays, setWindowDays] = useState(90);
@@ -84,7 +133,7 @@ export default function CourseProfitabilityPage() {
       if (filterClass !== "all") q = q.eq("class", filterClass);
       const { data, error } = await q;
       if (error) throw error;
-      return data ?? [];
+      return normalize(data ?? []);
     },
   });
 
