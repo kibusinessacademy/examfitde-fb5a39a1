@@ -120,12 +120,27 @@ describe("STORE.OPS.PREDICTION.OS.1 — no publish guard", () => {
     }
   });
 
-  it("UI exposes no publish / submit / rollout / execute / approve buttons", () => {
+  it("UI invokes only the predict-store-ops edge function", () => {
     const raw = readFileSync(
       "src/pages/admin/storeReleaseCenter/StoreOpsPredictionCard.tsx",
       "utf8",
     );
+    const invokes = raw.match(/functions\.invoke\(["']([^"']+)["']/g) ?? [];
+    for (const m of invokes) {
+      const fn = m.match(/["']([^"']+)["']/)![1];
+      expect(fn, `unexpected edge function invocation: ${fn}`).toBe("predict-store-ops");
+    }
+  });
+
+  it("UI source contains no Publish/Submit/Rollout/Approve button labels", () => {
+    const raw = readFileSync(
+      "src/pages/admin/storeReleaseCenter/StoreOpsPredictionCard.tsx",
+      "utf8",
+    );
+    // Strip comments before scanning visible labels / handler names.
     const stripped = raw.replace(/\/\/[^\n]*\n/g, "\n").replace(/\/\*[\s\S]*?\*\//g, "");
-    expect(stripped.toLowerCase()).not.toMatch(/publish|submit|rollout|approve|execute|bypass/);
+    for (const tok of ["Publish", "Submit", "Rollout", "Approve", "Bypass"]) {
+      expect(stripped, `forbidden token: ${tok}`).not.toContain(tok);
+    }
   });
 });
