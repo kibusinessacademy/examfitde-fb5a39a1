@@ -5,9 +5,9 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { assertAdmin } from "../_shared/edgeAuthContract.ts";
-import { evaluateReviewGate } from "../../../src/lib/storeReviewReady/reviewGate.ts";
-import { projectInput } from "../../../src/lib/storeReviewReady/projection.ts";
-import { buildAuditPayload, eventForProjection } from "../../../src/lib/storeReviewReady/audit.ts";
+import { evaluateReviewGate } from "../_shared/storeReviewReady/reviewGate.ts";
+import { projectInput } from "../_shared/storeReviewReady/projection.ts";
+import { buildAuditPayload, eventForProjection } from "../_shared/storeReviewReady/audit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
