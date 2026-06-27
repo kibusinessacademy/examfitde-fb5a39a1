@@ -253,6 +253,38 @@ export default function LessonTutorBox({ context, className }: LessonTutorBoxPro
                   )}
                 </div>
 
+                {/* LIF.OS.1 — universal learner answer surface.
+                    Sichtbar, sobald der Tutor mindestens eine Antwort/Frage gesendet hat.
+                    Verhindert den „Schreib deine Antwort"-Zustand ohne Eingabefeld. */}
+                {lastAssistant && (() => {
+                  const lifSpec: LearnerInteractionSpec = {
+                    surfaceId: `lesson_tutor.${activeAction ?? 'reply'}`,
+                    expectedInput: 'text',
+                    allowVoice: true,
+                    answerLabel: '✍️ Deine Antwort an den Tutor',
+                    placeholder: 'Schreib deine Antwort — der Tutor gibt dir präzises Feedback.',
+                    minChars: 2,
+                    maxChars: 2000,
+                    actions: ['submit'],
+                  };
+                  const langDirective = targetLang !== 'de' ? `\n\n[language: respond in ${targetLang}]` : '';
+                  return (
+                    <LearnerAnswerSurface
+                      spec={lifSpec}
+                      busy={isLoading}
+                      onSubmit={(payload) => {
+                        if (payload.kind !== 'text') return;
+                        const tagged =
+                          `${payload.value.trim()}${langDirective}\n\n[lesson_context: lesson_id=${context.lessonId} ` +
+                          `competency_id=${context.competencyId} step=${context.stepKey ?? '-'}` +
+                          (context.sectionKey ? ` section=${context.sectionKey}` : '') +
+                          ` ui_lang=${targetLang}]`;
+                        sendMessage(tagged);
+                      }}
+                    />
+                  );
+                })()}
+
                 {activeAction && (
                   <p className="text-xs text-muted-foreground">
                     Kontext: Kompetenz {context.competencyCode ?? '–'}
