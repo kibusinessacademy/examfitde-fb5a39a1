@@ -142,4 +142,28 @@ describe('LessonHeroHeader (DS2.0)', () => {
       expect(cls).toMatch(/sm:h-24/);
     }
   });
+
+  it('keeps step-chip, competency label and progress visible on mobile breakpoints (no `hidden` lockout)', () => {
+    renderHeader({
+      stepKey: 'anwenden',
+      competencyTitle: 'Beschaffung optimieren',
+      competencyCode: 'K2.1',
+    });
+    const stepChip = screen.getByTestId('lesson-hero-step-chip');
+    // Step chip must NOT be sm-only — it must render on mobile too.
+    expect(stepChip.className).not.toMatch(/\bhidden\b/);
+    expect(stepChip.className).toMatch(/\binline-flex\b/);
+    // It must carry a compact short label that is visible on mobile (sm:hidden span).
+    const compactLabel = stepChip.querySelector('span.sm\\:hidden');
+    expect(compactLabel?.textContent).toMatch(/3\s*\/\s*7/);
+
+    // Competency label and progress must always render.
+    expect(screen.getByLabelText('Kompetenz')).toBeTruthy();
+    expect(screen.getByRole('progressbar', { name: /Lektion/ })).toBeTruthy();
+
+    // Image slot must reserve responsive heights (mobile h-20, sm h-24).
+    const slot = screen.getByTestId('lesson-hero-image-slot');
+    expect(slot.className).toMatch(/\bh-20\b/);
+    expect(slot.className).toMatch(/sm:h-24/);
+  });
 });
