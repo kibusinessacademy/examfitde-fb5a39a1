@@ -905,6 +905,7 @@ const AppRoutes = () => {
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
           <Route path="tools/mobile-bundle-builder" element={<MobileBundleBuilderPage />} />
           <Route path="tools/mobile-iap-smoke" element={<MobileIAPSmokePage />} />
+          <Route path="tools/store-release-center" element={<StoreReleaseCenterPage />} />
           <Route path="governance/visual-learning-review" element={<VisualLearningReviewPage />} />
           <Route path="governance/visual-learning-workflow" element={<VisualLearningArtifactWorkflowPage />} />
           {/* EXAMFIT.DESIGN.SYSTEM.OS.1 — Wave 1 admin demo */}
