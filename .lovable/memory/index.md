@@ -458,3 +458,4 @@ MOBILE.COURSE.PACKAGE.OS.1 Welle 2 (2026-06-27) — CI Build & Upload Skeletons.
 - [IAP Status Lifecycle](mem://features/iap-status-lifecycle) — Apple ASSN v2 + Google RTDN; store_receipts SSOT; revoke/suspend/restore RPCs; append-only events
 - [Store Publish Orchestration OS.1](mem://features/store-publish-orchestration-os-1) — deterministic release orchestration: candidate/policy/state/timeline; admin-only edge functions; no submit/publish
 - [Store Lifecycle OS.1](mem://features/store-lifecycle-os-1) — post-submission lifecycle: store feedback log, append-only events, rollback/version policy, projection card; no Store API
+- [STORE.OPS.KPI.OS.1](mem://features/store-ops-kpi-os-1) — Aggregated StoreOps KPIs, bottlenecks, health score; no publish/IAP changes
