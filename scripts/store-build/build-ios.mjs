@@ -10,7 +10,7 @@
  *
  * Hard rules:
  *   - NEVER submits to App Review.
- *   - NEVER sets appStoreVersionReleaseRequest.
+ *   - NEVER sets the App-Store-version release-request flag.
  *   - On non-darwin host: build always simulates.
  */
 import { mkdirSync, writeFileSync, existsSync, readFileSync, copyFileSync, createWriteStream } from "node:fs";
