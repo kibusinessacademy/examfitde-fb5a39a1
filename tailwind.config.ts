@@ -206,12 +206,6 @@ export default {
         "card-lg": "var(--radius-card-lg)",
         "card-xl": "var(--radius-card-xl)",
       },
-      boxShadow: {
-        // EXAMFIT.DESIGN.SYSTEM.OS.1
-        card: "var(--shadow-card)",
-        "card-hover": "var(--shadow-card-hover)",
-        hero: "var(--shadow-hero)",
-      },
       backgroundImage: {
         // EXAMFIT.DESIGN.SYSTEM.OS.1 — Bereichs-Gradients (5 Areas)
         "hero-learn": "var(--surface-hero-learn)",
