@@ -294,6 +294,27 @@
     --status-info-bg-subtle: 189 60% 14%;
     --status-info-border: 189 50% 28%;
 
+    /* ── Learn Status Tokens (dark) ── */
+    --status-done: 142 71% 50%;
+    --status-done-fg: 142 60% 72%;
+    --status-done-subtle: 142 50% 14%;
+    --status-done-border: 142 40% 28%;
+
+    --status-current: 168 64% 55%;
+    --status-current-fg: 168 64% 72%;
+    --status-current-subtle: 168 50% 14%;
+    --status-current-border: 168 40% 28%;
+
+    --status-recommendation: 38 92% 55%;
+    --status-recommendation-fg: 38 92% 72%;
+    --status-recommendation-subtle: 38 60% 14%;
+    --status-recommendation-border: 38 50% 30%;
+
+    --status-locked: 220 13% 60%;
+    --status-locked-fg: 220 13% 72%;
+    --status-locked-subtle: 222 25% 18%;
+    --status-locked-border: 222 20% 30%;
+
     --border: 181 50% 20%;
     --input: 181 50% 20%;
     --ring: 168 64% 55%;
