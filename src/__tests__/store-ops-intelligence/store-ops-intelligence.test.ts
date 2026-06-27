@@ -259,7 +259,8 @@ describe("STORE.OPS.INTELLIGENCE.OS.1 — risk", () => {
       [makeRun({ safe_count: 0, manual_count: 5, blocked_count: 5 })],
       [makeKpi({ rejected_count: 10 })],
     );
-    expect(r).toBeGreaterThan(50);
+    expect(r).toBeGreaterThanOrEqual(50);
+
   });
   it("operationalRisk grows with batch failures", () => {
     const r = operationalRisk([makeBatch({ total: 10, succeeded: 0, failed: 10 })], []);

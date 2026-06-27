@@ -84,16 +84,18 @@ describe("STORE.OPS.INTELLIGENCE.OS.1 — no publish guard", () => {
 
   it("edge function only writes to intelligence tables (no new write paths)", () => {
     const src = readFileSync("supabase/functions/analyze-store-ops/index.ts", "utf8");
-    const insertMatches = src.match(/\.from\(["']([^"']+)["']\)\s*\.insert\(/g) ?? [];
-    const allowed = new Set([
-      'from("store_ops_intelligence_runs").insert(',
-      'from("store_ops_intelligence_findings").insert(',
-      'from("security_events").insert(',
+    const insertMatches = src.match(/\.from\(["']([^"']+)["']\)[\s\n]*\.insert\(/g) ?? [];
+    const allowedTables = new Set([
+      "store_ops_intelligence_runs",
+      "store_ops_intelligence_findings",
+      "security_events",
     ]);
     for (const m of insertMatches) {
-      expect(allowed.has(m), `unexpected write path: ${m}`).toBe(true);
+      const table = m.match(/["']([^"']+)["']/)![1];
+      expect(allowedTables.has(table), `unexpected write path: ${table}`).toBe(true);
     }
   });
+
 
   it("edge function never updates or deletes intelligence tables (append-only)", () => {
     const src = readFileSync("supabase/functions/analyze-store-ops/index.ts", "utf8");
@@ -101,7 +103,10 @@ describe("STORE.OPS.INTELLIGENCE.OS.1 — no publish guard", () => {
   });
 
   it("UI exposes no publish / submit / rollout buttons", () => {
-    const src = readFileSync("src/pages/admin/storeReleaseCenter/StoreOpsIntelligenceCard.tsx", "utf8");
-    expect(src.toLowerCase()).not.toMatch(/publish|submit|rollout/);
+    const raw = readFileSync("src/pages/admin/storeReleaseCenter/StoreOpsIntelligenceCard.tsx", "utf8");
+    // Strip single-line comments before scanning so that a "no publish/submit/rollout" doc note doesn't trip the guard.
+    const stripped = raw.replace(/\/\/[^\n]*\n/g, "\n").replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(stripped.toLowerCase()).not.toMatch(/publish|submit|rollout/);
   });
 });
+
