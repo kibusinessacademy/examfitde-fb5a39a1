@@ -64,7 +64,7 @@ export function CompetenceImageCard({
   const [fav, setFav] = useState(initialFavorite);
 
   const handleFavClick = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
+    (e: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
       e.stopPropagation();
       e.preventDefault();
       const next = !fav;
