@@ -14,7 +14,7 @@ import { SurfaceHumorCard } from '@/components/humor/SurfaceHumorCard';
 import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import type { LessonStatus } from '@/hooks/useCourseProgress';
 
-import LessonHeader from '@/components/lesson/LessonHeader';
+import LessonHeroHeader from '@/components/lesson/LessonHeroHeader';
 import StepIndicator from '@/components/lesson/StepIndicator';
 import LessonHero from '@/components/lesson/LessonHero';
 import PageExplainer from '@/components/admin/PageExplainer';
@@ -417,13 +417,16 @@ export default function LessonPlayer() {
 
   return (
     <div className="min-h-screen bg-background" data-testid="lesson-player">
-      <LessonHeader
+      <LessonHeroHeader
         courseId={course.id}
         courseTitle={course.title}
         moduleTitle={module.title}
         progress={getModuleProgress()}
         currentIndex={getCurrentLessonIndex()}
         totalLessons={siblingLessons.length}
+        estimatedTimeLabel={
+          lesson.duration_minutes ? `≈ ${lesson.duration_minutes} Min.` : undefined
+        }
       />
 
       <div className="container mx-auto px-4 py-6">
