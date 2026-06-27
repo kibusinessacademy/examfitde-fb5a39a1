@@ -900,6 +900,7 @@ const AppRoutes = () => {
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
           <Route path="governance/visual-learning-review" element={<VisualLearningReviewPage />} />
+          <Route path="governance/visual-learning-workflow" element={<VisualLearningArtifactWorkflowPage />} />
 
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
           <Route path="berufs-ki/quality" element={<BerufsKIQualityPage />} />
