@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Lock, ArrowLeft } from 'lucide-react';
+import { Loader2, Lock } from 'lucide-react';
 import { recordLearningEvent, snapshotExamReadiness } from '@/lib/learning-telemetry';
 import { useMiniCheckMasterySync } from '@/features/mastery/hooks/useMiniCheckMasterySync';
 import { useCertificationFromCurriculum } from '@/hooks/useCertificationFromCurriculum';
