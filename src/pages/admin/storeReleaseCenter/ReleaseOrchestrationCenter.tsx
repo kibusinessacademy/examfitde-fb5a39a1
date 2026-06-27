@@ -12,6 +12,7 @@ import { StoreLifecycleCard } from "./StoreLifecycleCard";
 import { StoreOpsHealthCard } from "./StoreOpsHealthCard";
 import { StoreOpsBatchCard } from "./StoreOpsBatchCard";
 import { StoreOpsAutopilotCard } from "./StoreOpsAutopilotCard";
+import { StoreOpsIntelligenceCard } from "./StoreOpsIntelligenceCard";
 
 type ManifestRow = {
   id: string;
