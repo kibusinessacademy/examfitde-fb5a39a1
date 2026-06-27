@@ -57,7 +57,10 @@ export function useIAPReceiptValidation() {
     onSuccess: (_data, vars) => {
       // Unlock player surfaces: invalidate any access/entitlement query that
       // could gate the curriculum.
+      // SSOT invalidation: match real query keys used by access hooks.
       qc.invalidateQueries({ queryKey: ["product-access"] });
+      qc.invalidateQueries({ queryKey: ["product-access-curriculum"] });
+      // Back-compat alias used by older callers / docs:
       qc.invalidateQueries({ queryKey: ["product-access-by-curriculum", vars.curriculum_id] });
       qc.invalidateQueries({ queryKey: ["entitlements"] });
       qc.invalidateQueries({ queryKey: ["user-entitlements-legacy"] });
