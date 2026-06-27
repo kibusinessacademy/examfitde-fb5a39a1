@@ -187,6 +187,29 @@
     --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.1);
     --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.1);
     --shadow-glow: 0 0 20px hsl(168 64% 50% / 0.2);
+
+    /* ── EXAMFIT.DESIGN.SYSTEM.OS.1 — Wave 1 tokens ──
+       Ruhig-dezent, prüfungsnah. Sättigung ~55-65 %. Keine Neon-Töne.
+       Bereichs-Gradients als CSS-Variablen, von Tailwind-Utilities verwendet. */
+    --radius-card-sm: 16px;
+    --radius-card: 20px;
+    --radius-card-lg: 24px;
+    --radius-card-xl: 28px;
+
+    --shadow-card: 0 2px 6px -1px hsl(222 47% 11% / 0.05), 0 8px 24px -8px hsl(222 47% 11% / 0.08);
+    --shadow-card-hover: 0 4px 12px -2px hsl(222 47% 11% / 0.08), 0 16px 40px -12px hsl(222 47% 11% / 0.12);
+    --shadow-hero: 0 24px 60px -24px hsl(168 64% 30% / 0.18), 0 8px 20px -6px hsl(222 47% 11% / 0.06);
+
+    --glass-bg: hsl(0 0% 100% / 0.62);
+    --glass-border: hsl(220 13% 91% / 0.85);
+    --glass-blur: 14px;
+
+    /* Bereichs-Gradients: 5 Areas. Light-Mode (dezent, ~60 % Sättigung). */
+    --surface-hero-learn: linear-gradient(135deg, hsl(168 55% 92%) 0%, hsl(200 60% 90%) 50%, hsl(142 45% 90%) 100%);
+    --surface-hero-exam:  linear-gradient(135deg, hsl(210 60% 90%) 0%, hsl(190 55% 88%) 100%);
+    --surface-hero-tutor: linear-gradient(135deg, hsl(142 45% 90%) 0%, hsl(178 50% 88%) 100%);
+    --surface-hero-oral:  linear-gradient(135deg, hsl(28 75% 90%) 0%, hsl(8 70% 88%) 100%);
+    --surface-hero-shop:  linear-gradient(135deg, hsl(260 50% 92%) 0%, hsl(220 55% 90%) 100%);
   }
 
   .dark {
