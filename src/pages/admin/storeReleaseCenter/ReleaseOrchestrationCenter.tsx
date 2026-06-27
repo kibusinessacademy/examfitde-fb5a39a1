@@ -11,6 +11,7 @@ import { ReleaseOrchestrationCard } from "./ReleaseOrchestrationCard";
 import { StoreLifecycleCard } from "./StoreLifecycleCard";
 import { StoreOpsHealthCard } from "./StoreOpsHealthCard";
 import { StoreOpsBatchCard } from "./StoreOpsBatchCard";
+import { StoreOpsAutopilotCard } from "./StoreOpsAutopilotCard";
 
 type ManifestRow = {
   id: string;
@@ -47,6 +48,7 @@ export function ReleaseOrchestrationCenter() {
       <CardContent className="space-y-4">
         <StoreOpsHealthCard />
         <StoreOpsBatchCard />
+        <StoreOpsAutopilotCard />
         {manifests.isLoading ? (
           <Skeleton className="h-10 w-full" />
         ) : (
