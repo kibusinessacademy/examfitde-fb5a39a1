@@ -401,36 +401,16 @@ export default function LessonPlayer() {
 
   if (!lesson || !module || !course) return null;
 
-  // Mastery gate: block if previous lesson not passed
-  if (progressionBlocked?.blocked) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <Card className="glass-card max-w-md w-full border-destructive/30">
-          <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-destructive-bg-subtle flex items-center justify-center mx-auto mb-4">
-              <Lock className="h-8 w-8 text-destructive" />
-            </div>
-            <h2 className="text-xl font-display font-bold mb-2">Lektion gesperrt</h2>
-            <p className="text-muted-foreground mb-6">{progressionBlocked.reason}</p>
-            <div className="flex gap-3">
-              {progressionBlocked.prevLessonId && (
-                <Button
-                  className="flex-1 gradient-primary text-primary-foreground"
-                  onClick={() => navigate(`/lesson/${progressionBlocked.prevLessonId}`)}
-                >
-                  Zur vorherigen Lektion
-                </Button>
-              )}
-              <Button variant="outline" className="flex-1 gap-2" onClick={() => navigate(-1)}>
-                <ArrowLeft className="h-4 w-4" />
-                Zurück
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Recommendation gate — never blocks the lesson hard (paywall is enforced
+  // separately via purchase/entitlement checks). We surface a soft recommendation
+  // banner inside the player below instead of replacing the page.
+  const progressionRecommendation =
+    progressionBlocked?.blocked
+      ? {
+          reason: progressionBlocked.reason ?? 'Vorheriger Lernschritt noch nicht abgeschlossen',
+          prevLessonId: progressionBlocked.prevLessonId,
+        }
+      : null;
 
   const prevLesson = getPreviousLesson();
   const nextLesson = getNextLesson();
