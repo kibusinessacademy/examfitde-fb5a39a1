@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReleaseOrchestrationCard } from "./ReleaseOrchestrationCard";
+import { StoreLifecycleCard } from "./StoreLifecycleCard";
 
 type ManifestRow = {
   id: string;
@@ -60,10 +61,13 @@ export function ReleaseOrchestrationCenter() {
         )}
 
         {selected && (
-          <ReleaseOrchestrationCard
-            manifestId={selected.id}
-            courseTitle={selected.bundle_id ?? undefined}
-          />
+          <>
+            <ReleaseOrchestrationCard
+              manifestId={selected.id}
+              courseTitle={selected.bundle_id ?? undefined}
+            />
+            <StoreLifecycleCard manifestId={selected.id} />
+          </>
         )}
       </CardContent>
     </Card>
