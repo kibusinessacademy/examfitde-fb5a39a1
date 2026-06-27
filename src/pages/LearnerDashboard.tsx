@@ -136,13 +136,14 @@ export default function LearnerDashboard() {
               const enr = (dashboard?.enrollments ?? []) as DashboardEnrollment[];
               if (!enr.length) return 0;
               const avg =
-                enr.reduce((acc, e) => acc + (e.progress_percent ?? 0), 0) / enr.length;
+                enr.reduce((acc, e) => {
+                  const total = e.total_lessons || 0;
+                  const done = e.completed_lessons || 0;
+                  return acc + (total > 0 ? (done / total) * 100 : 0);
+                }, 0) / enr.length;
               return Math.max(0, Math.min(100, Math.round(avg)));
             })()}
-            topWeaknesses={(dashboard?.top_gaps ?? [])
-              .slice(0, 4)
-              .map((g: { competency_title?: string; title?: string }) => g.competency_title ?? g.title ?? '')
-              .filter(Boolean)}
+            topWeaknesses={[]}
           />
         </div>
 
