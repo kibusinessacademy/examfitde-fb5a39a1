@@ -1,6 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LessonHero from '@/components/lesson/LessonHero';
+
+// LessonHero uses useTranslatedLesson() which calls useQuery — wrap every
+// render in a fresh QueryClientProvider.
+const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+const originalRender = render;
+const wrappedRender: typeof render = ((ui: any, opts?: any) =>
+  originalRender(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>, opts)) as typeof render;
+// Override local binding for the rest of the file.
+const _render = wrappedRender;
 
 const baseProps = {
   rawTitle: 'LF06-K01: Grundlagen von Betriebliches Gesundheitsmanagement verstehen und erklären',
