@@ -234,6 +234,26 @@ Deno.serve(async (req: Request) => {
 
     const results: Record<string, unknown> = { packageName, processed: false };
 
+    // ── SSOT LIFECYCLE BRIDGE (store_receipts + entitlement RPCs) ──
+    // Idempotent on (platform, messageId). Runs in addition to legacy
+    // mobile_store_* writes below.
+    try {
+      const normalized = normalizeGoogleRtdnEvent({
+        messageId: (body.message?.messageId as string) || (notification.eventTimeMillis as string) || String(Date.now()),
+        eventTimeMillis: notification.eventTimeMillis as string | number | undefined,
+        subscriptionNotification: notification.subscriptionNotification as any,
+        oneTimeProductNotification: notification.oneTimeProductNotification as any,
+        voidedPurchaseNotification: notification.voidedPurchaseNotification as any,
+      });
+      if (normalized) {
+        await applyLifecycleEvent(sb as unknown as Parameters<typeof applyLifecycleEvent>[0], normalized, {
+          packageName, messageId: body.message?.messageId,
+        });
+      }
+    } catch (e) {
+      console.error("google lifecycle bridge error", String(e));
+    }
+
     // ── 4. Subscription notifications ────────────────────────
     const subNotif = notification.subscriptionNotification as Record<string, unknown> | undefined;
     if (subNotif) {
