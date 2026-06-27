@@ -50,6 +50,8 @@ export function ReleaseOrchestrationCenter() {
         <StoreOpsHealthCard />
         <StoreOpsBatchCard />
         <StoreOpsAutopilotCard />
+        <StoreOpsIntelligenceCard />
+
         {manifests.isLoading ? (
           <Skeleton className="h-10 w-full" />
         ) : (
