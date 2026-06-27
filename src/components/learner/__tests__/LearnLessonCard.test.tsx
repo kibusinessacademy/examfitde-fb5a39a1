@@ -90,3 +90,45 @@ describe('<LearnLessonCard /> — ExamFit Card v1 standard', () => {
     expect(screen.queryByTestId('learn-lesson-progress-dots')).toBeNull();
   });
 });
+
+describe('LearnLessonCard — Wave 2 polish: info-only next CTA', () => {
+  it('renders fallback "Weiter zur Übung" CTA when answerSurface is absent and a next action exists', () => {
+    const onNext = vi.fn();
+    render(
+      <LearnLessonCard
+        header="Info"
+        question="Lies den folgenden Abschnitt."
+        actions={[{ kind: 'next', onClick: onNext }]}
+      />,
+    );
+    const cta = screen.getByTestId('learn-lesson-next-cta');
+    expect(cta).toBeInTheDocument();
+    expect(cta).toHaveTextContent(/Bereit für die nächste Aufgabe\?/);
+    const btn = screen.getByTestId('learn-lesson-next-cta-button');
+    expect(btn).toHaveTextContent(/Weiter zur Übung/);
+    // Mobile-first: button reaches min touch-target and wraps cleanly.
+    expect(btn.className).toMatch(/min-h-11/);
+    expect(btn.className).toMatch(/whitespace-normal/);
+    expect(btn.className).toMatch(/w-full/);
+    btn.click();
+    expect(onNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT render fallback CTA when answerSurface is present', () => {
+    render(
+      <LearnLessonCard
+        header="Aufgabe"
+        answerSurface={<textarea data-testid="ans" />}
+        actions={[{ kind: 'next', onClick: () => {} }]}
+      />,
+    );
+    expect(screen.getByTestId('learn-lesson-answer-slot')).toBeInTheDocument();
+    expect(screen.queryByTestId('learn-lesson-next-cta')).toBeNull();
+  });
+
+  it('does NOT render fallback CTA when neither answerSurface nor a next action exist', () => {
+    render(<LearnLessonCard header="Info" />);
+    expect(screen.queryByTestId('learn-lesson-next-cta')).toBeNull();
+  });
+});
+

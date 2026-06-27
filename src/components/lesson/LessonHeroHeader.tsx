@@ -134,8 +134,7 @@ export default function LessonHeroHeader({
                   className="inline-flex"
                   testId="lesson-hero-step-chip"
                 >
-                  <span className="sm:hidden">{stepIdx + 1}/{STEP_ORDER.length}</span>
-                  <span className="hidden sm:inline">Schritt {stepIdx + 1}/{STEP_ORDER.length} · {stepLabel}</span>
+                  <span>Schritt {stepIdx + 1}/{STEP_ORDER.length} · {stepLabel}</span>
                 </FloatingChip>
               )}
               {estimatedTimeLabel && (

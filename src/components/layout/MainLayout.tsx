@@ -87,7 +87,7 @@ export default function MainLayout() {
                 </Link>
                 <Button variant="ghost" size="sm" onClick={handleSignOut} data-testid="header-logout" aria-label="Abmelden" className="text-muted-foreground hover:text-foreground">
                   <LogOut className="h-4 w-4" />
-                  <span className="ml-2">Abmelden</span>
+                  <span className="ml-2 hidden lg:inline">Abmelden</span>
                 </Button>
               </>
             ) : (

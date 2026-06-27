@@ -438,18 +438,18 @@ export default function LessonPlayer() {
         {progressionRecommendation && (
           <Card className="glass-card max-w-4xl mx-auto mb-4 border-warning/40 bg-warning-bg-subtle/40">
             <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-full bg-warning/15 flex items-center justify-center flex-shrink-0">
                   <Lock className="h-4 w-4 text-warning" aria-hidden="true" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-foreground">Empfehlung</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground break-words [text-wrap:balance]">
                     {progressionRecommendation.reason}. Du kannst die Lektion trotzdem öffnen — der größte Lernerfolg entsteht jedoch in der empfohlenen Reihenfolge.
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2 sm:flex-shrink-0">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto sm:flex-shrink-0">
                 {progressionRecommendation.prevLessonId && (
                   <Button
                     size="sm"
@@ -457,6 +457,7 @@ export default function LessonPlayer() {
                     onClick={() =>
                       navigate(`/lesson/${progressionRecommendation.prevLessonId}`)
                     }
+                    className="w-full sm:w-auto min-h-11 whitespace-normal text-center [text-wrap:balance]"
                   >
                     Zur empfohlenen Lektion
                   </Button>
@@ -466,6 +467,7 @@ export default function LessonPlayer() {
                   variant="ghost"
                   onClick={() => setProgressionBlocked(null)}
                   data-testid="lesson-progression-bypass"
+                  className="w-full sm:w-auto min-h-11 whitespace-normal text-center [text-wrap:balance]"
                 >
                   Trotzdem hier weiterlernen
                 </Button>

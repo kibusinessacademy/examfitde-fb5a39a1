@@ -153,9 +153,9 @@ describe('LessonHeroHeader (DS2.0)', () => {
     // Step chip must NOT be sm-only — it must render on mobile too.
     expect(stepChip.className).not.toMatch(/\bhidden\b/);
     expect(stepChip.className).toMatch(/\binline-flex\b/);
-    // It must carry a compact short label that is visible on mobile (sm:hidden span).
-    const compactLabel = stepChip.querySelector('span.sm\\:hidden');
-    expect(compactLabel?.textContent).toMatch(/3\s*\/\s*7/);
+    // Wave-2 polish: step chip must ALWAYS show full label (no compact-only span).
+    expect(stepChip.textContent).toMatch(/Schritt\s*3\s*\/\s*7\s*·\s*Anwenden/);
+    expect(stepChip.querySelector('span.sm\\:hidden')).toBeNull();
 
     // Competency label and progress must always render.
     expect(screen.getByLabelText('Kompetenz')).toBeTruthy();
