@@ -906,6 +906,7 @@ const AppRoutes = () => {
           <Route path="governance/catalog-diagnostics" element={<CatalogDiagnosticsPage />} />
           <Route path="governance/course-profitability" element={<CourseProfitabilityPage />} />
           <Route path="governance/pipeline-health" element={<PipelineHealthPage />} />
+          <Route path="governance/seo-health" element={<SeoHealthPage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
           <Route path="tools/mobile-bundle-builder" element={<MobileBundleBuilderPage />} />
