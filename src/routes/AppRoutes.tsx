@@ -354,6 +354,7 @@ const EventInspectorPage = lazyRetry(() => import('@/pages/tools/EventInspectorP
 // Governance — Architectural Continuity Guard
 const ArchitecturePage = lazyRetry(() => import('@/pages/admin/governance/ArchitecturePage'));
 const BackgroundAgentRuntimePage = lazyRetry(() => import('@/pages/admin/governance/BackgroundAgentRuntimePage'));
+const CourseProfitabilityPage = lazyRetry(() => import('@/pages/admin/governance/CourseProfitabilityPage'));
 const ExamFitDesignSystemDemoPage = lazyRetry(() => import('@/pages/design/ExamFitDesignSystemDemo'));
 const BerufOSGraphPage = lazyRetry(() => import('@/pages/admin/BerufOSGraphPage'));
 const PlatformConsciencePage = lazyRetry(() => import('@/pages/admin/PlatformConsciencePage'));
@@ -901,6 +902,7 @@ const AppRoutes = () => {
           <Route path="governance/ssot-guard" element={<SsotGuardPage />} />
           <Route path="governance/storage-reality" element={<StorageRealityPage />} />
           <Route path="governance/catalog-diagnostics" element={<CatalogDiagnosticsPage />} />
+          <Route path="governance/course-profitability" element={<CourseProfitabilityPage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
           <Route path="tools/mobile-bundle-builder" element={<MobileBundleBuilderPage />} />
