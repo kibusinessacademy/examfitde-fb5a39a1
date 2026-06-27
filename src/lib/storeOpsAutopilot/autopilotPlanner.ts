@@ -1,15 +1,15 @@
 /**
  * STORE.OPS.AUTOPILOT.OS.1 — Planner (pure, deterministic).
  */
-import type {
-  AutopilotAction,
-  AutopilotActionType,
-  AutopilotInput,
-  AutopilotPlan,
+import {
+  ALLOWED_AUTOPILOT_ACTIONS,
+  type AutopilotAction,
+  type AutopilotActionType,
+  type AutopilotInput,
+  type AutopilotPlan,
 } from "./contracts.ts";
 import {
   ACTION_PRIORITY,
-  ALLOWED_AUTOPILOT_ACTIONS,
   ESTIMATED_RUNTIME,
   checkApplicability,
   filterAllowedActions,
