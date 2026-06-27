@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Sparkles, ArrowRight, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { ProductPageSSOT } from '@/types/product-page';
+import { HeroSurface } from '@/components/examfit-ds';
 
 interface Props {
   product: ProductPageSSOT;
@@ -12,10 +13,9 @@ interface Props {
 
 export function ProductHeroSection({ product, onPrimaryClick, isLoading }: Props) {
   return (
-    <section className="relative overflow-hidden py-12 md:py-20">
-      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
-
-      <div className="relative max-w-4xl mx-auto text-center px-4">
+    <section className="relative py-8 md:py-12">
+      <HeroSurface area="shop" radius="card-xl" className="max-w-5xl mx-auto">
+        <div className="relative max-w-4xl mx-auto text-center px-2 sm:px-4 py-4 sm:py-8">
         {product.heroKicker && (
           <Badge variant="outline" className="mb-4 text-xs gap-1.5 border-primary/30 text-primary">
             <Sparkles className="h-3 w-3" />
