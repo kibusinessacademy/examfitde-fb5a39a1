@@ -256,7 +256,7 @@ export function prepareVisualArtifactForPersistence(
     blueprint_id: artifact.blueprint_id ?? null,
     artifact_type: artifact.artifact_type,
     pattern: artifact.artifact_type,
-    status: artifact.status as VloPersistedStatus,
+    status: mapContractToPersistedStatus(artifact.status) ?? "draft",
     version: artifact.version,
     title: artifact.title,
     artifact_json: artifact,
