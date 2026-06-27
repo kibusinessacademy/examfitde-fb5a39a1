@@ -257,7 +257,31 @@ Deno.serve(async (req: Request) => {
       .eq("external_transaction_id", transactionId)
       .maybeSingle();
 
-    // ── 6. Process by notification type ──────────────────────
+    // ── 5b. SSOT LIFECYCLE BRIDGE (store_receipts + entitlement RPCs) ─
+    // Idempotent on (platform, notificationUUID). Runs in addition to legacy
+    // mobile_store_* writes below to keep both tracks aligned during migration.
+    try {
+      const normalized = normalizeAppleAssnV2Event({
+        notificationUUID: notification.notificationUUID as string,
+        notificationType: notificationType as string,
+        subtype: subtype,
+        transactionId: txInfo.transactionId,
+        originalTransactionId: txInfo.originalTransactionId,
+        productId: txInfo.productId,
+        expiresDate: txInfo.expiresDate,
+        purchaseDate: txInfo.purchaseDate,
+        signedDate: (notification.signedDate as number) || undefined,
+      });
+      if (normalized) {
+        await applyLifecycleEvent(sb as unknown as Parameters<typeof applyLifecycleEvent>[0], normalized, {
+          notificationType, subtype, notificationUUID: notification.notificationUUID,
+        });
+      }
+    } catch (e) {
+      console.error("apple lifecycle bridge error", String(e));
+    }
+
+    // ── 6. Process by notification type (legacy mobile_store_* track) ──
     const results: Record<string, unknown> = {
       notificationType, subtype, transactionId,
       processed: false,
