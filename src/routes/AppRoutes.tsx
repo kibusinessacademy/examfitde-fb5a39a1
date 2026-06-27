@@ -354,6 +354,7 @@ const EventInspectorPage = lazyRetry(() => import('@/pages/tools/EventInspectorP
 // Governance — Architectural Continuity Guard
 const ArchitecturePage = lazyRetry(() => import('@/pages/admin/governance/ArchitecturePage'));
 const BackgroundAgentRuntimePage = lazyRetry(() => import('@/pages/admin/governance/BackgroundAgentRuntimePage'));
+const ExamFitDesignSystemDemoPage = lazyRetry(() => import('@/pages/design/ExamFitDesignSystemDemo'));
 const BerufOSGraphPage = lazyRetry(() => import('@/pages/admin/BerufOSGraphPage'));
 const PlatformConsciencePage = lazyRetry(() => import('@/pages/admin/PlatformConsciencePage'));
 const QualityIntelligencePage = lazyRetry(() => import('@/pages/admin/QualityIntelligencePage'));
@@ -901,6 +902,8 @@ const AppRoutes = () => {
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
           <Route path="governance/visual-learning-review" element={<VisualLearningReviewPage />} />
           <Route path="governance/visual-learning-workflow" element={<VisualLearningArtifactWorkflowPage />} />
+          {/* EXAMFIT.DESIGN.SYSTEM.OS.1 — Wave 1 admin demo */}
+          <Route path="design/examfit-ds" element={<ExamFitDesignSystemDemoPage />} />
 
           <Route path="berufs-ki/workflows" element={<BerufsKIWorkflowsPage />} />
           <Route path="berufs-ki/quality" element={<BerufsKIQualityPage />} />
