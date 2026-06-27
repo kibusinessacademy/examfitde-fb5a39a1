@@ -61,10 +61,13 @@ export function ReleaseOrchestrationCenter() {
         )}
 
         {selected && (
-          <ReleaseOrchestrationCard
-            manifestId={selected.id}
-            courseTitle={selected.bundle_id ?? undefined}
-          />
+          <>
+            <ReleaseOrchestrationCard
+              manifestId={selected.id}
+              courseTitle={selected.bundle_id ?? undefined}
+            />
+            <StoreLifecycleCard manifestId={selected.id} />
+          </>
         )}
       </CardContent>
     </Card>
