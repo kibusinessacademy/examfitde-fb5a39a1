@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Apple, Smartphone, Camera, FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { Apple, Smartphone, Camera, FileText, CheckCircle2, AlertCircle, Hammer, Rocket } from "lucide-react";
 
 type Row = {
   course_id: string;
@@ -124,6 +124,41 @@ export default function StoreReleaseCenterPage() {
       qc.invalidateQueries({ queryKey: ["store-release-status"] });
     } catch (e: any) {
       toast.error(`Freigabe fehlgeschlagen: ${e?.message ?? e}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function dispatchBuild(courseId: string, platform: "android" | "ios", dryRun: boolean) {
+    const key = `${courseId}:${platform}:build:${dryRun ? "dry" : "live"}`;
+    setBusy(key);
+    try {
+      // Resolve manifest_id for this course
+      const { data: manifest, error: mErr } = await supabase
+        .from("mobile_course_app_manifest" as any)
+        .select("id")
+        .eq("course_id", courseId)
+        .maybeSingle();
+      if (mErr) throw mErr;
+      if (!manifest) {
+        toast.error("Kein Mobile-Manifest – bitte zuerst im Mobile Bundle Builder anlegen.");
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("store-release-dispatch-build", {
+        body: { manifest_id: (manifest as any).id, platform, dry_run: dryRun },
+      });
+      if (error) throw error;
+      const result = data as any;
+      if (result?.dispatch === "workflow_dispatched") {
+        toast.success(`${platform === "android" ? "Android" : "iOS"} ${dryRun ? "Dry-Run" : (platform === "android" ? "Internal" : "TestFlight")} Build angestoßen.`);
+      } else if (result?.dispatch === "manual_required") {
+        toast.info(`Queued – GitHub Dispatch Token fehlt. Workflow manuell starten: store-build-${platform}.yml`);
+      } else {
+        toast.success("Queued.");
+      }
+      qc.invalidateQueries({ queryKey: ["store-release-status"] });
+    } catch (e: any) {
+      toast.error(`Build-Dispatch fehlgeschlagen: ${e?.message ?? e}`);
     } finally {
       setBusy(null);
     }
@@ -254,9 +289,30 @@ export default function StoreReleaseCenterPage() {
                               <CheckCircle2 className="size-3 mr-1" /> Google OK
                             </Button>
                           )}
+                          <Button size="sm" variant="secondary"
+                            disabled={busy === `${r.course_id}:android:build:dry`}
+                            onClick={() => dispatchBuild(r.course_id, "android", true)}>
+                            <Hammer className="size-3 mr-1" /> Android Dry-Run
+                          </Button>
+                          <Button size="sm" variant="secondary"
+                            disabled={busy === `${r.course_id}:android:build:live`}
+                            onClick={() => dispatchBuild(r.course_id, "android", false)}>
+                            <Rocket className="size-3 mr-1" /> Android Internal
+                          </Button>
+                          <Button size="sm" variant="secondary"
+                            disabled={busy === `${r.course_id}:ios:build:dry`}
+                            onClick={() => dispatchBuild(r.course_id, "ios", true)}>
+                            <Hammer className="size-3 mr-1" /> iOS Dry-Run
+                          </Button>
+                          <Button size="sm" variant="secondary"
+                            disabled={busy === `${r.course_id}:ios:build:live`}
+                            onClick={() => dispatchBuild(r.course_id, "ios", false)}>
+                            <Rocket className="size-3 mr-1" /> iOS TestFlight
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
+
                   ))}
                 </TableBody>
               </Table>
