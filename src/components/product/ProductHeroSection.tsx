@@ -72,7 +72,8 @@ export function ProductHeroSection({ product, onPrimaryClick, isLoading }: Props
           <span>✔ {product.pricing.accessDurationMonths} Monate Zugang</span>
           <span>✔ Sofortiger Start</span>
         </div>
-      </div>
+        </div>
+      </HeroSurface>
     </section>
   );
 }
