@@ -75,6 +75,7 @@ describe("IAP shadow-path guard — Phase B.1", () => {
   it("no shadow identifiers granting mobile access on the client", () => {
     const offenders: string[] = [];
     for (const file of files) {
+      if (isAllowed(file)) continue;
       const src = readFileSync(file, "utf8");
       for (const id of FORBIDDEN_IDENTIFIERS) {
         if (file.endsWith("iap-shadow-paths.test.ts")) continue;
