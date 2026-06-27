@@ -370,6 +370,7 @@ const CatalogDiagnosticsPage = lazyRetry(() => import('@/pages/admin/CatalogDiag
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 const BulkCourseExportPage = lazyRetry(() => import('@/pages/admin/BulkCourseExportPage'));
 const MobileBundleBuilderPage = lazyRetry(() => import('@/pages/admin/MobileBundleBuilderPage'));
+const StoreReleaseCenterPage = lazyRetry(() => import('@/pages/admin/StoreReleaseCenterPage'));
 const MobileIAPSmokePage = lazyRetry(() => import('@/pages/admin/MobileIAPSmokePage'));
 const VisualLearningReviewPage = lazyRetry(() => import('@/pages/admin/VisualLearningReviewPage'));
 const VisualLearningArtifactWorkflowPage = lazyRetry(() => import('@/pages/admin/VisualLearningArtifactWorkflowPage'));
@@ -904,6 +905,7 @@ const AppRoutes = () => {
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
           <Route path="tools/mobile-bundle-builder" element={<MobileBundleBuilderPage />} />
           <Route path="tools/mobile-iap-smoke" element={<MobileIAPSmokePage />} />
+          <Route path="tools/store-release-center" element={<StoreReleaseCenterPage />} />
           <Route path="governance/visual-learning-review" element={<VisualLearningReviewPage />} />
           <Route path="governance/visual-learning-workflow" element={<VisualLearningArtifactWorkflowPage />} />
           {/* EXAMFIT.DESIGN.SYSTEM.OS.1 — Wave 1 admin demo */}

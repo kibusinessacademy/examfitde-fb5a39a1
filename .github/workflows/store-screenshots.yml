@@ -1,0 +1,68 @@
+name: store-screenshots
+
+# Picks up queued runs from store_release_screenshot_runs and renders
+# Playwright screenshots at iPhone/iPad/Android Phone/Tablet viewports against
+# the published preview, then writes results back via the Supabase REST API.
+#
+# Required secrets (configure later in Workspace → Build Secrets):
+#   SUPABASE_URL                — public project URL
+#   SUPABASE_SERVICE_ROLE_KEY   — for upsert of screenshot rows + storage upload
+#   STORE_SHOTS_TARGET_URL      — e.g. https://examfitde.lovable.app
+#   STORE_SHOTS_E2E_EMAIL       — test account for authenticated views
+#   STORE_SHOTS_E2E_PASSWORD    — test account password
+#
+# Guard: workflow is a no-op when any required secret is missing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: store_release_screenshot_runs.id (optional; uses oldest queued otherwise)
+        required: false
+  schedule:
+    - cron: '*/30 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-screenshots
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    if: ${{ vars.STORE_SHOTS_ENABLED == 'true' }}
+    timeout-minutes: 25
+    steps:
+      - name: Guard – required secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STORE_SHOTS_TARGET_URL: ${{ secrets.STORE_SHOTS_TARGET_URL }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$STORE_SHOTS_TARGET_URL" ]; then
+            echo "::warning::Required secrets missing. Workflow exiting cleanly (no-op)."
+            exit 0
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run capture
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STORE_SHOTS_TARGET_URL: ${{ secrets.STORE_SHOTS_TARGET_URL }}
+          STORE_SHOTS_E2E_EMAIL: ${{ secrets.STORE_SHOTS_E2E_EMAIL }}
+          STORE_SHOTS_E2E_PASSWORD: ${{ secrets.STORE_SHOTS_E2E_PASSWORD }}
+          RUN_ID_INPUT: ${{ inputs.run_id }}
+        run: node scripts/store-screenshots-runner.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: store-screenshots
+          path: out/store-screenshots/
+          if-no-files-found: ignore
