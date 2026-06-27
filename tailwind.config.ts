@@ -200,6 +200,25 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        // EXAMFIT.DESIGN.SYSTEM.OS.1
+        "card-sm": "var(--radius-card-sm)",
+        card: "var(--radius-card)",
+        "card-lg": "var(--radius-card-lg)",
+        "card-xl": "var(--radius-card-xl)",
+      },
+      boxShadow: {
+        // EXAMFIT.DESIGN.SYSTEM.OS.1
+        card: "var(--shadow-card)",
+        "card-hover": "var(--shadow-card-hover)",
+        hero: "var(--shadow-hero)",
+      },
+      backgroundImage: {
+        // EXAMFIT.DESIGN.SYSTEM.OS.1 — Bereichs-Gradients (5 Areas)
+        "hero-learn": "var(--surface-hero-learn)",
+        "hero-exam": "var(--surface-hero-exam)",
+        "hero-tutor": "var(--surface-hero-tutor)",
+        "hero-oral": "var(--surface-hero-oral)",
+        "hero-shop": "var(--surface-hero-shop)",
       },
       keyframes: {
         "accordion-down": {
