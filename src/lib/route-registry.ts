@@ -38,6 +38,8 @@ export const ROUTE_PATTERNS: readonly string[] = [
   "/app/kompetenz/:competencyId",
   "/app/minicheck",
   "/app/minicheck/:competencyId",
+  "/minicheck",
+  "/minicheck/:sessionId",
   "/app/exam-trainer",
   "/app/profil",
   "/app/rechnungen",
