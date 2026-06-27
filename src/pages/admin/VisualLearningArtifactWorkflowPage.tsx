@@ -304,9 +304,12 @@ export default function VisualLearningArtifactWorkflowPage() {
                 </div>
               </div>
 
-              <VisualArtifactPreview artifact={detail.artifact_json} />
+              <VisualArtifactPreview
+                source={createAdminPreviewArtifact(detail.artifact_json, { note: "workflow_preview" })}
+                sourceRefs={detail.source_refs}
+              />
               {reviewResultForApprove ? (
-                <VisualArtifactReviewPanel result={reviewResultForApprove} />
+                <VisualArtifactReviewPanel review={reviewResultForApprove} />
               ) : null}
               <VisualArtifactRubricPanel rubric={detail.artifact_json?.assessment_rubric} />
               <VisualArtifactSourceRefsPanel
