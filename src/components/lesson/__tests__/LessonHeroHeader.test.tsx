@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LessonHeroHeader from '../LessonHeroHeader';
 
@@ -71,5 +71,99 @@ describe('LessonHeroHeader (DS2.0)', () => {
     expect(slot.querySelector('img')).toBeNull();
     // Reserved height must remain so layout does not shift when image arrives.
     expect(slot.className).toMatch(/h-20/);
+    expect(slot.className).toContain('bg-gradient-learn');
+  });
+
+  it('also falls back to gradient when imageUrl is undefined or empty string', () => {
+    const { rerender } = renderHeader({ imageUrl: undefined });
+    let slot = screen.getByTestId('lesson-hero-image-slot');
+    expect(slot.getAttribute('data-has-image')).toBe('false');
+    expect(slot.querySelector('img')).toBeNull();
+
+    rerender(
+      <MemoryRouter>
+        <LessonHeroHeader
+          courseId="c-1"
+          courseTitle="Industriekaufmann"
+          moduleTitle="Beschaffung & Logistik"
+          progress={50}
+          currentIndex={1}
+          totalLessons={4}
+          imageUrl=""
+        />
+      </MemoryRouter>,
+    );
+    slot = screen.getByTestId('lesson-hero-image-slot');
+    // Empty string is falsy → no <img>, but slot keeps reserved height.
+    expect(slot.querySelector('img')).toBeNull();
+    expect(slot.className).toMatch(/h-20/);
+  });
+
+  it('hides the <img> on load error but keeps the reserved slot (no layout shift)', () => {
+    renderHeader({ imageUrl: 'https://broken.test/missing.jpg' });
+    const slot = screen.getByTestId('lesson-hero-image-slot');
+    const img = slot.querySelector('img') as HTMLImageElement;
+    expect(img).not.toBeNull();
+
+    const before = {
+      className: slot.className,
+      hasImageAttr: slot.getAttribute('data-has-image'),
+      childCount: slot.children.length,
+    };
+
+    act(() => {
+      fireEvent.error(img);
+    });
+
+    // After error: <img> is hidden, slot keeps gradient + reserved height.
+    expect(img.style.display).toBe('none');
+    expect(slot.className).toBe(before.className); // height/gradient untouched
+    expect(slot.className).toMatch(/h-20/);
+    expect(slot.getAttribute('data-has-image')).toBe(before.hasImageAttr);
+    expect(slot.children.length).toBe(before.childCount);
+  });
+
+  it('keeps reserved image-slot height identical whether imageUrl is present or missing (no CLS)', () => {
+    // Render WITHOUT image
+    const { unmount } = renderHeader({ imageUrl: null });
+    const slotEmpty = screen.getByTestId('lesson-hero-image-slot');
+    const classesEmpty = slotEmpty.className;
+    unmount();
+
+    // Render WITH image — the slot's size-defining classes must be identical.
+    renderHeader({ imageUrl: 'https://example.test/lesson.jpg' });
+    const slotWithImg = screen.getByTestId('lesson-hero-image-slot');
+    const classesWith = slotWithImg.className;
+
+    expect(classesWith).toBe(classesEmpty);
+    // And both must contain the responsive reserved heights.
+    for (const cls of [classesEmpty, classesWith]) {
+      expect(cls).toMatch(/\bh-20\b/);
+      expect(cls).toMatch(/sm:h-24/);
+    }
+  });
+
+  it('keeps step-chip, competency label and progress visible on mobile breakpoints (no `hidden` lockout)', () => {
+    renderHeader({
+      stepKey: 'anwenden',
+      competencyTitle: 'Beschaffung optimieren',
+      competencyCode: 'K2.1',
+    });
+    const stepChip = screen.getByTestId('lesson-hero-step-chip');
+    // Step chip must NOT be sm-only — it must render on mobile too.
+    expect(stepChip.className).not.toMatch(/\bhidden\b/);
+    expect(stepChip.className).toMatch(/\binline-flex\b/);
+    // It must carry a compact short label that is visible on mobile (sm:hidden span).
+    const compactLabel = stepChip.querySelector('span.sm\\:hidden');
+    expect(compactLabel?.textContent).toMatch(/3\s*\/\s*7/);
+
+    // Competency label and progress must always render.
+    expect(screen.getByLabelText('Kompetenz')).toBeTruthy();
+    expect(screen.getByRole('progressbar', { name: /Lektion/ })).toBeTruthy();
+
+    // Image slot must reserve responsive heights (mobile h-20, sm h-24).
+    const slot = screen.getByTestId('lesson-hero-image-slot');
+    expect(slot.className).toMatch(/\bh-20\b/);
+    expect(slot.className).toMatch(/sm:h-24/);
   });
 });
