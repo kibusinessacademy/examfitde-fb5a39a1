@@ -1,4 +1,4 @@
-import type { RecoveryAction } from "./contracts";
+import type { RecoveryAction } from "./contracts.ts";
 
 export type RecoveryAuditEvent =
   | "pipeline_recovery_planned"

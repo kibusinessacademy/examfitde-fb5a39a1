@@ -1,4 +1,4 @@
-import type { RecoveryCause, RecoveryRisk } from "./contracts";
+import type { RecoveryCause, RecoveryRisk } from "./contracts.ts";
 
 const TABLE: Record<RecoveryCause, RecoveryRisk> = {
   QUALITY_NOT_FINISHED:           { risk: 0.15, confidence: 0.95, impact: "medium", expected_recovery: "high", false_positive_risk: 0.05, operator_effort: "low" },

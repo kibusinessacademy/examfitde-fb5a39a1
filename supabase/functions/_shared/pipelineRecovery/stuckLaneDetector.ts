@@ -1,6 +1,6 @@
-import type { PackageSnapshot, WorkerSnapshot, RecoveryAction, RecoveryPlan, RecoveryCause } from "./contracts";
-import { RECOVERY_POLICY } from "./recoveryPolicy";
-import { riskFor } from "./recoveryRisk";
+import type { PackageSnapshot, WorkerSnapshot, RecoveryAction, RecoveryPlan, RecoveryCause } from "./contracts.ts";
+import { RECOVERY_POLICY } from "./recoveryPolicy.ts";
+import { riskFor } from "./recoveryRisk.ts";
 
 const minutesSince = (now: string, t: string) =>
   (Date.parse(now) - Date.parse(t)) / 60000;

@@ -1,9 +1,9 @@
-import type { RecoveryInput, RecoverySummary, RecoveryPlan } from "./contracts";
-import { planPublishGateRecovery } from "./publishGateRecovery";
-import { planPlanningRecovery } from "./planningRecovery";
-import { planLfRepairRecovery } from "./lfRepairRecovery";
-import { planProviderFallback } from "./providerFallback";
-import { diagnoseStudiumLane } from "./stuckLaneDetector";
+import type { RecoveryInput, RecoverySummary, RecoveryPlan } from "./contracts.ts";
+import { planPublishGateRecovery } from "./publishGateRecovery.ts";
+import { planPlanningRecovery } from "./planningRecovery.ts";
+import { planLfRepairRecovery } from "./lfRepairRecovery.ts";
+import { planProviderFallback } from "./providerFallback.ts";
+import { diagnoseStudiumLane } from "./stuckLaneDetector.ts";
 
 export function buildRecoverySummary(input: RecoveryInput): RecoverySummary {
   const { now, packages, jobs, workers } = input;

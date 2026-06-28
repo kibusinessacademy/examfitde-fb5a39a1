@@ -1,6 +1,6 @@
-import type { JobSnapshot, RecoveryAction, RecoveryPlan, RecoveryCause } from "./contracts";
-import { RECOVERY_POLICY } from "./recoveryPolicy";
-import { riskFor } from "./recoveryRisk";
+import type { JobSnapshot, RecoveryAction, RecoveryPlan, RecoveryCause } from "./contracts.ts";
+import { RECOVERY_POLICY } from "./recoveryPolicy.ts";
+import { riskFor } from "./recoveryRisk.ts";
 
 export function planProviderFallback(
   _now: string,

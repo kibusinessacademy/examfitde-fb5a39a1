@@ -1,6 +1,6 @@
-import type { JobSnapshot, RecoveryAction, RecoveryPlan } from "./contracts";
-import { RECOVERY_POLICY } from "./recoveryPolicy";
-import { riskFor } from "./recoveryRisk";
+import type { JobSnapshot, RecoveryAction, RecoveryPlan } from "./contracts.ts";
+import { RECOVERY_POLICY } from "./recoveryPolicy.ts";
+import { riskFor } from "./recoveryRisk.ts";
 
 const LF_JOB = "package_repair_exam_pool_lf_coverage";
 
