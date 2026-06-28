@@ -3,7 +3,7 @@
 // before/after verification and writes an outcome ledger row.
 // Auth: admin JWT OR x-cron-secret header.
 // Never mutates publish/approval/pricing directly — only enqueues via
-// admin_course_auto_heal_queue (Lanes A/C) or calls admin_demote_empty_course (Lane B).
+// admin_course_auto_heal_queue (Lanes A/C) or calls admin_demote_empty_course_system (Lane B).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, handleCors, json, requireAdmin } from "../_shared/adminGuard.ts";
 
@@ -139,7 +139,7 @@ async function runLanes(sb: any, dry: boolean, lanes: Set<string>, cap: number) 
         actions.lane_b_demoted++;
         continue;
       }
-      const { error } = await sb.rpc("admin_demote_empty_course", {
+      const { error } = await sb.rpc("admin_demote_empty_course_system", {
         _course_id: c.course_id,
         _reason: "sellable_content_blocker_batch_1",
       });
