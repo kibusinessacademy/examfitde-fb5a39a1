@@ -2,7 +2,7 @@
  * PIPELINE.RECOVERY.OS.1 — Pure SSOT contracts
  * Side-effect free. No DB access. Deterministic.
  */
-import { z } from "npm:zod@3";
+import { z } from "zod";
 
 export const RecoveryCauseSchema = z.enum([
   "QUALITY_NOT_FINISHED",
@@ -12,11 +12,17 @@ export const RecoveryCauseSchema = z.enum([
   "PLANNING_WORKER_LOST",
   "PLANNING_DISPATCHER_OFF",
   "PLANNING_CLAIM_LOST",
+  "PLANNING_HEARTBEAT_STALE",
+  "PLANNING_JOB_TYPE_QUARANTINED",
+  "PLANNING_POOL_MISMATCH",
+  "PLANNING_HEALTHY_BUT_PENDING",
   "LF_REPAIR_LOOP",
   "PROVIDER_LOOP_GUARD",
   "PROVIDER_MAX_ATTEMPTS_EXHAUSTED",
   "STUDIUM_NO_WORKER",
   "STUDIUM_ROUTING_OFF",
+  "QUALITY_NO_PROGRESS",
+  "QUALITY_LOCKED_PENDING_FIX",
   "UNKNOWN",
 ]);
 export type RecoveryCause = z.infer<typeof RecoveryCauseSchema>;
@@ -26,9 +32,11 @@ export const RecoveryActionTypeSchema = z.enum([
   "restart_planning",
   "mark_manual_review_required",
   "propose_provider_fallback",
+  "lock_bronze_review",
   "diagnose_only",
 ]);
 export type RecoveryActionType = z.infer<typeof RecoveryActionTypeSchema>;
+
 
 export const RecoveryRiskSchema = z.object({
   risk: z.number().min(0).max(1),
