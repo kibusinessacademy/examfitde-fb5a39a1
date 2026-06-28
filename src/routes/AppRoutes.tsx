@@ -357,6 +357,7 @@ const BackgroundAgentRuntimePage = lazyRetry(() => import('@/pages/admin/governa
 const CourseProfitabilityPage = lazyRetry(() => import('@/pages/admin/governance/CourseProfitabilityPage'));
 const PipelineHealthPage = lazyRetry(() => import('@/pages/admin/governance/PipelineHealthPage'));
 const SeoHealthPage = lazyRetry(() => import('@/pages/admin/governance/SeoHealthPage'));
+const ProductHealthPage = lazyRetry(() => import('@/pages/admin/governance/ProductHealthPage'));
 const ExamFitDesignSystemDemoPage = lazyRetry(() => import('@/pages/design/ExamFitDesignSystemDemo'));
 const BerufOSGraphPage = lazyRetry(() => import('@/pages/admin/BerufOSGraphPage'));
 const PlatformConsciencePage = lazyRetry(() => import('@/pages/admin/PlatformConsciencePage'));
@@ -907,6 +908,7 @@ const AppRoutes = () => {
           <Route path="governance/course-profitability" element={<CourseProfitabilityPage />} />
           <Route path="governance/pipeline-health" element={<PipelineHealthPage />} />
           <Route path="governance/seo-health" element={<SeoHealthPage />} />
+          <Route path="governance/product-health" element={<ProductHealthPage />} />
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
           <Route path="tools/mobile-bundle-builder" element={<MobileBundleBuilderPage />} />
