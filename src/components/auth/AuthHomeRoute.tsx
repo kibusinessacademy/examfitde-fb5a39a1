@@ -1,21 +1,15 @@
-import BerufOSHub from '@/pages/BerufOSHub';
+import { Navigate } from 'react-router-dom';
 
 /**
  * Route-level guard for /.
  *
- * D8-Fix (Brand-Drift): Sowohl eingeloggte als auch ausgeloggte Besucher landen
- * auf dem BerufOS-Hub (Masterbrand). Eingeloggte sehen im Hero ein
- * personalisiertes Re-Entry-Banner → /dashboard (siehe BerufOSHub.tsx).
+ * 2026-06-28: ExamFit/Shop ist die neue Startseite von berufOS.
+ * Andere Produkte (Berufs-KI etc.) sind noch nicht produktreif —
+ * deshalb leitet "/" deterministisch auf die ExamFit-Landingpage (/examfit),
+ * die innerhalb des MainLayouts gemountet ist.
  *
- * P0 Hydration-Drift Fix (2026-06-07): Wir blockieren NICHT mehr auf
- * `useAuth().loading` — das hatte den Hub nach React-Hydration durch einen
- * Full-Page-Spinner ersetzt.
- *
- * P0 Hydration-Drift Fix v2 (2026-06-09): BerufOSHub wird EAGER importiert.
- * Vorher: lazy() + Suspense-Spinner → Pre-Customer Reality Probe nach
- * `domcontentloaded` sah nur den Spinner, Hero-CTA „Prüfung starten" galt
- * als fehlend → P01 rot. Root-Route ist immer kritisch, kein Code-Splitting.
+ * Eingeloggte Learner gelangen weiterhin über das Header-Menü zu /dashboard.
  */
 export default function AuthHomeRoute() {
-  return <BerufOSHub />;
+  return <Navigate to="/examfit" replace />;
 }
