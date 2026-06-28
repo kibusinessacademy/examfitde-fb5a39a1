@@ -36,7 +36,7 @@ import {
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Activity, AlertTriangle, Crosshair, Filter, Heart, ListChecks,
+  Activity, AlertTriangle, BookOpen, Crosshair, Filter, Heart, ListChecks,
   RefreshCw, Settings, Shield, Stethoscope, Wand2, Wrench, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
