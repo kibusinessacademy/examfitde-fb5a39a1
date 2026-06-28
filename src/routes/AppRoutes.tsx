@@ -847,6 +847,7 @@ const AppRoutes = () => {
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           {/* === Heal Cockpit (SSOT — konsolidiert Queue + BlockerOps + HealStrategy) === */}
           <Route path="heal" element={<HealCockpitPage />} />
+          <Route path="heal/diagnostics" element={<HealDiagnosticsPage />} />
           <Route path="reality-repair" element={<RealityRepairPage />} />
           <Route path="heal/gate-history" element={<GateHistoryDashboardPage />} />
           <Route path="mastery/simulator" element={<MasteryEngineSimulatorPage />} />
