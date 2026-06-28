@@ -15,6 +15,8 @@ interface AuditSnapshot {
   generated_at: string;
   lf_attempts_6h: number;
   lf_skipped_due_to_quarantine_6h: number;
+  hotloop_cancels_for_quarantined_packages_6h?: number;
+  hotloop_attributions_emitted_this_run?: number;
   planning_stuck_count: number;
   planning_restarts_emitted_24h: number;
   planning_manual_review_emitted_24h: number;
@@ -97,6 +99,8 @@ export function PipelineRecoveryOS3Card() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPI label="LF Attempts (6h)" value={s.lf_attempts_6h} />
             <KPI label="LF Skipped (Quarantine 6h)" value={s.lf_skipped_due_to_quarantine_6h} highlight={s.lf_skipped_due_to_quarantine_6h > 0} />
+            <KPI label="Hotloop Cancels f. Quarantäne (6h)" value={s.hotloop_cancels_for_quarantined_packages_6h ?? 0} highlight={(s.hotloop_cancels_for_quarantined_packages_6h ?? 0) > 0} />
+            <KPI label="Attribution emitted (run)" value={s.hotloop_attributions_emitted_this_run ?? 0} />
             <KPI label="Planning Stuck >60m" value={s.planning_stuck_count} warn={s.planning_stuck_count > 0} />
             <KPI label="Planning Restarts (24h)" value={s.planning_restarts_emitted_24h} />
             <KPI label="Manual Review (24h)" value={s.planning_manual_review_emitted_24h} />
