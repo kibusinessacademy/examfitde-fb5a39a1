@@ -19,6 +19,7 @@
  *   4. Erweitert nur bei Spezial-Workflows öffnen
  */
 import { lazy, Suspense, useState } from "react";
+import { Link } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
