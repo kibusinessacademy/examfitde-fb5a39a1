@@ -322,6 +322,11 @@ export default function HealCockpitPage() {
             <Button variant="outline" size="sm" onClick={refreshAll}>
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh
             </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/admin/heal/diagnostics">
+                <BookOpen className="h-3.5 w-3.5 mr-1.5" /> Alle Diagnose-Cards
+              </Link>
+            </Button>
           </div>
         }
       />
@@ -329,6 +334,7 @@ export default function HealCockpitPage() {
       <AlertsBanner />
       <HealKpiHeroCard />
       <NextActionCard />
+      <HealFunctionLauncher />
 
       <Accordion type="multiple" defaultValue={DEFAULT_OPEN} className="space-y-2">
         {/* 1 — Pulse */}
