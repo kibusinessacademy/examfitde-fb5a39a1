@@ -55,6 +55,9 @@ function csvDownload(rows: any[], filename: string) {
 }
 
 export default function SellHealthPage() {
+  const qc = useQueryClient();
+  const [pendingTarget, setPendingTarget] = useState<string | null>(null);
+
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: ["sell-health"],
     queryFn: async () => {
@@ -65,6 +68,45 @@ export default function SellHealthPage() {
     },
     refetchInterval: 60_000,
   });
+
+  const act = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      const { data, error } = await supabase.functions.invoke("sell-health-act", { body: payload });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.detail ?? data?.error ?? "act_failed");
+      return data;
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["sell-health"] });
+    },
+    onSettled: () => setPendingTarget(null),
+  });
+
+  const regrant = (orderId: string) => {
+    setPendingTarget(orderId);
+    act.mutate(
+      { action: "regrant_paid_order", order_id: orderId },
+      {
+        onSuccess: (res) => {
+          if (res.healed) toast.success(`Order ${orderId.slice(0, 8)} re-granted`);
+          else toast.warning(`Re-grant ausgeführt, Order weiterhin nicht erfüllbar`);
+        },
+        onError: (e: Error) => toast.error(`Re-grant fehlgeschlagen: ${e.message}`),
+      },
+    );
+  };
+
+  const bulkPublish = (cap = 18) => {
+    if (!confirm(`Bis zu ${cap} delivery-ready Pakete jetzt veröffentlichen (Standardpreis 24,90 € / 24 Monate)?`)) return;
+    setPendingTarget("bulk_publish");
+    act.mutate(
+      { action: "bulk_publish_done", cap },
+      {
+        onSuccess: (res) => toast.success(`Bulk-Publish ausgeführt: ${JSON.stringify(res.result).slice(0, 200)}`),
+        onError: (e: Error) => toast.error(`Bulk-Publish fehlgeschlagen: ${e.message}`),
+      },
+    );
+  };
 
   const queue = useMemo<ActionItem[]>(() => data?.action_queue ?? [], [data]);
   const totals = data?.totals;
