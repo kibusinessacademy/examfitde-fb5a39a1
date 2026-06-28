@@ -63,8 +63,15 @@ Deno.serve(async (req) => {
   // --- auth ---
   const hdrSecret = req.headers.get("x-cron-secret") ?? "";
   const auth = req.headers.get("authorization") ?? "";
-  const isCron = CRON_SECRET && hdrSecret === CRON_SECRET;
-  const isService = auth.includes(SERVICE_ROLE);
+  const isCron = CRON_SECRET.length > 0 && hdrSecret === CRON_SECRET;
+  const isService = SERVICE_ROLE.length > 0 && auth.includes(SERVICE_ROLE);
+  console.log("auth_check", {
+    has_cron_env: CRON_SECRET.length > 0,
+    cron_env_len: CRON_SECRET.length,
+    hdr_secret_len: hdrSecret.length,
+    match: isCron,
+    auth_present: auth.length > 0,
+  });
   if (!isCron && !isService) {
     let isAdmin = false;
     try {
