@@ -1,12 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Download, RefreshCw, ShoppingCart, AlertTriangle, TrendingUp, Activity } from "lucide-react";
+import { Loader2, Download, RefreshCw, ShoppingCart, AlertTriangle, TrendingUp, Activity, Wand2, HeartPulse } from "lucide-react";
 import type { Projection, ActionItem, Severity } from "@/lib/sellHealth";
 
 const SEV_VARIANT: Record<Severity, "destructive" | "default" | "secondary" | "outline"> = {
