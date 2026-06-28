@@ -10,7 +10,7 @@ const ROOTS = [
   "supabase/functions/_shared/pipelineRecovery",
 ];
 
-const FORBIDDEN_PATTERNS: Array<{ name: string; re: RegExp }> = [
+const FORBIDDEN_PATTERNS = [
   { name: "integrity_passed assignment", re: /integrity_passed\s*[:=]\s*true/i },
   { name: "council_approved assignment", re: /council_approved\s*[:=]\s*true/i },
   { name: "is_published assignment", re: /is_published\s*[:=]\s*true/i },
