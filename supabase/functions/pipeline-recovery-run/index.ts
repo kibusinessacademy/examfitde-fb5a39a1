@@ -106,9 +106,12 @@ Deno.serve(async (req) => {
     for (const a of body.actions) {
       const r = await fetch(actUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: authHeader, apikey: anon },
+        headers: isInternal
+          ? { "Content-Type": "application/json", "x-cron-secret": cronSecret, apikey: anon }
+          : { "Content-Type": "application/json", Authorization: authHeader, apikey: anon },
         body: JSON.stringify({ ...a, reason: a.reason ?? body.reason }),
       });
+
       const j = await r.json().catch(() => ({ ok: false, error: "non_json" }));
       results.push({ action_id: a.action_id, ok: r.ok, response: j });
       // Tag executed action row with run_id + pre_state
