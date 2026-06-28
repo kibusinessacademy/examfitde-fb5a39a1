@@ -132,7 +132,7 @@ export default function SellHealthPage() {
             size="sm"
             disabled={act.isPending || (totals?.packages_ready_unpublished ?? 0) === 0}
             onClick={() => bulkPublish(18)}
-            title="admin_bulk_publish_done_packages (cap 18 · 24,90 € · 24 Monate)"
+            title="admin_bulk_publish_done_packages (cap 18 · 24,90 € · 12 Monate · SSOT-locked)"
           >
             {pendingTarget === "bulk_publish" && act.isPending
               ? <Loader2 className="h-4 w-4 animate-spin" />
