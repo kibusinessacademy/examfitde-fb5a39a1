@@ -1,90 +1,139 @@
 
-# PIPELINE.RECOVERY.OS.1
+# PIPELINE.RECOVERY.OS.3 — Lane Dispatcher Repair
 
-Reines Recovery-OS. Keine Businesslogik. Kein Publish-Bypass. Kein Auto-Approve. Nur Plan → Operator-Approval → Execute → Audit.
+Aufsatz auf OS.1 (Plan) + OS.2 (Run+Verify). OS.3 schließt die **Dispatcher-Lücke**: Loops stoppen am Worker, Planning-Hänger werden diagnostiziert vor Restart, und failed Done-Reaudits werden nicht endlos retriggert.
 
-## Scope-Guardrails (hart)
-- Keine neuen Tabellen außer einer auditpflichtigen `pipeline_recovery_plans` (Plan-Cache + Idempotenz-Key) und einer `pipeline_recovery_actions` (executed actions). Beide nur über bestehende Audit-/RPC-Pfade.
-- Keine Frontend-Mutationen ohne Reason+auto_heal_log (gem. Admin-UI-Leitstelle v1).
-- Schreibpfade ausschließlich via neuer Edge Function `pipeline-recovery-act` + SECURITY DEFINER RPCs; Read via `pipeline-recovery-plan`.
-- Council/Integrity dürfen NICHT direkt gesetzt werden — nur Re-Enqueue der bestehenden Steps (`run_integrity_check`, `quality_council`).
+## Hard Guardrails (unverändert ggü. OS.1/OS.2)
+- Kein direkter Schreibzugriff auf `integrity_passed`, `council_approved`, `is_published`.
+- Kein Auto-Approve, kein Publish-Bypass.
+- Alle Aktionen idempotent, auditiert via `auto_heal_log` + `fn_emit_audit`.
+- CI-Guard `guard-recovery-forbidden.mjs` wird auf neue Edge Functions erweitert.
 
-## Architektur
+---
 
-### Pure SSOT (deterministisch, side-effect-frei)
-`src/lib/pipelineRecovery/`
-- `contracts.ts` — Zod-Schemas: `RecoveryCause`, `RecoveryAction`, `RecoveryPlan`, `RecoveryRisk`, `RecoverySummary`.
-- `publishGateRecovery.ts` — analysiert `done`-Pakete: QUALITY_NOT_FINISHED | COUNCIL_PENDING | AUDIT_PENDING | PROJECTION_PENDING | UNKNOWN. Output: nur `enqueue_done_reaudit`-Actions.
-- `planningRecovery.ts` — `planning` + progress=0 + Alter > Threshold + kein aktiver Worker/Lock → `restartPlanning`.
-- `lfRepairRecovery.ts` — Cycle-Counter (max 2) → `mark_manual_review_required`.
-- `stuckLaneDetector.ts` — STUDIUM Track-/Worker-/Dispatcher-Routing-Diagnose, liefert nur Root-Cause.
-- `providerFallback.ts` — bei PROVIDER_LOOP_GUARD / MAX_ATTEMPTS_EXHAUSTED → Plan mit `google/gemini-3.5-flash` (nur für 4 erlaubte job_types).
-- `recoveryPolicy.ts` — Thresholds, Allowlists, verbotene Actions.
-- `recoveryRisk.ts` — risk/confidence/impact/expected/fp_risk/operator_effort.
-- `projection.ts` — baut `RecoverySummary`.
-- `audit.ts` — Event-Builder.
-- `index.ts` — Barrel.
+## Cut 1 — LF Quarantine Guard (Worker-seitig)
 
-Mirror für Edge-Runtime: `supabase/functions/_shared/pipelineRecovery/`.
+**Problem:** Quarantine-Ledger wird gesetzt (OS.2 fix), aber `package_repair_exam_pool_lf_coverage` fragt ihn nicht ab → 9 unnötige Cycles trotz Quarantäne.
 
-### Edge Functions
-- `pipeline-recovery-plan` (GET/POST, JWT) — ruft Pure SSOT mit aktuellem DB-Snapshot, liefert `RecoverySummary` + per-package `RecoveryPlan`.
-- `pipeline-recovery-act` (POST, JWT + admin role) — führt EINE Action aus, idempotent via `plan_id+action_id`, schreibt `auto_heal_log` + `pipeline_recovery_actions`. Verbotene Actions werden hart abgelehnt.
+**Lösung — Pure SSOT** `src/lib/pipelineRecovery/quarantineGuard.ts` (+ Edge-Mirror):
+- `isPackageQuarantined(packageId, reasonCode, ledgerRows)` → boolean
+- Allowlist: `LF_REPAIR_LOOP`, `MAX_ATTEMPTS_EXHAUSTED`, `PROVIDER_LOOP_GUARD`
+- Status-Filter: `under_review` blockt Requeue; `cleared` lässt durch.
 
-### DB (minimal-invasiv, eine Migration)
-- `pipeline_recovery_plans(id, generated_at, scope, summary jsonb, plan jsonb, hash text unique)`
-- `pipeline_recovery_actions(id, plan_id, action_type, target_package_id, status, reason, actor_uid, executed_at, result jsonb)`
-- RLS: admin-only, GRANTs an `authenticated` (+ service_role) gemäß Public-Schema-Grants.
-- KEINE Schema-Änderungen an `course_packages`, `job_queue`, `package_steps`.
+**Worker-Patches (read-only Gate, kein Mutationspfad):**
+- `supabase/functions/package_repair_exam_pool_lf_coverage/index.ts`: vor Enqueue → Ledger-Lookup → bei Treffer `auto_heal_log` mit `action_type='skipped_due_to_quarantine'` + early return.
+- Analog für `package_repair_exam_pool_lf_assign`, falls vorhanden (rg vorab prüfen).
 
-### Forbidden in Code (CI-Guard `scripts/guard-recovery-forbidden.mjs`)
-Regex-Blocks im `pipelineRecovery/*`:
-- `integrity_passed`/`council_approved` rechts vom `=`
-- `is_published = true`
-- direkte `.from('course_packages').update`
+**SQL-Helper-View** `v_active_quarantine_packages` (kein neues Table):
+```sql
+SELECT DISTINCT package_id, reason_code, status
+FROM package_quarantine_ledger
+WHERE status = 'under_review';
+```
 
-## Admin Heal Integration
-Neue Cards in `src/components/admin/queue-cockpit/HealCockpitTabContent.tsx`:
-- `PublishGateRecoveryCard`
-- `PlanningRecoveryCard`
-- `LfLoopRecoveryCard`
-- `ProviderRecoveryCard`
-- `DoneReauditCard`
-- `WorkerRoutingDiagnosisCard`
+---
 
-Pflicht-Anatomie pro Card (Status/Severity/Root-Cause/Affected/Last Action/Next Action/Trend) gemäß `mem://constraints/admin-ui-leitstelle-v1`. Mutationen: Confirm-Dialog mit Reason, invalidateQueries, Toast.
+## Cut 2 — Planning Dispatcher Diagnose
 
-## Audit-Events (via `fn_emit_audit`)
-`pipeline_recovery_planned|started|completed|skipped|blocked|manual_review`
+**Problem:** OS.1 `restart_planning` enqueued, aber Jobs bleiben pending → Dispatcher liest nicht oder Routing falsch.
 
-## Tests (≥50)
-- `src/lib/pipelineRecovery/__tests__/`
-  - publishGateRecovery (8): QUALITY/COUNCIL/AUDIT/PROJECTION/UNKNOWN/mixed/empty/idempotent
-  - planningRecovery (7): worker_lost/claim_lost/dispatcher_off/active_worker_skip/lock_skip/age_threshold/empty
-  - lfRepairRecovery (6): cycle_0/cycle_1/cycle_2_stop/manual_review_emit/no_loop/race
-  - providerFallback (6): loop_guard/max_attempts/non_allowlisted_job/no_trigger/plan_only/idempotent
-  - stuckLaneDetector (5): studium_no_worker/routing_off/dispatcher_off/healthy/mixed
-  - recoveryRisk (5)
-  - projection (5)
-  - contracts (4)
-  - forbidden-actions (4) — Versuche, integrity/council/publish zu mutieren ⇒ throw
+**Lösung — Pure SSOT** `src/lib/pipelineRecovery/planningDiagnosis.ts`:
+- Input: `job_queue` Rows + `ops_worker_heartbeats` + `job_type_quarantine` + `job_type_policies`.
+- Output: `PlanningDiagnosis` mit Cause-Enum:
+  - `WORKER_HEARTBEAT_STALE` (>10min)
+  - `JOB_TYPE_QUARANTINED`
+  - `POOL_MISMATCH` (queue.worker_pool ≠ policy.worker_pool)
+  - `CLAIM_LOST` (processing >30min, kein Heartbeat-Update)
+  - `DISPATCHER_OFF` (kein Worker für Pool aktiv)
+  - `HEALTHY_BUT_PENDING` (kein erkennbarer Block)
+- **Restart nur, wenn Cause ∈ {CLAIM_LOST, HEALTHY_BUT_PENDING}**. Sonst → `manual_review_required` + Reason.
 
-Alle bestehenden Tests bleiben grün.
+**Edge Function `pipeline-recovery-diagnose`** (read-only):
+- Aggregiert Diagnose für alle 17 stuck planning packages.
+- Schreibt Snapshot in `pipeline_recovery_plans.summary.diagnosis`.
 
-## Smoke
-`scripts/pipeline-recovery-smoke.mjs` — Dry-Run, schreibt `/tmp/pipeline-recovery-report.md`.
+**Plan-Erweiterung:** `planningRecovery.ts` ruft `planningDiagnosis` und emittiert nur dann `restart_planning`, wenn Diagnose grünes Licht gibt — sonst `mark_manual_review_required` mit Diagnose-Cause als Reason.
+
+---
+
+## Cut 3 — Quality No-Progress Lock
+
+**Problem:** 23 `done`-Pakete failen Reaudit → Cron würde sie täglich erneut enqueuen → Worker-Noise + kein realer Fortschritt.
+
+**Lösung — Pure SSOT** `src/lib/pipelineRecovery/qualityNoProgress.ts`:
+- Input: package_id, letzter Reaudit-Run aus `pipeline_recovery_actions`, content-/lf-fix-Signale aus `auto_heal_log` + `package_steps.updated_at`.
+- Regel: `daysSinceLastReaudit ≥ 1 && !contentOrLfFixSince(lastReauditAt)` → `quality_no_progress=true`.
+- Konsequenz: `enqueue_done_reaudit` wird im Plan **unterdrückt**, stattdessen Action `lock_bronze_review` (idempotent: setzt nur Quarantine-Ledger-Marker, kein Quality-Flag-Mutation).
+
+**Neue Action-Type** in `pipeline-recovery-act`:
+- `lock_bronze_review` → INSERT `package_quarantine_ledger` mit `reason_code='QUALITY_NO_PROGRESS'`, `status='under_review'`, `details->>'requires'='content_or_lf_fix'`. Idempotent via Unique (package_id, reason_code, status).
+- Verbietet bewusst jegliche Mutation an `course_packages` → bleibt SSOT-konform.
+
+**Done-Reaudit-Gate** im Plan: wenn aktiver `QUALITY_NO_PROGRESS`-Ledger-Eintrag existiert → kein Reaudit, Cause `QUALITY_LOCKED_PENDING_FIX`.
+
+---
+
+## Cut 4 — Post-OS3 Audit
+
+**Edge Function `pipeline-recovery-audit-postos3`** (read-only, JWT+admin):
+Aggregiert in EINER Response:
+- `lf_attempts_6h` (vorher 319 → Ziel: stark fallend)
+- `lf_skipped_due_to_quarantine_6h` (neu, sollte > 0 werden)
+- `planning_stuck_count` + Breakdown nach Diagnose-Cause
+- `planning_restarts_emitted_24h` vs. `planning_manual_review_emitted_24h`
+- `done_reaudit_blocked_by_no_progress`
+- `done_ready_to_publish` (unverändert SSOT-Query)
+
+Schreibt Snapshot in `auto_heal_log` `action_type='pipeline_recovery_postos3_audit'`.
+
+**UI:** Neue Card `PipelineRecoveryAuditCard` auf `/admin/heal` direkt unter `PipelineRecoveryRunsCard`. Zeigt 4 KPI-Tiles + Last-Run-Timestamp + "Re-Audit"-Button.
+
+---
+
+## DB / Migrationen
+
+Minimal-invasiv:
+1. View `v_active_quarantine_packages` (oder Edge-side Query, kein DDL nötig).
+2. Optional Composite-Index `idx_pql_active(package_id, reason_code) WHERE status='under_review'` für Worker-Hot-Path.
+3. Keine neuen Tabellen.
+
+## CI-Guard
+`scripts/guard-recovery-forbidden.mjs`: ROOTS erweitern um
+- `supabase/functions/pipeline-recovery-diagnose`
+- `supabase/functions/pipeline-recovery-audit-postos3`
+
+Worker-Patches (`package_repair_exam_pool_lf_coverage`) bleiben außerhalb des Recovery-Guards (legitime Mutationen), aber neuer Guard `scripts/guard-quarantine-respect.mjs` prüft, dass jeder LF-Worker `package_quarantine_ledger` liest, bevor er enqueued.
+
+## Tests (≥30 neu, Ziel ≥96 grün)
+- `quarantineGuard` (6): under_review_blocks / cleared_passes / unknown_reason_passes / multi_row / empty / idempotent
+- `planningDiagnosis` (8): jede Cause + healthy + mixed
+- `qualityNoProgress` (6): no_progress_locks / progress_releases / first_run_skip / content_fix_signal / lf_fix_signal / idempotent
+- `postos3Aggregator` (4)
+- `forbidden-actions` (3): `lock_bronze_review` darf keine `course_packages.update` triggern.
+- Worker-Skip-Test (3) für `package_repair_exam_pool_lf_coverage`.
 
 ## Definition of Done
-- Pure SSOT + Mirror vorhanden.
-- 2 Edge Functions deployt.
-- 1 Migration mit 2 Recovery-Tabellen + RLS + GRANTs.
-- 6 Heal-Cards integriert, Reason-Pflicht, Audit.
-- ≥50 neue Tests grün, alte Tests grün.
-- CI-Guard `guard-recovery-forbidden.mjs` registriert.
-- Memory `.lovable/memory/features/pipeline-recovery-os-1.md`.
+- Pure SSOT + Edge-Mirror für 3 neue Module.
+- 2 neue Edge Functions deployt (`diagnose`, `audit-postos3`).
+- `pipeline-recovery-act` um `lock_bronze_review` erweitert.
+- Worker `package_repair_exam_pool_lf_coverage` mit Quarantine-Gate.
+- `PipelineRecoveryAuditCard` in `/admin/heal`.
+- CI-Guards erweitert (`guard-recovery-forbidden`, neu: `guard-quarantine-respect`).
+- ≥30 neue Tests grün, alle alten grün.
+- Memory `.lovable/memory/features/pipeline-recovery-os-3.md`.
 
-## Out-of-Scope (explizit nicht in diesem Cut)
-- Tatsächliches Re-Routing von STUDIUM-Workern (nur Diagnose).
-- Auto-Execute jeglicher Recovery-Action.
-- Provider-Hotswap im Worker-Code.
-- Änderungen an Curriculum/Question/Lesson/Product.
+## Out of Scope (bewusst)
+- Echter Worker-Scale (Dispatcher Repair beschränkt sich auf Diagnose + sichere Restarts).
+- STUDIUM-Routing-Repair (nur Diagnose, bleibt OS.4).
+- Bronze-Review-UI (Lock erfolgt nur via Ledger-Marker, UI bleibt bestehender Bronze-Pfad).
+- Auto-Content-Fix (Reaudit-Block ist passiv).
+
+## Erwartete Wirkung nach Deploy
+- LF Attempts/6h: 319 → < 20.
+- Planning-Hänger: 17 → diagnostiziert, ≤ Anteil mit `CLAIM_LOST` wird restartet, Rest in manual review.
+- Done-Reaudit-Noise: 23 → 0 (gelockt bis Content-/LF-Fix).
+- Erst danach belastbare Neubewertung von `done_ready_to_publish`.
+
+---
+
+**Bestätigen zum Scaffolden?** Bei OK: Implementation in einem Pass (Pure SSOT + Mirror → Edge Functions → Worker-Patch → UI → Guards → Tests → Memory) und anschließend Post-OS3-Audit-Run.

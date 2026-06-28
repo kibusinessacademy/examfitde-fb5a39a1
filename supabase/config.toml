@@ -513,3 +513,9 @@ verify_jwt = false
 
 [functions.create-guest-checkout]
 verify_jwt = false
+
+[functions.pipeline-recovery-diagnose]
+verify_jwt = false
+
+[functions.pipeline-recovery-audit-postos3]
+verify_jwt = false

@@ -32,6 +32,7 @@ import { PersonaCertPillarBridgeCard } from "@/components/admin/heal/cards/Perso
 import { PillarCoverageCard } from "@/components/admin/heal/cards/PillarCoverageCard";
 import { PipelineRecoveryCard } from "@/components/admin/heal/cards/PipelineRecoveryCard";
 import { PipelineRecoveryRunsCard } from "@/components/admin/heal/cards/PipelineRecoveryRunsCard";
+import { PipelineRecoveryOS3Card } from "@/components/admin/heal/cards/PipelineRecoveryOS3Card";
 
 export function HealCockpitTabContent() {
   return (
@@ -52,7 +53,9 @@ export function HealCockpitTabContent() {
       </div>
       <MorningBriefing />
       <PipelineRecoveryCard />
+      <PipelineRecoveryOS3Card />
       <PipelineRecoveryRunsCard />
+
       <FailedJobHotloopsCard />
       <VariantPipelineHealthCard />
       <InternalLinkMaterializationCard />

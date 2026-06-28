@@ -15,8 +15,10 @@ const ALLOWED_ACTION_TYPES = new Set([
   "restart_planning",
   "mark_manual_review_required",
   "propose_provider_fallback", // recorded only — no provider hotswap
+  "lock_bronze_review",
   "diagnose_only",
 ]);
+
 
 const ALLOWED_REAUDIT_JOBS = new Set([
   "package_run_integrity_check",
@@ -159,9 +161,38 @@ Deno.serve(async (req) => {
     } else if (body.action_type === "propose_provider_fallback") {
 
       result.proposal_recorded = true;
+    } else if (body.action_type === "lock_bronze_review" && body.target_package_id) {
+      // OS.3: Quality No-Progress Lock — purely a quarantine marker.
+      // Does NOT mutate course_packages or quality flags.
+      const { data: existing } = await admin
+        .from("package_quarantine_ledger")
+        .select("id")
+        .eq("package_id", body.target_package_id)
+        .eq("reason_code", "QUALITY_NO_PROGRESS")
+        .eq("status", "under_review")
+        .maybeSingle();
+      if (existing?.id) {
+        result.locked = true;
+        result.idempotent = true;
+      } else {
+        const { error: qErr } = await admin.from("package_quarantine_ledger").insert({
+          package_id: body.target_package_id,
+          reason_code: "QUALITY_NO_PROGRESS",
+          reason_detail: body.reason,
+          status: "under_review",
+          metadata: {
+            source: "pipeline_recovery_os_3",
+            action_id: body.action_id,
+            requires: "content_or_lf_fix",
+          },
+        });
+        result.locked = !qErr;
+        if (qErr) result.error = qErr.message;
+      }
     } else if (body.action_type === "diagnose_only") {
       result.diagnosis_recorded = true;
     }
+
 
     // Record action
     await admin.from("pipeline_recovery_actions").upsert({
