@@ -207,6 +207,7 @@ const CockpitPage = lazyRetry(() => import('@/pages/admin/v2/CockpitPage'));
 const AIAnalysisAuditPage = lazyRetry(() => import('@/pages/admin/v2/AIAnalysisAuditPage'));
 const SEOTestPage = lazyRetry(() => import('@/pages/admin/v2/SEOTestPage'));
 const HealCockpitPage = lazyRetry(() => import('@/pages/admin/v2/HealCockpitPage'));
+const HealDiagnosticsPage = lazyRetry(() => import('@/pages/admin/v2/HealDiagnosticsPage'));
 const RealityRepairPage = lazyRetry(() => import('@/pages/admin/v2/RealityRepairPage'));
 const GateHistoryDashboardPage = lazyRetry(() => import('@/pages/admin/v2/GateHistoryDashboardPage'));
 const MasteryEngineSimulatorPage = lazyRetry(() => import('@/pages/admin/v2/MasteryEngineSimulatorPage'));
