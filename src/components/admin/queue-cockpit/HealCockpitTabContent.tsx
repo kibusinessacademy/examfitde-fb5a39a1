@@ -33,6 +33,7 @@ import { PillarCoverageCard } from "@/components/admin/heal/cards/PillarCoverage
 import { PipelineRecoveryCard } from "@/components/admin/heal/cards/PipelineRecoveryCard";
 import { PipelineRecoveryRunsCard } from "@/components/admin/heal/cards/PipelineRecoveryRunsCard";
 import { PipelineRecoveryOS3Card } from "@/components/admin/heal/cards/PipelineRecoveryOS3Card";
+import { SellableContentBlockerCard } from "@/components/admin/heal/cards/SellableContentBlockerCard";
 
 export function HealCockpitTabContent() {
   return (
