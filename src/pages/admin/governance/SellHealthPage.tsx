@@ -108,6 +108,21 @@ export default function SellHealthPage() {
     );
   };
 
+  const [recoveryResult, setRecoveryResult] = useState<any>(null);
+  const recovery = useMutation({
+    mutationFn: async (payload: { dry_run: boolean; lanes?: ("A" | "B" | "C")[]; cap?: number }) => {
+      const { data, error } = await supabase.functions.invoke("sellable-recovery-batch", { body: payload });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error ?? "recovery_failed");
+      return data;
+    },
+    onSuccess: (res) => {
+      setRecoveryResult(res);
+      toast.success(res.dry_run ? "Sellable Recovery: Dry-Run abgeschlossen" : "Sellable Recovery: Ausgeführt");
+    },
+    onError: (e: Error) => toast.error(`Sellable Recovery fehlgeschlagen: ${e.message}`),
+  });
+
   const queue = useMemo<ActionItem[]>(() => data?.action_queue ?? [], [data]);
   const totals = data?.totals;
 
