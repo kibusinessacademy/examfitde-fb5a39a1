@@ -8,6 +8,10 @@ import { join } from "node:path";
 const ROOTS = [
   "src/lib/pipelineRecovery",
   "supabase/functions/_shared/pipelineRecovery",
+  "supabase/functions/pipeline-recovery-plan",
+  "supabase/functions/pipeline-recovery-act",
+  "supabase/functions/pipeline-recovery-run",
+  "supabase/functions/pipeline-recovery-verify",
 ];
 
 const FORBIDDEN_PATTERNS = [
