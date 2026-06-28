@@ -8,3 +8,4 @@ export * from "./providerFallback.ts";
 export * from "./stuckLaneDetector.ts";
 export * from "./projection.ts";
 export * from "./audit.ts";
+export * from "./runOutcome.ts";
