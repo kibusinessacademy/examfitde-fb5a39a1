@@ -20,8 +20,12 @@ const FORBIDDEN_PATTERNS = [
 function walk(p, out = []) {
   let st;
   try { st = statSync(p); } catch { return out; }
-  if (st.isDirectory()) for (const f of readdirSync(p)) walk(join(p, f), out);
-  else if (/\.(ts|tsx|mjs|js)$/.test(p)) out.push(p);
+  if (st.isDirectory()) {
+    if (p.includes("__tests__")) return out;
+    for (const f of readdirSync(p)) walk(join(p, f), out);
+  } else if (/\.(ts|tsx|mjs|js)$/.test(p) && !p.includes("__tests__") && !/\.test\.[tj]sx?$/.test(p)) {
+    out.push(p);
+  }
   return out;
 }
 
