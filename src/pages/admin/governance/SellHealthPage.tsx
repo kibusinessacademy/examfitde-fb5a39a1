@@ -97,7 +97,7 @@ export default function SellHealthPage() {
   };
 
   const bulkPublish = (cap = 18) => {
-    if (!confirm(`Bis zu ${cap} delivery-ready Pakete jetzt veröffentlichen (Standardpreis 24,90 € / 24 Monate)?`)) return;
+    if (!confirm(`Bis zu ${cap} delivery-ready Pakete jetzt veröffentlichen (Standardpreis 24,90 € / 12 Monate, SSOT-locked)?`)) return;
     setPendingTarget("bulk_publish");
     act.mutate(
       { action: "bulk_publish_done", cap },
