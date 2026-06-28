@@ -386,68 +386,25 @@ export default function HealCockpitPage() {
             />
           </AccordionTrigger>
           <AccordionContent className="pb-4 space-y-3">
+            {/* Top-10 critical cards. Everything else lives at /admin/heal/diagnostics. */}
             <PublishTailBlockersCard />
-            <DidaktikAuditCard />
-            <BuildIntegrityE2ECard />
-            <SeoPublishDriftCard />
-            <RecurringPatternsCard limit={10} />
-            <PermanentFixBacklogCard />
-            <CourseHealPlansCard />
-            <ExamPoolQuarantineCard />
-            <DriftOverviewCard />
-            <SnapshotDriftCard />
-            <SystemIntentsKpiCard />
-            <NotificationKpiCard />
-            <NotificationAttributionCard />
-            <NotificationHealthCard />
-            <NotificationActionFunnelCard />
-            <NotificationSuppressionGovernanceCard />
-            <NotificationRecoveryRoutingCard />
-            <NotificationEffectivenessCard />
-            <AdaptivePolicyCard />
-            <PolicyImpactFunnelCard />
-            <NotificationFinalizationCard />
-            <NotificationRevenueAttributionCard />
-            <B2bRenewalPipelineCard />
-            <UpsellDiscoveryCard />
-            <TrackM4StatusCard />
-            <TrackM5StatusCard />
-            <TrackM6StatusCard />
-            <TrackM7StatusCard />
-            <TrackM8StatusCard />
-            <TrackM9StatusCard />
-            <OperationalStateCard />
-            <GrowthSignalsCard />
-            <GrowthClassificationCard />
-            <CanonicalDriftRunbookCard />
-            <AttributionAuditCard />
-            <RepairEligibilityCard />
-            <CustomerSafeReadinessCard />
-            <PackagePipelineLiveCard />
-            <HealAuditLayersCard />
-            <QueuedStallSuggestionCard />
-            <StatusReverterAlertsCard />
-            <HealFunctionAuditCard />
             <StuckPatternsCard />
-            <AutoPublishRetryCard />
-            <ManualRetryAuditCard />
-            <BronzeQuarantineCard />
-            <BronzeDrainWaveCard />
-            <ActiveJobReconciliationCard />
             <HealStatusCard />
-            <SoftDriftMcRepairCard />
-            <JobTypeWorkerAuditCard />
-            <StaleDraftsCard />
-            <LearningIntegrityExecutiveCard />
-            <LxiNoLessonsRepairCard />
-            <ContentGapTopupCard />
-            <StaleDoneStepsCard />
-            <ContinuationFailuresCard />
-            <ForcePublishLogPanel />
-            <CouncilDeferredCard />
-            <ExamPoolDriftLogCard />
-            <TargetedHealCard />
             <BlockedPackagesCard />
+            <RecurringPatternsCard limit={10} />
+            <CourseHealPlansCard />
+            <PaidButNotDeliveredCard />
+            <CustomerSafeReadinessCard />
+            <OperationalStateCard />
+            <TargetedHealCard />
+            <div className="rounded border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground">
+              Weitere ~60 Diagnose-/KPI-Cards (Notifications, Tracks M4–9, Growth, SEO, Adaptive
+              Intelligence, Worker-Forensik …) sind auf{" "}
+              <Link to="/admin/heal/diagnostics" className="underline font-medium">
+                /admin/heal/diagnostics
+              </Link>
+              {" "}ausgelagert, um diese Seite fokussiert zu halten.
+            </div>
           </AccordionContent>
         </AccordionItem>
 
