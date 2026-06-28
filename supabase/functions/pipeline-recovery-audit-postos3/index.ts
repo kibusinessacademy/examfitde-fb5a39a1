@@ -2,6 +2,13 @@
 // Read-only KPI aggregator for Lane Dispatcher Repair effectiveness.
 import "https://deno.land/std@0.224.0/dotenv/load.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  pickJobsNeedingAttribution,
+  countHotloopCancelsForQuarantined,
+  ATTRIBUTION_GUARD,
+  ATTRIBUTION_SOURCE,
+  type CancelledHotloopJob,
+} from "../_shared/pipelineRecovery/hotloopAttribution.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -83,10 +90,85 @@ Deno.serve(async (req) => {
       .eq("is_published", false).limit(500);
     const doneReadyToPublish = doneReadyRaw?.length ?? 0;
 
+    // ── OS.3.1 Hotloop Attribution (observability only) ──
+    // Find cancelled LF jobs in last 6h whose package is currently under_review.
+    // Emit one skipped_due_to_quarantine row per unique job_id, dedup-guarded.
+    const { data: quarantinedRows } = await admin
+      .from("package_quarantine_ledger").select("package_id")
+      .eq("status", "under_review");
+    const quarantinedSet = new Set<string>(
+      (quarantinedRows ?? []).map((r: { package_id: string }) => r.package_id).filter(Boolean),
+    );
+
+    let hotloopCancels6h = 0;
+    let hotloopAttributionsEmitted = 0;
+
+    if (quarantinedSet.size > 0) {
+      const { data: cancelledRaw } = await admin
+        .from("job_queue")
+        .select("id, package_id, meta, completed_at")
+        .eq("job_type", LF_JOB)
+        .eq("status", "cancelled")
+        .gte("completed_at", since6h)
+        .in("package_id", Array.from(quarantinedSet))
+        .limit(1000);
+
+      const candidates: CancelledHotloopJob[] = (cancelledRaw ?? []).map((j: any) => ({
+        id: j.id,
+        package_id: j.package_id,
+        cancel_reason: j?.meta?.cancel_reason ?? null,
+      }));
+
+      hotloopCancels6h = countHotloopCancelsForQuarantined(candidates, quarantinedSet);
+
+      // Existing skip logs (worker gate OR prior attribution pass) referencing these job_ids.
+      const candidateIds = candidates.map((c) => c.id);
+      let existing: { job_id: string | null }[] = [];
+      if (candidateIds.length > 0) {
+        const { data: existingRaw } = await admin
+          .from("auto_heal_log")
+          .select("metadata")
+          .eq("action_type", "skipped_due_to_quarantine")
+          .gte("created_at", since6h)
+          .limit(5000);
+        existing = (existingRaw ?? []).map((r: any) => ({
+          job_id: r?.metadata?.job_id ?? null,
+        }));
+      }
+
+      const needs = pickJobsNeedingAttribution(candidates, existing, quarantinedSet);
+      if (needs.length > 0) {
+        const rows = needs.map((n) => ({
+          action_type: "skipped_due_to_quarantine",
+          target_id: n.package_id,
+          target_type: "course_package",
+          result_status: "skipped",
+          result_detail: { reasons: ["AUTO_HOTLOOP_QUARANTINE"], attributed: true },
+          metadata: {
+            source: ATTRIBUTION_SOURCE,
+            guard: ATTRIBUTION_GUARD,
+            job_id: n.id,
+            cancel_reason: n.cancel_reason,
+          },
+        }));
+        const { error: insErr, count } = await admin
+          .from("auto_heal_log").insert(rows, { count: "exact" });
+        if (!insErr) hotloopAttributionsEmitted = count ?? rows.length;
+        else console.warn("os3.1 attribution insert failed", insErr.message);
+      }
+    }
+
+    // Re-query lf_skipped post-attribution so KPI reflects emitted rows.
+    const { count: lfSkippedAfter } = await admin
+      .from("auto_heal_log").select("id", { count: "exact", head: true })
+      .eq("action_type", "skipped_due_to_quarantine").gte("created_at", since6h);
+
     const snapshot = {
       generated_at: new Date().toISOString(),
       lf_attempts_6h: lfAttempts6h ?? 0,
-      lf_skipped_due_to_quarantine_6h: lfSkipped6h ?? 0,
+      lf_skipped_due_to_quarantine_6h: lfSkippedAfter ?? lfSkipped6h ?? 0,
+      hotloop_cancels_for_quarantined_packages_6h: hotloopCancels6h,
+      hotloop_attributions_emitted_this_run: hotloopAttributionsEmitted,
       planning_stuck_count: planningStuckCount,
       planning_restarts_emitted_24h: actionsByType["restart_planning"] ?? 0,
       planning_manual_review_emitted_24h: actionsByType["mark_manual_review_required"] ?? 0,
