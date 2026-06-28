@@ -174,6 +174,7 @@ import { BuildIntegrityE2ECard } from "@/components/admin/heal/cards/BuildIntegr
 import { LaneReasonBreakdownCard } from "@/components/admin/heal/cards/LaneReasonBreakdownCard";
 import { WorkerHeartbeatSSOTCard } from "@/components/admin/heal/cards/WorkerHeartbeatSSOTCard";
 import { SeoPublishDriftCard } from "@/components/admin/heal/cards/SeoPublishDriftCard";
+import { HealFunctionLauncher } from "@/components/admin/heal/HealFunctionLauncher";
 
 // Queue-Detail-Tabs (lazy — schwer)
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
