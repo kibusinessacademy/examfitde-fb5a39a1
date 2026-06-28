@@ -143,15 +143,21 @@ Deno.serve(async (req) => {
       }
     } else if (body.action_type === "mark_manual_review_required" && body.target_package_id) {
       // Recorded as quarantine entry — no direct status mutation here.
-      await admin.from("package_quarantine_ledger").insert({
+      const { error: qErr } = await admin.from("package_quarantine_ledger").insert({
         package_id: body.target_package_id,
         reason_code: "LF_REPAIR_LOOP",
         reason_detail: body.reason,
-        status: "active",
+        status: "under_review",
         metadata: { source: "pipeline_recovery_os_1", action_id: body.action_id },
       });
-      result.quarantined = true;
+      if (qErr) {
+        result.quarantined = false;
+        result.error = qErr.message;
+      } else {
+        result.quarantined = true;
+      }
     } else if (body.action_type === "propose_provider_fallback") {
+
       result.proposal_recorded = true;
     } else if (body.action_type === "diagnose_only") {
       result.diagnosis_recorded = true;
