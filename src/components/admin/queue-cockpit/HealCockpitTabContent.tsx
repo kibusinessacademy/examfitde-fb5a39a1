@@ -56,6 +56,7 @@ export function HealCockpitTabContent() {
       <PipelineRecoveryCard />
       <PipelineRecoveryOS3Card />
       <PipelineRecoveryRunsCard />
+      <SellableContentBlockerCard />
 
       <FailedJobHotloopsCard />
       <VariantPipelineHealthCard />
