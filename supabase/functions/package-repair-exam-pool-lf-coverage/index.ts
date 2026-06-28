@@ -152,6 +152,49 @@ Deno.serve(async (req) => {
       .eq("id", jobId);
   }
 
+  // ── OS.3 QUARANTINE GATE ──
+  // If this package is under_review for an LF-blocking reason, skip the entire run.
+  // Pure read-only gate. No state mutation on the package, no requeue.
+  {
+    const { data: q } = await sb
+      .from("package_quarantine_ledger")
+      .select("reason_code, status")
+      .eq("package_id", packageId)
+      .eq("status", "under_review");
+    const BLOCKING = new Set([
+      "LF_REPAIR_LOOP",
+      "MAX_ATTEMPTS_EXHAUSTED",
+      "PROVIDER_LOOP_GUARD",
+      "QUALITY_NO_PROGRESS",
+    ]);
+    const matched = (q ?? []).filter((r: { reason_code: string }) => BLOCKING.has(r.reason_code));
+    if (matched.length > 0) {
+      await sb.from("auto_heal_log").insert({
+        action_type: "skipped_due_to_quarantine",
+        target_id: packageId,
+        target_type: "course_package",
+        result_status: "skipped",
+        result_detail: { reasons: matched.map((m: { reason_code: string }) => m.reason_code) },
+        metadata: { source: "package-repair-exam-pool-lf-coverage", job_id: jobId ?? null, guard: "os3_quarantine_gate" },
+      });
+      if (jobId) {
+        await sb.from("job_queue").update({
+          status: "cancelled",
+          completed_at: new Date().toISOString(),
+          last_error_code: "SKIPPED_DUE_TO_QUARANTINE",
+          last_error: `package under_review: ${matched.map((m: { reason_code: string }) => m.reason_code).join(",")}`,
+          meta: { phase: "quarantine_skip", quarantine_reasons: matched.map((m: { reason_code: string }) => m.reason_code) },
+        }).eq("id", jobId);
+      }
+      return json({
+        status: "skipped",
+        reason: "SKIPPED_DUE_TO_QUARANTINE",
+        quarantine_reasons: matched.map((m: { reason_code: string }) => m.reason_code),
+      }, 200);
+    }
+  }
+
+
   // ── C1 ENTRY DEDUP (2026-05-20): Reschedule-Lock ──
   // Prevent multiple parent jobs from running in parallel for the same package.
   // If another lf_repair parent is already parked/processing, self-cancel.
