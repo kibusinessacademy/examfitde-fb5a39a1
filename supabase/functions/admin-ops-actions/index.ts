@@ -1533,8 +1533,9 @@ async function workspaceSnapshot(sb: SB, packageId: string) {
   // Package info
   const { data: pkg, error: pkgErr } = await sb.from("course_packages")
     .select("id, title, status, build_progress, integrity_passed, council_approved, council_approved_at, track, feature_flags, certification_id, course_id, curriculum_id, created_at, updated_at")
-    .eq("id", packageId).single();
+    .eq("id", packageId).maybeSingle();
   if (pkgErr) throw pkgErr;
+  if (!pkg) return { ok: false, error: "package_not_found", package_id: packageId };
 
   // Steps
   const { data: steps } = await sb.from("package_steps")
