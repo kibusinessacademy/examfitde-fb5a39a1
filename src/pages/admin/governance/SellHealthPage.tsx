@@ -1,12 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Download, RefreshCw, ShoppingCart, AlertTriangle, TrendingUp, Activity } from "lucide-react";
+import { Loader2, Download, RefreshCw, ShoppingCart, AlertTriangle, TrendingUp, Activity, Wand2, HeartPulse } from "lucide-react";
 import type { Projection, ActionItem, Severity } from "@/lib/sellHealth";
 
 const SEV_VARIANT: Record<Severity, "destructive" | "default" | "secondary" | "outline"> = {
@@ -55,6 +55,9 @@ function csvDownload(rows: any[], filename: string) {
 }
 
 export default function SellHealthPage() {
+  const qc = useQueryClient();
+  const [pendingTarget, setPendingTarget] = useState<string | null>(null);
+
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey: ["sell-health"],
     queryFn: async () => {
@@ -65,6 +68,45 @@ export default function SellHealthPage() {
     },
     refetchInterval: 60_000,
   });
+
+  const act = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      const { data, error } = await supabase.functions.invoke("sell-health-act", { body: payload });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.detail ?? data?.error ?? "act_failed");
+      return data;
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["sell-health"] });
+    },
+    onSettled: () => setPendingTarget(null),
+  });
+
+  const regrant = (orderId: string) => {
+    setPendingTarget(orderId);
+    act.mutate(
+      { action: "regrant_paid_order", order_id: orderId },
+      {
+        onSuccess: (res) => {
+          if (res.healed) toast.success(`Order ${orderId.slice(0, 8)} re-granted`);
+          else toast.warning(`Re-grant ausgeführt, Order weiterhin nicht erfüllbar`);
+        },
+        onError: (e: Error) => toast.error(`Re-grant fehlgeschlagen: ${e.message}`),
+      },
+    );
+  };
+
+  const bulkPublish = (cap = 18) => {
+    if (!confirm(`Bis zu ${cap} delivery-ready Pakete jetzt veröffentlichen (Standardpreis 24,90 € / 24 Monate)?`)) return;
+    setPendingTarget("bulk_publish");
+    act.mutate(
+      { action: "bulk_publish_done", cap },
+      {
+        onSuccess: (res) => toast.success(`Bulk-Publish ausgeführt: ${JSON.stringify(res.result).slice(0, 200)}`),
+        onError: (e: Error) => toast.error(`Bulk-Publish fehlgeschlagen: ${e.message}`),
+      },
+    );
+  };
 
   const queue = useMemo<ActionItem[]>(() => data?.action_queue ?? [], [data]);
   const totals = data?.totals;
@@ -84,6 +126,18 @@ export default function SellHealthPage() {
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
             {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             <span className="ml-2">Refresh</span>
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            disabled={act.isPending || (totals?.packages_ready_unpublished ?? 0) === 0}
+            onClick={() => bulkPublish(18)}
+            title="admin_bulk_publish_done_packages (cap 18 · 24,90 € · 24 Monate)"
+          >
+            {pendingTarget === "bulk_publish" && act.isPending
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <Wand2 className="h-4 w-4" />}
+            <span className="ml-2">Bulk-Publish Ready</span>
           </Button>
           <Button
             variant="outline"
@@ -195,19 +249,46 @@ export default function SellHealthPage() {
 
       {data?.unfulfilled_orders?.length ? (
         <Card>
-          <CardHeader><CardTitle className="text-destructive">Bezahlt ohne Grant ({data.unfulfilled_orders.length})</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-destructive flex items-center gap-2">
+              <HeartPulse className="h-5 w-5" /> Bezahlt ohne Grant ({data.unfulfilled_orders.length})
+            </CardTitle>
+          </CardHeader>
           <CardContent>
             <Table>
-              <TableHeader><TableRow><TableHead>Order</TableHead><TableHead>Bezahlt</TableHead><TableHead className="text-right">Betrag</TableHead><TableHead>Items</TableHead></TableRow></TableHeader>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order</TableHead>
+                  <TableHead>Bezahlt</TableHead>
+                  <TableHead className="text-right">Betrag</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead className="text-right">Heal</TableHead>
+                </TableRow>
+              </TableHeader>
               <TableBody>
-                {data.unfulfilled_orders.map((o) => (
-                  <TableRow key={o.order_id}>
-                    <TableCell className="font-mono text-xs">{o.order_id.slice(0, 12)}</TableCell>
-                    <TableCell className="text-xs">{o.paid_at?.slice(0, 19) ?? "—"}</TableCell>
-                    <TableCell className="text-right">{fmtEur((o.total_cents ?? 0) / 100)}</TableCell>
-                    <TableCell className="text-xs">{o.fulfillable_item_count ?? 0}/{o.item_count ?? 0}</TableCell>
-                  </TableRow>
-                ))}
+                {data.unfulfilled_orders.map((o) => {
+                  const busy = pendingTarget === o.order_id && act.isPending;
+                  return (
+                    <TableRow key={o.order_id}>
+                      <TableCell className="font-mono text-xs">{o.order_id.slice(0, 12)}</TableCell>
+                      <TableCell className="text-xs">{o.paid_at?.slice(0, 19) ?? "—"}</TableCell>
+                      <TableCell className="text-right">{fmtEur((o.total_cents ?? 0) / 100)}</TableCell>
+                      <TableCell className="text-xs">{o.fulfillable_item_count ?? 0}/{o.item_count ?? 0}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy || act.isPending}
+                          onClick={() => regrant(o.order_id)}
+                          title="process_order_paid_fulfillment(order_id)"
+                        >
+                          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                          <span className="ml-1">Re-grant</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>

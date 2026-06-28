@@ -19,8 +19,9 @@ priorisierte Liste **"was kostet uns gerade Geld"**. Reality-Check ergab u. a.:
 - `v_conversion_cta_performance`
 - `v_paywall_variant_attribution_drift`
 
-→ **Edge:** `supabase/functions/evaluate-sell-health/` (admin-only, no writes)
-→ **UI:** `/admin/governance/sell-health` (KPIs + Action Queue + Funnel + Unfulfilled + CTA-Underperformer)
+→ **Edge (read):** `supabase/functions/evaluate-sell-health/` (admin-only, no writes)
+→ **Edge (heal):** `supabase/functions/sell-health-act/` — wraps `process_order_paid_fulfillment(order_id)` + `admin_bulk_publish_done_packages(cap, 2490, 24)`. No new business logic.
+→ **UI:** `/admin/governance/sell-health` — KPIs + Action Queue + Funnel + Unfulfilled (per-row **Re-grant** Button) + CTA-Underperformer + Toolbar **Bulk-Publish Ready**
 
 ## Heuristics (12)
 | Code | Severity | Priority |
