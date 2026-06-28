@@ -51,13 +51,15 @@ Deno.serve(async (req) => {
 
   if (body.action === "bulk_publish_done") {
     const cap = Math.min(Math.max(Number(body.cap ?? 18), 1), 50);
-    const priceCents = Math.max(Number(body.default_price_cents ?? 2490), 0);
-    const months = Math.min(Math.max(Number(body.default_access_months ?? 24), 1), 60);
+    // SSOT-Hardlock: B2C Bundle = 24,90 € / 12 Monate (src/config/pricing.ts).
+    // Client-Inputs werden ignoriert — nur SSOT-Werte werden an die RPC übergeben.
+    const SSOT_PRICE_CENTS = 2490;
+    const SSOT_ACCESS_MONTHS = 12;
 
     const { data, error } = await sb.rpc("admin_bulk_publish_done_packages", {
       p_cap: cap,
-      p_default_price_cents: priceCents,
-      p_default_access_months: months,
+      p_default_price_cents: SSOT_PRICE_CENTS,
+      p_default_access_months: SSOT_ACCESS_MONTHS,
     });
     if (error) return json({ error: "rpc_failed", detail: error.message }, 500);
 
@@ -65,8 +67,9 @@ Deno.serve(async (req) => {
       ok: true,
       action: "bulk_publish_done",
       cap,
-      default_price_cents: priceCents,
-      default_access_months: months,
+      default_price_cents: SSOT_PRICE_CENTS,
+      default_access_months: SSOT_ACCESS_MONTHS,
+      ssot_enforced: true,
       result: data,
     });
   }
