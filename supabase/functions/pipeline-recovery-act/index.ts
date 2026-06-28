@@ -44,33 +44,38 @@ Deno.serve(async (req) => {
     const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    // Identify user
-    const userClient = createClient(supabaseUrl, anon, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false },
-    });
-    const { data: userRes } = await userClient.auth.getUser();
-    const actorId = userRes?.user?.id ?? null;
-    if (!actorId) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+    const headerCron = req.headers.get("x-cron-secret") ?? "";
+    const isInternal = cronSecret.length > 0 && headerCron === cronSecret;
 
+    let actorId: string | null = null;
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-    // Role check via has_role
-    const { data: isAdmin } = await admin.rpc("has_role", { _user_id: actorId, _role: "admin" });
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: "forbidden" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (!isInternal) {
+      if (!authHeader.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const userClient = createClient(supabaseUrl, anon, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false },
       });
+      const { data: userRes } = await userClient.auth.getUser();
+      actorId = userRes?.user?.id ?? null;
+      if (!actorId) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: isAdmin } = await admin.rpc("has_role", { _user_id: actorId, _role: "admin" });
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "forbidden" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
+
 
     const body = (await req.json()) as ActPayload;
     if (!body?.action_id || !body?.action_type || !body?.reason) {
@@ -138,15 +143,21 @@ Deno.serve(async (req) => {
       }
     } else if (body.action_type === "mark_manual_review_required" && body.target_package_id) {
       // Recorded as quarantine entry — no direct status mutation here.
-      await admin.from("package_quarantine_ledger").insert({
+      const { error: qErr } = await admin.from("package_quarantine_ledger").insert({
         package_id: body.target_package_id,
         reason_code: "LF_REPAIR_LOOP",
         reason_detail: body.reason,
-        status: "active",
+        status: "under_review",
         metadata: { source: "pipeline_recovery_os_1", action_id: body.action_id },
       });
-      result.quarantined = true;
+      if (qErr) {
+        result.quarantined = false;
+        result.error = qErr.message;
+      } else {
+        result.quarantined = true;
+      }
     } else if (body.action_type === "propose_provider_fallback") {
+
       result.proposal_recorded = true;
     } else if (body.action_type === "diagnose_only") {
       result.diagnosis_recorded = true;

@@ -54,16 +54,25 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    const userClient = createClient(supabaseUrl, anon, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } });
-    const { data: userRes } = await userClient.auth.getUser();
-    const actorId = userRes?.user?.id ?? null;
-    if (!actorId) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+    const headerCron = req.headers.get("x-cron-secret") ?? "";
+    const isInternal = cronSecret.length > 0 && headerCron === cronSecret;
+
+    let actorId: string | null = null;
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
-    const { data: isAdmin } = await admin.rpc("has_role", { _user_id: actorId, _role: "admin" });
-    if (!isAdmin) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    if (!isInternal) {
+      if (!authHeader.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const userClient = createClient(supabaseUrl, anon, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } });
+      const { data: userRes } = await userClient.auth.getUser();
+      actorId = userRes?.user?.id ?? null;
+      if (!actorId) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const { data: isAdmin } = await admin.rpc("has_role", { _user_id: actorId, _role: "admin" });
+      if (!isAdmin) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
 
     const body = (await req.json()) as RunPayload;
     if (!body?.actions?.length || !body?.reason || body.reason.trim().length < 5) {
@@ -97,9 +106,12 @@ Deno.serve(async (req) => {
     for (const a of body.actions) {
       const r = await fetch(actUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: authHeader, apikey: anon },
+        headers: isInternal
+          ? { "Content-Type": "application/json", "x-cron-secret": cronSecret, apikey: anon }
+          : { "Content-Type": "application/json", Authorization: authHeader, apikey: anon },
         body: JSON.stringify({ ...a, reason: a.reason ?? body.reason }),
       });
+
       const j = await r.json().catch(() => ({ ok: false, error: "non_json" }));
       results.push({ action_id: a.action_id, ok: r.ok, response: j });
       // Tag executed action row with run_id + pre_state
