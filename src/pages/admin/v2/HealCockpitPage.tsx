@@ -437,61 +437,19 @@ export default function HealCockpitPage() {
               </Card>
 
               <TabsContent value="diagnostics" className="space-y-3">
-                <DrainOrchestratorCard />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  <WorkerThroughputForensicsCard />
-                  <RecoveryPulseHistoryCard />
-                </div>
-                <AutoPublishErrorOverviewCard />
-                <StaleLockEscalationsCard />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <PendingAgeHistogramCard />
-                  <CancelReasonBreakdownCard />
-                </div>
-                <CancelHotspotsCard />
-                <PreHeartbeatKillRiskCard />
-                <PreHeartbeatKillForensicsCard />
-                <AggregateStateDiffCard />
-                <QualityGateDecisionsCard />
-                <OpsCancelSkipRiseCard />
-                <LessonJoinParityCard />
-                <PostPublishOrchestratorCard />
-                <PaidButNotDeliveredCard />
-                <CommerceReadinessCard />
-                <ActivationFunnelCard />
-                <ExamReadinessDistributionCard />
-                <ContentFeedbackPipelineCard />
-                <NextBestActionDistributionCard />
-                <ExamSuccessDriversCard />
-                <InterventionEffectivenessCard />
-                <NbaWeightingHealthCard />
-                <TutorInterventionHealthCard />
-                <CohortPopulationIntelligenceCard />
-                <TrainerIntelligenceCard />
-                <AutonomousOptimizationCard />
-                <SkillGraphIntelligenceCard />
-                <AdaptivePathOrchestrationCard />
-                <CognitiveLoadIntelligenceCard />
-                <TemporalIntelligenceCard />
-                <PredictiveSimulationCard />
-                <SeoJobHealthCard />
-                <SeoGraphImpactCard />
-                <SeoGraphReconCard />
-                <SeoBridgeActivationCard />
-                <SeoBridgeOutcomeCard />
-                <SeoCornerstoneEnrichmentCard />
-                <SeoBridgePromotionCard />
-                <HealAutomationControlCard />
-                <NotificationDeliveryHealthCard />
-                <AccessSsotHealthCard />
-                <ArtifactCompletenessCard />
-                <WorkerOutputBreakdownCard />
-                <PackageHealLogViewerCard />
-                <HealRunDrilldownCard />
-                <AutoPulseImpactCard />
-                <ControlLaneRequeueCard />
-                <QualityCouncilDriftCard />
-                <BlockedReasonDetailCard />
+                <Card className="p-6 text-center space-y-2 border-dashed">
+                  <div className="text-sm font-medium">Diagnose-Cards ausgelagert</div>
+                  <div className="text-xs text-muted-foreground max-w-md mx-auto">
+                    Über 50 Detail-Cards (Worker-Forensik, Notifications, Tracks, Growth, SEO,
+                    Adaptive Intelligence) leben jetzt auf einer eigenen Seite — schnellerer
+                    First-Paint, klarerer Fokus hier.
+                  </div>
+                  <Button asChild size="sm" className="mt-2">
+                    <Link to="/admin/heal/diagnostics">
+                      <BookOpen className="h-3.5 w-3.5 mr-1.5" /> /admin/heal/diagnostics öffnen
+                    </Link>
+                  </Button>
+                </Card>
               </TabsContent>
 
               <TabsContent value="triage">
