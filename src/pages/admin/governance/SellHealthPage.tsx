@@ -97,7 +97,7 @@ export default function SellHealthPage() {
   };
 
   const bulkPublish = (cap = 18) => {
-    if (!confirm(`Bis zu ${cap} delivery-ready Pakete jetzt veröffentlichen (Standardpreis 24,90 € / 24 Monate)?`)) return;
+    if (!confirm(`Bis zu ${cap} delivery-ready Pakete jetzt veröffentlichen (Standardpreis 24,90 € / 12 Monate, SSOT-locked)?`)) return;
     setPendingTarget("bulk_publish");
     act.mutate(
       { action: "bulk_publish_done", cap },
@@ -107,6 +107,21 @@ export default function SellHealthPage() {
       },
     );
   };
+
+  const [recoveryResult, setRecoveryResult] = useState<any>(null);
+  const recovery = useMutation({
+    mutationFn: async (payload: { dry_run: boolean; lanes?: ("A" | "B" | "C")[]; cap?: number }) => {
+      const { data, error } = await supabase.functions.invoke("sellable-recovery-batch", { body: payload });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error ?? "recovery_failed");
+      return data;
+    },
+    onSuccess: (res) => {
+      setRecoveryResult(res);
+      toast.success(res.dry_run ? "Sellable Recovery: Dry-Run abgeschlossen" : "Sellable Recovery: Ausgeführt");
+    },
+    onError: (e: Error) => toast.error(`Sellable Recovery fehlgeschlagen: ${e.message}`),
+  });
 
   const queue = useMemo<ActionItem[]>(() => data?.action_queue ?? [], [data]);
   const totals = data?.totals;
@@ -191,6 +206,56 @@ export default function SellHealthPage() {
           <KpiCard label="Variant-Coverage" value={`${totals.variant_coverage_pct.toFixed(1)}%`} tone={totals.variant_coverage_pct < 90 ? "warning" : undefined} />
         </div>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <HeartPulse className="h-5 w-5" /> Sellable Recovery Batch
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Lane A: lesson-readiness recheck. Lane B: empty published demote. Lane C: bridge priced products to a published package.
+            Keine Pricing-/Stripe-/Visibility-Änderung. Alle Aktionen über QC-Gates + Audit (<code>auto_heal_log.action_type LIKE 'sellable_recovery_%'</code>).
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <Button size="sm" variant="outline" disabled={recovery.isPending}
+              onClick={() => recovery.mutate({ dry_run: true })}>
+              {recovery.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
+              <span className="ml-2">Dry-Run</span>
+            </Button>
+            <Button size="sm" variant="default" disabled={recovery.isPending}
+              onClick={() => {
+                if (!confirm("Sellable Recovery jetzt ausführen? (Lane A: enqueue heal, Lane B: demote empty courses, Lane C: enqueue bridge)")) return;
+                recovery.mutate({ dry_run: false });
+              }}>
+              <Wand2 className="h-4 w-4 mr-2" /> Execute
+            </Button>
+          </div>
+          {recoveryResult && (
+            <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-2">
+              <div className="font-medium">
+                {recoveryResult.dry_run ? "Dry-Run" : "Executed"} ·
+                sellable {recoveryResult.before?.sellable} → {recoveryResult.after?.sellable} (von {recoveryResult.before?.view_rows})
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div>Lane A enqueued: <b>{recoveryResult.actions?.lane_a_enqueued ?? 0}</b></div>
+                <div>Lane B demoted: <b>{recoveryResult.actions?.lane_b_demoted ?? 0}</b></div>
+                <div>Lane C1 enqueued: <b>{recoveryResult.actions?.lane_c1_enqueued ?? 0}</b></div>
+                <div>Lane C2 logged: <b>{recoveryResult.actions?.lane_c2_logged ?? 0}</b></div>
+                <div>Refused by gate: <b>{recoveryResult.actions?.refused_by_gate ?? 0}</b></div>
+                <div>Errors: <b>{recoveryResult.actions?.errors?.length ?? 0}</b></div>
+                <div>Remaining blockers: <b>{recoveryResult.remaining_blocker_count ?? 0}</b></div>
+              </div>
+              {recoveryResult.actions?.errors?.length > 0 && (
+                <pre className="overflow-auto max-h-32">{JSON.stringify(recoveryResult.actions.errors.slice(0, 10), null, 2)}</pre>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+
 
       <Card>
         <CardHeader>

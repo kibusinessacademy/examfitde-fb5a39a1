@@ -1,91 +1,100 @@
-## Phase B.1 — IAP E2E Smoke & Regression Gate
 
-Repo-real plan, an bestehende SSOT (`validate-iap-receipt` → `verify-ios-receipt`/`verify-android-purchase` → `store_receipts` → `create_store_entitlement` → `entitlements` → `check_product_access_by_curriculum`) angedockt. **Keine neue Architektur, keine Shadow-Tabellen, kein Client-Unlock.**
+## Reality reconciliation (before we touch anything)
 
-### A) Admin-Smoke-Harness (UI)
+The "248" denominator = `products` with `status='active' AND visibility='public' AND curriculum_id NOT NULL`. The 192 sellable count comes from `v_public_sellable_courses`, which requires for each priced product **all of**:
 
-Neu: `src/pages/admin/MobileIAPSmokePage.tsx`, eingehängt unter `/admin/tools/mobile-iap-smoke` (analog `mobile-bundle-builder`).
+1. a `courses` row with same `curriculum_id` and `status='published'`,
+2. at least one published `course_packages` row on that curriculum whose `v_lessons_gap_ssot.classification IN ('HAS_READY','EXEMPT')`.
 
-- Admin-Gate via vorhandenem AdminGuard im Routenbaum (kein neuer Auth-Pfad).
-- Form: Plattform (ios/android) · SKU-Select (gelesen aus `platform_skus where is_active`) · Curriculum-Select · Test-Case-Dropdown (`happy | duplicate | invalid | expired`).
-- Aktionen rufen ausschließlich `supabase.functions.invoke('validate-iap-receipt', …)` + `useIAPReceiptValidation` (für Cache-Invalidation).
-- Anschließend Access-Check über `useProductAccessByCurriculum(curriculum_id)`-Hook und Anzeige des Player-Unlock-Status (nur Hook-Ergebnis, **kein** Direct-Read auf `entitlements`/`store_receipts`).
-- UI-States: `idle | submitting | receipt_stored | entitlement_created | access_confirmed | player_unlocked | duplicate_handled | invalid_blocked | failed(reason)`.
-- Server-Antwort (`receipt_id`, `entitlement_id`, `duplicate`, `expires_at`, `error`) wird ohne Raw-Receipt angezeigt.
-
-### B) Smoke-Cases (Test-Payload-Builder)
-
-Test-Receipts werden client-seitig im Harness gebaut (synthetisch, kein Live-Apple/Google-Call), markiert mit Präfix `SMOKE-`:
-
-| Case | Payload-Strategie |
-| --- | --- |
-| iOS happy | `transaction_id = "SMOKE-IOS-<uuid>"`, `receipt_data="SMOKE_SANDBOX"` |
-| Android happy | `purchase_token = "SMOKE-AND-<uuid>"`, `order_id = transaction_id` |
-| Duplicate | zweiter Call mit identischem `transaction_id`/`purchase_token` → erwartet `duplicate:true` aus Verifier |
-| Invalid | unbekannte SKU `SMOKE-INVALID-SKU` → Verifier wirft "Unknown SKU" |
-| Expired/refunded | Heute noch kein Status-Update-Pfad im Verifier. Im UI als **TODO-Card** mit Link zu Issue `[IAP.STATUS.LIFECYCLE]` ausweisen (Blocker-Code: `not_implemented_status_lifecycle`), Smoke-Run liefert "skipped". |
-
-Hinweis: bestehende Verifier hardcoden `environment: 'production'`. Der Harness setzt am `store_receipts.environment` nichts direkt — Markierung läuft über `SMOKE-`-Präfix im `transaction_id`. Ein nachgeschaltetes **Cleanup-RPC** (siehe Migration unten) räumt Smoke-Receipts/-Entitlements idempotent ab; Harness ruft es vor jedem Run.
-
-### C) Backend — minimaler additiver Schreibpfad
-
-Eine Migration:
-
-- `public.cleanup_iap_smoke_artifacts(p_user_id uuid)` SECURITY DEFINER, admin-only via `has_role(_, 'admin')`. Löscht `entitlements` + `store_receipts` mit `transaction_id LIKE 'SMOKE-%'` für den aufrufenden Admin-User. Audit-Eintrag via `fn_emit_audit` (`action='iap_smoke_cleanup'`).
-- GRANT EXECUTE auf `authenticated`. Funktion selbst prüft `has_role`.
-
-Kein neuer Entitlement-Pfad — Cleanup ist reine Test-Hygiene und kann nichts schreiben außer löschen.
-
-### D) Regression Tests
-
-Neue Vitest-Suite `src/__tests__/iap/iap-ssot-contract.test.ts`:
-
-1. Static-Scan: `validate-iap-receipt/index.ts` ruft nur `verify-ios-receipt` oder `verify-android-purchase` (regex über Source).
-2. `verify-ios-receipt` ruft `create_store_entitlement` (kein direkter Insert in `entitlements`).
-3. Gleiches für Android.
-4. `useIAPReceiptValidation` invalidiert alle Pflicht-Cache-Keys (`product-access`, `product-access-by-curriculum`, `entitlements`, `user-entitlements-legacy`, `course-access`, `learner-course-grants`).
-
-Neue Playwright-Spec `tests/e2e/mobile-iap-smoke.spec.ts` (nur lauffähig wenn Admin-Login verfügbar; sonst skip): durchläuft Harness happy/duplicate/invalid und assertiert die UI-States. Folgt dem `tests/e2e/_helpers.ts`-Pattern.
-
-### E) Guard / Static Check
-
-Neuer Lint-Sweep-Test `src/__tests__/guards/iap-shadow-paths.test.ts`:
-
-- Verbietet außerhalb von `supabase/functions/**` und `src/admin/**`:
-  - `.from('entitlements')` (read/write)
-  - `.from('store_receipts')` (read/write)
-  - Identifier `grantMobileAccess`, `unlockCourseLocally`, `createMobileEntitlement`, `validateReceiptClientSide`
-  - localStorage-Keys: `mobile_access`, `course_unlocked`, `iap_entitlement`, `local_entitlement`
-- Verbietet außerhalb `validate-iap-receipt`: zweite Dispatcher (regex auf neue Funktionen mit `verify-(ios|android)` plus Auth-Header).
-
-### F) Observability
-
-Harness-Ergebnistabelle pro Run: `platform · sku · curriculum_id · dispatcher_status · verifier_result · duplicate · receipt_id (hash-truncated) · entitlement_id · access_check (bool) · player_unlock (bool) · error_code`. Keine PII, kein Raw-Receipt.
-
-### Dateien
+Measured baseline today:
 
 ```text
-NEU  src/pages/admin/MobileIAPSmokePage.tsx
-NEU  src/components/admin/iap-smoke/SmokeRunner.tsx
-NEU  src/components/admin/iap-smoke/SmokeResultRow.tsx
-NEU  src/lib/iap/smoke-payloads.ts
-NEU  src/__tests__/iap/iap-ssot-contract.test.ts
-NEU  src/__tests__/guards/iap-shadow-paths.test.ts
-NEU  tests/e2e/mobile-iap-smoke.spec.ts
-NEU  supabase/migrations/<ts>_iap_smoke_cleanup.sql
-EDIT src/routes/AppRoutes.tsx                     (+1 lazy import, +1 Route)
-EDIT src/admin/pageDescriptions.ts                (Eintrag für neue Page)
-NEU  .lovable/memory/features/iap-e2e-smoke-phase-b1.md
+products active+public+curriculum     248
+courses    published                   241
+course_packages published              193
+v_public_sellable_courses rows         241
+  is_sellable=true                     192
+  not sellable, lessons>0 ready=0       23
+  not sellable, modules=0|lessons=0     10
+  not sellable, other lesson blocker    16
+v_lessons_gap_ssot (published pkgs)
+  HAS_READY                            153
+  EXEMPT                                39
+  NO_MODULES                             1
 ```
 
-### Definition-of-Done-Checkliste
+Conclusion: the 56-package gap is **not** a pricing/Stripe/visibility issue. It is a content-pipeline + bridge issue, split across three lanes.
 
-1. iOS/Android/Duplicate/Invalid Smoke laufen aus dem Harness grün.
-2. Expired/refunded als dokumentierter Blocker mit Trace-Code sichtbar.
-3. Vitest-Contract-Suite + Guard-Suite grün.
-4. Playwright-Spec passt zu vorhandener Admin-Auth-Helper (oder skip-marked, wenn keine Admin-Session).
-5. Player-Unlock im Harness kommt **ausschließlich** aus `useProductAccessByCurriculum`.
-6. Keine neue Tabelle, kein zweiter Entitlement-Schreibpfad, keine direkten Client-Reads auf `entitlements`/`store_receipts`.
-7. Memory-File dokumentiert Plattformen/SKUs/getroffene Funktionen/offene Sandbox-Grenzen.
+## Lane A — Lesson-Readiness Heal (23 + 16 = up to 39 candidates)
 
-Bestätige den Plan, dann setze ich ihn 1:1 um.
+Targets curricula where a published `course_packages` row exists but no lesson is `ready` / `completed`.
+
+- Use the **existing QC gate** `admin_course_auto_heal_queue` (the only sanctioned approval pathway). No direct `UPDATE lessons SET status='ready'`.
+- For each candidate `(course_id, curriculum_id)`, enqueue a heal job of type `lesson_readiness_recheck` that runs the lesson generator's completion verifier. Lessons already produced by the factory but stuck in `draft` because `generation_status≠'completed'` are the realistic recoverable subset.
+- Anything the QC gate refuses → stays blocked and is reported back. No bypass.
+- Audit row per enqueue into `auto_heal_log` with `action_type='sellable_recovery_lesson_recheck'`.
+
+## Lane B — Empty Published Course Demote (10 candidates)
+
+Empty published courses cannot be auto-healed without inventing content → demote, not heal.
+
+- Call existing SSOT RPC `admin_demote_empty_course(course_id, 'sellable_recovery_batch_1')` per candidate.
+- Course leaves the `published` cohort, drops out of `v_public_sellable_courses`, and the underlying priced product gets a corresponding entry in `admin_course_auto_heal_queue` so content factory can re-attempt later.
+- Audit per row into `auto_heal_log` with `action_type='sellable_recovery_empty_demote'`.
+
+## Lane C — Product / Package Bridge (the real "missing-from-view" cohort)
+
+55 priced products do not have a corresponding published `course_packages` row on their curriculum. Two sub-cases:
+
+C1. A `course_packages` row exists on that curriculum but is not `status='published'` AND the curriculum is already `HAS_READY` in `v_lessons_gap_ssot` (i.e. content exists, only the package is unpublished). → publish via existing RPC `admin_publish_course_package(package_id)` which itself runs the publish-guard. If the guard refuses, it stays blocked.
+
+C2. No `course_packages` row at all for the curriculum → enqueue `admin_course_auto_heal_queue` with `reason='missing_package_for_priced_product'`. **Do not** create a stub package by hand.
+
+Audit: `action_type='sellable_recovery_bridge_publish'` resp. `sellable_recovery_bridge_enqueue`.
+
+## Deliverable — Before/After Report
+
+Single edge function `sellable-recovery-batch` (admin-only, JWT-verified, dry-run by default) that:
+
+1. Snapshots the baseline counts (the table above) into `auto_heal_log` with `action_type='sellable_recovery_snapshot_before'`.
+2. Executes Lanes A, B, C with `dry_run` toggle.
+3. Re-reads the same counts and writes `sellable_recovery_snapshot_after`.
+4. Returns JSON:
+
+```text
+{
+  before: { total_products, view_rows, sellable, lane_a, lane_b, lane_c1, lane_c2 },
+  after:  { ...same fields },
+  actions: { lane_a_enqueued, lane_b_demoted, lane_c1_published, lane_c2_enqueued, refused_by_gate },
+  remaining_blockers: [ { product_id, curriculum_id, reason } … ]
+}
+```
+
+UI: extend `/admin/governance/sell-health` with a "Sellable Recovery" card that shows the latest snapshot pair and a (dry-run | execute) trigger button. No new route, no new table.
+
+## Process guardrail (so this drift cannot silently re-open)
+
+Root cause of the drift: a priced public product can be created/activated without a corresponding **published** `course_packages` row, and a `course_packages` row can be published while its underlying lessons never reach `ready`. Today these two states are checked only retroactively by the sell-health cockpit.
+
+Add two minimal preventive guards (no new architecture, only DB triggers + a daily cron):
+
+1. **Trigger `trg_priced_product_requires_publishable_package`** on `product_prices` INSERT/UPDATE → if `active=true` and product is `visibility='public'`, require either an existing published `course_packages` row on the curriculum **or** an open `admin_course_auto_heal_queue` entry with `reason='missing_package_for_priced_product'`. Otherwise auto-create the queue entry and write `auto_heal_log` action `sell_drift_prevent_priced_orphan`. Does **not** block the price write — it only guarantees the heal queue is non-empty so the daily reaper picks it up.
+2. **Daily cron `sellable-recovery-reaper`** at 04:42 UTC: re-runs the recovery batch in dry-run, and if `remaining_blockers > 0 AND remaining_blockers_delta_7d ≥ 0` emits an alert into `management_alerts` with severity high. This converts "we silently lost 56 sellables" into a paged signal within 24h.
+
+Both guards reuse existing tables — no new audit surface, satisfies ARCHITECTURE_INVARIANT NO_REGRESSION_GUARD + BRIDGE_REQUIRED.
+
+## Execution order
+
+1. Migration: triggers + cron (guardrail first, so heal does not re-open drift while we work).
+2. Edge function `sellable-recovery-batch` deployed in dry-run default.
+3. Run dry-run → review counts with you.
+4. Run execute → publish report.
+5. Update memory leaf `.lovable/memory/features/sellable-recovery-batch-1.md`.
+
+## What this plan explicitly does **not** do
+
+- No `UPDATE lessons SET status='ready'` outside the QC gate.
+- No `INSERT INTO lessons` / dummy content.
+- No `product_prices` / `products.visibility` / stripe price changes.
+- No new "shadow" sellable view.
+- No promise of 248/248 — final number is whatever the QC gate + factory accept, and the report names every remaining blocker by product_id.
