@@ -2,7 +2,7 @@
  * PIPELINE.RECOVERY.OS.1 — Pure SSOT contracts
  * Side-effect free. No DB access. Deterministic.
  */
-import { z } from "zod";
+import { z } from "https://esm.sh/zod@3.23.8";
 
 export const RecoveryCauseSchema = z.enum([
   "QUALITY_NOT_FINISHED",
