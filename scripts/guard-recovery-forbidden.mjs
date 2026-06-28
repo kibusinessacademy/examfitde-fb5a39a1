@@ -17,7 +17,7 @@ const FORBIDDEN_PATTERNS = [
   { name: "direct course_packages.update", re: /\.from\(['"]course_packages['"]\)\s*\.update/ },
 ];
 
-function walk(p: string, out: string[] = []): string[] {
+function walk(p, out = []) {
   let st;
   try { st = statSync(p); } catch { return out; }
   if (st.isDirectory()) for (const f of readdirSync(p)) walk(join(p, f), out);
