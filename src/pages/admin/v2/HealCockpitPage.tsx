@@ -19,6 +19,7 @@
  *   4. Erweitert nur bei Spezial-Workflows öffnen
  */
 import { lazy, Suspense, useState } from "react";
+import { Link } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -35,7 +36,7 @@ import {
   AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Activity, AlertTriangle, Crosshair, Filter, Heart, ListChecks,
+  Activity, AlertTriangle, BookOpen, Crosshair, Filter, Heart, ListChecks,
   RefreshCw, Settings, Shield, Stethoscope, Wand2, Wrench, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -173,6 +174,7 @@ import { BuildIntegrityE2ECard } from "@/components/admin/heal/cards/BuildIntegr
 import { LaneReasonBreakdownCard } from "@/components/admin/heal/cards/LaneReasonBreakdownCard";
 import { WorkerHeartbeatSSOTCard } from "@/components/admin/heal/cards/WorkerHeartbeatSSOTCard";
 import { SeoPublishDriftCard } from "@/components/admin/heal/cards/SeoPublishDriftCard";
+import { HealFunctionLauncher } from "@/components/admin/heal/HealFunctionLauncher";
 
 // Queue-Detail-Tabs (lazy — schwer)
 const QueueLiveTab = lazy(() => import("@/pages/admin/v2/QueuePage"));
@@ -320,6 +322,11 @@ export default function HealCockpitPage() {
             <Button variant="outline" size="sm" onClick={refreshAll}>
               <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh
             </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/admin/heal/diagnostics">
+                <BookOpen className="h-3.5 w-3.5 mr-1.5" /> Alle Diagnose-Cards
+              </Link>
+            </Button>
           </div>
         }
       />
@@ -327,6 +334,7 @@ export default function HealCockpitPage() {
       <AlertsBanner />
       <HealKpiHeroCard />
       <NextActionCard />
+      <HealFunctionLauncher />
 
       <Accordion type="multiple" defaultValue={DEFAULT_OPEN} className="space-y-2">
         {/* 1 — Pulse */}
@@ -378,68 +386,25 @@ export default function HealCockpitPage() {
             />
           </AccordionTrigger>
           <AccordionContent className="pb-4 space-y-3">
+            {/* Top-10 critical cards. Everything else lives at /admin/heal/diagnostics. */}
             <PublishTailBlockersCard />
-            <DidaktikAuditCard />
-            <BuildIntegrityE2ECard />
-            <SeoPublishDriftCard />
-            <RecurringPatternsCard limit={10} />
-            <PermanentFixBacklogCard />
-            <CourseHealPlansCard />
-            <ExamPoolQuarantineCard />
-            <DriftOverviewCard />
-            <SnapshotDriftCard />
-            <SystemIntentsKpiCard />
-            <NotificationKpiCard />
-            <NotificationAttributionCard />
-            <NotificationHealthCard />
-            <NotificationActionFunnelCard />
-            <NotificationSuppressionGovernanceCard />
-            <NotificationRecoveryRoutingCard />
-            <NotificationEffectivenessCard />
-            <AdaptivePolicyCard />
-            <PolicyImpactFunnelCard />
-            <NotificationFinalizationCard />
-            <NotificationRevenueAttributionCard />
-            <B2bRenewalPipelineCard />
-            <UpsellDiscoveryCard />
-            <TrackM4StatusCard />
-            <TrackM5StatusCard />
-            <TrackM6StatusCard />
-            <TrackM7StatusCard />
-            <TrackM8StatusCard />
-            <TrackM9StatusCard />
-            <OperationalStateCard />
-            <GrowthSignalsCard />
-            <GrowthClassificationCard />
-            <CanonicalDriftRunbookCard />
-            <AttributionAuditCard />
-            <RepairEligibilityCard />
-            <CustomerSafeReadinessCard />
-            <PackagePipelineLiveCard />
-            <HealAuditLayersCard />
-            <QueuedStallSuggestionCard />
-            <StatusReverterAlertsCard />
-            <HealFunctionAuditCard />
             <StuckPatternsCard />
-            <AutoPublishRetryCard />
-            <ManualRetryAuditCard />
-            <BronzeQuarantineCard />
-            <BronzeDrainWaveCard />
-            <ActiveJobReconciliationCard />
             <HealStatusCard />
-            <SoftDriftMcRepairCard />
-            <JobTypeWorkerAuditCard />
-            <StaleDraftsCard />
-            <LearningIntegrityExecutiveCard />
-            <LxiNoLessonsRepairCard />
-            <ContentGapTopupCard />
-            <StaleDoneStepsCard />
-            <ContinuationFailuresCard />
-            <ForcePublishLogPanel />
-            <CouncilDeferredCard />
-            <ExamPoolDriftLogCard />
-            <TargetedHealCard />
             <BlockedPackagesCard />
+            <RecurringPatternsCard limit={10} />
+            <CourseHealPlansCard />
+            <PaidButNotDeliveredCard />
+            <CustomerSafeReadinessCard />
+            <OperationalStateCard />
+            <TargetedHealCard />
+            <div className="rounded border border-dashed border-muted-foreground/30 p-3 text-xs text-muted-foreground">
+              Weitere ~60 Diagnose-/KPI-Cards (Notifications, Tracks M4–9, Growth, SEO, Adaptive
+              Intelligence, Worker-Forensik …) sind auf{" "}
+              <Link to="/admin/heal/diagnostics" className="underline font-medium">
+                /admin/heal/diagnostics
+              </Link>
+              {" "}ausgelagert, um diese Seite fokussiert zu halten.
+            </div>
           </AccordionContent>
         </AccordionItem>
 
@@ -472,61 +437,19 @@ export default function HealCockpitPage() {
               </Card>
 
               <TabsContent value="diagnostics" className="space-y-3">
-                <DrainOrchestratorCard />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  <WorkerThroughputForensicsCard />
-                  <RecoveryPulseHistoryCard />
-                </div>
-                <AutoPublishErrorOverviewCard />
-                <StaleLockEscalationsCard />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <PendingAgeHistogramCard />
-                  <CancelReasonBreakdownCard />
-                </div>
-                <CancelHotspotsCard />
-                <PreHeartbeatKillRiskCard />
-                <PreHeartbeatKillForensicsCard />
-                <AggregateStateDiffCard />
-                <QualityGateDecisionsCard />
-                <OpsCancelSkipRiseCard />
-                <LessonJoinParityCard />
-                <PostPublishOrchestratorCard />
-                <PaidButNotDeliveredCard />
-                <CommerceReadinessCard />
-                <ActivationFunnelCard />
-                <ExamReadinessDistributionCard />
-                <ContentFeedbackPipelineCard />
-                <NextBestActionDistributionCard />
-                <ExamSuccessDriversCard />
-                <InterventionEffectivenessCard />
-                <NbaWeightingHealthCard />
-                <TutorInterventionHealthCard />
-                <CohortPopulationIntelligenceCard />
-                <TrainerIntelligenceCard />
-                <AutonomousOptimizationCard />
-                <SkillGraphIntelligenceCard />
-                <AdaptivePathOrchestrationCard />
-                <CognitiveLoadIntelligenceCard />
-                <TemporalIntelligenceCard />
-                <PredictiveSimulationCard />
-                <SeoJobHealthCard />
-                <SeoGraphImpactCard />
-                <SeoGraphReconCard />
-                <SeoBridgeActivationCard />
-                <SeoBridgeOutcomeCard />
-                <SeoCornerstoneEnrichmentCard />
-                <SeoBridgePromotionCard />
-                <HealAutomationControlCard />
-                <NotificationDeliveryHealthCard />
-                <AccessSsotHealthCard />
-                <ArtifactCompletenessCard />
-                <WorkerOutputBreakdownCard />
-                <PackageHealLogViewerCard />
-                <HealRunDrilldownCard />
-                <AutoPulseImpactCard />
-                <ControlLaneRequeueCard />
-                <QualityCouncilDriftCard />
-                <BlockedReasonDetailCard />
+                <Card className="p-6 text-center space-y-2 border-dashed">
+                  <div className="text-sm font-medium">Diagnose-Cards ausgelagert</div>
+                  <div className="text-xs text-muted-foreground max-w-md mx-auto">
+                    Über 50 Detail-Cards (Worker-Forensik, Notifications, Tracks, Growth, SEO,
+                    Adaptive Intelligence) leben jetzt auf einer eigenen Seite — schnellerer
+                    First-Paint, klarerer Fokus hier.
+                  </div>
+                  <Button asChild size="sm" className="mt-2">
+                    <Link to="/admin/heal/diagnostics">
+                      <BookOpen className="h-3.5 w-3.5 mr-1.5" /> /admin/heal/diagnostics öffnen
+                    </Link>
+                  </Button>
+                </Card>
               </TabsContent>
 
               <TabsContent value="triage">

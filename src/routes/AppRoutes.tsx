@@ -207,6 +207,7 @@ const CockpitPage = lazyRetry(() => import('@/pages/admin/v2/CockpitPage'));
 const AIAnalysisAuditPage = lazyRetry(() => import('@/pages/admin/v2/AIAnalysisAuditPage'));
 const SEOTestPage = lazyRetry(() => import('@/pages/admin/v2/SEOTestPage'));
 const HealCockpitPage = lazyRetry(() => import('@/pages/admin/v2/HealCockpitPage'));
+const HealDiagnosticsPage = lazyRetry(() => import('@/pages/admin/v2/HealDiagnosticsPage'));
 const RealityRepairPage = lazyRetry(() => import('@/pages/admin/v2/RealityRepairPage'));
 const GateHistoryDashboardPage = lazyRetry(() => import('@/pages/admin/v2/GateHistoryDashboardPage'));
 const MasteryEngineSimulatorPage = lazyRetry(() => import('@/pages/admin/v2/MasteryEngineSimulatorPage'));
@@ -846,6 +847,7 @@ const AppRoutes = () => {
           <Route path="studio/:packageId" element={<CourseWorkspace />} />
           {/* === Heal Cockpit (SSOT — konsolidiert Queue + BlockerOps + HealStrategy) === */}
           <Route path="heal" element={<HealCockpitPage />} />
+          <Route path="heal/diagnostics" element={<HealDiagnosticsPage />} />
           <Route path="reality-repair" element={<RealityRepairPage />} />
           <Route path="heal/gate-history" element={<GateHistoryDashboardPage />} />
           <Route path="mastery/simulator" element={<MasteryEngineSimulatorPage />} />
