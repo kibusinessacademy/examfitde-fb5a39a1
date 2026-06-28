@@ -30,6 +30,7 @@ import { PillarPublishGateCard } from "@/components/admin/heal/cards/PillarPubli
 import { IntentPillarBridgeCard } from "@/components/admin/heal/cards/IntentPillarBridgeCard";
 import { PersonaCertPillarBridgeCard } from "@/components/admin/heal/cards/PersonaCertPillarBridgeCard";
 import { PillarCoverageCard } from "@/components/admin/heal/cards/PillarCoverageCard";
+import { PipelineRecoveryCard } from "@/components/admin/heal/cards/PipelineRecoveryCard";
 
 export function HealCockpitTabContent() {
   return (
@@ -49,6 +50,7 @@ export function HealCockpitTabContent() {
         </Button>
       </div>
       <MorningBriefing />
+      <PipelineRecoveryCard />
       <FailedJobHotloopsCard />
       <VariantPipelineHealthCard />
       <InternalLinkMaterializationCard />

@@ -1,98 +1,90 @@
 
-## Ziel
+# PIPELINE.RECOVERY.OS.1
 
-`/admin/heal?queue_tab=live` ist heute eine 698-Zeilen-Seite mit ~80 Cards und vergräbt die wichtigsten Heal-Aktionen. Außerdem schlagen reproduzierbar Edge-Functions fehl:
-- `admin-ops-actions` — 500 ("Cannot coerce to single JSON object" + 1× Statement-Timeout)
-- diverse `*-worker`, `send-learner-push`, `heal-alert-notify` — 401 (kein Bearer im internen Aufruf)
-- `package-generate-exam-pool`, `lesson-generate-content` — 503 (AI-Gateway-Backpressure)
+Reines Recovery-OS. Keine Businesslogik. Kein Publish-Bypass. Kein Auto-Approve. Nur Plan → Operator-Approval → Execute → Audit.
 
-Aus den Antworten:
-- Scope: **alle drei Fehler-Kategorien fixen**
-- Top-Section: **Heal-Function Launcher (Grid mit Buttons)**
-- KPI-Cards: **Hard-Trim — nur 10 wichtigste behalten, Rest auf `/admin/heal/diagnostics` auslagern**
+## Scope-Guardrails (hart)
+- Keine neuen Tabellen außer einer auditpflichtigen `pipeline_recovery_plans` (Plan-Cache + Idempotenz-Key) und einer `pipeline_recovery_actions` (executed actions). Beide nur über bestehende Audit-/RPC-Pfade.
+- Keine Frontend-Mutationen ohne Reason+auto_heal_log (gem. Admin-UI-Leitstelle v1).
+- Schreibpfade ausschließlich via neuer Edge Function `pipeline-recovery-act` + SECURITY DEFINER RPCs; Read via `pipeline-recovery-plan`.
+- Council/Integrity dürfen NICHT direkt gesetzt werden — nur Re-Enqueue der bestehenden Steps (`run_integrity_check`, `quality_council`).
 
-## Lieferumfang
+## Architektur
 
-### A) Heal Function Launcher (neue Top-Section)
+### Pure SSOT (deterministisch, side-effect-frei)
+`src/lib/pipelineRecovery/`
+- `contracts.ts` — Zod-Schemas: `RecoveryCause`, `RecoveryAction`, `RecoveryPlan`, `RecoveryRisk`, `RecoverySummary`.
+- `publishGateRecovery.ts` — analysiert `done`-Pakete: QUALITY_NOT_FINISHED | COUNCIL_PENDING | AUDIT_PENDING | PROJECTION_PENDING | UNKNOWN. Output: nur `enqueue_done_reaudit`-Actions.
+- `planningRecovery.ts` — `planning` + progress=0 + Alter > Threshold + kein aktiver Worker/Lock → `restartPlanning`.
+- `lfRepairRecovery.ts` — Cycle-Counter (max 2) → `mark_manual_review_required`.
+- `stuckLaneDetector.ts` — STUDIUM Track-/Worker-/Dispatcher-Routing-Diagnose, liefert nur Root-Cause.
+- `providerFallback.ts` — bei PROVIDER_LOOP_GUARD / MAX_ATTEMPTS_EXHAUSTED → Plan mit `google/gemini-3.5-flash` (nur für 4 erlaubte job_types).
+- `recoveryPolicy.ts` — Thresholds, Allowlists, verbotene Actions.
+- `recoveryRisk.ts` — risk/confidence/impact/expected/fp_risk/operator_effort.
+- `projection.ts` — baut `RecoverySummary`.
+- `audit.ts` — Event-Builder.
+- `index.ts` — Barrel.
 
-Neue Komponente `src/components/admin/heal/HealFunctionLauncher.tsx` — kompaktes 3-Spalten-Grid (mobil 1, tablet 2) direkt unter dem Page-Header. Jede Tile zeigt:
+Mirror für Edge-Runtime: `supabase/functions/_shared/pipelineRecovery/`.
 
-- Icon + Label + 1-Zeilen-Hint
-- Last-Run-Timestamp + Last-Status-Badge (`ok` / `error` / `nie ausgeführt`)
-- Run-Button → öffnet `AlertDialog` (Confirm) → ruft die Funktion auf
-- Live-Status-Spinner während Pending
+### Edge Functions
+- `pipeline-recovery-plan` (GET/POST, JWT) — ruft Pure SSOT mit aktuellem DB-Snapshot, liefert `RecoverySummary` + per-package `RecoveryPlan`.
+- `pipeline-recovery-act` (POST, JWT + admin role) — führt EINE Action aus, idempotent via `plan_id+action_id`, schreibt `auto_heal_log` + `pipeline_recovery_actions`. Verbotene Actions werden hart abgelehnt.
 
-Heal-Funktionen, die in der Tile-Grid erscheinen (gruppiert via Section-Header):
+### DB (minimal-invasiv, eine Migration)
+- `pipeline_recovery_plans(id, generated_at, scope, summary jsonb, plan jsonb, hash text unique)`
+- `pipeline_recovery_actions(id, plan_id, action_type, target_package_id, status, reason, actor_uid, executed_at, result jsonb)`
+- RLS: admin-only, GRANTs an `authenticated` (+ service_role) gemäß Public-Schema-Grants.
+- KEINE Schema-Änderungen an `course_packages`, `job_queue`, `package_steps`.
 
-| Gruppe | Action | Backend |
-|---|---|---|
-| Lane-Reaper | Reap Control · Reap All · Reset Stale · Cancel Zombies | RPC `admin_reap_stale_processing_now`, ops-action `reset_stale_processing`, `cancel_zombie_noop_jobs` |
-| Bulk | Heal Finalization Stall · Heal Non-Building · Bulk Promote Queued | `heal_finalization_stall`, `heal_non_building`, RPC `admin_bulk_promote_queued_to_building` |
-| Pakete | Force Publish Release-OK · Reconcile Pipeline Tail · Hard-Rebuild | `force_publish_release_ok`, `reconcile_pipeline_tail`, `hard_depublish_and_rebuild` |
-| Sellable / Stripe | Sellable Recovery Batch · Stripe Sync Reaper · Demote Empty | edge `sellable-recovery-batch`, `stripe-sync-reaper`, RPC `admin_demote_empty_course` |
-| Ghosts / Cleanup | Ghost Completions · Purge Completed · Zombie Sweep · Full Queue Reset | `heal_ghost_completions`, `purge_completed_jobs`, `zombie_sweep`, `full_queue_reset` |
+### Forbidden in Code (CI-Guard `scripts/guard-recovery-forbidden.mjs`)
+Regex-Blocks im `pipelineRecovery/*`:
+- `integrity_passed`/`council_approved` rechts vom `=`
+- `is_published = true`
+- direkte `.from('course_packages').update`
 
-Last-Run/Status werden aus `auto_heal_log` per Single-Query (`limit 1 order by created_at desc per action_type`) gelesen und alle 30s automatisch refresht.
+## Admin Heal Integration
+Neue Cards in `src/components/admin/queue-cockpit/HealCockpitTabContent.tsx`:
+- `PublishGateRecoveryCard`
+- `PlanningRecoveryCard`
+- `LfLoopRecoveryCard`
+- `ProviderRecoveryCard`
+- `DoneReauditCard`
+- `WorkerRoutingDiagnosisCard`
 
-### B) Cockpit-Layout schlanker
+Pflicht-Anatomie pro Card (Status/Severity/Root-Cause/Affected/Last Action/Next Action/Trend) gemäß `mem://constraints/admin-ui-leitstelle-v1`. Mutationen: Confirm-Dialog mit Reason, invalidateQueries, Toast.
 
-Neue Page-Struktur:
+## Audit-Events (via `fn_emit_audit`)
+`pipeline_recovery_planned|started|completed|skipped|blocked|manual_review`
 
-```
-AdminPageHeader (Heal Cockpit)
-AlertsBanner
-HealKpiHeroCard
-NextActionCard
-HealFunctionLauncher                 ← NEU (Top-Section)
+## Tests (≥50)
+- `src/lib/pipelineRecovery/__tests__/`
+  - publishGateRecovery (8): QUALITY/COUNCIL/AUDIT/PROJECTION/UNKNOWN/mixed/empty/idempotent
+  - planningRecovery (7): worker_lost/claim_lost/dispatcher_off/active_worker_skip/lock_skip/age_threshold/empty
+  - lfRepairRecovery (6): cycle_0/cycle_1/cycle_2_stop/manual_review_emit/no_loop/race
+  - providerFallback (6): loop_guard/max_attempts/non_allowlisted_job/no_trigger/plan_only/idempotent
+  - stuckLaneDetector (5): studium_no_worker/routing_off/dispatcher_off/healthy/mixed
+  - recoveryRisk (5)
+  - projection (5)
+  - contracts (4)
+  - forbidden-actions (4) — Versuche, integrity/council/publish zu mutieren ⇒ throw
 
-Accordion (default open: pulse, recover)
-  1. Pulse         → LaneHealthCard, ThroughputCard, WorkerHeartbeatSSOTCard,
-                      LaneReasonBreakdownCard, BlockerCountsCard
-  2. Quick Recover → RecoverActionsCard, QueueDrainCard
-  3. Pakete heilen → 10 wichtigste:
-                      PublishTailBlockersCard, StuckPatternsCard,
-                      HealStatusCard, BlockedPackagesCard,
-                      RecurringPatternsCard, CourseHealPlansCard,
-                      PaidButNotDeliveredCard, CustomerSafeReadinessCard,
-                      OperationalStateCard, TargetedHealCard
-  4. Erweitert     → Triage/Recheck/Drilldown/Selector/Reaper/Strategy/Queue-Tabs
-                      (unverändert)
-```
+Alle bestehenden Tests bleiben grün.
 
-Die anderen ~60 Cards (TrackM4-9, alle Notification*, Growth/Attribution/Drift/Snapshot, Seo*, Adaptive*, Cognitive/Temporal/Predictive, alle Cancel/Pending/Worker-Forensics, etc.) wandern in:
+## Smoke
+`scripts/pipeline-recovery-smoke.mjs` — Dry-Run, schreibt `/tmp/pipeline-recovery-report.md`.
 
-`src/pages/admin/v2/HealDiagnosticsPage.tsx` — neue Route `/admin/heal/diagnostics`. Gleiche Card-Sammlung, gruppiert in 6 Tabs (Worker · Notifications · Tracks · Growth · SEO · Intelligence). Link aus dem Cockpit-Header rechts oben („Alle Diagnose-Cards").
+## Definition of Done
+- Pure SSOT + Mirror vorhanden.
+- 2 Edge Functions deployt.
+- 1 Migration mit 2 Recovery-Tabellen + RLS + GRANTs.
+- 6 Heal-Cards integriert, Reason-Pflicht, Audit.
+- ≥50 neue Tests grün, alte Tests grün.
+- CI-Guard `guard-recovery-forbidden.mjs` registriert.
+- Memory `.lovable/memory/features/pipeline-recovery-os-1.md`.
 
-Bestehende Redirects bleiben erhalten.
-
-### C) Edge-Function-Fixes
-
-**`admin-ops-actions`**
-- `workspaceSnapshot` (Zeile 1536): `.single()` → `.maybeSingle()` mit 404-Fallback (Package könnte gelöscht sein → das ist die "Cannot coerce" Ursache).
-- Audit-Wrapper: jede Action gibt zukünftig **immer** ein Top-Level-Objekt `{ ok, action, duration_ms, result }` zurück, auch im Fehlerfall (keine `throw` aus Action-Body raus zur PostgREST-Schicht durchreichen → vermeidet künftige Coerce-Probleme).
-- Timeout-Schutz: `Promise.race` mit 25s-Cap für jede Action; bei Timeout `ok: false, error: 'action_timeout'` statt 504/500.
-
-**Worker-401**
-- `supabase/functions/_shared/internal-auth.ts` (neu): zentraler Helper `withInternalAuth(req)` der entweder gültigen User-JWT oder `x-internal-secret == INTERNAL_CRON_SECRET` akzeptiert.
-- Patch in: `send-learner-push`, `learner-readiness-worker`, `intervention-intelligence-worker`, `post-purchase-delivery-worker`, `learner-activation-worker`, `heal-alert-notify`, `backfill-conflict-type`, `admin-production-supervisor-cron`. Bestehender Cron-Aufruf liefert dieses Secret bereits über `service_role`, aber die Funktionen prüfen aktuell strikt User-JWT.
-
-**AI-Gateway-503**
-- In `package-generate-exam-pool` und `lesson-generate-content`: Bei 503/429 → `auto_heal_log` Eintrag `action_type='ai_gateway_backpressure'` + Job mit `run_after = now() + (2^attempts * 30s)` requeuen statt failed setzen.
-- Kein UI-Eingriff hier — nur Resilienz.
-
-### D) Smoke-Tests
-
-`scripts/heal-launcher-smoke.mjs` — pingt alle Launcher-Actions im Dry-Run-Modus (`x-dry-run: 1`) und schreibt ein Markdown-Report nach `/tmp/heal-launcher-report.md`. Wird als `npm run heal:smoke` registriert.
-
-## Technische Details
-
-- Keine SSOT-Brüche: Bulk-Publish bleibt SSOT-clamp (24,90 € · 12 Monate · Cap 18).
-- Audit: jede Launcher-Action schreibt `auto_heal_log` mit `triggered_by='admin_heal_cockpit'`.
-- Bestehende Cards werden **nicht gelöscht**, nur verschoben (Diagnostics-Page). Route-Registry wird ergänzt um `/admin/heal/diagnostics`.
-- Memory-Leaf: `.lovable/memory/features/heal-cockpit-launcher-v1.md`.
-
-## Out of Scope
-
-- Keine neuen Heal-Strategien, keine neuen RPCs.
-- Kein Refactor von Pulse/Queue-Tabs.
-- Kein Re-Design der KPI-Cards selbst (nur Verschieben).
+## Out-of-Scope (explizit nicht in diesem Cut)
+- Tatsächliches Re-Routing von STUDIUM-Workern (nur Diagnose).
+- Auto-Execute jeglicher Recovery-Action.
+- Provider-Hotswap im Worker-Code.
+- Änderungen an Curriculum/Question/Lesson/Product.
