@@ -140,13 +140,13 @@ Deno.serve(async (req) => {
       // Recorded as quarantine entry — no direct status mutation here.
       await admin.from("package_quarantine_ledger").insert({
         package_id: body.target_package_id,
-        reason: "LF_REPAIR_LOOP",
-        details: { source: "pipeline_recovery_os_1", note: body.reason },
-        decided_by: actorId,
+        reason_code: "LF_REPAIR_LOOP",
+        reason_detail: body.reason,
+        status: "active",
+        metadata: { source: "pipeline_recovery_os_1", action_id: body.action_id },
       });
       result.quarantined = true;
     } else if (body.action_type === "propose_provider_fallback") {
-      // Plan-only: record proposal, do not switch provider.
       result.proposal_recorded = true;
     } else if (body.action_type === "diagnose_only") {
       result.diagnosis_recorded = true;
@@ -166,13 +166,15 @@ Deno.serve(async (req) => {
       result,
     }, { onConflict: "action_id" });
 
-    // Audit
+    // Audit (auto_heal_log schema: action_type / target_id / target_type / input_params / result_status / result_detail / metadata)
     await admin.from("auto_heal_log").insert({
       action_type: `pipeline_recovery_${body.action_type}`,
       target_id: body.target_package_id,
-      actor_uid: actorId,
-      reason: body.reason,
-      payload: { cause: body.cause, action_id: body.action_id, metadata: body.metadata ?? {}, result },
+      target_type: "course_package",
+      input_params: { cause: body.cause, action_id: body.action_id, plan_id: body.plan_id ?? null, metadata: body.metadata ?? {} },
+      result_status: "completed",
+      result_detail: { reason: body.reason, result, actor_uid: actorId },
+      metadata: { source: "pipeline_recovery_os_1" },
     });
 
     return new Response(JSON.stringify({ ok: true, result }), {
