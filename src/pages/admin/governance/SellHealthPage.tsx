@@ -249,19 +249,46 @@ export default function SellHealthPage() {
 
       {data?.unfulfilled_orders?.length ? (
         <Card>
-          <CardHeader><CardTitle className="text-destructive">Bezahlt ohne Grant ({data.unfulfilled_orders.length})</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-destructive flex items-center gap-2">
+              <HeartPulse className="h-5 w-5" /> Bezahlt ohne Grant ({data.unfulfilled_orders.length})
+            </CardTitle>
+          </CardHeader>
           <CardContent>
             <Table>
-              <TableHeader><TableRow><TableHead>Order</TableHead><TableHead>Bezahlt</TableHead><TableHead className="text-right">Betrag</TableHead><TableHead>Items</TableHead></TableRow></TableHeader>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order</TableHead>
+                  <TableHead>Bezahlt</TableHead>
+                  <TableHead className="text-right">Betrag</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead className="text-right">Heal</TableHead>
+                </TableRow>
+              </TableHeader>
               <TableBody>
-                {data.unfulfilled_orders.map((o) => (
-                  <TableRow key={o.order_id}>
-                    <TableCell className="font-mono text-xs">{o.order_id.slice(0, 12)}</TableCell>
-                    <TableCell className="text-xs">{o.paid_at?.slice(0, 19) ?? "—"}</TableCell>
-                    <TableCell className="text-right">{fmtEur((o.total_cents ?? 0) / 100)}</TableCell>
-                    <TableCell className="text-xs">{o.fulfillable_item_count ?? 0}/{o.item_count ?? 0}</TableCell>
-                  </TableRow>
-                ))}
+                {data.unfulfilled_orders.map((o) => {
+                  const busy = pendingTarget === o.order_id && act.isPending;
+                  return (
+                    <TableRow key={o.order_id}>
+                      <TableCell className="font-mono text-xs">{o.order_id.slice(0, 12)}</TableCell>
+                      <TableCell className="text-xs">{o.paid_at?.slice(0, 19) ?? "—"}</TableCell>
+                      <TableCell className="text-right">{fmtEur((o.total_cents ?? 0) / 100)}</TableCell>
+                      <TableCell className="text-xs">{o.fulfillable_item_count ?? 0}/{o.item_count ?? 0}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy || act.isPending}
+                          onClick={() => regrant(o.order_id)}
+                          title="process_order_paid_fulfillment(order_id)"
+                        >
+                          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                          <span className="ml-1">Re-grant</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
