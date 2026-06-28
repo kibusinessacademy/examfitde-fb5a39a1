@@ -194,7 +194,7 @@ describe("OS.3 / qualityNoProgress — reaudit failed + no fix → lock_bronze_r
     const dec = evaluateQualityNoProgress({
       now: NOW,
       package_id: "pkg-x",
-      reaudit_attempts: [{ package_id: "pkg-x", executed_at: YESTERDAY }],
+      reaudit_attempts: [{ package_id: "pkg-x", executed_at: "2026-06-27T14:00:00.000Z" }], // 22h ago
       fix_signals: [],
     });
     expect(dec.lock).toBe(true);
