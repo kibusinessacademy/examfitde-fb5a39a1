@@ -128,6 +128,18 @@ export default function SellHealthPage() {
             <span className="ml-2">Refresh</span>
           </Button>
           <Button
+            variant="default"
+            size="sm"
+            disabled={act.isPending || (totals?.packages_ready_unpublished ?? 0) === 0}
+            onClick={() => bulkPublish(18)}
+            title="admin_bulk_publish_done_packages (cap 18 · 24,90 € · 24 Monate)"
+          >
+            {pendingTarget === "bulk_publish" && act.isPending
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <Wand2 className="h-4 w-4" />}
+            <span className="ml-2">Bulk-Publish Ready</span>
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             disabled={!queue.length}
