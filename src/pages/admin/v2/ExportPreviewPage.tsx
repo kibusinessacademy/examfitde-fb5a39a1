@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -10,13 +10,18 @@ import {
   type ManifestFile,
   type TreeNode,
 } from "@/lib/factory/exportManifest";
+import {
+  autoIncludeCriticalPaths,
+  validateExportCompleteness,
+  type ExportValidationReport,
+} from "@/lib/factory/exportValidation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw, Info, ChevronRight, ChevronDown } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw, Info, ChevronRight, ChevronDown, ShieldAlert, ShieldCheck, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
 const ROW_HEIGHT = 28;
@@ -181,14 +186,72 @@ function VirtualTree({
     overscan: 16,
   });
 
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // Preserve scroll position when filters/sort/tree mutate: reset only when
+  // the row identity actually changes (not on every render).
+  const rowSig = useMemo(
+    () => `${rows.length}:${rows.slice(0, 6).map((r) => (r.kind === "dir" ? `d:${r.node.path}` : `f:${r.file.path}`)).join("|")}`,
+    [rows],
+  );
+  const prevSigRef = useRef<string>(rowSig);
+  useEffect(() => {
+    if (prevSigRef.current !== rowSig) {
+      prevSigRef.current = rowSig;
+      setActiveIndex((i) => Math.min(i, Math.max(0, rows.length - 1)));
+    }
+  }, [rowSig, rows.length]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (rows.length === 0) return;
+    let next = activeIndex;
+    if (e.key === "ArrowDown") next = Math.min(rows.length - 1, activeIndex + 1);
+    else if (e.key === "ArrowUp") next = Math.max(0, activeIndex - 1);
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = rows.length - 1;
+    else if (e.key === "PageDown") next = Math.min(rows.length - 1, activeIndex + 12);
+    else if (e.key === "PageUp") next = Math.max(0, activeIndex - 12);
+    else if (e.key === " " || e.key === "Enter") {
+      const r = rows[activeIndex];
+      if (r?.kind === "dir") {
+        e.preventDefault();
+        onToggleOpen(r.node.path);
+      } else if (r?.kind === "file") {
+        e.preventDefault();
+        onPick(r.file);
+      }
+      return;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    setActiveIndex(next);
+    virtualizer.scrollToIndex(next, { align: "auto" });
+  }, [activeIndex, rows, onPick, onToggleOpen, virtualizer]);
+
   return (
-    <div ref={parentRef} className="h-[70vh] overflow-auto py-2">
+    <div
+      ref={parentRef}
+      className="h-[70vh] overflow-auto py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+      role="tree"
+      aria-label="Export-Dateibaum"
+      aria-activedescendant={rows.length ? `export-row-${activeIndex}` : undefined}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+    >
       <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
         {virtualizer.getVirtualItems().map((vi) => {
           const row = rows[vi.index];
+          const isActive = vi.index === activeIndex;
           return (
             <div
               key={vi.key}
+              id={`export-row-${vi.index}`}
+              role="treeitem"
+              aria-selected={row.kind === "file" ? pickedPath === row.file.path : undefined}
+              aria-expanded={row.kind === "dir" ? openDirs.has(row.node.path) : undefined}
+              aria-level={(row.depth ?? 0) + 1}
+              className={isActive ? "ring-1 ring-primary/40 rounded" : undefined}
               style={{
                 position: "absolute",
                 top: 0,
@@ -306,8 +369,31 @@ export default function ExportPreviewPage() {
     });
   };
 
+  // Offline export validation — computed live as selection mutates.
+  const validation: ExportValidationReport | null = useMemo(
+    () => (data ? validateExportCompleteness(data.files, selected) : null),
+    [data, selected],
+  );
+
+  const handleAutoFix = () => {
+    if (!data) return;
+    const next = autoIncludeCriticalPaths(data.files, selected);
+    setSelected(next);
+    toast.success("Fehlende kritische Inhalte automatisch wieder aufgenommen.");
+  };
+
   const handleExport = async () => {
     if (!data) return;
+    if (validation?.blocking) {
+      toast.error("Export gesperrt: kritische Inhalte fehlen oder sind blockiert.");
+      return;
+    }
+    if (validation && !validation.ok) {
+      const next = autoIncludeCriticalPaths(data.files, selected);
+      setSelected(next);
+      toast.message("Fehlende Dateien automatisch ergänzt — bitte erneut bestätigen.");
+      return;
+    }
     setExporting(true);
     try {
       const accepted = Array.from(selected);
@@ -348,7 +434,8 @@ export default function ExportPreviewPage() {
             <Button
               size="sm"
               onClick={handleExport}
-              disabled={!data || exporting || selected.size === 0}
+              disabled={!data || exporting || selected.size === 0 || (validation?.blocking ?? false)}
+              aria-disabled={!data || exporting || (validation?.blocking ?? false)}
             >
               {exporting ? (
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
@@ -393,6 +480,52 @@ export default function ExportPreviewPage() {
           )}
         </CardContent>
       </Card>
+
+      {validation && data && (
+        <Alert variant={validation.blocking ? "destructive" : "default"}>
+          {validation.ok ? (
+            <ShieldCheck className="h-4 w-4" />
+          ) : validation.blocking ? (
+            <ShieldAlert className="h-4 w-4" />
+          ) : (
+            <Info className="h-4 w-4" />
+          )}
+          <AlertTitle className="flex items-center gap-2">
+            Offline-Export-Validierung
+            {!validation.ok && !validation.blocking && (
+              <Button size="sm" variant="outline" className="ml-auto h-7" onClick={handleAutoFix}>
+                <Wand2 className="h-3 w-3 mr-1" /> Fehlendes ergänzen
+              </Button>
+            )}
+          </AlertTitle>
+          <AlertDescription className="text-xs space-y-2">
+            <div>{validation.summary}</div>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+              {validation.reports.map((r) => (
+                <li key={r.category} className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      r.blocked.length > 0 || (r.critical && r.total === 0)
+                        ? "destructive"
+                        : r.missing > 0
+                          ? "secondary"
+                          : "outline"
+                    }
+                  >
+                    {r.label}
+                  </Badge>
+                  <span className="text-muted-foreground">
+                    {r.selected}/{r.total} enthalten
+                    {r.missing > 0 ? `, ${r.missing} fehlen` : ""}
+                    {r.blocked.length > 0 ? `, ${r.blocked.length} blockiert` : ""}
+                    {r.critical ? " · kritisch" : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {tree && data && (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(300px,1fr)_2fr] gap-4">
