@@ -30,8 +30,9 @@ function generateFAQs(cert: any) {
   const name = cert.title;
   const chamber = cert.chamber_type || 'IHK';
   const questions = cert.min_question_target || 600;
+  const phrasing = buildHeroPhrasing({ title: name, catalogType: cert.catalog_type, chamberType: chamber });
   return [
-    { question: `Für welche Prüfung ist dieses Training gedacht?`, answer: `Dieses Prüfungstraining ist exakt auf die ${chamber}-Prüfung ${name} ausgerichtet – mit prüfungsrelevanten Aufgabentypen, realistischen Zeitvorgaben und berufsspezifischem Fokus.` },
+    { question: `Für welche Prüfung ist dieses Training gedacht?`, answer: `Dieses Prüfungstraining ist exakt auf die ${phrasing.chamberExamPhrase} ausgerichtet – mit prüfungsrelevanten Aufgabentypen, realistischen Zeitvorgaben und berufsspezifischem Fokus.` },
     { question: `Was ist im Preis enthalten?`, answer: `Du erhältst für ${PRICING.defaultPrice} einmalig ${PRICING.defaultAccess} Zugriff auf: ${questions}+ Prüfungsaufgaben, realistische Prüfungssimulation, KI-Prüfungscoach, mündliches Prüfungstraining, Schwächenanalyse und Prüfungsreife-Indikator.` },
     { question: `Ist das ein Abo?`, answer: `Nein. ${PRICING.noSubscription} – du zahlst einmalig und hast ${PRICING.defaultAccess} Zugriff. Keine automatische Verlängerung, keine versteckten Kosten.` },
     { question: `Kann ich schriftliche und mündliche Prüfung trainieren?`, answer: `Ja. ExamFit deckt beide Prüfungsteile ab: schriftliche Prüfungssimulation mit Zeitlimit und Auswertung sowie mündliches Fachgespräch-Training mit strukturiertem KI-Feedback.` },
@@ -267,7 +268,7 @@ const PruefungstrainingDetailPage = () => {
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Kein Video-Marathon. Kein PDF-Dschungel. Sondern ein intelligentes Prüfungstrainings-System
-              für deine {chamber}-Abschlussprüfung als {name}.
+              für {heroPhrasing.possessiveChamberPhrase}.
             </p>
             <p className="mt-4 text-muted-foreground">
               Du trainierst nicht wahllos Inhalte, sondern genau die Aufgabenarten, Themen und
@@ -280,10 +281,10 @@ const PruefungstrainingDetailPage = () => {
         <section className="py-10 sm:py-14 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-4xl">
             <h2 className="text-2xl sm:text-3xl font-display font-bold mb-3 text-center">
-              Was im Prüfungstraining für {name} <span className="text-gradient">enthalten ist</span>
+              Was im {heroPhrasing.productHeading} <span className="text-gradient">enthalten ist</span>
             </h2>
             <p className="text-muted-foreground text-center mb-8 max-w-2xl mx-auto">
-              Alle Werkzeuge für deine {chamber}-Prüfung – in einem Zugang.
+              Alle Werkzeuge für {heroPhrasing.possessiveChamberPhrase} – in einem Zugang.
             </p>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -508,7 +509,7 @@ const PruefungstrainingDetailPage = () => {
               <div className="absolute inset-0 gradient-hero opacity-10" />
               <div className="relative z-10">
                 <h2 className="text-2xl sm:text-3xl font-display font-bold mb-4">
-                  Bereit für die {chamber}-Prüfung {name}?
+                  Bereit für {heroPhrasing.possessiveChamberPhrase}?
                 </h2>
                 {isPublished ? (
                   <>

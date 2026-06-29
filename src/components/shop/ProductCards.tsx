@@ -24,6 +24,7 @@ const ALL_FEATURES = [
 ];
 
 import { formatEur } from '@/lib/timezone';
+import { buildHeroPhrasing } from '@/lib/hero/heroPhrasing';
 const formatPrice = formatEur;
 
 export function ProductCards({ curriculumId }: ProductCardProps) {
@@ -115,10 +116,31 @@ function SingleProductCard({
           <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-4 shadow-glow">
             <Target className="h-8 w-8 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-display">Intelligentes Prüfungstraining</CardTitle>
-          <p className="text-muted-foreground mt-2">
-            Alles, was du für die Abschlussprüfung brauchst – Prüfungsfragen, Simulation & KI-Coach in einem System.
-          </p>
+          {(() => {
+            const rawTitle = (product as any)?.title || (product as any)?.curriculum_title || '';
+            const catalogType = (product as any)?.catalog_type ?? null;
+            const chamberType = (product as any)?.chamber_type ?? null;
+            const phrasing = rawTitle
+              ? buildHeroPhrasing({ title: rawTitle, catalogType, chamberType, recordId: (product as any)?.id, slug: (product as any)?.slug })
+              : null;
+            return (
+              <>
+                <CardTitle className="text-2xl font-display">
+                  {phrasing ? phrasing.productHeading : 'Intelligentes Prüfungstraining'}
+                </CardTitle>
+                <p className="text-muted-foreground mt-2">
+                  {phrasing
+                    ? `Alles, was du für ${phrasing.possessiveChamberPhrase} brauchst – Prüfungsfragen, Simulation & KI-Coach in einem System.`
+                    : 'Alles, was du für deine Prüfung brauchst – Prüfungsfragen, Simulation & KI-Coach in einem System.'}
+                </p>
+                {phrasing && (
+                  <Badge variant="secondary" className="mt-3 mx-auto w-fit">
+                    {phrasing.badgeLabel}
+                  </Badge>
+                )}
+              </>
+            );
+          })()}
         </CardHeader>
 
         <CardContent className="space-y-6">

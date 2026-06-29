@@ -23,6 +23,8 @@
 
 export type SitemapGroup = "static" | "products" | "blog" | "content";
 
+import { buildHeroPhrasing } from "@/lib/hero/heroPhrasing";
+
 export interface FaqEntry {
   q: string;
   a: string;
@@ -666,7 +668,7 @@ function berufDetail(slug: string, title: string, kammer: "IHK" | "HWK"): SeoRou
     title: `${title} – Prüfungstraining`,
     description: `${title}: adaptiver Lernplan, KI-Tutor mit Quellen, Mini-Checks und prüfungsnahe Simulationen. Komplettpaket 24,90 €.`,
     h1: `${title} – Prüfungstraining`,
-    intro: `Strukturierte Online-Vorbereitung für die ${kammer}-Abschlussprüfung als ${title}. ExamFit liefert einen adaptiven 4-Wochen-Lernplan, der deinen Schwachstellen folgt, sowie kompakte Lernkurse pro Handlungsfeld, einen KI-Tutor mit Strict-RAG und Quellenangaben, Mini-Checks zur sofortigen Wissenskontrolle und mehrere prüfungsnahe Simulationen mit Readiness-Score. Inhalte basieren auf dem aktuellen DIHK-Rahmenstoffplan für den Beruf ${title} und decken sowohl die schriftliche als auch das mündliche Fachgespräch ab. Starte mit dem kostenlosen Selbsttest und sieh nach 5 Fragen, wo deine größten Lücken sind.`,
+    intro: (() => { const p = buildHeroPhrasing({ title, catalogType: "ausbildung", chamberType: kammer }); return `Strukturierte Online-Vorbereitung für die ${p.chamberExamPhrase}. ExamFit liefert einen adaptiven 4-Wochen-Lernplan, der deinen Schwachstellen folgt, sowie kompakte Lernkurse pro Handlungsfeld, einen KI-Tutor mit Strict-RAG und Quellenangaben, Mini-Checks zur sofortigen Wissenskontrolle und mehrere prüfungsnahe Simulationen mit Readiness-Score. Inhalte basieren auf dem aktuellen DIHK-Rahmenstoffplan für den Beruf ${title} und decken sowohl die schriftliche als auch das mündliche Fachgespräch ab. Starte mit dem kostenlosen Selbsttest und sieh nach 5 Fragen, wo deine größten Lücken sind.`; })(),
     contentHtml: `<p><a href="/preise"><strong>Komplettpaket 24,90 €</strong> – 12 Monate Vollzugriff</a> &middot; <a href="/berufe">Anderen Beruf wählen</a></p><h2>Was ist enthalten?</h2><ul><li>Adaptiver 4-Wochen-Lernplan, rückwärts ab Prüfungstermin</li><li>Lernkurse pro Handlungsfeld nach DIHK-Rahmenstoffplan</li><li>KI-Tutor mit Quellenangaben (Strict-RAG, keine Halluzinationen)</li><li>Mini-Checks pro Lektion mit sofortigem Feedback</li><li>Prüfungsnahe Simulationen mit Readiness-Score</li><li>Mündliches Fachgespräch als KI-Simulation</li></ul>`,
     keyFacts: [
       { label: "Beruf", value: title },
