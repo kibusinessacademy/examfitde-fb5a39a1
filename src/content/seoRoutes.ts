@@ -23,7 +23,7 @@
 
 export type SitemapGroup = "static" | "products" | "blog" | "content";
 
-import { buildHeroPhrasing } from "../lib/hero/heroPhrasing";
+import { buildHeroPhrasing } from "@/lib/hero/heroPhrasing";
 
 export interface FaqEntry {
   q: string;
