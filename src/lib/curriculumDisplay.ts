@@ -81,6 +81,12 @@ const ALIAS_DICT: Record<string, string[]> = {
 const RAHMEN_PREFIX = /^\s*rahmenlehrplan\s+/i;
 const TRAILING_GENDER = /\s*(?:\/-?in|\(in\)|\/in)\s*$/i;
 
+// AEVO normalisierung: erkennt sowohl "AEVO - Ausbildereignungsprüfung"
+// als auch "Ausbildereignungsprüfung (AEVO)" als ein- und denselben Eintrag.
+const AEVO_MATCHER = /aevo|ausbildereignung/i;
+const AEVO_CANONICAL_DISPLAY = 'AEVO – Ausbildereignungsprüfung';
+const AEVO_CANONICAL_KEY = 'aevo';
+
 function stripPrefix(title: string): string {
   return title.replace(RAHMEN_PREFIX, '').trim();
 }
