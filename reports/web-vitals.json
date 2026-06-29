@@ -1,20 +1,20 @@
 {
   "base_url": "http://localhost:8080",
-  "generated_at": "2026-06-29T06:02:08.020Z",
+  "generated_at": "2026-06-29T06:02:47.149Z",
   "budget": {
     "LCP_MS": 2500,
     "CLS": 0.1
   },
   "total": 8,
-  "passed": 7,
-  "failed": 1,
+  "passed": 8,
+  "failed": 0,
   "results": [
     {
       "route": "/berufe",
       "device": "mobile",
       "status": 200,
-      "loadMs": 7987,
-      "lcp_ms": 1092,
+      "loadMs": 8198,
+      "lcp_ms": 1072,
       "cls": 0,
       "lcp_element": "P",
       "budget": {
@@ -27,15 +27,24 @@
     {
       "route": "/berufe",
       "device": "desktop",
-      "error": "page.goto: Timeout 30000ms exceeded.\nCall log:\n  - navigating to \"http://localhost:8080/berufe\", waiting until \"networkidle\"\n",
-      "ok": false
+      "status": 200,
+      "loadMs": 7871,
+      "lcp_ms": 1088,
+      "cls": 0.0682,
+      "lcp_element": "H1",
+      "budget": {
+        "LCP_MS": 2500,
+        "CLS": 0.1
+      },
+      "pass": true,
+      "failures": []
     },
     {
       "route": "/fiae-pruefungsvorbereitung",
       "device": "mobile",
       "status": 200,
-      "loadMs": 3312,
-      "lcp_ms": 760,
+      "loadMs": 3280,
+      "lcp_ms": 728,
       "cls": 0.0039,
       "lcp_element": "H1",
       "budget": {
@@ -49,8 +58,8 @@
       "route": "/fiae-pruefungsvorbereitung",
       "device": "desktop",
       "status": 200,
-      "loadMs": 3254,
-      "lcp_ms": 724,
+      "loadMs": 3234,
+      "lcp_ms": 768,
       "cls": 0.0062,
       "lcp_element": "H1",
       "budget": {
@@ -64,8 +73,8 @@
       "route": "/bilanzbuchhalter-pruefungsvorbereitung",
       "device": "mobile",
       "status": 200,
-      "loadMs": 2881,
-      "lcp_ms": 740,
+      "loadMs": 2753,
+      "lcp_ms": 696,
       "cls": 0.0096,
       "lcp_element": "H1",
       "budget": {
@@ -79,8 +88,8 @@
       "route": "/bilanzbuchhalter-pruefungsvorbereitung",
       "device": "desktop",
       "status": 200,
-      "loadMs": 2882,
-      "lcp_ms": 780,
+      "loadMs": 2707,
+      "lcp_ms": 668,
       "cls": 0,
       "lcp_element": "H1",
       "budget": {
@@ -94,8 +103,8 @@
       "route": "/pruefungstraining-azubis",
       "device": "mobile",
       "status": 200,
-      "loadMs": 2712,
-      "lcp_ms": 1024,
+      "loadMs": 2599,
+      "lcp_ms": 912,
       "cls": 0.0151,
       "lcp_element": "H1",
       "budget": {
@@ -109,8 +118,8 @@
       "route": "/pruefungstraining-azubis",
       "device": "desktop",
       "status": 200,
-      "loadMs": 2654,
-      "lcp_ms": 964,
+      "loadMs": 2757,
+      "lcp_ms": 1132,
       "cls": 0.0293,
       "lcp_element": "H1",
       "budget": {
