@@ -110,25 +110,53 @@ export function useOralExam({ curriculumId, mode = 'practice', totalQuestions = 
         }
       });
 
-      if (error) throw error;
-      
+      // FunctionsHttpError carries the body in error.context — extract it for the user.
+      if (error) {
+        let serverMsg: string | undefined;
+        let serverCode: string | undefined;
+        try {
+          const ctx: any = (error as any).context;
+          const raw = typeof ctx?.json === 'function' ? await ctx.json() : ctx?.body ?? ctx;
+          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          serverMsg = parsed?.message ?? parsed?.error;
+          serverCode = parsed?.error;
+        } catch { /* noop */ }
+        const composed = serverMsg || (error as Error).message || 'Unbekannter Fehler';
+        const err = new Error(composed);
+        (err as any).code = serverCode;
+        throw err;
+      }
+      if (data?.error) {
+        throw new Error(data?.message ?? data.error);
+      }
+
       setSession(data.session);
       setCurrentQuestion(data.firstQuestion);
       setEvaluation(null);
-      
+
       return data;
     } catch (error) {
-      console.error('Failed to start oral exam:', error);
+      const err = error as Error & { code?: string };
+      console.error('Failed to start oral exam:', err);
+      const friendly =
+        err.code === 'NO_ORAL_BLUEPRINTS'
+          ? 'Für diesen Beruf sind noch keine geprüften Oral-Blueprints freigegeben. Bitte wähle einen anderen Beruf oder versuche es später erneut.'
+          : err.message?.includes('Unauthorized') || err.message?.includes('Invalid token')
+            ? 'Bitte melde dich an, um die Prüfungssimulation zu starten.'
+            : err.message?.includes('Rate limit')
+              ? 'Du hast in kurzer Zeit zu viele Prüfungen gestartet. Bitte warte einen Moment.'
+              : err.message || 'Die Prüfung konnte nicht gestartet werden.';
       toast({
-        title: 'Fehler',
-        description: 'Die Prüfung konnte nicht gestartet werden.',
+        title: 'Prüfung konnte nicht gestartet werden',
+        description: friendly,
         variant: 'destructive'
       });
-      throw error;
+      throw err;
     } finally {
       setIsLoading(false);
     }
   }, [curriculumId, mode, totalQuestions, topicKeys, toast, targetLang]);
+
 
 
 
