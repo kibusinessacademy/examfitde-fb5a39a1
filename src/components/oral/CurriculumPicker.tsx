@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
-import { BookOpen, Search, Sparkles, Star, X } from 'lucide-react';
+import { BookOpen, CheckCircle2, Lock, Search, Sparkles, Star, X, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { useOralCurriculaReadinessBulk } from '@/hooks/useOralStartability';
 import {
   buildCurriculumIndex,
   filterCurricula,
@@ -11,6 +13,7 @@ import {
   type CurriculumCategory,
   type CurriculumDisplay,
 } from '@/lib/curriculumDisplay';
+
 
 const CATEGORY_CHIPS: { key: CurriculumCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'Alle' },
