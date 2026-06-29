@@ -362,6 +362,8 @@ const SeoHealthPage = lazyRetry(() => import('@/pages/admin/governance/SeoHealth
 const ProductHealthPage = lazyRetry(() => import('@/pages/admin/governance/ProductHealthPage'));
 const SelfHealHealthPage = lazyRetry(() => import('@/pages/admin/governance/SelfHealHealthPage'));
 const SellHealthPage = lazyRetry(() => import('@/pages/admin/governance/SellHealthPage'));
+const SeoOperationsLivePage = lazyRetry(() => import('@/pages/admin/SeoOperationsLivePage'));
+const BerufBacklinkRulesPage = lazyRetry(() => import('@/pages/admin/BerufBacklinkRulesPage'));
 const ExamFitDesignSystemDemoPage = lazyRetry(() => import('@/pages/design/ExamFitDesignSystemDemo'));
 const BerufOSGraphPage = lazyRetry(() => import('@/pages/admin/BerufOSGraphPage'));
 const PlatformConsciencePage = lazyRetry(() => import('@/pages/admin/PlatformConsciencePage'));
@@ -919,6 +921,9 @@ const AppRoutes = () => {
           <Route path="governance/product-health" element={<ProductHealthPage />} />
           <Route path="governance/self-heal-health" element={<SelfHealHealthPage />} />
           <Route path="governance/sell-health" element={<SellHealthPage />} />
+          <Route path="governance/seo-operations-live" element={<SeoOperationsLivePage />} />
+          <Route path="governance/beruf-backlink-rules" element={<BerufBacklinkRulesPage />} />
+
           <Route path="seo/indexnow" element={<IndexNowDashboardPage />} />
           <Route path="tools/bulk-course-export" element={<BulkCourseExportPage />} />
           <Route path="tools/mobile-bundle-builder" element={<MobileBundleBuilderPage />} />
