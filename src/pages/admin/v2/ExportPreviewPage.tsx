@@ -144,7 +144,7 @@ const FileRow = ({
   );
 };
 
-function VirtualTree({
+export function VirtualTree({
   tree,
   selected,
   toggle,
