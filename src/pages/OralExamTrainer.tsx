@@ -35,6 +35,8 @@ import { useOralExam, type EvaluationResult } from '@/hooks/useOralExam';
 import { useProductAccessByCurriculum } from '@/hooks/useProductAccess';
 import { Paywall } from '@/components/shop/Paywall';
 import { cn } from '@/lib/utils';
+import { CurriculumPicker } from '@/components/oral/CurriculumPicker';
+import { rememberRecentCurriculum } from '@/lib/curriculumDisplay';
 import { useToast } from '@/hooks/use-toast';
 import PageExplainer from '@/components/admin/PageExplainer';
 import { useTerminology } from '@/hooks/useProgramType';
