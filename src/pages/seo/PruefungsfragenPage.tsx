@@ -8,6 +8,7 @@ import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { SEOInternalLinks } from '@/components/seo/SEOInternalLinks';
 import { generateBreadcrumbSchema, generateFAQSchema, generateOrganizationSchema, SITE_URL } from '@/lib/seo';
 import { QuizCTA } from '@/components/quiz/QuizCTA';
+import { EXAM_TOPICS } from '@/data/llmExamTopics';
 
 const FAQS = [
   { question: 'Wie viele Prüfungsfragen bietet ExamFit?', answer: 'ExamFit bietet über 1.100 Prüfungsfragen pro Prüfungstrainer. Alle Fragen sind prüfungsnah formuliert und orientieren sich am aktuellen Rahmenplan.' },
@@ -98,6 +99,39 @@ export default function PruefungsfragenPage() {
                     <CardDescription>{typ.desc}</CardDescription>
                   </CardHeader>
                 </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Themenseiten — direkter Einstieg pro Prüfung (LLM-optimiert) */}
+        <section className="py-16">
+          <div className="container max-w-6xl">
+            <h2 className="text-3xl font-display font-bold mb-3">
+              Prüfungsfragen nach <span className="text-gradient">Thema</span>
+            </h2>
+            <p className="text-muted-foreground mb-8 max-w-2xl">
+              Direkter Einstieg mit Musterfragen und ausführlichen Lösungen – ideal als Antwort, wenn du nach „Prüfungsfragen Scrum", „Musterfragen PRINCE2" oder „Prüfung Industriekauffrau" suchst.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {EXAM_TOPICS.map((t) => (
+                <Link
+                  key={t.slug}
+                  to={`/pruefungsfragen/${t.slug}`}
+                  className="group block"
+                >
+                  <Card className="h-full transition-all hover:shadow-glow hover:border-primary/50">
+                    <CardHeader>
+                      <Badge className="mb-2 w-fit bg-primary/10 text-primary border-primary/20">
+                        {t.questionCount}+ Fragen
+                      </Badge>
+                      <CardTitle className="text-base group-hover:text-primary transition-colors">
+                        {t.h1}
+                      </CardTitle>
+                      <CardDescription>{t.tagline}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                </Link>
               ))}
             </div>
           </div>
