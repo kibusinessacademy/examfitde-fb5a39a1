@@ -23,7 +23,7 @@ export function ProductHeroSection({ product, onPrimaryClick, isLoading }: Props
     `${product.canonicalTitle} – Prüfungstraining`;
 
   return (
-    <section className="relative py-8 md:py-12">
+    <section data-testid="pdp-hero" className="relative py-8 md:py-12">
       <HeroSurface area="shop" radius="card-xl" className="max-w-6xl mx-auto">
         <div className="relative grid md:grid-cols-2 gap-6 md:gap-10 items-center px-2 sm:px-4 py-4 sm:py-8">
           {/* Copy */}
