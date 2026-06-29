@@ -4,7 +4,7 @@ import DOMPurify from 'dompurify';
 import { useCertificationSEOPage } from '@/hooks/useCertificationSEO';
 import { useCertificationSeoMapping, buildBuyCtaUrl } from '@/hooks/useCertificationSeoMapping';
 import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
-import { Loader2, ArrowRight, BookOpen, Target, Brain, CheckCircle2, Award } from 'lucide-react';
+import { ArrowRight, BookOpen, Target, Brain, CheckCircle2, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
