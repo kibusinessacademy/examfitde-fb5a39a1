@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { BookOpen, CheckCircle2, Lock, RotateCcw, Search, Sparkles, Star, X, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,9 @@ import {
   type CurriculumSort,
 } from '@/lib/curriculumDisplay';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const VIRTUALIZE_THRESHOLD = 40;
+const ROW_ESTIMATE_PX = 60;
 
 
 const CATEGORY_CHIPS: { key: CurriculumCategory | 'all'; label: string }[] = [
@@ -213,18 +217,13 @@ export function CurriculumPicker({
             )}
           </div>
         ) : (
-          <div className="grid gap-2" data-testid="oral-curriculum-grid">
-            {filtered.map((item) => (
-              <CurriculumRow
-                key={item.id}
-                item={item}
-                selected={selectedId === item.id}
-                onSelect={onSelect}
-                readiness={readinessMap?.get(item.id)}
-                isLoggedIn={isLoggedIn}
-              />
-            ))}
-          </div>
+          <VirtualizedCurriculumList
+            items={filtered}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            readinessMap={readinessMap}
+            isLoggedIn={isLoggedIn}
+          />
         )}
       </Section>
     </div>
@@ -321,7 +320,7 @@ function StartabilityBadge({ readiness, isLoggedIn }: { readiness: ReadinessInfo
   );
 }
 
-function CurriculumRow({
+const CurriculumRow = memo(function CurriculumRow({
   item,
   selected,
   onSelect,
@@ -372,6 +371,120 @@ function CurriculumRow({
         )}
       </div>
     </button>
+  );
+});
+
+function VirtualizedCurriculumList({
+  items,
+  selectedId,
+  onSelect,
+  readinessMap,
+  isLoggedIn,
+}: {
+  items: CurriculumDisplay[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  readinessMap?: Map<string, { hasBlueprints: boolean; blueprintCount: number }>;
+  isLoggedIn: boolean;
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  // Below threshold → render normally (avoids virtualization overhead for short lists).
+  if (items.length < VIRTUALIZE_THRESHOLD) {
+    return (
+      <div className="grid gap-2" data-testid="oral-curriculum-grid">
+        {items.map((item) => (
+          <CurriculumRow
+            key={item.id}
+            item={item}
+            selected={selectedId === item.id}
+            onSelect={onSelect}
+            readiness={readinessMap?.get(item.id)}
+            isLoggedIn={isLoggedIn}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // Cap height so the inner window virtualizes; preserves page-level scroll feel.
+  const maxHeight = Math.min(720, items.length * ROW_ESTIMATE_PX);
+
+  return (
+    <VirtualList
+      parentRef={parentRef}
+      maxHeight={maxHeight}
+      items={items}
+      selectedId={selectedId}
+      onSelect={onSelect}
+      readinessMap={readinessMap}
+      isLoggedIn={isLoggedIn}
+    />
+  );
+}
+
+function VirtualList({
+  parentRef,
+  maxHeight,
+  items,
+  selectedId,
+  onSelect,
+  readinessMap,
+  isLoggedIn,
+}: {
+  parentRef: React.RefObject<HTMLDivElement>;
+  maxHeight: number;
+  items: CurriculumDisplay[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  readinessMap?: Map<string, { hasBlueprints: boolean; blueprintCount: number }>;
+  isLoggedIn: boolean;
+}) {
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_ESTIMATE_PX,
+    overscan: 8,
+  });
+
+  return (
+    <div
+      ref={parentRef}
+      data-testid="oral-curriculum-grid"
+      className="overflow-auto rounded-md border border-border/40"
+      style={{ height: maxHeight }}
+    >
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+        {virtualizer.getVirtualItems().map((vi) => {
+          const item = items[vi.index];
+          return (
+            <div
+              key={item.id}
+              data-index={vi.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                transform: `translateY(${vi.start}px)`,
+                paddingBottom: 8,
+                paddingLeft: 4,
+                paddingRight: 4,
+              }}
+            >
+              <CurriculumRow
+                item={item}
+                selected={selectedId === item.id}
+                onSelect={onSelect}
+                readiness={readinessMap?.get(item.id)}
+                isLoggedIn={isLoggedIn}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

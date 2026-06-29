@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   buildTree,
   downloadFilteredZip,
@@ -15,8 +16,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw, Info } from "lucide-react";
+import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw, Info, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+
+const ROW_HEIGHT = 28;
 
 function FileIcon({ file }: { file: ManifestFile }) {
   if (file.kind === "blocked") return <FileWarning className="h-3.5 w-3.5 text-destructive" />;
@@ -24,96 +27,202 @@ function FileIcon({ file }: { file: ManifestFile }) {
   return <FileText className="h-3.5 w-3.5 text-muted-foreground" />;
 }
 
-function TreeRow({
-  node,
-  depth,
-  selected,
-  toggle,
-  onPick,
-  pickedPath,
-}: {
-  node: TreeNode;
-  depth: number;
-  selected: Set<string>;
-  toggle: (paths: string[], next: boolean) => void;
-  onPick: (file: ManifestFile) => void;
-  pickedPath: string | null;
-}) {
-  const [open, setOpen] = useState(depth < 2);
-  if (node.isFile && node.file) {
-    const f = node.file;
-    const isSel = selected.has(f.path);
-    const isBlocked = f.kind === "blocked";
-    return (
-      <div
-        className={`flex items-center gap-2 px-2 py-1 rounded text-xs cursor-pointer hover:bg-muted/50 ${
-          pickedPath === f.path ? "bg-muted" : ""
-        }`}
-        style={{ paddingLeft: depth * 12 + 8 }}
-        onClick={() => onPick(f)}
-      >
-        <Checkbox
-          checked={isSel}
-          disabled={isBlocked}
-          onClick={(e) => e.stopPropagation()}
-          onCheckedChange={(v) => toggle([f.path], v === true)}
-        />
-        <FileIcon file={f} />
-        <span className={`truncate flex-1 ${isBlocked ? "text-destructive line-through" : ""}`}>
-          {node.name}
-        </span>
-        <span className="text-[10px] text-muted-foreground">{humanBytes(f.size)}</span>
-      </div>
-    );
-  }
-  // directory
-  const allLeafPaths = useMemo(() => collectFilePaths(node), [node]);
-  const allSelected = allLeafPaths.length > 0 && allLeafPaths.every((p) => selected.has(p));
-  const someSelected = allLeafPaths.some((p) => selected.has(p));
-  return (
-    <div>
-      <div
-        className="flex items-center gap-2 px-2 py-1 rounded text-xs hover:bg-muted/50"
-        style={{ paddingLeft: depth * 12 + 8 }}
-      >
-        <Checkbox
-          checked={allSelected ? true : someSelected ? "indeterminate" : false}
-          onCheckedChange={(v) => toggle(allLeafPaths, v === true)}
-        />
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          className="flex items-center gap-1.5 flex-1 text-left"
-        >
-          {open ? (
-            <FolderOpen className="h-3.5 w-3.5 text-primary" />
-          ) : (
-            <FolderClosed className="h-3.5 w-3.5 text-primary" />
-          )}
-          <span className="truncate font-medium">{node.name || "/"}</span>
-          <span className="text-[10px] text-muted-foreground">({allLeafPaths.length})</span>
-        </button>
-      </div>
-      {open &&
-        node.children.map((c) => (
-          <TreeRow
-            key={c.path}
-            node={c}
-            depth={depth + 1}
-            selected={selected}
-            toggle={toggle}
-            onPick={onPick}
-            pickedPath={pickedPath}
-          />
-        ))}
-    </div>
-  );
-}
+type FlatRow =
+  | { kind: "dir"; node: TreeNode; depth: number; leafPaths: string[] }
+  | { kind: "file"; file: ManifestFile; name: string; depth: number };
 
 function collectFilePaths(node: TreeNode): string[] {
   if (node.isFile && node.file && node.file.kind !== "blocked") return [node.file.path];
   return node.children.flatMap(collectFilePaths);
 }
+
+/** Flatten the visible tree honoring `openDirs`. Memoize on caller. */
+function flattenTree(root: TreeNode, openDirs: Set<string>): FlatRow[] {
+  const out: FlatRow[] = [];
+  const walk = (nodes: TreeNode[], depth: number) => {
+    for (const n of nodes) {
+      if (n.isFile && n.file) {
+        out.push({ kind: "file", file: n.file, name: n.name, depth });
+      } else {
+        out.push({ kind: "dir", node: n, depth, leafPaths: collectFilePaths(n) });
+        if (openDirs.has(n.path)) walk(n.children, depth + 1);
+      }
+    }
+  };
+  walk(root.children, 0);
+  return out;
+}
+
+const DirRow = ({
+  row,
+  isOpen,
+  onToggleOpen,
+  selected,
+  toggle,
+}: {
+  row: Extract<FlatRow, { kind: "dir" }>;
+  isOpen: boolean;
+  onToggleOpen: (path: string) => void;
+  selected: Set<string>;
+  toggle: (paths: string[], next: boolean) => void;
+}) => {
+  const { node, depth, leafPaths } = row;
+  const allSelected = leafPaths.length > 0 && leafPaths.every((p) => selected.has(p));
+  const someSelected = !allSelected && leafPaths.some((p) => selected.has(p));
+  return (
+    <div
+      className="flex items-center gap-2 px-2 rounded text-xs hover:bg-muted/50"
+      style={{ paddingLeft: depth * 12 + 8, height: ROW_HEIGHT }}
+    >
+      <Checkbox
+        checked={allSelected ? true : someSelected ? "indeterminate" : false}
+        onCheckedChange={(v) => toggle(leafPaths, v === true)}
+      />
+      <button
+        type="button"
+        onClick={() => onToggleOpen(node.path)}
+        className="flex items-center gap-1.5 flex-1 text-left min-w-0"
+      >
+        {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        {isOpen ? (
+          <FolderOpen className="h-3.5 w-3.5 text-primary" />
+        ) : (
+          <FolderClosed className="h-3.5 w-3.5 text-primary" />
+        )}
+        <span className="truncate font-medium">{node.name || "/"}</span>
+        <span className="text-[10px] text-muted-foreground">({leafPaths.length})</span>
+      </button>
+    </div>
+  );
+};
+
+const FileRow = ({
+  row,
+  picked,
+  onPick,
+  selected,
+  toggle,
+}: {
+  row: Extract<FlatRow, { kind: "file" }>;
+  picked: boolean;
+  onPick: (f: ManifestFile) => void;
+  selected: Set<string>;
+  toggle: (paths: string[], next: boolean) => void;
+}) => {
+  const { file, name, depth } = row;
+  const isSel = selected.has(file.path);
+  const isBlocked = file.kind === "blocked";
+  return (
+    <div
+      className={`flex items-center gap-2 px-2 rounded text-xs cursor-pointer hover:bg-muted/50 ${
+        picked ? "bg-muted" : ""
+      }`}
+      style={{ paddingLeft: depth * 12 + 8, height: ROW_HEIGHT }}
+      onClick={() => onPick(file)}
+    >
+      <Checkbox
+        checked={isSel}
+        disabled={isBlocked}
+        onClick={(e) => e.stopPropagation()}
+        onCheckedChange={(v) => toggle([file.path], v === true)}
+      />
+      <FileIcon file={file} />
+      <span className={`truncate flex-1 ${isBlocked ? "text-destructive line-through" : ""}`}>
+        {name}
+      </span>
+      <span className="text-[10px] text-muted-foreground">{humanBytes(file.size)}</span>
+    </div>
+  );
+};
+
+function VirtualTree({
+  tree,
+  selected,
+  toggle,
+  onPick,
+  pickedPath,
+}: {
+  tree: TreeNode;
+  selected: Set<string>;
+  toggle: (paths: string[], next: boolean) => void;
+  onPick: (f: ManifestFile) => void;
+  pickedPath: string | null;
+}) {
+  // Initial open: top two depths.
+  const [openDirs, setOpenDirs] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    const seed = (nodes: TreeNode[], depth: number) => {
+      for (const n of nodes) {
+        if (!n.isFile && depth < 2) {
+          s.add(n.path);
+          seed(n.children, depth + 1);
+        }
+      }
+    };
+    seed(tree.children, 0);
+    return s;
+  });
+
+  const onToggleOpen = useCallback((path: string) => {
+    setOpenDirs((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    });
+  }, []);
+
+  const rows = useMemo(() => flattenTree(tree, openDirs), [tree, openDirs]);
+
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 16,
+  });
+
+  return (
+    <div ref={parentRef} className="h-[70vh] overflow-auto py-2">
+      <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+        {virtualizer.getVirtualItems().map((vi) => {
+          const row = rows[vi.index];
+          return (
+            <div
+              key={vi.key}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                transform: `translateY(${vi.start}px)`,
+              }}
+            >
+              {row.kind === "dir" ? (
+                <DirRow
+                  row={row}
+                  isOpen={openDirs.has(row.node.path)}
+                  onToggleOpen={onToggleOpen}
+                  selected={selected}
+                  toggle={toggle}
+                />
+              ) : (
+                <FileRow
+                  row={row}
+                  picked={pickedPath === row.file.path}
+                  onPick={onPick}
+                  selected={selected}
+                  toggle={toggle}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
 
 function FilePreview({ file, inlineLimit }: { file: ManifestFile | null; inlineLimit: number }) {
   if (!file) {
@@ -292,21 +401,13 @@ export default function ExportPreviewPage() {
               <CardTitle className="text-sm">Dateien</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[70vh]">
-                <div className="py-2">
-                  {tree.children.map((n) => (
-                    <TreeRow
-                      key={n.path}
-                      node={n}
-                      depth={0}
-                      selected={selected}
-                      toggle={toggle}
-                      onPick={setPicked}
-                      pickedPath={picked?.path ?? null}
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
+              <VirtualTree
+                tree={tree}
+                selected={selected}
+                toggle={toggle}
+                onPick={setPicked}
+                pickedPath={picked?.path ?? null}
+              />
             </CardContent>
           </Card>
           <Card className="overflow-hidden">
