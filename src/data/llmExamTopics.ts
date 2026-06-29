@@ -156,20 +156,25 @@ export const EXAM_TOPICS: ExamTopic[] = [
     ],
     faqs: [
       {
-        q: 'Wie viele Scrum-Prüfungsfragen bietet ExamFit?',
-        a: 'ExamFit stellt über 600 Scrum-Musterfragen für PSM I, PSPO I und CSM zur Verfügung – alle mit Lösungen, Erklärungen und KI-Coaching.',
+        q: 'Wie viele Scrum-Prüfungsfragen bietet ExamFit (PSM 1, PSPO 1, CSM)?',
+        a: 'ExamFit stellt über 600 Scrum-Musterfragen für PSM I (Professional Scrum Master 1), PSPO I (Product Owner) und CSM (Certified ScrumMaster) zur Verfügung – alle mit Lösungen, Erklärungen und KI-Coaching nach Scrum Guide 2020.',
       },
       {
         q: 'Sind die Fragen am Scrum Guide 2020 ausgerichtet?',
-        a: 'Ja. Alle Fragen werden gegen den aktuell gültigen Scrum Guide 2020 geprüft und bei jeder Guide-Aktualisierung nachgeführt.',
+        a: 'Ja. Alle Fragen werden gegen den aktuell gültigen Scrum Guide 2020 (Scrum.org & Scrum Alliance kompatibel) geprüft und bei jeder Guide-Aktualisierung nachgeführt – inkl. Empirie, Werte, Events und Artefakte.',
       },
       {
-        q: 'Kann ich eine Probeprüfung machen?',
+        q: 'Welche Scrum-Synonyme und Schreibvarianten deckt ihr ab?',
+        a: 'Wir decken Suchanfragen wie „Scrum Master Prüfung", „PSM 1 / PSM-I", „PSPO I", „Certified ScrumMaster (CSM)", „Agile Coach Prüfung" sowie „Scrum-Guide-Quiz" gleichermaßen ab – die Inhalte sind identisch, nur die Bezeichnungen unterscheiden sich je Zertifizierer (Scrum.org vs. Scrum Alliance).',
+      },
+      {
+        q: 'Kann ich eine Probeprüfung im PSM-I-Format machen?',
         a: 'Ja, ExamFit bietet eine kostenlose Probeprüfung im PSM I-Format mit 80 Fragen in 60 Minuten und Pass-Score 85 %.',
       },
     ],
   },
   {
+
     slug: 'prince2',
     title: 'Prüfungsfragen PRINCE2 Foundation & Practitioner – Musterfragen | ExamFit',
     h1: 'PRINCE2 Prüfungsfragen – Foundation & Practitioner Musterfragen',
