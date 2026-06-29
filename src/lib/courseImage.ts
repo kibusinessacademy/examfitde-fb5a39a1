@@ -31,5 +31,10 @@ export function resolveCourseImage(opts: {
 export const COURSE_CARD_SIZES =
   '(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw';
 
+/**
+ * PDP-Hero-Bild: Container ist max-w-6xl (1152px) mit 2-Spalten-Grid ab md.
+ * Mobile: füllt Viewport (Hero ist `order-first` → LCP-Kandidat).
+ * Tablet/md: ~45vw pro Spalte. Desktop ≥ Container-Breite: feste 560px.
+ */
 export const COURSE_HERO_SIZES =
-  '(min-width: 768px) 560px, 100vw';
+  '(min-width: 1152px) 560px, (min-width: 768px) 45vw, 100vw';

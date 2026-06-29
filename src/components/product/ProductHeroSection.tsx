@@ -86,7 +86,7 @@ export function ProductHeroSection({ product, onPrimaryClick, isLoading }: Props
             </div>
           </div>
 
-          {/* Visual */}
+          {/* Visual — Mobile LCP-Kandidat (order-first). Eager + high priority. */}
           <div className="relative order-first md:order-last">
             <div className="relative rounded-2xl overflow-hidden aspect-[4/3] md:aspect-[5/4] shadow-2xl ring-1 ring-white/10">
               <img
@@ -97,8 +97,10 @@ export function ProductHeroSection({ product, onPrimaryClick, isLoading }: Props
                 decoding="async"
                 fetchPriority="high"
                 sizes={COURSE_HERO_SIZES}
-                width={1120}
-                height={896}
+                // Intrinsische Größe matched Mobile-Box (4:3) — Desktop reskaliert via CSS.
+                // Verhindert Layout-Shift auf Mobile, wo Hero das LCP-Element ist.
+                width={1200}
+                height={900}
               />
               <div className="absolute inset-0 bg-gradient-to-tr from-black/55 via-black/10 to-transparent" />
               {product.kammer && (
