@@ -617,5 +617,34 @@ export const EXAM_TOPICS: ExamTopic[] = [
 ];
 
 export function getExamTopicBySlug(slug: string): ExamTopic | undefined {
-  return EXAM_TOPICS.find((t) => t.slug === slug);
+  const t = EXAM_TOPICS.find((t) => t.slug === slug);
+  if (!t) return undefined;
+  const kw = TOPIC_KEYWORDS[slug];
+  // Merge in keyword/synonym data without mutating original.
+  return {
+    ...t,
+    keywords: t.keywords ?? kw?.keywords,
+    synonyms: t.synonyms ?? kw?.synonyms,
+  };
 }
+
+/** Liefert verwandte Topics — bevorzugt explizite relatedSlugs, sonst alle anderen Topics. */
+export function getRelatedTopics(slug: string, limit = 3): ExamTopic[] {
+  const t = EXAM_TOPICS.find((x) => x.slug === slug);
+  const ids = new Set<string>(t?.relatedSlugs ?? []);
+  const out: ExamTopic[] = [];
+  for (const id of ids) {
+    const found = EXAM_TOPICS.find((x) => x.slug === id);
+    if (found) out.push(found);
+  }
+  if (out.length < limit) {
+    for (const x of EXAM_TOPICS) {
+      if (x.slug === slug) continue;
+      if (out.find((y) => y.slug === x.slug)) continue;
+      out.push(x);
+      if (out.length >= limit) break;
+    }
+  }
+  return out.slice(0, limit);
+}
+
