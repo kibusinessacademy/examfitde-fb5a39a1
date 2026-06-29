@@ -600,7 +600,7 @@ function emptyResult(
 export function projectOralVisualFeedbackForLearner(
   result: OralVisualFeedbackResult,
 ): OralVisualLearnerProjection {
-  const note =
+  const disclaimer =
     "Strukturhinweise zu deiner Antwort — keine mündliche Bewertung.";
   if (!result.learner_visible || result.blockers.length > 0) {
     return {
@@ -610,7 +610,7 @@ export function projectOralVisualFeedbackForLearner(
       hints: [],
       learner_visible: false,
       empty: true,
-      note,
+      disclaimer,
     };
   }
   const seen = new Set<VloOralSignalKind>();
@@ -634,7 +634,7 @@ export function projectOralVisualFeedbackForLearner(
     hints,
     learner_visible: true,
     empty: hints.length === 0,
-    note,
+    disclaimer,
   };
 }
 
