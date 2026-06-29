@@ -21,16 +21,8 @@ import type {
   OralVisualLearnerProjection,
 } from "@/lib/visual-learning-os/oral-visual-feedback";
 
-const FORBIDDEN_LEARNER_TOKENS = [
-  "note ",
-  "note.",
-  "bestanden",
-  "nicht bestanden",
-  "prüfungsreife",
-  "pruefungsreife",
-  "grade",
-  "score-gewicht",
-];
+const FORBIDDEN_TOKENS_RE =
+  /\b(note|noten|bestanden|nicht\s+bestanden|pr(?:ü|ue)fungsreife|grade|score[-\s]?gewicht)\b/i;
 
 const ALLOWED_HINT_KINDS: ReadonlyArray<OralVisualLearnerHint["kind"]> = [
   "key_node_missing",
@@ -43,8 +35,7 @@ const ALLOWED_HINT_KINDS: ReadonlyArray<OralVisualLearnerHint["kind"]> = [
 ];
 
 function isLearnerSafe(text: string): boolean {
-  const low = String(text ?? "").toLowerCase();
-  return !FORBIDDEN_LEARNER_TOKENS.some((t) => low.includes(t));
+  return !FORBIDDEN_TOKENS_RE.test(String(text ?? ""));
 }
 
 /**
