@@ -299,6 +299,10 @@ export default function OralExamTrainer() {
   );
   const curriculumTitle = curricula?.find(c => c.id === selectedCurriculum)?.title;
 
+  // SSOT für Startfähigkeit: Auth + Entitlement + Blueprint-Verfügbarkeit
+  const startability = useOralStartability(selectedCurriculum);
+  const [lastStartError, setLastStartError] = useState<{ code?: string; message?: string } | null>(null);
+
   // Themen (Lernfelder) für aktives Curriculum
   const { data: topics } = useQuery({
     queryKey: ['oral-exam-topics', selectedCurriculum],
