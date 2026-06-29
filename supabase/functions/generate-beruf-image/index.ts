@@ -26,25 +26,14 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const PROMPT_VERSION = 2;
 
 type SceneSpec = {
-  /** Stable scene identifier for analytics (never reuse / never rename). */
   id: string;
-  /** Trade-specific subject + outfit, e.g. "young KFZ-Mechatroniker apprentice in dark blue overalls". */
   subject: string;
-  /** Setting: where the apprentice works. */
   setting: string;
-  /** Action / tool detail — what they are doing right now. */
   action: string;
-  /** Short German noun phrase used in the alt-text ("Maurer-Auszubildender auf einer Baustelle"). */
   altRole: string;
   altScene: string;
 };
 
-
-/**
- * Map a course / Beruf title to a richer, profession-specific scene. The
- * rules are ordered specific → generic (same precedence as
- * src/lib/berufImage.ts). The first match wins.
- */
 const SCENE_RULES: Array<[RegExp, SceneSpec]> = [
   [/(aevo|ausbildereignung|ada[-\s]?schein)/i, {
     id: "aevo-trainer",
@@ -232,7 +221,6 @@ const SCENE_RULES: Array<[RegExp, SceneSpec]> = [
   }],
 ];
 
-
 function sceneFor(title: string, kammer: string | null): SceneSpec {
   for (const [re, spec] of SCENE_RULES) if (re.test(title)) return spec;
   if (kammer === "HWK") {
@@ -269,14 +257,19 @@ function buildPrompt(scene: SceneSpec, kammer?: string | null): string {
 }
 
 /**
- * Build an SEO-friendly German alt-text used in <img alt="…">.
- * Includes profession context + apprentice term so screen-reader users
- * and search engines (Maurer-Prüfungsfragen, Bankkaufmann-Prüfungsvorbereitung, …)
- * understand the scene without seeing it.
+ * SEO + a11y alt-text. NEVER returns empty: falls back to the profession
+ * title so screen readers always announce something meaningful even when
+ * the scene metadata is incomplete.
  */
-function buildAltText(title: string, scene: SceneSpec, kammer: string | null): string {
-  const kammerSuffix = kammer ? ` (${kammer})` : "";
-  return `${scene.altRole} ${scene.altScene} – Berufsbild für ${title}${kammerSuffix}.`;
+export function buildAltText(title: string, scene: SceneSpec | null, kammer: string | null): string {
+  const safeTitle = (title ?? "").trim();
+  if (scene && scene.altRole && scene.altScene) {
+    const kammerSuffix = kammer ? ` (${kammer})` : "";
+    const suffix = safeTitle ? ` – Berufsbild für ${safeTitle}${kammerSuffix}.` : `${kammerSuffix}.`;
+    return `${scene.altRole} ${scene.altScene}${suffix}`;
+  }
+  if (safeTitle) return `Authentisches Berufsbild für ${safeTitle}${kammer ? ` (${kammer})` : ""}.`;
+  return "Authentisches deutsches Berufsbild mit Auszubildender und Mentor.";
 }
 
 async function generateImageB64(prompt: string): Promise<string> {
@@ -309,11 +302,56 @@ function b64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
+/**
+ * Structured generation event. We both
+ *   - persist to `beruf_image_generation_events` (forensic table), and
+ *   - emit a single-line JSON to `console.log` so Lovable Cloud edge logs are
+ *     greppable: `[beruf-image-event] {"slug":..., "event":...}`
+ */
+async function logEvent(
+  sb: ReturnType<typeof createClient>,
+  payload: {
+    slug: string;
+    event: "queued" | "generating" | "ready" | "failed" | "retry_requested";
+    scene_id?: string | null;
+    prompt_version?: number | null;
+    model?: string | null;
+    duration_ms?: number | null;
+    error?: string | null;
+    force_requested?: boolean;
+    meta?: Record<string, unknown>;
+  },
+) {
+  const line = JSON.stringify({
+    t: new Date().toISOString(),
+    src: "generate-beruf-image",
+    ...payload,
+  });
+  console.log(`[beruf-image-event] ${line}`);
+  try {
+    await sb.from("beruf_image_generation_events").insert({
+      slug: payload.slug,
+      event: payload.event,
+      scene_id: payload.scene_id ?? null,
+      prompt_version: payload.prompt_version ?? null,
+      model: payload.model ?? null,
+      duration_ms: payload.duration_ms ?? null,
+      error: payload.error ? String(payload.error).slice(0, 1000) : null,
+      force_requested: payload.force_requested ?? false,
+      meta: payload.meta ?? {},
+    });
+  } catch (e) {
+    // Never let logging break generation.
+    console.warn(`[beruf-image-event] persist-fail ${payload.slug}: ${(e as Error).message}`);
+  }
+}
+
 async function generateAndStore(
   sb: ReturnType<typeof createClient>,
   slug: string,
   title: string,
   kammer: string | null,
+  forceRequested: boolean,
 ) {
   const scene = sceneFor(title, kammer);
   const prompt = buildPrompt(scene, kammer);
@@ -333,6 +371,28 @@ async function generateAndStore(
       kammer,
     },
   };
+
+  // Mark generating before the slow gateway call so the UI can show progress.
+  await sb.from("beruf_image_cache").upsert({
+    slug,
+    title,
+    kammer,
+    status: "generating",
+    error: null,
+    prompt_version: PROMPT_VERSION,
+    updated_at: new Date().toISOString(),
+    ...baseMeta,
+  });
+  await logEvent(sb, {
+    slug,
+    event: "generating",
+    scene_id: scene.id,
+    prompt_version: PROMPT_VERSION,
+    model: MODEL,
+    force_requested: forceRequested,
+  });
+
+  const startedAt = Date.now();
   try {
     const b64 = await generateImageB64(prompt);
     const bytes = b64ToBytes(b64);
@@ -359,10 +419,17 @@ async function generateAndStore(
       updated_at: new Date().toISOString(),
       ...baseMeta,
     });
-    console.log(`[beruf-image] ready ${slug} scene=${scene.id} v${PROMPT_VERSION}`);
+    await logEvent(sb, {
+      slug,
+      event: "ready",
+      scene_id: scene.id,
+      prompt_version: PROMPT_VERSION,
+      model: MODEL,
+      duration_ms: Date.now() - startedAt,
+      force_requested: forceRequested,
+    });
   } catch (e) {
-    const msg = (e as Error).message;
-    console.error(`[beruf-image] fail ${slug} scene=${scene.id}: ${msg}`);
+    const msg = (e as Error).message ?? String(e);
     await sb.from("beruf_image_cache").upsert({
       slug,
       title,
@@ -373,10 +440,18 @@ async function generateAndStore(
       updated_at: new Date().toISOString(),
       ...baseMeta,
     });
+    await logEvent(sb, {
+      slug,
+      event: "failed",
+      scene_id: scene.id,
+      prompt_version: PROMPT_VERSION,
+      model: MODEL,
+      duration_ms: Date.now() - startedAt,
+      error: msg,
+      force_requested: forceRequested,
+    });
   }
 }
-
-
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -400,6 +475,7 @@ Deno.serve(async (req) => {
     ? body.items
     : (body.slug && body.title ? [{ slug: body.slug, title: body.title, kammer: body.kammer ?? null }] : []);
   if (!items.length) return json({ error: "no items" }, 400);
+  const force = Boolean(body.force);
 
   const slugs = items.map((i) => i.slug);
   const { data: rows } = await sb
@@ -409,11 +485,10 @@ Deno.serve(async (req) => {
   const known = new Map((rows ?? []).map((r) => [r.slug, r]));
 
   const toGenerate = items.filter((it) => {
-    if (body.force) return true;
+    if (force) return true;
     const r = known.get(it.slug) as { status: string; image_url: string | null; prompt_version: number | null } | undefined;
     if (!r) return true;
-    if (r.status === "pending") return false;
-    // Regenerate stale prompt versions even if image is "ready"
+    if (r.status === "pending" || r.status === "generating") return false;
     if ((r.prompt_version ?? 1) < PROMPT_VERSION) return true;
     if (r.status === "ready" && r.image_url) return false;
     return true; // failed → retry
@@ -429,12 +504,21 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       })),
     );
+    // Emit queued events (one per slug). Retry-with-force gets a separate
+    // marker so the audit timeline shows admin-initiated regenerations.
+    await Promise.all(toGenerate.map((it) => logEvent(sb, {
+      slug: it.slug,
+      event: force ? "retry_requested" : "queued",
+      prompt_version: PROMPT_VERSION,
+      model: MODEL,
+      force_requested: force,
+    })));
   }
 
   // @ts-ignore Deno EdgeRuntime global
   EdgeRuntime.waitUntil((async () => {
     for (const it of toGenerate) {
-      await generateAndStore(sb, it.slug, it.title, it.kammer ?? null);
+      await generateAndStore(sb, it.slug, it.title, it.kammer ?? null, force);
     }
   })());
 
