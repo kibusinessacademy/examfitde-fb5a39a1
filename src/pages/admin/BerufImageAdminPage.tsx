@@ -138,9 +138,9 @@ export default function BerufImageAdminPage() {
         scene_id: draft.scene_id ?? null,
         prompt_text: draft.prompt_text ?? null,
         model: draft.model ?? null,
-        prompt_version: draft.prompt_version ?? null,
+        prompt_version: (draft.prompt_version as number | null | undefined) ?? undefined,
         alt_text: draft.alt_text ?? null,
-        meta: metaParsed ?? {},
+        meta: (metaParsed ?? {}) as never,
       })
       .eq('slug', selectedRow.slug);
     setSaving(false);
