@@ -4,7 +4,7 @@
  * Harte Regeln (siehe oral-visual-policy.ts):
  *  - keine DB-/HTTP-Aufrufe, keine Mutationen, keine AI-Aufrufe
  *  - keine eigene Bewertung; nur Anzeige vorbereiteter Projection
- *  - keine Aussagen zu Prüfungsergebnis oder Prüfungsreife
+ *  - keine Aussagen zur Ergebnisreife
  *  - keine internen Workflow-/Backstage-Texte
  */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
