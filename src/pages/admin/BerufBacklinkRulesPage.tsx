@@ -9,7 +9,8 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Plus, Save, Trash2, RefreshCw, Link2 } from "lucide-react";
+import { Loader2, Plus, Save, Trash2, RefreshCw, Link2, Sparkles } from "lucide-react";
+import { EXAM_TOPICS } from "@/data/llmExamTopics";
 
 interface BacklinkRule {
   id: string;
@@ -28,7 +29,49 @@ interface BacklinkRule {
 
 interface Beruf { id: string; bezeichnung_kurz: string }
 
-const LINK_TYPES = ["cluster_to_pillar", "cluster_to_product", "cluster_to_cluster", "rule_curated"];
+const LINK_TYPES = [
+  "cluster_to_pillar",
+  "cluster_to_product",
+  "cluster_to_cluster",
+  "cluster_to_pricing",
+  "cluster_to_topic",
+  "rule_curated",
+];
+
+type TargetKind = "beruf" | "shop" | "pricing" | "topic" | "custom";
+
+const TARGET_KINDS: { value: TargetKind; label: string }[] = [
+  { value: "beruf",   label: "Beruf-Kategorie (/berufe/…)" },
+  { value: "shop",    label: "Kurs-/Shop-Seite (/shop/…)" },
+  { value: "pricing", label: "Preise (/preise)" },
+  { value: "topic",   label: "Topic (/pruefungsfragen/:thema)" },
+  { value: "custom",  label: "Custom URL" },
+];
+
+const PRICING_PRESETS: { url: string; label: string; anchor: string }[] = [
+  { url: "/preise",            label: "Preise & Pakete", anchor: "Preise & Pakete ansehen" },
+  { url: "/preise#einzelkurs", label: "Einzelkurs",      anchor: "Einzelkurs-Preise" },
+  { url: "/preise#all-access", label: "All-Access",      anchor: "All-Access-Paket" },
+  { url: "/preise#team",       label: "Team-Lizenz",     anchor: "Team-Lizenz für Unternehmen" },
+];
+
+function classifyTarget(url: string): TargetKind {
+  const u = (url || "").trim().toLowerCase();
+  if (!u) return "custom";
+  if (u === "/preise" || u.startsWith("/preise#") || u.startsWith("/preise?")) return "pricing";
+  if (u.startsWith("/pruefungsfragen/")) return "topic";
+  if (u.startsWith("/berufe/")) return "beruf";
+  if (u.startsWith("/shop/") || u.startsWith("/kurs/")) return "shop";
+  return "custom";
+}
+
+function suggestedLinkType(kind: TargetKind, fallback: string): string {
+  if (kind === "pricing") return "cluster_to_pricing";
+  if (kind === "topic")   return "cluster_to_topic";
+  if (kind === "beruf")   return "cluster_to_pillar";
+  if (kind === "shop")    return "cluster_to_product";
+  return fallback;
+}
 
 export default function BerufBacklinkRulesPage() {
   const qc = useQueryClient();
