@@ -452,7 +452,7 @@ export default function BerufePage() {
                             <div className="relative aspect-[16/10] overflow-hidden bg-muted">
                               <img
                                 src={img}
-                                alt=""
+                                alt={imgAlt}
                                 loading="lazy"
                                 width={768}
                                 height={512}
@@ -507,7 +507,7 @@ export default function BerufePage() {
                         <div className="relative aspect-[16/10] overflow-hidden bg-muted">
                           <img
                             src={img}
-                            alt=""
+                            alt={imgAlt}
                             loading="lazy"
                             width={768}
                             height={512}
