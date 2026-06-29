@@ -135,18 +135,33 @@ export function CurriculumPicker({
           </Button>
         ))}
         </div>
-        <Select value={sort} onValueChange={(v) => setSort(v as CurriculumSort)}>
-          <SelectTrigger className="h-8 w-[180px]" data-testid="oral-sort-select" aria-label="Sortierung">
-            <SelectValue placeholder="Sortierung" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="relevance">Relevanz (empfohlen)</SelectItem>
-            <SelectItem value="popularity">Beliebtheit</SelectItem>
-            <SelectItem value="az">Name A–Z</SelectItem>
-            <SelectItem value="za">Name Z–A</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={sort} onValueChange={(v) => setSort(v as CurriculumSort)}>
+            <SelectTrigger className="h-8 w-[180px]" data-testid="oral-sort-select" aria-label="Sortierung">
+              <SelectValue placeholder="Sortierung" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="relevance">Relevanz (empfohlen)</SelectItem>
+              <SelectItem value="popularity">Beliebtheit</SelectItem>
+              <SelectItem value="az">Name A–Z</SelectItem>
+              <SelectItem value="za">Name Z–A</SelectItem>
+            </SelectContent>
+          </Select>
+          {filtersActive && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={resetFilters}
+              data-testid="oral-reset-filters"
+              aria-label="Filter zurücksetzen"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1" /> Filter zurücksetzen
+            </Button>
+          )}
+        </div>
       </div>
+
 
       {showQuickRows && recent.length > 0 && (
         <Section title="Zuletzt genutzt" icon={<Star className="h-4 w-4 text-amber-500" />}>
