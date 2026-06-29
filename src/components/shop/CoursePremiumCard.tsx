@@ -68,31 +68,31 @@ export function CoursePremiumCard({
         className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-start justify-between gap-2">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="absolute top-2 left-2 right-2 sm:top-2.5 sm:left-2.5 sm:right-2.5 flex items-start justify-between gap-2">
+        <div className="flex flex-wrap gap-1 sm:gap-1.5 min-w-0">
           {chamber && (
-            <Badge variant="secondary" className="backdrop-blur bg-white/85 text-foreground border-0 text-[11px] px-2 py-0.5">
+            <Badge variant="secondary" className="backdrop-blur bg-white/85 text-foreground border-0 text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 shrink-0">
               {chamber}
             </Badge>
           )}
           {isSoon && (
-            <Badge variant="secondary" className="backdrop-blur bg-white/85 text-foreground border-0 gap-1 text-[11px] px-2 py-0.5">
+            <Badge variant="secondary" className="backdrop-blur bg-white/85 text-foreground border-0 gap-1 text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 shrink-0">
               <Clock className="h-3 w-3" /> Bald
             </Badge>
           )}
         </div>
         {priceLabel && (
-          <span className="shrink-0 inline-flex items-center rounded-full bg-white/95 text-foreground text-xs sm:text-sm font-semibold px-2.5 py-1 shadow-sm whitespace-nowrap">
+          <span className="shrink-0 inline-flex items-center rounded-full bg-white/95 text-foreground text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 sm:py-1 shadow-sm whitespace-nowrap">
             {priceLabel}
           </span>
         )}
       </div>
-      <div className="absolute bottom-3 left-3 right-3">
-        <h3 className="text-white font-display font-bold text-base sm:text-lg leading-tight line-clamp-2 drop-shadow">
+      <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-3 sm:left-3 sm:right-3">
+        <h3 className="text-white font-display font-bold text-sm sm:text-base leading-tight line-clamp-2 drop-shadow">
           {title}
         </h3>
         {meta && (
-          <p className="text-white/85 text-[11px] sm:text-xs mt-1 line-clamp-1">{meta}</p>
+          <p className="text-white/85 text-[11px] sm:text-xs mt-0.5 sm:mt-1 line-clamp-1">{meta}</p>
         )}
       </div>
     </div>
@@ -113,27 +113,27 @@ export function CoursePremiumCard({
       )}
 
       {showFooter && (
-        <CardContent className="p-3 mt-auto flex items-stretch gap-2">
+        <CardContent className="p-2.5 sm:p-3.5 mt-auto flex items-stretch gap-1.5 sm:gap-2">
           {onPrimaryClick ? (
             <Button
               size="sm"
-              className="flex-1 min-w-0 gradient-primary text-primary-foreground shadow-glow h-10 px-3 text-sm"
+              className="flex-1 min-w-0 gradient-primary text-primary-foreground shadow-glow h-9 sm:h-10 px-2.5 sm:px-3 text-xs sm:text-sm"
               onClick={onPrimaryClick}
               disabled={primaryLoading}
             >
               {primaryLoading ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin shrink-0" />
+                <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 animate-spin shrink-0" />
               ) : (
-                <Icon className="h-4 w-4 mr-1 shrink-0" />
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 shrink-0" />
               )}
               <span className="truncate">
                 {primaryLoading ? 'Wird geladen…' : (primaryLabel ?? 'Mehr erfahren')}
               </span>
             </Button>
           ) : (
-            <Button asChild size="sm" className="flex-1 min-w-0 gradient-primary text-primary-foreground shadow-glow h-10 px-3 text-sm">
+            <Button asChild size="sm" className="flex-1 min-w-0 gradient-primary text-primary-foreground shadow-glow h-9 sm:h-10 px-2.5 sm:px-3 text-xs sm:text-sm">
               <Link to={href}>
-                <Icon className="h-4 w-4 mr-1 shrink-0" />
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 shrink-0" />
                 <span className="truncate">{primaryLabel ?? 'Mehr erfahren'}</span>
               </Link>
             </Button>
@@ -145,9 +145,9 @@ export function CoursePremiumCard({
               onClick={onSecondaryClick}
               aria-label={secondaryAriaLabel ?? `${title} – Vorschau`}
               title="Vorschau"
-              className="h-10 w-10 p-0 shrink-0"
+              className="h-9 w-9 sm:h-10 sm:w-10 p-0 shrink-0"
             >
-              <PlayCircle className="h-4 w-4" />
+              <PlayCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
           )}
         </CardContent>
