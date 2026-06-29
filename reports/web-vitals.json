@@ -1,6 +1,6 @@
 {
   "base_url": "http://localhost:8080",
-  "generated_at": "2026-06-29T05:53:32.705Z",
+  "generated_at": "2026-06-29T05:54:23.955Z",
   "budget": {
     "LCP_MS": 2500,
     "CLS": 0.1
@@ -13,8 +13,8 @@
       "route": "/berufe",
       "device": "mobile",
       "status": 200,
-      "loadMs": 8481,
-      "lcp_ms": 1120,
+      "loadMs": 8240,
+      "lcp_ms": 1012,
       "cls": 0,
       "lcp_element": "P",
       "budget": {
@@ -28,8 +28,8 @@
       "route": "/berufe",
       "device": "desktop",
       "status": 200,
-      "loadMs": 8908,
-      "lcp_ms": 1120,
+      "loadMs": 7211,
+      "lcp_ms": 988,
       "cls": 0.0682,
       "lcp_element": "H1",
       "budget": {
@@ -43,8 +43,8 @@
       "route": "/fiae-pruefungsvorbereitung",
       "device": "mobile",
       "status": 200,
-      "loadMs": 4023,
-      "lcp_ms": 880,
+      "loadMs": 3287,
+      "lcp_ms": 756,
       "cls": 0.0039,
       "lcp_element": "H1",
       "budget": {
@@ -58,8 +58,8 @@
       "route": "/fiae-pruefungsvorbereitung",
       "device": "desktop",
       "status": 200,
-      "loadMs": 3316,
-      "lcp_ms": 760,
+      "loadMs": 3220,
+      "lcp_ms": 672,
       "cls": 0.6529,
       "lcp_element": "H1",
       "budget": {
