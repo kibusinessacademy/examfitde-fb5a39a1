@@ -13,12 +13,13 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+const ROOT = process.cwd();
 const pdpPage = readFileSync(
-  resolve(__dirname, '../../pages/seo/CertificationSEOPage.tsx'),
+  resolve(ROOT, 'src/pages/seo/CertificationSEOPage.tsx'),
   'utf8',
 );
 const heroSection = readFileSync(
-  resolve(__dirname, '../../components/product/ProductHeroSection.tsx'),
+  resolve(ROOT, 'src/components/product/ProductHeroSection.tsx'),
   'utf8',
 );
 
