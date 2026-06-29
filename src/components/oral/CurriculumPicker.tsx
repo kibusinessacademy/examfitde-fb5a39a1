@@ -12,7 +12,9 @@ import {
   getRecentCurriculumIds,
   type CurriculumCategory,
   type CurriculumDisplay,
+  type CurriculumSort,
 } from '@/lib/curriculumDisplay';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const CATEGORY_CHIPS: { key: CurriculumCategory | 'all'; label: string }[] = [
@@ -43,6 +45,7 @@ export function CurriculumPicker({
 }: CurriculumPickerProps) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CurriculumCategory | 'all'>('all');
+  const [sort, setSort] = useState<CurriculumSort>('relevance');
   const { user } = useAuth();
 
   const index = useMemo(() => buildCurriculumIndex(curricula), [curricula]);
@@ -67,8 +70,9 @@ export function CurriculumPicker({
         query,
         category,
         recentIds: query ? [] : recentIds,
+        sort,
       }),
-    [index, query, category, recentIds],
+    [index, query, category, recentIds, sort],
   );
 
   const showQuickRows = !query && category === 'all';
@@ -105,7 +109,8 @@ export function CurriculumPicker({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Kategorien">
+      <div className="flex flex-wrap items-center gap-2 justify-between">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Kategorien">
         {CATEGORY_CHIPS.map((chip) => (
           <Button
             key={chip.key}
@@ -118,6 +123,18 @@ export function CurriculumPicker({
             {chip.label}
           </Button>
         ))}
+        </div>
+        <Select value={sort} onValueChange={(v) => setSort(v as CurriculumSort)}>
+          <SelectTrigger className="h-8 w-[180px]" data-testid="oral-sort-select" aria-label="Sortierung">
+            <SelectValue placeholder="Sortierung" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="relevance">Relevanz (empfohlen)</SelectItem>
+            <SelectItem value="popularity">Beliebtheit</SelectItem>
+            <SelectItem value="az">Name A–Z</SelectItem>
+            <SelectItem value="za">Name Z–A</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {showQuickRows && recent.length > 0 && (
