@@ -171,9 +171,19 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://ubdvvvsiryenhrfmqsvw.supabase.co" />
 
-    <!-- Async font loading to avoid render-blocking -->
+    <!-- PDP.HERO.FONT.PRELOAD.1 — selbstgehostete Latin-Subsets der Hero-Fonts
+         (LCP-Text: H1 Space Grotesk 700 + Body Inter 400/600/700).
+         `crossorigin` ist Pflicht, sonst zählt der Preload nicht für @font-face.
+         @font-face-Regeln in src/index.css matchen exakt dieselben URLs +
+         unicode-range — kein Doppel-Download. Google-CSS unten lädt
+         async für alle weiteren Subsets (Cyrillic/Greek/…) als Fallback. -->
+    <link rel="preload" href="/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/spacegrotesk-700-latin.woff2" as="font" type="font/woff2" crossorigin fetchpriority="high" />
+
+    <!-- Async font loading to avoid render-blocking (latin-ext + Cyrillic/Greek/Vietnamese fallback subsets) -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" /></noscript>
+
 
     <!-- Structured Data — BerufOS Masterbrand (Hardcut 2026-05-25) -->
     <script type="application/ld+json">
