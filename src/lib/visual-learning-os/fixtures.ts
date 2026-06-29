@@ -273,3 +273,108 @@ export const VLO_MASTERY_ADMIN_PROJECTION_FIXTURE: VisualMasteryAdminProjection 
   note: "Visual Learning ist ein ergänzendes Signal, keine alleinige Mastery-Entscheidung.",
 };
 
+// ---------------------------------------------------------------------------
+// Cut 9 — Oral Visual Feedback Fixtures (learner-safe).
+// ---------------------------------------------------------------------------
+
+import type {
+  OralVisualQuestionContext,
+  OralVisualAnswerSignal,
+  OralVisualArtifactMapping,
+  OralVisualFeedbackResult,
+  OralVisualLearnerProjection,
+  OralVisualAdminProjection,
+  OralVisualFeedbackItem,
+} from "./oral-visual-feedback";
+
+const ORAL_SOURCE_REF = "ssot://curriculum/fixture-curr#fixture-comp/oral";
+
+export const ORAL_QUESTION_CONTEXT_FIXTURE: OralVisualQuestionContext = {
+  curriculum_id: "fixture-curr",
+  competence_id: "fixture-comp",
+  oral_question_id: "fixture-oq-1",
+  learner: { session_id: "fixture-session" },
+  answer_submitted: true,
+};
+
+export const ORAL_ANSWER_SIGNAL_FIXTURE: OralVisualAnswerSignal = {
+  created_order: 1,
+  detail: "Antwort markiert",
+};
+
+export const ORAL_ARTIFACT_MAPPING_FIXTURE: OralVisualArtifactMapping = {
+  oral_question_id: "fixture-oq-1",
+  competence_id: "fixture-comp",
+  visual_artifact_id: "fixture-art-approved-mapped",
+  expected_node_ids: ["n1", "n2", "n3"],
+  expected_edge_ids: ["n1->n2", "n2->n3"],
+  covered_node_ids: ["n1"],
+  covered_edge_ids: [],
+  misconception_ids: ["mc-1"],
+};
+
+const ORAL_FEEDBACK_ITEM_FIXTURE: OralVisualFeedbackItem = {
+  curriculum_id: "fixture-curr",
+  competence_id: "fixture-comp",
+  oral_question_id: "fixture-oq-1",
+  visual_artifact_id: "fixture-art-approved-mapped",
+  misconception_id: "mc-1",
+  signal_kind: "misconception_risk",
+  severity: 5,
+  confidence: "high",
+  reason: "In der Antwort wurde eine bekannte typische Verwechslung markiert.",
+  evidence: [
+    { source: "mapping_misconception", detail: "misconception mc-1", created_order: 1 },
+  ],
+  source_refs: [ORAL_SOURCE_REF],
+  created_order: 1,
+};
+
+export const ORAL_VISUAL_FEEDBACK_RESULT_FIXTURE: OralVisualFeedbackResult = {
+  curriculum_id: "fixture-curr",
+  competence_id: "fixture-comp",
+  oral_question_id: "fixture-oq-1",
+  items: [ORAL_FEEDBACK_ITEM_FIXTURE],
+  blockers: [],
+  warnings: [],
+  learner_visible: true,
+  is_supplemental_only: true,
+  is_final_oral_grade: false,
+};
+
+export const ORAL_VISUAL_LEARNER_PROJECTION_FIXTURE: OralVisualLearnerProjection = {
+  curriculum_id: "fixture-curr",
+  competence_id: "fixture-comp",
+  oral_question_id: "fixture-oq-1",
+  hints: [
+    {
+      kind: "misconception_risk",
+      message: "Achte besonders auf diese typische Verwechslung.",
+      text_alt: "Strukturhinweis: typische Verwechslung markiert.",
+    },
+  ],
+  learner_visible: true,
+  empty: false,
+  disclaimer: "Strukturhinweise zu deiner Antwort — keine mündliche Bewertung.",
+};
+
+export const ORAL_VISUAL_ADMIN_PROJECTION_FIXTURE: OralVisualAdminProjection = {
+  curriculum_id: "fixture-curr",
+  competence_id: "fixture-comp",
+  oral_question_id: "fixture-oq-1",
+  visual_artifact_id: "fixture-art-approved-mapped",
+  expected_node_ids: ["n1", "n2", "n3"],
+  expected_edge_ids: ["n1->n2", "n2->n3"],
+  covered_node_ids: ["n1"],
+  covered_edge_ids: [],
+  missing_node_ids: ["n2", "n3"],
+  missing_edge_ids: ["n1->n2", "n2->n3"],
+  misconception_ids: ["mc-1"],
+  signals: [ORAL_FEEDBACK_ITEM_FIXTURE],
+  warnings: [],
+  blockers: [],
+  is_supplemental_only: true,
+  is_final_oral_grade: false,
+  note: "Dieses Panel zeigt Strukturfeedback, keine finale mündliche Prüfungsbewertung.",
+};
+
