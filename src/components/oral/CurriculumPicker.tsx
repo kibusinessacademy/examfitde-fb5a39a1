@@ -320,7 +320,7 @@ function StartabilityBadge({ readiness, isLoggedIn }: { readiness: ReadinessInfo
   );
 }
 
-function CurriculumRow({
+const CurriculumRow = memo(function CurriculumRow({
   item,
   selected,
   onSelect,
