@@ -430,8 +430,10 @@ export default function BerufePage() {
                   {filteredCourses.map((entry) => {
                     const Icon = getCategoryIcon(entry);
                     const fallbackImg = getBerufImage(entry.title, entry.kammer);
-                    const realImg = imageBySlug.get(entry.publishedSlug || entry.slug);
+                    const slugKey = entry.publishedSlug || entry.slug;
+                    const realImg = imageBySlug.get(slugKey);
                     const img = realImg || fallbackImg;
+                    const imgStatus = realImg ? 'ready' : statusBySlug.get(slugKey);
                     if (entry.isPublished) {
                       const detailUrl =
                         entry.category && entry.category !== 'ausbildung'
