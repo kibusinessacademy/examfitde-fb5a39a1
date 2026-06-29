@@ -1,13 +1,14 @@
 import { Link, Navigate } from 'react-router-dom';
-import { ArrowRight, BookOpen, Target, Award, CheckCircle, Star, Shield, Clock } from 'lucide-react';
+import { ArrowRight, CheckCircle, Star, Shield, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useBerufPages } from '@/hooks/useSEOPages';
 import { SITE_URL, PRODUCT_PRICE_DISPLAY } from '@/lib/seo';
 import { PRICING } from '@/config/pricing';
+import { CoursePremiumCard } from '@/components/shop/CoursePremiumCard';
 
 /**
  * Single-product strategy: All product list pages redirect to one unified product page.
