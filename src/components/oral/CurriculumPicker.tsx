@@ -123,6 +123,18 @@ export function CurriculumPicker({
             {chip.label}
           </Button>
         ))}
+        </div>
+        <Select value={sort} onValueChange={(v) => setSort(v as CurriculumSort)}>
+          <SelectTrigger className="h-8 w-[180px]" data-testid="oral-sort-select" aria-label="Sortierung">
+            <SelectValue placeholder="Sortierung" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="relevance">Relevanz (empfohlen)</SelectItem>
+            <SelectItem value="popularity">Beliebtheit</SelectItem>
+            <SelectItem value="az">Name A–Z</SelectItem>
+            <SelectItem value="za">Name Z–A</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {showQuickRows && recent.length > 0 && (
