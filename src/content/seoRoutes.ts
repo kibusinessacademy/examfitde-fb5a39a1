@@ -750,6 +750,21 @@ function stubGroup(group: SitemapGroup, paths: string[]): SeoRoute[] {
 // ────────────────────────────────────────────────────────────
 import { EXAM_TOPICS } from "@/data/llmExamTopics";
 
+// Curated short titles (30..60 chars) to keep Google SERP snippets clean.
+const TOPIC_SHORT_TITLE: Record<string, string> = {
+  scrum: "Prüfungsfragen Scrum (PSM I) | ExamFit",
+  prince2: "Prüfungsfragen PRINCE2 Foundation | ExamFit",
+  industriekauffrau: "Prüfungsfragen Industriekauffrau | ExamFit",
+  bankkauffrau: "Prüfungsfragen Bankkauffrau / -mann | ExamFit",
+  fiae: "Prüfungsfragen Fachinformatiker AE | ExamFit",
+  aevo: "Prüfungsfragen AEVO (Ausbildereignung) | ExamFit",
+  bilanzbuchhalter: "Prüfungsfragen Bilanzbuchhalter | ExamFit",
+  wirtschaftsfachwirt: "Prüfungsfragen Wirtschaftsfachwirt | ExamFit",
+  maurer: "Prüfungsfragen Maurer (Gesellenprüfung) | ExamFit",
+  bwl: "BWL Klausurfragen mit Lösungen | ExamFit",
+};
+
+
 const topicLive: SeoRoute[] = EXAM_TOPICS.map((t) => {
   const introParts = [
     t.intro,
