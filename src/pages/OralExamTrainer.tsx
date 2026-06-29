@@ -864,15 +864,31 @@ export default function OralExamTrainer() {
               </ul>
             </div>
 
+            {selectedCurriculum && (
+              <OralStartabilityCard
+                startability={startability}
+                lastError={lastStartError}
+                curriculumId={selectedCurriculum}
+                curriculumTitle={curriculumTitle}
+                onRetry={() => { setLastStartError(null); handleStartExam(); }}
+              />
+            )}
+
             <Button
               size="lg"
               className="w-full"
-              disabled={!selectedCurriculum || isLoading}
+              disabled={
+                !selectedCurriculum ||
+                isLoading ||
+                startability.isLoading ||
+                startability.status !== 'ready'
+              }
               onClick={handleStartExam}
               data-testid="oral-start-cta"
               data-cta-location="oral_setup_start"
+              data-startability-status={startability.status}
             >
-              {isLoading ? (
+              {isLoading || startability.isLoading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Play className="h-4 w-4 mr-2" />
@@ -882,6 +898,7 @@ export default function OralExamTrainer() {
           </CardContent>
         </Card>
       )}
+
 
       {(phase === 'question' || phase === 'listening') && currentQuestion && (
         <Card className="glass-card">
