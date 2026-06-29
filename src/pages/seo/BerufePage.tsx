@@ -179,7 +179,7 @@ export default function BerufePage() {
         })),
     [filteredCourses],
   );
-  const { imageBySlug, statusBySlug, altBySlug } = useBerufImages(visibleForImages);
+  const { imageBySlug, statusBySlug, altBySlug, errorBySlug, retry } = useBerufImages(visibleForImages);
   const structuredData = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -434,6 +434,7 @@ export default function BerufePage() {
                     const realImg = imageBySlug.get(slugKey);
                     const img = realImg || fallbackImg;
                     const imgStatus = realImg ? 'ready' : statusBySlug.get(slugKey);
+                    const imgError = errorBySlug.get(slugKey) ?? null;
                     const imgAlt = altBySlug.get(slugKey)
                       || `Berufsbild für ${entry.title}${entry.kammer ? ` (${entry.kammer})` : ''} – Auszubildende im Beruf.`;
 
@@ -458,7 +459,12 @@ export default function BerufePage() {
                                 height={512}
                                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                               />
-                              <BerufImageStatusBadge status={imgStatus} className="top-3 right-3" />
+                              <BerufImageStatusBadge
+                                status={imgStatus}
+                                errorReason={imgError}
+                                onRetry={() => retry(slugKey)}
+                                className="top-3 right-3"
+                              />
                               <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
                               <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                                 <Badge className="bg-primary text-primary-foreground border-0 text-[11px] shadow-sm">
@@ -513,7 +519,12 @@ export default function BerufePage() {
                             height={512}
                             className="h-full w-full object-cover opacity-50 grayscale"
                           />
-                          <BerufImageStatusBadge status={imgStatus} className="top-3 right-3" />
+                          <BerufImageStatusBadge
+                            status={imgStatus}
+                            errorReason={imgError}
+                            onRetry={() => retry(slugKey)}
+                            className="top-3 right-3"
+                          />
                           <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
                           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                             <Badge variant="outline" className="text-[11px] bg-background/90 text-muted-foreground backdrop-blur-sm">
