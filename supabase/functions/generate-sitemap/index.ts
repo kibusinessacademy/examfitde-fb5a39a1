@@ -295,8 +295,12 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
       const { data: store } = await sb.from("store_products")
         .select("name, updated_at, image_url").eq("is_active", true).limit(500);
       for (const s of store || []) {
-        urls.push({ loc: `${SITE_URL}/shop/${generateSlug(s.name)}`, lastmod: (s.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.6 });
+        const images = s.image_url
+          ? [{ loc: s.image_url.startsWith("http") ? s.image_url : `${SITE_URL}${s.image_url}`, title: s.name, caption: `${s.name} – ExamFit Kurspaket` }]
+          : undefined;
+        urls.push({ loc: `${SITE_URL}/shop/${generateSlug(s.name)}`, lastmod: (s.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.6, images });
       }
+
       console.info(`[generate-sitemap] class=products count=${urls.length}`);
       return xmlResponse(toSitemapXML(urls), headers);
     }
