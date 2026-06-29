@@ -481,6 +481,52 @@ export default function ExportPreviewPage() {
         </CardContent>
       </Card>
 
+      {validation && data && (
+        <Alert variant={validation.blocking ? "destructive" : "default"}>
+          {validation.ok ? (
+            <ShieldCheck className="h-4 w-4" />
+          ) : validation.blocking ? (
+            <ShieldAlert className="h-4 w-4" />
+          ) : (
+            <Info className="h-4 w-4" />
+          )}
+          <AlertTitle className="flex items-center gap-2">
+            Offline-Export-Validierung
+            {!validation.ok && !validation.blocking && (
+              <Button size="sm" variant="outline" className="ml-auto h-7" onClick={handleAutoFix}>
+                <Wand2 className="h-3 w-3 mr-1" /> Fehlendes ergänzen
+              </Button>
+            )}
+          </AlertTitle>
+          <AlertDescription className="text-xs space-y-2">
+            <div>{validation.summary}</div>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+              {validation.reports.map((r) => (
+                <li key={r.category} className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      r.blocked.length > 0 || (r.critical && r.total === 0)
+                        ? "destructive"
+                        : r.missing > 0
+                          ? "secondary"
+                          : "outline"
+                    }
+                  >
+                    {r.label}
+                  </Badge>
+                  <span className="text-muted-foreground">
+                    {r.selected}/{r.total} enthalten
+                    {r.missing > 0 ? `, ${r.missing} fehlen` : ""}
+                    {r.blocked.length > 0 ? `, ${r.blocked.length} blockiert` : ""}
+                    {r.critical ? " · kritisch" : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {tree && data && (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(300px,1fr)_2fr] gap-4">
           <Card className="overflow-hidden">
