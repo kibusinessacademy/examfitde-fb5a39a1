@@ -4,7 +4,7 @@ import { Sparkles, ArrowRight, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { ProductPageSSOT } from '@/types/product-page';
 import { HeroSurface } from '@/components/examfit-ds';
-import { getBerufImage } from '@/lib/berufImage';
+import { resolveCourseImage, COURSE_HERO_SIZES } from '@/lib/courseImage';
 
 interface Props {
   product: ProductPageSSOT;
@@ -13,9 +13,11 @@ interface Props {
 }
 
 export function ProductHeroSection({ product, onPrimaryClick, isLoading }: Props) {
-  const heroImg =
-    product.images?.heroImageUrl ||
-    getBerufImage(product.canonicalTitle || product.berufDisplayName || '', product.kammer);
+  const heroImg = resolveCourseImage({
+    explicit: product.images?.heroImageUrl,
+    title: product.canonicalTitle || product.berufDisplayName || '',
+    chamber: product.kammer,
+  });
   const heroAlt =
     product.images?.heroImageAlt ||
     `${product.canonicalTitle} – Prüfungstraining`;
@@ -92,6 +94,11 @@ export function ProductHeroSection({ product, onPrimaryClick, isLoading }: Props
                 alt={heroAlt}
                 className="absolute inset-0 h-full w-full object-cover"
                 loading="eager"
+                decoding="async"
+                fetchPriority="high"
+                sizes={COURSE_HERO_SIZES}
+                width={1120}
+                height={896}
               />
               <div className="absolute inset-0 bg-gradient-to-tr from-black/55 via-black/10 to-transparent" />
               {product.kammer && (
