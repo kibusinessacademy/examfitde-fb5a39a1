@@ -119,6 +119,7 @@ export default function PruefungsfragenPage() {
                   key={t.slug}
                   to={`/pruefungsfragen/${t.slug}`}
                   className="group block"
+                  aria-label={`Prüfungsfragen für ${t.h1}`}
                 >
                   <Card className="h-full transition-all hover:shadow-glow hover:border-primary/50">
                     <CardHeader>
@@ -134,8 +135,36 @@ export default function PruefungsfragenPage() {
                 </Link>
               ))}
             </div>
+
+            {/* Ähnliche-Themen-Brücken: explizite Cross-Links für Crawler & Nutzer */}
+            <div className="mt-10 p-6 rounded-xl border border-border bg-card/40">
+              <h3 className="text-lg font-semibold mb-3">Beliebte Themenbrücken</h3>
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                <li>
+                  <Link className="text-primary hover:underline" to="/pruefungsfragen/scrum">Scrum (PSM I / PSPO)</Link>
+                  {' ↔ '}
+                  <Link className="text-primary hover:underline" to="/pruefungsfragen/prince2">PRINCE2 Foundation</Link>
+                </li>
+                <li>
+                  <Link className="text-primary hover:underline" to="/pruefungsfragen/industriekauffrau">Industriekauffrau IHK</Link>
+                  {' ↔ '}
+                  <Link className="text-primary hover:underline" to="/pruefungsfragen/bankkauffrau">Bankkauffrau IHK</Link>
+                </li>
+                <li>
+                  <Link className="text-primary hover:underline" to="/pruefungsfragen/fiae">Fachinformatiker AE</Link>
+                  {' ↔ '}
+                  <Link className="text-primary hover:underline" to="/pruefungsfragen/scrum">Scrum</Link>
+                </li>
+                <li>
+                  <Link className="text-primary hover:underline" to="/pruefungsfragen/wirtschaftsfachwirt">Wirtschaftsfachwirt</Link>
+                  {' ↔ '}
+                  <Link className="text-primary hover:underline" to="/pruefungsfragen/bilanzbuchhalter">Bilanzbuchhalter</Link>
+                </li>
+              </ul>
+            </div>
           </div>
         </section>
+
 
         {/* Vorteile */}
         <section className="py-16">
