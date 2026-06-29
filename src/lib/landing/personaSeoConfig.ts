@@ -4,6 +4,7 @@
  */
 
 import type { PersonaProfile } from "@/lib/persona-profiles";
+import { buildHeroPhrasing } from "@/lib/hero/heroPhrasing";
 
 export type SeoPersonaType = "azubi" | "sachkunde" | "fachwirt" | "studium";
 
