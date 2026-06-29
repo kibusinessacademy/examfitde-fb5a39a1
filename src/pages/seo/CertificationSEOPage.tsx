@@ -64,18 +64,12 @@ const CertificationSEOPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, mapping?.package_id]);
 
-  // CLS-stable: kein spinner-only Fallback bei isLoading mehr — die Hero-Shell unten
-  // reserviert Höhe via min-h-Tokens (PDP.HERO.CLS.STABILIZE.1). Nur echte NotFound
-  // (geladen + leer) kürzt ab.
-  if (!isLoading && !page) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center min-h-[60vh]">
-        <h1 className="text-3xl font-bold mb-4">Seite nicht gefunden</h1>
-        <p className="text-muted-foreground mb-8">Die angeforderte Prüfungsseite wurde nicht gefunden.</p>
-        <Link to="/" className="text-primary hover:underline">Zurück zur Startseite</Link>
-      </div>
-    );
-  }
+  // PDP.HERO.CLS.STABILIZE.1: Kein früher NotFound/Spinner-Branch mehr.
+  // Die Hero-Shell unten rendert IMMER mit slugFallbackTitle + min-h-Tokens,
+  // sodass weder DB-Miss (page=null) noch async resolve einen Layout-Shift
+  // (gemessen 0.65 desktop) auslöst. Bei wirklich fehlendem Mapping wird der
+  // Notice-Slot informativ befüllt.
+
 
   // CLS-stable: Fallback-Titel aus Slug, falls page noch lädt — Hero rendert sofort
   // mit stabiler Höhe, der spätere echte Titel ersetzt den Fallback ohne Layout-Shift.
