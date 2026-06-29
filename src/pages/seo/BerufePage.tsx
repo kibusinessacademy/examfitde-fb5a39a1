@@ -13,6 +13,7 @@ import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
 import publishedBerufeFallback from '@/data/publishedBerufeFallback.json';
 import { getBerufImage } from '@/lib/berufImage';
 import { useBerufImages } from '@/hooks/useBerufImages';
+import { BerufImageStatusBadge } from '@/components/berufe/BerufImageStatusBadge';
 import { useCatalogCacheSignal } from '@/hooks/useCatalogCacheSignal';
 
 
