@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { BookOpen, CheckCircle2, Lock, Search, Sparkles, Star, X, AlertTriangle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { BookOpen, CheckCircle2, Lock, RotateCcw, Search, Sparkles, Star, X, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +48,9 @@ export function CurriculumPicker({
   const [sort, setSort] = useState<CurriculumSort>('relevance');
   const { user } = useAuth();
 
+  // Debounce query so fast typing doesn't re-sort/filter on every keystroke.
+  const debouncedQuery = useDebouncedValue(query, 140);
+
   const index = useMemo(() => buildCurriculumIndex(curricula), [curricula]);
   const recentIds = useMemo(() => getRecentCurriculumIds(), []);
 
@@ -67,17 +70,25 @@ export function CurriculumPicker({
   const filtered = useMemo(
     () =>
       filterCurricula(index, {
-        query,
+        query: debouncedQuery,
         category,
-        recentIds: query ? [] : recentIds,
+        recentIds: debouncedQuery ? [] : recentIds,
         sort,
       }),
-    [index, query, category, recentIds, sort],
+    [index, debouncedQuery, category, recentIds, sort],
   );
 
-  const showQuickRows = !query && category === 'all';
+  const showQuickRows = !debouncedQuery && category === 'all';
   const readinessMap = readinessBulk.data;
   const isLoggedIn = !!user;
+  const filtersActive = query.length > 0 || category !== 'all' || sort !== 'relevance';
+
+  const resetFilters = () => {
+    setQuery('');
+    setCategory('all');
+    setSort('relevance');
+  };
+
 
 
   return (
@@ -124,18 +135,33 @@ export function CurriculumPicker({
           </Button>
         ))}
         </div>
-        <Select value={sort} onValueChange={(v) => setSort(v as CurriculumSort)}>
-          <SelectTrigger className="h-8 w-[180px]" data-testid="oral-sort-select" aria-label="Sortierung">
-            <SelectValue placeholder="Sortierung" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="relevance">Relevanz (empfohlen)</SelectItem>
-            <SelectItem value="popularity">Beliebtheit</SelectItem>
-            <SelectItem value="az">Name A–Z</SelectItem>
-            <SelectItem value="za">Name Z–A</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={sort} onValueChange={(v) => setSort(v as CurriculumSort)}>
+            <SelectTrigger className="h-8 w-[180px]" data-testid="oral-sort-select" aria-label="Sortierung">
+              <SelectValue placeholder="Sortierung" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="relevance">Relevanz (empfohlen)</SelectItem>
+              <SelectItem value="popularity">Beliebtheit</SelectItem>
+              <SelectItem value="az">Name A–Z</SelectItem>
+              <SelectItem value="za">Name Z–A</SelectItem>
+            </SelectContent>
+          </Select>
+          {filtersActive && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={resetFilters}
+              data-testid="oral-reset-filters"
+              aria-label="Filter zurücksetzen"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1" /> Filter zurücksetzen
+            </Button>
+          )}
+        </div>
       </div>
+
 
       {showQuickRows && recent.length > 0 && (
         <Section title="Zuletzt genutzt" icon={<Star className="h-4 w-4 text-amber-500" />}>
@@ -159,9 +185,32 @@ export function CurriculumPicker({
         }
       >
         {filtered.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-            Kein Beruf gefunden. Versuche es mit einem anderen Suchbegriff oder einer anderen
-            Kategorie.
+          <div
+            className="rounded-lg border border-dashed p-6 text-center space-y-3"
+            data-testid="oral-curriculum-empty"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="mx-auto h-9 w-9 rounded-full bg-muted flex items-center justify-center">
+              <Search className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="text-sm font-medium">Kein Beruf gefunden</div>
+            <div className="text-xs text-muted-foreground">
+              {query
+                ? <>Für „<span className="font-medium">{query}</span>"{category !== 'all' ? ' in dieser Kategorie' : ''} gibt es keine Treffer.</>
+                : 'In dieser Kategorie sind keine Curricula verfügbar.'}
+            </div>
+            {filtersActive && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={resetFilters}
+                data-testid="oral-empty-reset"
+              >
+                <RotateCcw className="h-3.5 w-3.5 mr-1" /> Filter zurücksetzen
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid gap-2" data-testid="oral-curriculum-grid">
@@ -325,4 +374,18 @@ function CurriculumRow({
     </button>
   );
 }
+
+/**
+ * Lightweight debounce hook — avoids re-running expensive filter/sort on every
+ * keystroke during rapid typing. SSR-safe (no window dependency).
+ */
+function useDebouncedValue<T>(value: T, delay = 140): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
 
