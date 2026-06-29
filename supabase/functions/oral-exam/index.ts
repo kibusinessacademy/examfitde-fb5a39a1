@@ -213,11 +213,20 @@ Deno.serve(async (req) => {
     return json(result, origin);
   } catch (error) {
     console.error("[OralExam] Error:", error);
-    return json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      origin,
-      500,
-    );
+    const raw = error instanceof Error ? error.message : "Unknown error";
+    let parsed: any = null;
+    try { parsed = JSON.parse(raw); } catch { /* not structured */ }
+    if (parsed && typeof parsed === "object" && parsed.error) {
+      const code = String(parsed.error);
+      const status =
+        code === "NOT_ENTITLED" ? 403 :
+        code === "INVALID_CURRICULUM" ? 400 :
+        code === "NO_ORAL_BLUEPRINTS" ? 422 :
+        code === "ENTITLEMENT_CHECK_FAILED" ? 503 :
+        500;
+      return json(parsed, origin, status);
+    }
+    return json({ error: "INTERNAL_ERROR", message: raw }, origin, 500);
   }
 });
 
