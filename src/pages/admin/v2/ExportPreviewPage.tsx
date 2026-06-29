@@ -11,8 +11,11 @@ import {
   type TreeNode,
 } from "@/lib/factory/exportManifest";
 import {
+  autoIncludeCategoryPaths,
   autoIncludeCriticalPaths,
+  toCopyableSummary,
   validateExportCompleteness,
+  type ExportCategory,
   type ExportValidationReport,
 } from "@/lib/factory/exportValidation";
 import { Button } from "@/components/ui/button";
@@ -21,7 +24,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw, Info, ChevronRight, ChevronDown, ShieldAlert, ShieldCheck, Wand2 } from "lucide-react";
+import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw, Info, ChevronRight, ChevronDown, ShieldAlert, ShieldCheck, Wand2, Copy, ChevronsUpDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 
 const ROW_HEIGHT = 28;
