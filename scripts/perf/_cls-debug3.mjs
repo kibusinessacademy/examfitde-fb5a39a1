@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ headless: true, executablePath: '/chromium_headless_shell-1194/chrome-linux/headless_shell' });
+const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+const page = await ctx.newPage();
+const navs = [];
+page.on('framenavigated', f => navs.push(f.url()));
+const reqs = [];
+page.on('request', r => { if (r.resourceType() === 'document') reqs.push(r.url()); });
+await page.goto('http://localhost:8080/fiae-pruefungsvorbereitung', { waitUntil: 'networkidle' });
+console.log('NAVS:', navs);
+console.log('DOCS:', reqs);
+console.log('FINAL:', page.url());
+await browser.close();
