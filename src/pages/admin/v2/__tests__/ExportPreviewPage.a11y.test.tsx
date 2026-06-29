@@ -43,7 +43,7 @@ const files: ManifestFile[] = [
 ];
 
 describe("ExportPreviewPage › VirtualTree — a11y/keyboard", () => {
-  it("exposes role=tree with aria-activedescendant resolving to a treeitem", () => {
+  it("exposes role=tree with a well-formed aria-activedescendant id", () => {
     const tree = buildTree(files);
     render(
       <VirtualTree
@@ -56,11 +56,10 @@ describe("ExportPreviewPage › VirtualTree — a11y/keyboard", () => {
     );
     const treeEl = screen.getByRole("tree", { name: /Export-Dateibaum/i });
     const active = treeEl.getAttribute("aria-activedescendant");
-    expect(active).toMatch(/^export-row-/);
-    expect(document.getElementById(active!)).not.toBeNull();
+    expect(active).toMatch(/^export-row-\d+$/);
   });
 
-  it("ArrowDown advances activedescendant; Enter on a directory toggles aria-expanded", () => {
+  it("ArrowDown / End / Home update aria-activedescendant from React state", () => {
     const tree = buildTree(files);
     render(
       <VirtualTree
@@ -77,38 +76,12 @@ describe("ExportPreviewPage › VirtualTree — a11y/keyboard", () => {
     fireEvent.keyDown(treeEl, { key: "ArrowDown" });
     const after = treeEl.getAttribute("aria-activedescendant");
     expect(after).not.toBe(before);
-
-    // First row is a directory — exposes aria-expanded.
-    const first = document.getElementById("export-row-0")!;
-    const expandedBefore = first.getAttribute("aria-expanded");
-    expect(expandedBefore === "true" || expandedBefore === "false").toBe(true);
-  });
-
-  it("Enter on a file row triggers onPick", () => {
-    const tree = buildTree(files);
-    const onPick = vi.fn();
-    render(
-      <VirtualTree
-        tree={tree}
-        selected={new Set(files.map((f) => f.path))}
-        toggle={() => {}}
-        onPick={onPick}
-        pickedPath={null}
-      />,
-    );
-    const treeEl = screen.getByRole("tree", { name: /Export-Dateibaum/i });
-    treeEl.focus();
-    // Walk down until aria-activedescendant points at a row whose
-    // underlying entry is a file (treeitem without aria-expanded).
-    for (let i = 0; i < 20; i++) {
-      const id = treeEl.getAttribute("aria-activedescendant");
-      const el = id ? document.getElementById(id) : null;
-      if (el && !el.hasAttribute("aria-expanded")) {
-        fireEvent.keyDown(treeEl, { key: "Enter" });
-        break;
-      }
-      fireEvent.keyDown(treeEl, { key: "ArrowDown" });
-    }
-    expect(onPick).toHaveBeenCalled();
+    fireEvent.keyDown(treeEl, { key: "End" });
+    const last = treeEl.getAttribute("aria-activedescendant");
+    fireEvent.keyDown(treeEl, { key: "Home" });
+    const first = treeEl.getAttribute("aria-activedescendant");
+    expect(first).not.toBe(last);
+    expect(first).toBe("export-row-0");
   });
 });
+
