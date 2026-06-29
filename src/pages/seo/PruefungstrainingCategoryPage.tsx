@@ -91,31 +91,23 @@ const PruefungstrainingCategoryPage = () => {
           </div>
         ) : (
           <section className="max-w-5xl mx-auto">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
               {certifications.map(cert => {
                 const isCertPublished = publishedIds?.has(cert.id);
+                const meta = [cert.chamber_type, cert.min_question_target ? `${cert.min_question_target}+ Fragen` : null]
+                  .filter(Boolean)
+                  .join(' · ');
                 return (
-                <Link key={cert.id} to={`/pruefungstraining/${cert.slug}`}>
-                  <Card className="h-full hover:border-primary/40 transition-colors group">
-                    <CardContent className="py-5 space-y-2">
-                      <h2 className="font-semibold group-hover:text-primary transition-colors flex items-center justify-between">
-                        <span className="line-clamp-2">{cert.title}</span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {!isCertPublished && (
-                            <Badge variant="outline" className="text-[10px] border-muted-foreground/30 text-muted-foreground gap-1">
-                              <Clock className="h-3 w-3" /> In Vorbereitung
-                            </Badge>
-                          )}
-                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      </h2>
-                      <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span>{cert.chamber_type}</span>
-                        {cert.min_question_target && <span>· {cert.min_question_target}+ Fragen</span>}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                  <CoursePremiumCard
+                    key={cert.id}
+                    title={cert.title}
+                    href={`/pruefungstraining/${cert.slug}`}
+                    chamber={cert.chamber_type}
+                    meta={meta}
+                    status={isCertPublished ? 'available' : 'soon'}
+                    primaryLabel={isCertPublished ? 'Zum Training' : 'Vormerken'}
+                    primaryIcon="arrow"
+                  />
                 );
               })}
             </div>
