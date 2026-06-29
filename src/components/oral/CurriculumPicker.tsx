@@ -447,21 +447,94 @@ function VirtualList({
     overscan: 8,
   });
 
+  // Preserve scroll position across filter/sort changes that do NOT actually
+  // remove the currently-visible top item. We do this by remembering the topmost
+  // visible item id; whenever the list mutates, we re-scroll to that id if it is
+  // still present, otherwise we keep scrollTop=0 (avoids the "jump to bottom"
+  // virtualizer artefact when row counts shrink).
+  const topIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const handler = () => {
+      const vis = virtualizer.getVirtualItems();
+      const first = vis[0];
+      topIdRef.current = first ? items[first.index]?.id ?? null : null;
+    };
+    el.addEventListener('scroll', handler, { passive: true });
+    return () => el.removeEventListener('scroll', handler);
+  }, [parentRef, virtualizer, items]);
+
+  useEffect(() => {
+    const id = topIdRef.current;
+    if (!id) return;
+    const idx = items.findIndex((it) => it.id === id);
+    if (idx >= 0) {
+      virtualizer.scrollToIndex(idx, { align: 'start' });
+    } else if (parentRef.current) {
+      parentRef.current.scrollTop = 0;
+    }
+    // We intentionally only react to identity changes of `items` array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
+  // Keyboard navigation — Arrow/Home/End/PageUp/PageDown + Enter/Space.
+  const initialActive = Math.max(
+    0,
+    selectedId ? items.findIndex((it) => it.id === selectedId) : 0,
+  );
+  const [activeIndex, setActiveIndex] = useState(initialActive);
+  useEffect(() => {
+    setActiveIndex((cur) => Math.min(Math.max(0, cur), Math.max(0, items.length - 1)));
+  }, [items.length]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (items.length === 0) return;
+    let next = activeIndex;
+    if (e.key === 'ArrowDown') next = Math.min(items.length - 1, activeIndex + 1);
+    else if (e.key === 'ArrowUp') next = Math.max(0, activeIndex - 1);
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = items.length - 1;
+    else if (e.key === 'PageDown') next = Math.min(items.length - 1, activeIndex + 8);
+    else if (e.key === 'PageUp') next = Math.max(0, activeIndex - 8);
+    else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const it = items[activeIndex];
+      if (it) onSelect(it.id);
+      return;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    setActiveIndex(next);
+    virtualizer.scrollToIndex(next, { align: 'auto' });
+  };
+
   return (
     <div
       ref={parentRef}
       data-testid="oral-curriculum-grid"
-      className="overflow-auto rounded-md border border-border/40"
+      className="overflow-auto rounded-md border border-border/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       style={{ height: maxHeight }}
+      role="listbox"
+      aria-label="Berufe wählen"
+      aria-activedescendant={items[activeIndex] ? `oral-cur-row-${items[activeIndex].id}` : undefined}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
     >
       <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
         {virtualizer.getVirtualItems().map((vi) => {
           const item = items[vi.index];
+          const isActive = vi.index === activeIndex;
           return (
             <div
               key={item.id}
+              id={`oral-cur-row-${item.id}`}
+              role="option"
+              aria-selected={selectedId === item.id}
               data-index={vi.index}
               ref={virtualizer.measureElement}
+              className={isActive ? 'ring-1 ring-primary/40 rounded-md' : undefined}
               style={{
                 position: 'absolute',
                 top: 0,
