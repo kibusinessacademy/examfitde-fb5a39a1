@@ -37,6 +37,8 @@ import { Paywall } from '@/components/shop/Paywall';
 import { cn } from '@/lib/utils';
 import { CurriculumPicker } from '@/components/oral/CurriculumPicker';
 import { rememberRecentCurriculum } from '@/lib/curriculumDisplay';
+import { useOralStartability } from '@/hooks/useOralStartability';
+import { OralStartabilityCard } from '@/components/oral/OralStartabilityCard';
 import { useToast } from '@/hooks/use-toast';
 import PageExplainer from '@/components/admin/PageExplainer';
 import { useTerminology } from '@/hooks/useProgramType';
