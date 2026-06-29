@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { BookOpen, CheckCircle2, Lock, RotateCcw, Search, Sparkles, Star, X, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,9 @@ import {
   type CurriculumSort,
 } from '@/lib/curriculumDisplay';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const VIRTUALIZE_THRESHOLD = 40;
+const ROW_ESTIMATE_PX = 60;
 
 
 const CATEGORY_CHIPS: { key: CurriculumCategory | 'all'; label: string }[] = [
