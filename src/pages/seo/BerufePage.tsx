@@ -434,6 +434,9 @@ export default function BerufePage() {
                     const realImg = imageBySlug.get(slugKey);
                     const img = realImg || fallbackImg;
                     const imgStatus = realImg ? 'ready' : statusBySlug.get(slugKey);
+                    const imgAlt = altBySlug.get(slugKey)
+                      || `Berufsbild für ${entry.title}${entry.kammer ? ` (${entry.kammer})` : ''} – Auszubildende im Beruf.`;
+
                     if (entry.isPublished) {
                       const detailUrl =
                         entry.category && entry.category !== 'ausbildung'
