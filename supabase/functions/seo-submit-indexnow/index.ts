@@ -1,5 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { TokenBucket, retry } from "../_shared/retry-backoff.ts";
+
+// Politeness limiter: IndexNow accepts bursts but Bing throttles aggressive clients.
+// 2 req/sec, soft burst of 4 = safe for chunked drains.
+const INDEXNOW_LIMITER = new TokenBucket({ tokensPerInterval: 2, intervalMs: 1000, capacity: 4 });
+const SITEMAP_FETCH_LIMITER = new TokenBucket({ tokensPerInterval: 4, intervalMs: 1000, capacity: 6 });
 
 /**
  * seo-submit-indexnow – Submit URLs to IndexNow (Bing/Yandex)
