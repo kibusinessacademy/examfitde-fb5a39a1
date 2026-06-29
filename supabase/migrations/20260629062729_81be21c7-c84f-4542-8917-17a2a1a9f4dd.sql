@@ -1,0 +1,2 @@
+ALTER TABLE public.beruf_image_cache ADD COLUMN IF NOT EXISTS prompt_version integer NOT NULL DEFAULT 1;
+CREATE INDEX IF NOT EXISTS beruf_image_cache_prompt_version_idx ON public.beruf_image_cache (prompt_version);
