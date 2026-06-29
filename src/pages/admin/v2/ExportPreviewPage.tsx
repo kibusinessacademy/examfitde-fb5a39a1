@@ -386,6 +386,24 @@ export default function ExportPreviewPage() {
     toast.success("Fehlende kritische Inhalte automatisch wieder aufgenommen.");
   };
 
+  const handleAutoFixCategory = (category: ExportCategory, label: string) => {
+    if (!data) return;
+    const next = autoIncludeCategoryPaths(data.files, selected, category);
+    setSelected(next);
+    toast.success(`Kategorie „${label}" automatisch ergänzt.`);
+  };
+
+  const handleCopySummary = async () => {
+    if (!validation) return;
+    const md = toCopyableSummary(validation);
+    try {
+      await navigator.clipboard.writeText(md);
+      toast.success("Validierungs-Report in Zwischenablage kopiert.");
+    } catch {
+      toast.error("Kopieren fehlgeschlagen — bitte manuell auswählen.");
+    }
+  };
+
   const handleExport = async () => {
     if (!data) return;
     if (validation?.blocking) {
