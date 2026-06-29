@@ -1,0 +1,77 @@
+{
+  "base_url": "http://localhost:8080",
+  "generated_at": "2026-06-29T05:31:28.510Z",
+  "budget": {
+    "LCP_MS": 2500,
+    "CLS": 0.1
+  },
+  "total": 4,
+  "passed": 2,
+  "failed": 2,
+  "results": [
+    {
+      "route": "/berufe",
+      "device": "mobile",
+      "status": 200,
+      "loadMs": 10350,
+      "lcp_ms": 1028,
+      "cls": 0,
+      "lcp_element": "P",
+      "budget": {
+        "LCP_MS": 2500,
+        "CLS": 0.1
+      },
+      "pass": true,
+      "failures": []
+    },
+    {
+      "route": "/berufe",
+      "device": "desktop",
+      "status": 200,
+      "loadMs": 7397,
+      "lcp_ms": 1044,
+      "cls": 0.0682,
+      "lcp_element": "H1",
+      "budget": {
+        "LCP_MS": 2500,
+        "CLS": 0.1
+      },
+      "pass": true,
+      "failures": []
+    },
+    {
+      "route": "/fiae-pruefungsvorbereitung",
+      "device": "mobile",
+      "status": 200,
+      "loadMs": 3860,
+      "lcp_ms": 1864,
+      "cls": 0.2045,
+      "lcp_element": "H1",
+      "budget": {
+        "LCP_MS": 2500,
+        "CLS": 0.1
+      },
+      "pass": false,
+      "failures": [
+        "CLS 0.2045 > 0.1"
+      ]
+    },
+    {
+      "route": "/fiae-pruefungsvorbereitung",
+      "device": "desktop",
+      "status": 200,
+      "loadMs": 3157,
+      "lcp_ms": 992,
+      "cls": 0.1841,
+      "lcp_element": "P",
+      "budget": {
+        "LCP_MS": 2500,
+        "CLS": 0.1
+      },
+      "pass": false,
+      "failures": [
+        "CLS 0.1841 > 0.1"
+      ]
+    }
+  ]
+}
