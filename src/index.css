@@ -1,4 +1,23 @@
-/* Fonts loaded asynchronously via index.html to avoid render-blocking */
+/* Fonts loaded asynchronously via index.html to avoid render-blocking.
+ * PDP.HERO.CLS.STABILIZE.1 — metric-adjusted local fallbacks minimieren
+ * den Font-Swap-Shift (Google-CSS nutzt `display=swap`). Werte halten
+ * die Fallback-Box visuell ~identisch zur finalen WebFont-Box. */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  size-adjust: 107%;
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Space Grotesk Fallback';
+  src: local('Arial');
+  size-adjust: 105%;
+  ascent-override: 95%;
+  descent-override: 26%;
+  line-gap-override: 0%;
+}
 
 @tailwind base;
 @tailwind components;
