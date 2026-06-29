@@ -38,10 +38,23 @@ import { dirname } from 'node:path';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 const ROUTES = (process.env.ROUTES || [
-  '/berufe',                              // Shop catalog (CoursePremiumCard grid)
-  '/pruefungstraining-azubis',            // Hub (CoursePremiumCard)
-  '/fiae-pruefungsvorbereitung',          // PDP hero (ProductHeroSection)
+  // Shop / Storefront catalogs (CoursePremiumCard grid)
+  '/examfit',
+  '/berufe',
+  '/preise',                                  // Pricing landing
+  // Hubs (CoursePremiumCard)
+  '/pruefungstraining',
+  '/pruefungstraining-azubis',
+  // Category PDPs (PruefungstrainingCategoryPage)
+  '/pruefungstraining/ausbildung',
+  '/pruefungstraining/fachwirt',
+  '/pruefungstraining/meister',
+  '/pruefungstraining/aevo',
+  // SEO certification PDP heroes (ProductHeroSection / CertificationSEOPage)
+  '/fiae-pruefungsvorbereitung',
   '/bilanzbuchhalter-pruefungsvorbereitung',
+  '/ihk-pruefungsvorbereitung',
+  '/aevo-pruefungsvorbereitung',
 ].join(',')).split(',').map((s) => s.trim()).filter(Boolean);
 
 const DEVICES = (process.env.DEVICE
