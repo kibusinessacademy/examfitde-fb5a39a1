@@ -48,6 +48,9 @@ export function CurriculumPicker({
   const [sort, setSort] = useState<CurriculumSort>('relevance');
   const { user } = useAuth();
 
+  // Debounce query so fast typing doesn't re-sort/filter on every keystroke.
+  const debouncedQuery = useDebouncedValue(query, 140);
+
   const index = useMemo(() => buildCurriculumIndex(curricula), [curricula]);
   const recentIds = useMemo(() => getRecentCurriculumIds(), []);
 
@@ -67,17 +70,25 @@ export function CurriculumPicker({
   const filtered = useMemo(
     () =>
       filterCurricula(index, {
-        query,
+        query: debouncedQuery,
         category,
-        recentIds: query ? [] : recentIds,
+        recentIds: debouncedQuery ? [] : recentIds,
         sort,
       }),
-    [index, query, category, recentIds, sort],
+    [index, debouncedQuery, category, recentIds, sort],
   );
 
-  const showQuickRows = !query && category === 'all';
+  const showQuickRows = !debouncedQuery && category === 'all';
   const readinessMap = readinessBulk.data;
   const isLoggedIn = !!user;
+  const filtersActive = query.length > 0 || category !== 'all' || sort !== 'relevance';
+
+  const resetFilters = () => {
+    setQuery('');
+    setCategory('all');
+    setSort('relevance');
+  };
+
 
 
   return (
