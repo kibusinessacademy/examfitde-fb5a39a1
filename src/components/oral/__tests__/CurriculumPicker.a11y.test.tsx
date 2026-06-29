@@ -22,12 +22,32 @@ vi.mock("@/hooks/useOralStartability", () => ({
 
 import { CurriculumPicker } from "@/components/oral/CurriculumPicker";
 
-function makeCurricula(n: number) {
-  return Array.from({ length: n }, (_, i) => ({
-    id: `cur-${i}`,
-    title: `Fachinformatiker Anwendungsentwicklung #${i}`,
-  }));
-}
+// happy-dom has no layout engine, so @tanstack/react-virtual would render
+// zero virtual rows. Stub a non-zero viewport height + element rects so the
+// virtualizer materialises the first window of rows.
+beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+    configurable: true,
+    get: () => 480,
+  });
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+    configurable: true,
+    get: () => 640,
+  });
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    return {
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      bottom: 480,
+      right: 640,
+      width: 640,
+      height: 480,
+      toJSON: () => ({}),
+    } as DOMRect;
+  };
+});
 
 describe("CurriculumPicker — keyboard + aria-activedescendant", () => {
   beforeEach(() => {
