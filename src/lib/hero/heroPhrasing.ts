@@ -149,7 +149,9 @@ export function classifyQualification(input: HeroPhrasingInput): Exclude<Qualifi
 const TAGLINE = "– systematisch & sicher";
 
 function endsWithPruefung(s: string): boolean {
-  return /pr(üfung|uefung)\s*$/i.test(s);
+  // Treat as already a "Prüfung" if the word appears anywhere in the title
+  // (e.g. "Sachkundeprüfung §34a", "Ausbildereignungsprüfung (AEVO)").
+  return /pr(üfung|uefung)/i.test(s);
 }
 
 function buildExamContext(kind: QualificationKind, clean: string): {
