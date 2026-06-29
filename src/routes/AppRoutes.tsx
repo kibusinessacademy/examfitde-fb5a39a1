@@ -374,6 +374,7 @@ const CronHealthFullPage = lazyRetry(() => import('@/pages/admin/CronHealthFullP
 const GithubWorkflowsPage = lazyRetry(() => import('@/pages/admin/GithubWorkflowsPage'));
 const SsotGuardPage = lazyRetry(() => import('@/pages/admin/SsotGuardPage'));
 const StorageRealityPage = lazyRetry(() => import('@/pages/admin/StorageRealityPage'));
+const BerufImageAdminPage = lazyRetry(() => import('@/pages/admin/BerufImageAdminPage'));
 const CatalogDiagnosticsPage = lazyRetry(() => import('@/pages/admin/CatalogDiagnosticsPage'));
 const IndexNowDashboardPage = lazyRetry(() => import('@/pages/admin/IndexNowDashboardPage'));
 const BulkCourseExportPage = lazyRetry(() => import('@/pages/admin/BulkCourseExportPage'));
