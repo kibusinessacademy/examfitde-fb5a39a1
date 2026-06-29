@@ -284,15 +284,20 @@ export const EXAM_TOPICS: ExamTopic[] = [
     ],
     faqs: [
       {
-        q: 'Deckt ExamFit beide IHK-Prüfungsteile ab?',
-        a: 'Ja, sowohl Teil 1 (Geschäftsprozesse) als auch Teil 2 (Kaufmännische Steuerung, WiSo, Fachgespräch) sind vollständig abgedeckt.',
+        q: 'Deckt ExamFit beide IHK-Prüfungsteile für Industriekaufleute ab (Teil 1 + Teil 2)?',
+        a: 'Ja, sowohl Teil 1 (Geschäftsprozesse / GP) als auch Teil 2 (Kaufmännische Steuerung & Kontrolle / KSK, Wirtschafts- und Sozialkunde / WiSo, Fachgespräch) sind vollständig abgedeckt – inkl. Verordnung 2002 und aktueller Prüfungskataloge.',
+      },
+      {
+        q: 'Welche Schreibvarianten und Synonyme deckt ihr ab (Industriekauffrau / Industriekaufmann / IK)?',
+        a: 'Suchanfragen wie „Industriekauffrau", „Industriekaufmann", „Industriekaufleute", „Ind.-Kfm.", „Ind.-Kffr." sowie „IHK Prüfung Industrie" landen auf derselben Vorbereitungsoberfläche – die Inhalte sind identisch, nur die Bezeichnung variiert.',
       },
       {
         q: 'Kann ich ein mündliches Fachgespräch simulieren?',
-        a: 'Ja, ExamFit bietet einen Oral-Exam-Trainer mit KI-Prüfer für das Fachgespräch der Industriekaufleute.',
+        a: 'Ja, ExamFit bietet einen Oral-Exam-Trainer mit KI-Prüfer für das Fachgespräch der Industriekaufleute – mit realistischen Folgefragen und Sofortfeedback zur Argumentationsstruktur.',
       },
     ],
   },
+
   {
     slug: 'bankkauffrau',
     title: 'Prüfungsfragen Bankkaufmann / Bankkauffrau (IHK) – Musterfragen mit Lösungen | ExamFit',
