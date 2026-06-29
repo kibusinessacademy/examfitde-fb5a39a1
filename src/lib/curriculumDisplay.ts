@@ -199,12 +199,20 @@ export function buildCurriculumIndex(
   );
 }
 
+export type CurriculumSort = 'relevance' | 'az' | 'za' | 'popularity';
+
 export function filterCurricula(
   items: CurriculumDisplay[],
-  opts: { query?: string; category?: CurriculumCategory | 'all'; recentIds?: string[] },
+  opts: {
+    query?: string;
+    category?: CurriculumCategory | 'all';
+    recentIds?: string[];
+    sort?: CurriculumSort;
+  },
 ): CurriculumDisplay[] {
   const q = (opts.query ?? '').trim().toLowerCase();
   const cat = opts.category ?? 'all';
+  const sort = opts.sort ?? 'relevance';
   let out = items;
   if (cat === 'popular') {
     out = out.filter((c) => c.popularity > 0);
@@ -215,15 +223,27 @@ export function filterCurricula(
     const tokens = q.split(/\s+/).filter(Boolean);
     out = out.filter((c) => tokens.every((tok) => c.search_blob.includes(tok)));
   }
-  // Recent first within result set
-  if (opts.recentIds?.length) {
+  const byName = (a: CurriculumDisplay, b: CurriculumDisplay) =>
+    a.display_name.localeCompare(b.display_name, 'de');
+  const byPop = (a: CurriculumDisplay, b: CurriculumDisplay) =>
+    b.popularity - a.popularity || byName(a, b);
+
+  if (sort === 'az') {
+    out = [...out].sort(byName);
+  } else if (sort === 'za') {
+    out = [...out].sort((a, b) => byName(b, a));
+  } else if (sort === 'popularity') {
+    out = [...out].sort(byPop);
+  } else if (opts.recentIds?.length) {
     const rank = new Map(opts.recentIds.map((id, i) => [id, i]));
     out = [...out].sort((a, b) => {
       const ra = rank.has(a.id) ? rank.get(a.id)! : Number.POSITIVE_INFINITY;
       const rb = rank.has(b.id) ? rank.get(b.id)! : Number.POSITIVE_INFINITY;
       if (ra !== rb) return ra - rb;
-      return b.popularity - a.popularity || a.display_name.localeCompare(b.display_name, 'de');
+      return byPop(a, b);
     });
+  } else {
+    out = [...out].sort(byPop);
   }
   return out;
 }
