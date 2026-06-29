@@ -209,3 +209,67 @@ export const ADMIN_ONLY_AI_RAW_OUTPUT_FIXTURE_MISSING_REFS: VisualAiRawOutput = 
   edges: [{ from: "n1", to: "n2", kind: "precedes" }],
 };
 
+// ---------------------------------------------------------------------------
+// Cut 8 — Mastery Signal Fixtures (learner-safe).
+// ---------------------------------------------------------------------------
+
+import type {
+  VisualMasterySignal,
+  VisualMasteryLearnerProjection,
+  VisualMasteryAdminProjection,
+} from "./mastery-signals";
+
+export const VLO_MASTERY_FIXTURE_SIGNAL: VisualMasterySignal = {
+  curriculum_id: "fixture-curr",
+  competence_id: "fixture-comp",
+  lesson_id: "fixture-lesson",
+  mini_check_id: "fixture-mc",
+  visual_artifact_id: "fixture-art-approved-mapped",
+  misconception_id: "mc-1",
+  signal_kind: "misconception_detected",
+  severity: 4,
+  confidence: "medium",
+  reason: "Typische Verwechslung im visuellen Modell erkannt.",
+  evidence: [
+    {
+      source: "minicheck_feedback",
+      question_id: "q1",
+      question_order: 1,
+      created_order: 1,
+      detail: "Reihenfolge vertauscht.",
+    },
+  ],
+  source_refs: [AI_FIXTURE_SOURCE_REF],
+  created_order: 1,
+};
+
+export const VLO_MASTERY_LEARNER_PROJECTION_FIXTURE: VisualMasteryLearnerProjection = {
+  curriculum_id: "fixture-curr",
+  competence_id: "fixture-comp",
+  hints: [
+    {
+      kind: "misconception_detected",
+      message: "Achte besonders auf diese typische Verwechslung.",
+    },
+  ],
+  learner_visible: true,
+  empty: false,
+};
+
+export const VLO_MASTERY_ADMIN_PROJECTION_FIXTURE: VisualMasteryAdminProjection = {
+  curriculum_id: "fixture-curr",
+  competence_id: "fixture-comp",
+  totals: {
+    strengthens_mastery: 0,
+    weakens_mastery: 0,
+    misconception_detected: 1,
+    misconception_resolved: 0,
+    needs_repetition: 0,
+  },
+  signals: [VLO_MASTERY_FIXTURE_SIGNAL],
+  warnings: [],
+  blockers: [],
+  is_supplemental_only: true,
+  note: "Visual Learning ist ein ergänzendes Signal, keine alleinige Mastery-Entscheidung.",
+};
+
