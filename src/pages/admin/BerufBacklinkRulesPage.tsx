@@ -185,8 +185,79 @@ export default function BerufBacklinkRulesPage() {
                 {(berufe ?? []).map((b) => <option key={b.id} value={b.id}>{b.bezeichnung_kurz}</option>)}
               </select>
             </Field>
-            <Field label="Ziel-URL (z.B. /berufe/it oder /shop/aevo)">
-              <Input value={draft.target_url ?? ""} onChange={(e) => setDraft({ ...draft, target_url: e.target.value })} placeholder="/berufe/..." />
+
+            <Field label="Ziel-Typ">
+              <select
+                className="h-10 rounded-md border border-border-strong bg-surface px-2 text-sm"
+                value={draftKind}
+                onChange={(e) => {
+                  const k = e.target.value as TargetKind;
+                  setDraftKind(k);
+                  setDraft((d) => ({
+                    ...d,
+                    link_type: suggestedLinkType(k, d.link_type ?? "cluster_to_pillar"),
+                    target_url: k === "pricing" ? "/preise" : k === "topic" ? "/pruefungsfragen/" : (d.target_url ?? ""),
+                  }));
+                }}
+              >
+                {TARGET_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+              </select>
+            </Field>
+
+            {draftKind === "pricing" && (
+              <Field label="Preise-Preset">
+                <select
+                  className="h-10 rounded-md border border-border-strong bg-surface px-2 text-sm"
+                  value={draft.target_url ?? "/preise"}
+                  onChange={(e) => {
+                    const p = PRICING_PRESETS.find((x) => x.url === e.target.value);
+                    setDraft((d) => ({
+                      ...d,
+                      target_url: e.target.value,
+                      target_label: p?.label ?? d.target_label ?? null,
+                      anchor_hint: p?.anchor ?? d.anchor_hint ?? null,
+                      link_type: "cluster_to_pricing",
+                    }));
+                  }}
+                >
+                  {PRICING_PRESETS.map((p) => <option key={p.url} value={p.url}>{p.label} — {p.url}</option>)}
+                </select>
+              </Field>
+            )}
+
+            {draftKind === "topic" && (
+              <Field label="Topic auswählen">
+                <select
+                  className="h-10 rounded-md border border-border-strong bg-surface px-2 text-sm"
+                  value={(draft.target_url ?? "").replace("/pruefungsfragen/", "")}
+                  onChange={(e) => {
+                    const slug = e.target.value;
+                    const topic = EXAM_TOPICS.find((t) => t.slug === slug);
+                    setDraft((d) => ({
+                      ...d,
+                      target_url: slug ? `/pruefungsfragen/${slug}` : "/pruefungsfragen/",
+                      target_label: topic?.title ?? d.target_label ?? null,
+                      anchor_hint: topic ? `${topic.title} — Prüfungsfragen` : d.anchor_hint ?? null,
+                      link_type: "cluster_to_topic",
+                    }));
+                  }}
+                >
+                  <option value="">— Topic wählen —</option>
+                  {EXAM_TOPICS.map((t) => <option key={t.slug} value={t.slug}>{t.title} (/{t.slug})</option>)}
+                </select>
+              </Field>
+            )}
+
+            <Field label="Ziel-URL">
+              <Input
+                value={draft.target_url ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDraft({ ...draft, target_url: v });
+                  setDraftKind(classifyTarget(v));
+                }}
+                placeholder="/berufe/it · /shop/aevo · /preise · /pruefungsfragen/scrum"
+              />
             </Field>
             <Field label="Label / Linktitel">
               <Input value={draft.target_label ?? ""} onChange={(e) => setDraft({ ...draft, target_label: e.target.value })} />
@@ -217,6 +288,23 @@ export default function BerufBacklinkRulesPage() {
               </div>
             </Field>
           </div>
+
+          <div className="mt-4 flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-muted-foreground flex items-center gap-1"><Sparkles className="h-3 w-3" /> Schnell:</span>
+            <Button variant="outline" size="sm" onClick={() => {
+              setDraftKind("pricing");
+              setDraft((d) => ({ ...d, target_url: "/preise", target_label: "Preise & Pakete", anchor_hint: "Preise & Pakete ansehen", link_type: "cluster_to_pricing" }));
+            }}>+ /preise</Button>
+            <Button variant="outline" size="sm" onClick={() => {
+              setDraftKind("topic");
+              setDraft((d) => ({ ...d, target_url: "/pruefungsfragen/scrum", target_label: "Scrum Prüfungsfragen", anchor_hint: "Scrum Prüfungsfragen üben", link_type: "cluster_to_topic" }));
+            }}>+ Topic: Scrum</Button>
+            <Button variant="outline" size="sm" onClick={() => {
+              setDraftKind("topic");
+              setDraft((d) => ({ ...d, target_url: "/pruefungsfragen/aevo", target_label: "AEVO Prüfungsfragen", anchor_hint: "AEVO-Fragen mit Lösungen", link_type: "cluster_to_topic" }));
+            }}>+ Topic: AEVO</Button>
+          </div>
+
           <div className="mt-4 flex gap-2">
             <Button onClick={createRule} disabled={saving || !draft.target_url}>
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
@@ -225,6 +313,7 @@ export default function BerufBacklinkRulesPage() {
           </div>
         </CardContent>
       </Card>
+
 
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
