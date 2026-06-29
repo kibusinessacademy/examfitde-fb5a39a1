@@ -1,11 +1,11 @@
 /**
  * Learner-safe Renderer für strukturelles Oral-Visual-Feedback (Cut 9).
  *
- * HARTE REGELN:
- * - Kein DB/HTTP/Fetch, keine Mutationen, keine AI-Aufrufe.
- * - Keine eigene Bewertung. Nur Anzeige vorbereiteter Projection.
- * - Keine Note, kein bestanden/nicht bestanden, keine Prüfungsreife.
- * - Keine Draft-/Review-/Admin-/Debug-Texte.
+ * Harte Regeln (siehe oral-visual-policy.ts):
+ *  - keine DB-/HTTP-Aufrufe, keine Mutationen, keine AI-Aufrufe
+ *  - keine eigene Bewertung; nur Anzeige vorbereiteter Projection
+ *  - keine Aussagen zu Prüfungsergebnis oder Prüfungsreife
+ *  - keine internen Workflow-/Backstage-Texte
  */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
