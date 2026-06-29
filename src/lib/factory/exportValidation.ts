@@ -76,6 +76,8 @@ export interface ExportCategoryReport {
   missing: number;
   /** Paths that are blocked at the manifest level — cannot be auto-fixed. */
   blocked: string[];
+  /** Concrete missing paths for this category (auto-fixable). */
+  missingPaths: string[];
 }
 
 export interface ExportValidationReport {
