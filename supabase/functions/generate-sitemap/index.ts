@@ -304,13 +304,33 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
     // ── Berufe + certifications + Paketseiten ──
     if (action === "berufe") {
       const urls: SitemapURL[] = [];
+
+      // Load beruf image cache once → attach as <image:image> per Beruf-URL
+      const { data: imgRows } = await sb
+        .from("beruf_image_cache")
+        .select("slug, image_url, alt_text, title")
+        .eq("status", "ready")
+        .not("image_url", "is", null);
+      const imgBySlug = new Map<string, { loc: string; title?: string; caption?: string }>();
+      for (const r of imgRows || []) {
+        if (!r.slug || !r.image_url) continue;
+        const caption = (r.alt_text || r.title || "").toString().slice(0, 300);
+        imgBySlug.set(r.slug, {
+          loc: r.image_url.startsWith("http") ? r.image_url : `${SITE_URL}${r.image_url}`,
+          title: r.title || undefined,
+          caption: caption || undefined,
+        });
+      }
+
       const { data: berufe } = await sb.from("berufe")
         .select("bezeichnung_kurz, updated_at, ist_aktiv").eq("ist_aktiv", true).limit(500);
       for (const b of berufe || []) {
         const slug = generateSlug(b.bezeichnung_kurz);
         const lm = (b.updated_at || "").split("T")[0] || today;
-        urls.push({ loc: `${SITE_URL}/berufe/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.8 });
-        urls.push({ loc: `${SITE_URL}/ihk-pruefungen/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.7 });
+        const img = imgBySlug.get(slug);
+        const images = img ? [img] : undefined;
+        urls.push({ loc: `${SITE_URL}/berufe/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.8, images });
+        urls.push({ loc: `${SITE_URL}/ihk-pruefungen/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.7, images });
       }
       // P6 Cut 3b: /paket/:slug NUR aus published course_packages (SSOT v_paket_sitemap_entries).
       const { data: pakete, error: paketeErr } = await sb.from("v_paket_sitemap_entries")
@@ -320,7 +340,8 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
       for (const p of pakete || []) {
         const slug = generateSlug(p.bezeichnung_kurz);
         const lm = (p.lastmod || "").toString().split("T")[0] || today;
-        urls.push({ loc: `${SITE_URL}/paket/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.85 });
+        const img = imgBySlug.get(slug);
+        urls.push({ loc: `${SITE_URL}/paket/${slug}`, lastmod: lm, changefreq: "weekly", priority: 0.85, images: img ? [img] : undefined });
         paketCount++;
       }
 
@@ -336,9 +357,10 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
         if (!m.canonical_url_path) continue;
         urls.push({ loc: `${SITE_URL}${m.canonical_url_path}`, lastmod: today, changefreq: "weekly", priority: 0.75 });
       }
-      console.info(`[generate-sitemap] class=berufe total=${urls.length} paket=${paketCount}`);
+      console.info(`[generate-sitemap] class=berufe total=${urls.length} paket=${paketCount} images=${imgBySlug.size}`);
       return xmlResponse(toSitemapXML(urls), headers);
     }
+
 
     // ── Content / Wissen (P6 Cut 3c — SSOT v_wissen_sitemap_entries + seo_content_pages) ──
     if (action === "content") {
