@@ -754,47 +754,41 @@ export default function OralExamTrainer() {
                   Bewertungsdimensionen werden sichtbar, damit Trust-Signale
                   und Surface-Signals (Fachlichkeit / Struktur / Praxisbezug)
                   immer ankommen. */}
-              {curricula && curricula.length > 0 ? (
-                <div className="grid gap-2" data-testid="oral-curriculum-grid">
-                  {curricula.map(curriculum => (
-                    <Button
-                      key={curriculum.id}
-                      variant={selectedCurriculum === curriculum.id ? 'default' : 'outline'}
-                      className="justify-start h-auto py-3"
-                      onClick={() => setSelectedCurriculum(curriculum.id)}
-                    >
-                      <BookOpen className="h-4 w-4 mr-2" />
-                      {curriculum.title}
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  className="rounded-lg border border-dashed p-4 space-y-3"
-                  data-testid="oral-curriculum-empty"
+            {curricula && curricula.length > 0 ? (
+              <CurriculumPicker
+                curricula={curricula}
+                selectedId={selectedCurriculum}
+                onSelect={(id) => setSelectedCurriculum(id)}
+                label={isAcademic ? 'Welchen Studiengang möchtest du trainieren?' : 'Welchen Beruf möchtest du trainieren?'}
+              />
+            ) : (
+              <div
+                className="rounded-lg border border-dashed p-4 space-y-3"
+                data-testid="oral-curriculum-empty"
+              >
+                <p className="text-sm text-muted-foreground">
+                  Noch kein Prüfungstraining ausgewählt. Wähle deinen Beruf,
+                  um die mündliche Prüfung zu simulieren — Oral-Exam-Fragen
+                  stammen aus denselben Blueprints wie MiniChecks und
+                  Prüfungssimulation.
+                </p>
+                <Button
+                  asChild
+                  className="w-full"
+                  data-testid="oral-recovery-cta"
+                  data-cta-location="oral_setup_no_curriculum"
+                  onClick={() =>
+                    reportEntryFallbackCtaClick('oral', 'oral_recovery')
+                  }
                 >
-                  <p className="text-sm text-muted-foreground">
-                    Noch kein Prüfungstraining ausgewählt. Wähle deinen Beruf,
-                    um die mündliche Prüfung zu simulieren — Oral-Exam-Fragen
-                    stammen aus denselben Blueprints wie MiniChecks und
-                    Prüfungssimulation.
-                  </p>
-                  <Button
-                    asChild
-                    className="w-full"
-                    data-testid="oral-recovery-cta"
-                    data-cta-location="oral_setup_no_curriculum"
-                    onClick={() =>
-                      reportEntryFallbackCtaClick('oral', 'oral_recovery')
-                    }
-                  >
-                    <a href="/berufe">
-                      <Play className="h-4 w-4 mr-2" />
-                      Prüfungstraining wählen
-                    </a>
-                  </Button>
-                </div>
-              )}
+                  <a href="/berufe">
+                    <Play className="h-4 w-4 mr-2" />
+                    Prüfungstraining wählen
+                  </a>
+                </Button>
+              </div>
+            )}
+
             </div>
 
             {selectedCurriculum && topics && topics.length > 0 && (
