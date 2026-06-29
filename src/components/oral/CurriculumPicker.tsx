@@ -375,3 +375,17 @@ function CurriculumRow({
   );
 }
 
+/**
+ * Lightweight debounce hook — avoids re-running expensive filter/sort on every
+ * keystroke during rapid typing. SSR-safe (no window dependency).
+ */
+function useDebouncedValue<T>(value: T, delay = 140): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
+
