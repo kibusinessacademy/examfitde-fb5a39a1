@@ -18,6 +18,7 @@ import TrainerStartPage from '@/components/exam/TrainerStartPage';
 import type { TrainerStartPayload } from '@/types/trainer';
 import { TutorPanel } from '@/components/tutor/TutorPanel';
 import { AI_MODES } from '@/hooks/useAITutor';
+import { RequireLoginToTrain } from '@/components/auth/RequireLoginToTrain';
 
 interface Question {
   id: string;
@@ -42,7 +43,7 @@ interface SessionStats {
 type TrainerStep = 'select' | 'loading' | 'question' | 'feedback' | 'results';
 
 export default function ExamTrainer() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -230,6 +231,11 @@ export default function ExamTrainer() {
         curriculumTitle={selectedBerufName}
       />
     );
+  }
+
+  // Login-Gate: Fortschritt nur sichtbar speichern, wenn Nutzer angemeldet ist.
+  if (!authLoading && !user) {
+    return <RequireLoginToTrain feature="exam_trainer" />;
   }
 
   return (
