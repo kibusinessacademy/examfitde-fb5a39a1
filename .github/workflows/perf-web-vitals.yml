@@ -1,0 +1,57 @@
+name: perf-web-vitals
+
+# Fails CI if any measured route exceeds CWV budget:
+#   LCP > 2500 ms  OR  CLS > 0.1
+#
+# Routes cover course catalogs (CoursePremiumCard) and PDP hero
+# (ProductHeroSection / CertificationSEOPage).
+on:
+  pull_request:
+    paths:
+      - 'src/components/shop/**'
+      - 'src/components/product/**'
+      - 'src/pages/seo/**'
+      - 'src/lib/courseImage.ts'
+      - 'src/lib/learnerImage.ts'
+      - 'scripts/perf/**'
+      - '.github/workflows/perf-web-vitals.yml'
+  workflow_dispatch:
+
+jobs:
+  vitals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install deps
+        run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build
+        run: npm run build
+      - name: Serve dist
+        run: |
+          npx --yes serve -s dist -l 8080 &
+          for i in {1..30}; do
+            curl -sf http://localhost:8080 > /dev/null && exit 0
+            sleep 1
+          done
+          echo "preview server did not become ready" && exit 1
+      - name: Run Web Vitals check
+        env:
+          BASE_URL: http://localhost:8080
+          ROUTES: '/berufe,/pruefungstraining-azubis,/fiae-pruefungsvorbereitung,/bilanzbuchhalter-pruefungsvorbereitung'
+          LCP_BUDGET_MS: '2500'
+          CLS_BUDGET: '0.1'
+          OUT: reports/web-vitals.json
+        run: node scripts/perf/web-vitals-check.mjs
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-vitals-report
+          path: reports/web-vitals.json
