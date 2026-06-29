@@ -94,13 +94,18 @@ export function useBerufImages(items: BerufImageItem[]) {
   }, [data]);
 
   /**
-   * Generation-Status pro Slug für UI-Badges.
-   * - `ready`     → echtes Bild geliefert (Badge i. d. R. nicht nötig)
-   * - `generating`/`pending` → läuft gerade, Fallback wird angezeigt
-   * - `queued`    → eingereiht, noch nicht gestartet (Edge-fn noch nicht geantwortet
-   *                 ODER Cache-Row fehlt aber wir haben Generation getriggert)
-   * - `failed`    → letzter Versuch fehlgeschlagen (Re-Queue beim nächsten Mount)
+   * Alt-Text pro Slug — vom Edge-Generator gebaut (deutsch, Berufskontext,
+   * inkl. Auszubildende-Begriff). Konsumenten sollten diesen Wert in `<img alt>`
+   * verwenden, mit dem Berufstitel als Fallback.
    */
+  const altBySlug = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of (data ?? []) as CacheRow[]) {
+      if (r.alt_text) m.set(r.slug, r.alt_text);
+    }
+    return m;
+  }, [data]);
+
   const statusBySlug = useMemo(() => {
     const m = new Map<string, 'ready' | 'generating' | 'queued' | 'failed'>();
     const known = new Map<string, CacheRow>(
@@ -115,12 +120,12 @@ export function useBerufImages(items: BerufImageItem[]) {
       } else if (row?.status === 'failed') {
         m.set(s, 'failed');
       } else if (triggered.has(s) || row) {
-        // Row existiert ohne ready-URL → queued; oder Generierung wurde getriggert
         m.set(s, 'queued');
       }
     }
     return m;
   }, [data, slugs, triggered]);
 
-  return { imageBySlug, statusBySlug };
+  return { imageBySlug, statusBySlug, altBySlug };
 }
+
