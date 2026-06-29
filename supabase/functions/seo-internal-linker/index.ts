@@ -63,6 +63,22 @@ Deno.serve(async (req) => {
 
     const berufMap = new Map((berufe || []).map(b => [b.id, b.bezeichnung_kurz]));
 
+    // Load active backlink rules → preferred targets per beruf (priority asc)
+    const { data: backlinkRules } = await admin
+      .from("seo_beruf_backlink_rules")
+      .select("beruf_id, target_url, target_label, anchor_hint, priority, max_links_per_doc, link_type")
+      .eq("is_active", true)
+      .order("priority", { ascending: true })
+      .limit(500);
+
+    const rulesByBeruf = new Map<string, typeof backlinkRules>();
+    for (const r of backlinkRules ?? []) {
+      if (!r.beruf_id) continue;
+      const arr = rulesByBeruf.get(r.beruf_id) ?? [];
+      arr.push(r);
+      rulesByBeruf.set(r.beruf_id, arr);
+    }
+
     // URL mapping by doc_type
     const docTypeUrlMap: Record<string, string> = {
       blog: "/wissen",
@@ -162,6 +178,32 @@ Deno.serve(async (req) => {
           }
         }
       }
+
+      // 2b) Preferred backlink rules per Beruf (admin-curated, priority asc)
+      if (doc.beruf_id && rulesByBeruf.has(doc.beruf_id)) {
+        const rules = rulesByBeruf.get(doc.beruf_id) ?? [];
+        let appended = 0;
+        for (const rule of rules) {
+          if (!rule.target_url || content.includes(rule.target_url)) continue;
+          const anchor = rule.anchor_hint || rule.target_label || rule.target_url;
+          const cap = Math.max(1, rule.max_links_per_doc ?? 1);
+          if (appended >= cap) break;
+          content += `\n\n→ Empfohlen: [${anchor}](${rule.target_url})`;
+          linksAdded.push({ anchor, url: rule.target_url });
+          docLinkRows.push({
+            source_url: sourceUrl,
+            target_url: rule.target_url,
+            link_type: rule.link_type || "rule_curated",
+            anchor_text: anchor,
+            source_title: doc.title,
+            target_title: rule.target_label ?? anchor,
+            source_doc_id: doc.id,
+            target_doc_id: null,
+          });
+          appended++;
+        }
+      }
+
 
       // 3) Link to shop/product page → cluster_to_product
       if (!content.includes("/shop") && doc.doc_type !== "product") {
