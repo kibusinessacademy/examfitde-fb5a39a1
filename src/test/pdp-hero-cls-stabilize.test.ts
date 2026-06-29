@@ -25,19 +25,19 @@ const heroSection = readFileSync(
 
 describe('PDP.HERO.CLS.STABILIZE.1 — CertificationSEOPage', () => {
   it('reserves H1 height to prevent CLS on hydration', () => {
-    expect(pdpPage).toMatch(/data-testid="pdp-hero-h1"[\s\S]{0,400}min-h-\[120px\]/);
+    expect(pdpPage).toMatch(/min-h-\[120px\][\s\S]{0,400}data-testid="pdp-hero-h1"/);
   });
 
   it('reserves subline height', () => {
-    expect(pdpPage).toMatch(/data-testid="pdp-hero-subline"[\s\S]{0,400}min-h-\[84px\]/);
+    expect(pdpPage).toMatch(/min-h-\[84px\][\s\S]{0,400}data-testid="pdp-hero-subline"/);
   });
 
   it('reserves CTA-row height', () => {
-    expect(pdpPage).toMatch(/data-testid="pdp-hero-cta-row"[\s\S]{0,200}min-h-\[48px\]/);
+    expect(pdpPage).toMatch(/min-h-\[48px\][\s\S]{0,200}data-testid="pdp-hero-cta-row"/);
   });
 
   it('reserves the conditional notice slot height', () => {
-    expect(pdpPage).toMatch(/data-testid="pdp-hero-notice"[\s\S]{0,200}min-h-\[20px\]/);
+    expect(pdpPage).toMatch(/min-h-\[20px\][\s\S]{0,200}data-testid="pdp-hero-notice"/);
   });
 
   it('does not short-circuit to a spinner-only fallback while loading (CLS source)', () => {
