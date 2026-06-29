@@ -1305,11 +1305,45 @@ Deno.serve(async (req) => {
     // ── Red-Flag Report (top-level) ──
     zip.file("red_flags.json", JSON.stringify(redFlags, null, 2));
 
-    // ── Oral Exam ──
+    // ── Oral Exam (immer enthalten — Trainer ist verpflichtender Paket-Bestandteil) ──
     zip.file("oral_exam/sessionsets.json", JSON.stringify(oralSessionsets || [], null, 2));
     zip.file("oral_exam/blueprints.json", JSON.stringify(oralBlueprints, null, 2));
     zip.file("oral_exam/session_templates.json", JSON.stringify(oralSessionTemplates, null, 2));
     zip.file("oral_exam/sessions_all.json", JSON.stringify(allOralSessions, null, 2));
+    const oralReadme = [
+      "# Oral-Exam-Trainer",
+      "",
+      "Dieses Paket enthält den Oral-Exam-Trainer als verpflichtenden Bestandteil.",
+      "",
+      `- Sessionsets: ${(oralSessionsets || []).length}`,
+      `- Blueprints:  ${oralBlueprints.length}`,
+      `- Templates:   ${oralSessionTemplates.length}`,
+      `- User-Sessions (Snapshot): ${allOralSessions.length}`,
+      "",
+      "Hinweise:",
+      "- Der Trainer wird im Learner-Bereich unter /app/oral?curriculum=<id> bereitgestellt.",
+      "- Bei 0 Blueprints prüft der Integrity-Guard das Paket und meldet ein Issue,",
+      "  damit Pakete ohne mündliche Inhalte nicht still ausgeliefert werden.",
+      "- Bewertung & Persona-Logik laufen serverseitig über die Edge-Function `oral-exam`.",
+      "",
+      "Manifest-Flag: oral_trainer_included = true",
+    ].join("\n");
+    zip.file("oral_exam/README.md", oralReadme);
+    zip.file(
+      "oral_exam/manifest.json",
+      JSON.stringify(
+        {
+          oral_trainer_included: true,
+          sessionsets: (oralSessionsets || []).length,
+          blueprints: oralBlueprints.length,
+          session_templates: oralSessionTemplates.length,
+          user_sessions: allOralSessions.length,
+          runtime: { route: "/app/oral", edge_function: "oral-exam" },
+        },
+        null,
+        2,
+      ),
+    );
 
     // ── Tutor ──
     zip.file("tutor/context_indices.json", JSON.stringify(tutorIndices || [], null, 2));

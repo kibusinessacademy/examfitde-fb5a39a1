@@ -139,19 +139,31 @@ export function toCurriculumDisplay(raw: { id: string; title: string }): Curricu
   const pop = popularityFor(displayName);
   const category = classify(displayName);
   const aliases = deriveAliases(displayName);
-  const search_blob = [displayName, ...aliases, raw.title, CATEGORY_LABEL[category]]
+
+  // AEVO-Sonderfall: alle Varianten ("AEVO - Ausbildereignungsprüfung",
+  // "Ausbildereignungsprüfung (AEVO)", …) auf einen kanonischen Display-
+  // Namen und einen gemeinsamen dedupe_key zusammenführen, damit die
+  // Berufsauswahl keine Dubletten zeigt.
+  const isAevo = AEVO_MATCHER.test(displayName) || AEVO_MATCHER.test(raw.title);
+  const finalDisplay = isAevo ? AEVO_CANONICAL_DISPLAY : displayName;
+  const finalAliases = isAevo
+    ? [...new Set([...aliases, 'AEVO', 'Ausbildereignungsprüfung', 'Ausbilderschein'])]
+    : aliases;
+  const dedupe_key = isAevo ? AEVO_CANONICAL_KEY : normalizeKey(displayName);
+
+  const search_blob = [finalDisplay, ...finalAliases, raw.title, CATEGORY_LABEL[category]]
     .join(' ')
     .toLowerCase();
   return {
     id: raw.id,
     raw_title: raw.title,
-    display_name: displayName,
-    subtitle: pop.subtitle,
-    category,
-    aliases,
+    display_name: finalDisplay,
+    subtitle: pop.subtitle ?? (isAevo ? 'IHK-Ausbildereignungsprüfung' : undefined),
+    category: isAevo ? 'aevo' : category,
+    aliases: finalAliases,
     search_blob,
-    popularity: pop.score,
-    dedupe_key: normalizeKey(displayName),
+    popularity: isAevo ? Math.max(pop.score, 1000) : pop.score,
+    dedupe_key,
   };
 }
 
