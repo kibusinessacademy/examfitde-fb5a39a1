@@ -1,0 +1,59 @@
+name: perf-virtual-lists
+
+# Performance regression gate for virtualized UI surfaces:
+#   - CurriculumPicker  (src/lib/curriculumDisplay.ts + filter/sort)
+#   - ExportPreviewPage (src/lib/factory/exportValidation.ts manifest scan)
+#
+# Thresholds are encoded in the vitest tests themselves:
+#   - buildCurriculumIndex(3000)        < 200 ms
+#   - filterCurricula(3000, query)      < 120 ms
+#   - popularity sort over 5000         < 150 ms
+#   - validateExportCompleteness(5000)  < 250 ms
+# A regression that pushes any of these over budget fails this workflow,
+# which is wired as a required check on PRs touching the affected paths.
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/curriculumDisplay.ts'
+      - 'src/lib/__tests__/curriculumDisplay*'
+      - 'src/components/oral/CurriculumPicker.tsx'
+      - 'src/components/oral/__tests__/**'
+      - 'src/lib/factory/exportValidation.ts'
+      - 'src/lib/factory/__tests__/**'
+      - 'src/lib/factory/exportManifest.ts'
+      - 'src/pages/admin/v2/ExportPreviewPage.tsx'
+      - '.github/workflows/perf-virtual-lists.yml'
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install deps
+        run: npm ci --legacy-peer-deps
+      - name: Run perf regression tests (vitest)
+        run: |
+          npx vitest run \
+            src/lib/__tests__/curriculumDisplayPerf.test.ts \
+            src/lib/factory/__tests__/exportValidation.test.ts \
+            --reporter=verbose
+      - name: Step summary
+        if: always()
+        run: |
+          echo "## Virtual-List Perf Gate" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Suite | Budget |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| buildCurriculumIndex(3000) | < 200 ms |" >> $GITHUB_STEP_SUMMARY
+          echo "| filterCurricula(3000, query) | < 120 ms |" >> $GITHUB_STEP_SUMMARY
+          echo "| popularity sort over 5000 | < 150 ms |" >> $GITHUB_STEP_SUMMARY
+          echo "| validateExportCompleteness(5000) | < 250 ms |" >> $GITHUB_STEP_SUMMARY

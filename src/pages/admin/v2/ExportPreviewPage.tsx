@@ -11,8 +11,11 @@ import {
   type TreeNode,
 } from "@/lib/factory/exportManifest";
 import {
+  autoIncludeCategoryPaths,
   autoIncludeCriticalPaths,
+  toCopyableSummary,
   validateExportCompleteness,
+  type ExportCategory,
   type ExportValidationReport,
 } from "@/lib/factory/exportValidation";
 import { Button } from "@/components/ui/button";
@@ -21,7 +24,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw, Info, ChevronRight, ChevronDown, ShieldAlert, ShieldCheck, Wand2 } from "lucide-react";
+import { Loader2, Download, FolderClosed, FolderOpen, FileText, FileWarning, RefreshCw, Info, ChevronRight, ChevronDown, ShieldAlert, ShieldCheck, Wand2, Copy, ChevronsUpDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 
 const ROW_HEIGHT = 28;
@@ -140,7 +144,7 @@ const FileRow = ({
   );
 };
 
-function VirtualTree({
+export function VirtualTree({
   tree,
   selected,
   toggle,
@@ -382,6 +386,24 @@ export default function ExportPreviewPage() {
     toast.success("Fehlende kritische Inhalte automatisch wieder aufgenommen.");
   };
 
+  const handleAutoFixCategory = (category: ExportCategory, label: string) => {
+    if (!data) return;
+    const next = autoIncludeCategoryPaths(data.files, selected, category);
+    setSelected(next);
+    toast.success(`Kategorie „${label}" automatisch ergänzt.`);
+  };
+
+  const handleCopySummary = async () => {
+    if (!validation) return;
+    const md = toCopyableSummary(validation);
+    try {
+      await navigator.clipboard.writeText(md);
+      toast.success("Validierungs-Report in Zwischenablage kopiert.");
+    } catch {
+      toast.error("Kopieren fehlgeschlagen — bitte manuell auswählen.");
+    }
+  };
+
   const handleExport = async () => {
     if (!data) return;
     if (validation?.blocking) {
@@ -482,7 +504,7 @@ export default function ExportPreviewPage() {
       </Card>
 
       {validation && data && (
-        <Alert variant={validation.blocking ? "destructive" : "default"}>
+        <Alert variant={validation.blocking ? "destructive" : "default"} data-testid="export-validation">
           {validation.ok ? (
             <ShieldCheck className="h-4 w-4" />
           ) : validation.blocking ? (
@@ -490,38 +512,99 @@ export default function ExportPreviewPage() {
           ) : (
             <Info className="h-4 w-4" />
           )}
-          <AlertTitle className="flex items-center gap-2">
-            Offline-Export-Validierung
+          <AlertTitle className="flex flex-wrap items-center gap-2">
+            <span>Offline-Export-Validierung</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto h-7"
+              onClick={handleCopySummary}
+              data-testid="export-validation-copy"
+              aria-label="Validierungs-Report kopieren"
+            >
+              <Copy className="h-3 w-3 mr-1" /> Report kopieren
+            </Button>
             {!validation.ok && !validation.blocking && (
-              <Button size="sm" variant="outline" className="ml-auto h-7" onClick={handleAutoFix}>
-                <Wand2 className="h-3 w-3 mr-1" /> Fehlendes ergänzen
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7"
+                onClick={handleAutoFix}
+                data-testid="export-validation-autofix-all"
+              >
+                <Wand2 className="h-3 w-3 mr-1" /> Alles auto-ergänzen
               </Button>
             )}
           </AlertTitle>
           <AlertDescription className="text-xs space-y-2">
             <div>{validation.summary}</div>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-              {validation.reports.map((r) => (
-                <li key={r.category} className="flex items-center gap-2">
-                  <Badge
-                    variant={
-                      r.blocked.length > 0 || (r.critical && r.total === 0)
-                        ? "destructive"
-                        : r.missing > 0
-                          ? "secondary"
-                          : "outline"
-                    }
-                  >
-                    {r.label}
-                  </Badge>
-                  <span className="text-muted-foreground">
-                    {r.selected}/{r.total} enthalten
-                    {r.missing > 0 ? `, ${r.missing} fehlen` : ""}
-                    {r.blocked.length > 0 ? `, ${r.blocked.length} blockiert` : ""}
-                    {r.critical ? " · kritisch" : ""}
-                  </span>
-                </li>
-              ))}
+            <ul className="space-y-1.5">
+              {validation.reports.map((r) => {
+                const tone =
+                  r.blocked.length > 0 || (r.critical && r.total === 0)
+                    ? "destructive"
+                    : r.missing > 0
+                      ? "secondary"
+                      : "outline";
+                const hasDetails = r.missingPaths.length > 0 || r.blocked.length > 0;
+                return (
+                  <li key={r.category} className="rounded border border-border/50 px-2 py-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={tone as "destructive" | "secondary" | "outline"}>{r.label}</Badge>
+                      <span className="text-muted-foreground">
+                        {r.selected}/{r.total} enthalten
+                        {r.missing > 0 ? `, ${r.missing} fehlen` : ""}
+                        {r.blocked.length > 0 ? `, ${r.blocked.length} blockiert` : ""}
+                        {r.critical ? " · kritisch" : ""}
+                      </span>
+                      {r.missing > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-auto h-6 text-[11px]"
+                          onClick={() => handleAutoFixCategory(r.category, r.label)}
+                          data-testid={`export-validation-autofix-${r.category}`}
+                          aria-label={`„${r.label}" automatisch ergänzen`}
+                        >
+                          <Wand2 className="h-3 w-3 mr-1" /> Auto-Fix
+                        </Button>
+                      )}
+                    </div>
+                    {hasDetails && (
+                      <Collapsible>
+                        <CollapsibleTrigger asChild>
+                          <button
+                            type="button"
+                            className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                          >
+                            <ChevronsUpDown className="h-3 w-3" />
+                            Dateien anzeigen
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <ul className="mt-1 max-h-40 overflow-auto rounded bg-muted/40 p-2 font-mono text-[11px] leading-tight">
+                            {r.missingPaths.slice(0, 200).map((p) => (
+                              <li key={`m-${p}`} className="text-amber-700 dark:text-amber-300">
+                                · {p}
+                              </li>
+                            ))}
+                            {r.missingPaths.length > 200 && (
+                              <li className="text-muted-foreground">
+                                … +{r.missingPaths.length - 200} weitere
+                              </li>
+                            )}
+                            {r.blocked.slice(0, 50).map((p) => (
+                              <li key={`b-${p}`} className="text-destructive">
+                                [blockiert] {p}
+                              </li>
+                            ))}
+                          </ul>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </AlertDescription>
         </Alert>
