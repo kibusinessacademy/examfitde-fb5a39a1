@@ -9,9 +9,19 @@ export function resolveCourseImage(opts: {
   explicit?: string | null;
   title?: string | null;
   chamber?: string | null;
+  debug?: boolean;
 }): string {
-  if (opts.explicit && opts.explicit.trim().length > 0) return opts.explicit;
-  return getBerufImage(opts.title ?? '', opts.chamber ?? null);
+  if (opts.explicit && opts.explicit.trim().length > 0) {
+    if (opts.debug) console.log('[resolveCourseImage] explicit:', opts.explicit);
+    return opts.explicit;
+  }
+  const fallback = getBerufImage(opts.title ?? '', opts.chamber ?? null);
+  if (opts.debug) {
+    console.warn(
+      `[resolveCourseImage] Fallback triggered — title:"${opts.title ?? ''}" chamber:"${opts.chamber ?? ''}" → ${fallback}`
+    );
+  }
+  return fallback;
 }
 
 /**
