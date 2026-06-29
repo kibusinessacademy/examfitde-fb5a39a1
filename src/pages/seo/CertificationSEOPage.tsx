@@ -4,7 +4,7 @@ import DOMPurify from 'dompurify';
 import { useCertificationSEOPage } from '@/hooks/useCertificationSEO';
 import { useCertificationSeoMapping, buildBuyCtaUrl } from '@/hooks/useCertificationSeoMapping';
 import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
-import { Loader2, ArrowRight, BookOpen, Target, Brain, CheckCircle2, Award } from 'lucide-react';
+import { ArrowRight, BookOpen, Target, Brain, CheckCircle2, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
@@ -64,25 +64,21 @@ const CertificationSEOPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, mapping?.package_id]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // PDP.HERO.CLS.STABILIZE.1: Kein früher NotFound/Spinner-Branch mehr.
+  // Die Hero-Shell unten rendert IMMER mit slugFallbackTitle + min-h-Tokens,
+  // sodass weder DB-Miss (page=null) noch async resolve einen Layout-Shift
+  // (gemessen 0.65 desktop) auslöst. Bei wirklich fehlendem Mapping wird der
+  // Notice-Slot informativ befüllt.
 
-  if (!page) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-3xl font-bold mb-4">Seite nicht gefunden</h1>
-        <p className="text-muted-foreground mb-8">Die angeforderte Prüfungsseite wurde nicht gefunden.</p>
-        <Link to="/" className="text-primary hover:underline">Zurück zur Startseite</Link>
-      </div>
-    );
-  }
 
-  const displayTitle = page.title;
+  // CLS-stable: Fallback-Titel aus Slug, falls page noch lädt — Hero rendert sofort
+  // mit stabiler Höhe, der spätere echte Titel ersetzt den Fallback ohne Layout-Shift.
+  const slugFallbackTitle = (slug || '')
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+  const displayTitle = page?.title ?? slugFallbackTitle ?? 'Prüfungsvorbereitung';
   const faqs = GENERIC_FAQS(displayTitle);
   // Kanonische URL kommt aus dem Mapping (Kategorie-Pfad), Fallback = aktueller Pfad.
   const canonicalPath = mapping?.canonical_url_path ?? `/${category.key}/${slug}`;
@@ -91,6 +87,8 @@ const CertificationSEOPage = () => {
   const productUrl = mapping
     ? buildBuyCtaUrl(mapping)
     : `/shop?ref=${encodeURIComponent(slug || '')}&category=${category.key}`;
+  // CLS-stable: solange mapping noch lädt, Notice-Slot NICHT rendern und Hinweis-Höhe trotzdem reservieren.
+  const mappingResolved = mapping !== undefined;
   const hasProduct = !!mapping?.product_url_path;
 
   const breadcrumbItems = [
@@ -102,30 +100,43 @@ const CertificationSEOPage = () => {
   return (
     <>
       <SEOHead
-        title={page.meta_title || `${displayTitle} Prüfungsvorbereitung | ExamFit`}
-        description={page.meta_description || `${displayTitle} Prüfung vorbereiten: Prüfungsfragen, Simulation und KI-Coach. Jetzt bei ExamFit trainieren.`}
+        title={page?.meta_title || `${displayTitle} Prüfungsvorbereitung | ExamFit`}
+        description={page?.meta_description || `${displayTitle} Prüfung vorbereiten: Prüfungsfragen, Simulation und KI-Coach. Jetzt bei ExamFit trainieren.`}
         canonical={`${SITE_URL}${sourceUrl}`}
         structuredData={[generateBreadcrumbSchema(breadcrumbItems), generateFAQSchema(faqs)]}
       />
 
       <div className="min-h-screen">
-        {/* Hero */}
-        <section className="relative py-16 md:py-24 overflow-hidden">
+        {/* Hero — PDP.HERO.CLS.STABILIZE.1: feste min-Höhen für H1/Subline/CTA/Notice */}
+        <section
+          className="relative py-16 md:py-24 overflow-hidden"
+          data-testid="pdp-hero-section"
+        >
           <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-accent/5" />
           <div className="container relative z-10">
-            <Breadcrumbs items={[
-              { label: category.label, href: `/${category.key}` },
-              { label: displayTitle },
-            ]} className="mb-8" />
+            <div className="mb-8 min-h-[28px]">
+              <Breadcrumbs items={[
+                { label: category.label, href: `/${category.key}` },
+                { label: displayTitle },
+              ]} />
+            </div>
             <div className="max-w-4xl">
-              <Badge className="mb-4 bg-primary/20 text-primary border-primary/30">{category.label}</Badge>
-              <h1 className="text-4xl md:text-5xl font-display font-bold mb-6">
+              <div className="mb-4 min-h-[28px]">
+                <Badge className="bg-primary/20 text-primary border-primary/30">{category.label}</Badge>
+              </div>
+              <h1
+                className="text-4xl md:text-5xl font-display font-bold mb-6 leading-tight min-h-[120px] md:min-h-[136px]"
+                data-testid="pdp-hero-h1"
+              >
                 <span className="text-gradient">{displayTitle}</span>: Prüfung sicher bestehen
               </h1>
-              <p className="text-xl text-muted-foreground mb-8 max-w-2xl">
+              <p
+                className="text-xl text-muted-foreground mb-8 max-w-2xl leading-relaxed min-h-[84px] md:min-h-[60px]"
+                data-testid="pdp-hero-subline"
+              >
                 Strukturiertes Prüfungstraining mit prüfungsnahen Fragen, realistischer Simulation und persönlichem KI-Prüfungscoach.
               </p>
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-4 min-h-[48px]" data-testid="pdp-hero-cta-row">
                 <Button size="lg" asChild onClick={() => track('cta_click', {
                   packageId: mapping?.package_id ?? null,
                   sourcePage: sourceUrl,
@@ -141,14 +152,22 @@ const CertificationSEOPage = () => {
                   <Link to={`/${category.key}`}>Alle {category.label}</Link>
                 </Button>
               </div>
-              {!hasProduct && (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Hinweis: Für „{displayTitle}" ist aktuell noch kein dediziertes Trainingspaket verfügbar.
-                </p>
-              )}
+              {/* Notice-Slot: immer höhenreservierend, Inhalt erst nach mapping-Resolve */}
+              <div
+                className="mt-3 min-h-[20px]"
+                aria-hidden={!mappingResolved || hasProduct}
+                data-testid="pdp-hero-notice"
+              >
+                {mappingResolved && !hasProduct && (
+                  <p className="text-xs text-muted-foreground">
+                    Hinweis: Für „{displayTitle}" ist aktuell noch kein dediziertes Trainingspaket verfügbar.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </section>
+
 
         {/* USPs */}
         <section className="py-16 bg-muted/30">
@@ -170,9 +189,13 @@ const CertificationSEOPage = () => {
           </div>
         </section>
 
-        {/* Original content from DB */}
-        {page.content_html && (
-          <section className="py-16">
+        {/* Original content from DB — Slot ist IMMER gerendert (min-h reserviert),
+            damit das Nachladen von content_html nachfolgende Sections nicht verschiebt. */}
+        <section
+          className="py-16 min-h-[420px] md:min-h-[520px]"
+          data-testid="pdp-content-slot"
+        >
+          {page?.content_html && (
             <article className="container max-w-4xl">
               <div
                 className="prose prose-lg max-w-none dark:prose-invert"
@@ -186,8 +209,8 @@ const CertificationSEOPage = () => {
                 }}
               />
             </article>
-          </section>
-        )}
+          )}
+        </section>
 
         {/* Vorbereitungs-Schritte */}
         <section className="py-16 bg-muted/30">
@@ -225,7 +248,7 @@ const CertificationSEOPage = () => {
         </section>
 
         {/* Legacy internal links */}
-        {page.internal_links && page.internal_links.length > 0 && (
+        {page?.internal_links && page.internal_links.length > 0 && (
           <section className="py-16">
             <div className="container max-w-3xl">
               <h2 className="text-xl font-semibold mb-4">Verwandte Prüfungen</h2>
