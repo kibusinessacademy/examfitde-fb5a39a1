@@ -46,6 +46,8 @@ import { PassProbabilityBadge } from '@/components/exam/PassProbabilityBadge';
 import { TutorPanel } from '@/components/tutor/TutorPanel';
 import PageExplainer from '@/components/admin/PageExplainer';
 import { AI_MODES, type AIMode } from '@/hooks/useAITutor';
+import { useAuth } from '@/hooks/useAuth';
+import { RequireLoginToTrain } from '@/components/auth/RequireLoginToTrain';
 
 // Map exam mode to AI tutor mode
 function getAIMode(examMode: string): AIMode {
@@ -65,6 +67,7 @@ export default function ExamSimulation() {
   const { sessionId } = useParams<{ sessionId?: string }>();
   const navigate = useNavigate();
   const beruf = useOsBeruf();
+  const { user, loading: authLoading } = useAuth();
 
   const [examResult, setExamResult] = useState<ExamResult | null>(null);
   const [showFinishDialog, setShowFinishDialog] = useState(false);
@@ -159,6 +162,11 @@ export default function ExamSimulation() {
     setShowFinishDialog(false);
   };
   
+  // Login-Gate: Prüfungssimulation speichert Sessions, deshalb Login Pflicht.
+  if (!authLoading && !user) {
+    return <RequireLoginToTrain feature="exam_simulation" />;
+  }
+
   // No session - show blueprint selector with gate guard
   if (!currentSessionId) {
     // Get curriculum from first blueprint if available
