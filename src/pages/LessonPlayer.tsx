@@ -21,6 +21,7 @@ import PageExplainer from '@/components/admin/PageExplainer';
 import LessonContent from '@/components/lesson/LessonContent';
 import LessonNavigation from '@/components/lesson/LessonNavigation';
 import LessonTutorBox from '@/components/lesson/LessonTutorBox';
+import LessonOralVisualSlot from '@/components/lesson/LessonOralVisualSlot';
 import { LearningGoalFeedback } from '@/components/course/LearningGoalFeedback';
 
 interface Lesson {
