@@ -2,10 +2,29 @@
  * Accessibility / keyboard regression tests for the Export Preview virtualized
  * file tree (`role="tree"` + aria-activedescendant + treeitem aria-expanded).
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { VirtualTree } from "@/pages/admin/v2/ExportPreviewPage";
 import { buildTree, type ManifestFile } from "@/lib/factory/exportManifest";
+
+// happy-dom has no layout — stub viewport so @tanstack/react-virtual
+// materialises real rows we can assert against.
+beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+    configurable: true,
+    get: () => 480,
+  });
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+    configurable: true,
+    get: () => 640,
+  });
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    return {
+      x: 0, y: 0, top: 0, left: 0, bottom: 480, right: 640,
+      width: 640, height: 480, toJSON: () => ({}),
+    } as DOMRect;
+  };
+});
 
 const mk = (path: string, kind: ManifestFile["kind"] = "text"): ManifestFile => ({
   path,
