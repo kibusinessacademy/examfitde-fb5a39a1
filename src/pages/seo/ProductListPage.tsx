@@ -1,13 +1,14 @@
 import { Link, Navigate } from 'react-router-dom';
-import { ArrowRight, BookOpen, Target, Award, CheckCircle, Star, Shield, Clock } from 'lucide-react';
+import { ArrowRight, CheckCircle, Star, Shield, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SEOHead } from '@/components/seo/SEOHead';
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { useBerufPages } from '@/hooks/useSEOPages';
 import { SITE_URL, PRODUCT_PRICE_DISPLAY } from '@/lib/seo';
 import { PRICING } from '@/config/pricing';
+import { CoursePremiumCard } from '@/components/shop/CoursePremiumCard';
 
 /**
  * Single-product strategy: All product list pages redirect to one unified product page.
@@ -76,28 +77,18 @@ function ProductListPageComponent() {
                 ))}
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                 {berufe?.map((beruf) => (
-                  <Link key={beruf.id} to={`/shop?beruf=${beruf.slug}`}>
-                    <Card className="glass-card hover:shadow-glow-sm transition-all h-full group">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <Target className="h-6 w-6 text-primary" />
-                          <span className="font-bold text-gradient">{PRODUCT_PRICE_DISPLAY}</span>
-                        </div>
-                        <CardTitle className="group-hover:text-primary transition-colors">
-                          {beruf.title}
-                        </CardTitle>
-                        <CardDescription>Prüfungstraining für die IHK-Prüfung</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex gap-2">
-                          <Badge variant="outline" className="text-xs">Alles inklusive</Badge>
-                          <Badge variant="outline" className="text-xs">12 Monate</Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  <CoursePremiumCard
+                    key={beruf.id}
+                    title={beruf.title}
+                    href={`/shop?beruf=${beruf.slug}`}
+                    chamber="IHK"
+                    meta="Prüfungstraining · 12 Monate Zugang"
+                    priceLabel={PRODUCT_PRICE_DISPLAY}
+                    primaryIcon="cart"
+                    primaryLabel={`Jetzt kaufen · ${PRODUCT_PRICE_DISPLAY}`}
+                  />
                 ))}
               </div>
             )}

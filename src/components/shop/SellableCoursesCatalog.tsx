@@ -4,14 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Search, ShoppingCart, PlayCircle, Loader2, ArrowRight } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatEur } from '@/lib/timezone';
 import { useSellableCourses, cleanCourseTitle, TRACK_LABELS, type SellableCourse } from '@/hooks/useSellableCourses';
 import { useTrackGrowthEvent } from '@/hooks/useTrackGrowthEvent';
 import { startProductCheckout } from '@/lib/checkout/startProductCheckout';
-import { getBerufImage } from '@/lib/berufImage';
+import { CoursePremiumCard } from '@/components/shop/CoursePremiumCard';
 
 const ALL = '__ALL__';
 const PRICE_BUCKETS: Array<{ key: string; label: string; test: (c: SellableCourse) => boolean }> = [
@@ -167,73 +166,21 @@ export function SellableCoursesCatalog() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
           {filtered.map((c) => {
             const cleanTitle = cleanCourseTitle(c.title);
-            const img = getBerufImage(c.title, c.chamber_type);
-            const isBuying = buyingId === c.course_id;
             return (
-              <Card
+              <CoursePremiumCard
                 key={c.course_id}
-                className="group relative overflow-hidden flex flex-col rounded-2xl border bg-card hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
-              >
-                {/* Image */}
-                <button
-                  type="button"
-                  onClick={() => handleSimulate(c)}
-                  className="relative block w-full aspect-[16/10] overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary/60"
-                  aria-label={`${cleanTitle} ansehen`}
-                >
-                  <img
-                    src={img}
-                    alt={`${cleanTitle} – Prüfungstraining`}
-                    loading="lazy"
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-                  <div className="absolute top-3 left-3 flex gap-2">
-                    <Badge variant="secondary" className="backdrop-blur bg-white/85 text-foreground border-0">
-                      {c.chamber_type}
-                    </Badge>
-                  </div>
-                  <div className="absolute top-3 right-3">
-                    <span className="inline-flex items-center rounded-full bg-white/95 text-foreground text-sm font-semibold px-3 py-1 shadow-sm">
-                      {formatEur(c.min_price_cents)}
-                    </span>
-                  </div>
-                  <div className="absolute bottom-3 left-3 right-3">
-                    <h3 className="text-white font-display font-bold text-lg leading-tight line-clamp-2 drop-shadow">
-                      {cleanTitle}
-                    </h3>
-                    <p className="text-white/85 text-xs mt-1 line-clamp-1">
-                      {c.catalog_type} · {TRACK_LABELS[c.track] ?? c.track}
-                    </p>
-                  </div>
-                </button>
-
-                {/* CTAs */}
-                <CardContent className="p-3 flex gap-2">
-                  <Button
-                    size="sm"
-                    className="flex-1 gradient-primary text-primary-foreground shadow-glow"
-                    onClick={() => handleBuy(c)}
-                    disabled={isBuying}
-                  >
-                    {isBuying ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <ShoppingCart className="h-4 w-4 mr-1" />
-                    )}
-                    {isBuying ? 'Wird geladen…' : `Jetzt kaufen · ${formatEur(c.min_price_cents)}`}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleSimulate(c)}
-                    aria-label={`Prüfung simulieren — ${cleanTitle}`}
-                    title="Prüfung simulieren"
-                  >
-                    <PlayCircle className="h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
+                title={cleanTitle}
+                href={c.product_slug ? `/produkt/${c.product_slug}` : `/shop?curriculum=${c.curriculum_id}`}
+                chamber={c.chamber_type}
+                meta={`${c.catalog_type} · ${TRACK_LABELS[c.track] ?? c.track}`}
+                priceLabel={formatEur(c.min_price_cents)}
+                primaryIcon="cart"
+                primaryLabel={`Jetzt kaufen · ${formatEur(c.min_price_cents)}`}
+                onPrimaryClick={() => handleBuy(c)}
+                primaryLoading={buyingId === c.course_id}
+                onSecondaryClick={() => handleSimulate(c)}
+                secondaryAriaLabel={`Prüfung simulieren — ${cleanTitle}`}
+              />
             );
           })}
         </div>
