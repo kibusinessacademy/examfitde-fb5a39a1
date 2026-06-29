@@ -118,6 +118,7 @@ export default function BerufBacklinkRulesPage() {
   const [draft, setDraft] = useState<Partial<BacklinkRule>>({
     priority: 50, max_links_per_doc: 1, link_type: "cluster_to_pillar", is_active: true,
   });
+  const [draftKind, setDraftKind] = useState<TargetKind>("beruf");
   const [saving, setSaving] = useState(false);
 
   async function createRule() {
