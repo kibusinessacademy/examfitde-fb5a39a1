@@ -459,7 +459,12 @@ export default function BerufePage() {
                                 height={512}
                                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                               />
-                              <BerufImageStatusBadge status={imgStatus} className="top-3 right-3" />
+                              <BerufImageStatusBadge
+                                status={imgStatus}
+                                errorReason={imgError}
+                                onRetry={() => retry(slugKey)}
+                                className="top-3 right-3"
+                              />
                               <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
                               <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                                 <Badge className="bg-primary text-primary-foreground border-0 text-[11px] shadow-sm">
