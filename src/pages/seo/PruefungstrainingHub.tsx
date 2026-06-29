@@ -9,6 +9,7 @@ import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
 import { Target, GraduationCap, Award, BookOpen, Shield, Briefcase, ArrowRight, CheckCircle2, Zap, Brain, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { CoursePremiumCard } from '@/components/shop/CoursePremiumCard';
 
 const CATEGORIES = [
   {
