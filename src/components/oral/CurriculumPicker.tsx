@@ -43,9 +43,13 @@ export function CurriculumPicker({
 }: CurriculumPickerProps) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CurriculumCategory | 'all'>('all');
+  const { user } = useAuth();
 
   const index = useMemo(() => buildCurriculumIndex(curricula), [curricula]);
   const recentIds = useMemo(() => getRecentCurriculumIds(), []);
+
+  const allIds = useMemo(() => index.map((c) => c.id), [index]);
+  const readinessBulk = useOralCurriculaReadinessBulk(allIds);
 
   const recent = useMemo(
     () => recentIds.map((id) => index.find((c) => c.id === id)).filter(Boolean) as CurriculumDisplay[],
@@ -68,6 +72,9 @@ export function CurriculumPicker({
   );
 
   const showQuickRows = !query && category === 'all';
+  const readinessMap = readinessBulk.data;
+  const isLoggedIn = !!user;
+
 
   return (
     <div className="space-y-4">
