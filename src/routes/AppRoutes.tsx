@@ -132,6 +132,7 @@ const QuizResultPage = lazyRetry(() => import('@/pages/quiz/QuizResultPage'));
 const BlogIndexPage = lazyRetry(() => import('@/pages/seo/BlogIndexPage'));
 const BlogArticlePage = lazyRetry(() => import('@/pages/seo/BlogArticlePage'));
 const PruefungsfragenPage = lazyRetry(() => import('@/pages/seo/PruefungsfragenPage'));
+const TopicQuestionsPage = lazyRetry(() => import('@/pages/seo/TopicQuestionsPage'));
 const MuendlichePruefungPage = lazyRetry(() => import('@/pages/seo/MuendlichePruefungPage'));
 const ProbepruefungPage = lazyRetry(() => import('@/pages/seo/ProbepruefungPage'));
 const LernplanPruefungPage = lazyRetry(() => import('@/pages/seo/LernplanPruefungPage'));
@@ -659,6 +660,7 @@ const AppRoutes = () => {
           <Route path="/:slug" element={<ProgrammaticSEODispatcher />} />
 
           <Route path="/pruefungsfragen" element={<PruefungsfragenPage />} />
+          <Route path="/pruefungsfragen/:thema" element={<TopicQuestionsPage />} />
           <Route path="/muendliche-pruefung" element={<MuendlichePruefungPage />} />
           <Route path="/probepruefung" element={<ProbepruefungPage />} />
           <Route path="/lernplan-pruefung" element={<LernplanPruefungPage />} />

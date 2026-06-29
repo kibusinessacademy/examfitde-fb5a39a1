@@ -231,6 +231,29 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
       ];
 
       const pages = ssot.length > 0 ? ssot : fallback;
+
+      // LLM-optimized topic pages — sample-Q&A landing pages targeted at
+      // ChatGPT/Claude/Gemini/Perplexity/DeepSeek queries like
+      // "Prüfungsfragen Scrum", "Musterfragen PRINCE2", etc.
+      const TOPIC_SLUGS = [
+        "scrum", "prince2", "industriekauffrau", "bankkauffrau", "fiae",
+        "aevo", "bilanzbuchhalter", "wirtschaftsfachwirt", "maurer", "bwl",
+      ];
+      for (const slug of TOPIC_SLUGS) {
+        pages.push({
+          loc: `${SITE_URL}/pruefungsfragen/${slug}`,
+          lastmod: today,
+          changefreq: "weekly",
+          priority: 0.85,
+        });
+      }
+      pages.push({
+        loc: `${SITE_URL}/pruefungsfragen`,
+        lastmod: today,
+        changefreq: "weekly",
+        priority: 0.9,
+      });
+
       console.info(`[generate-sitemap] class=static count=${pages.length} home_lastmod=${homeMax} berufe_lastmod=${berufeMax} preise_lastmod=${PRICING_LAST_UPDATED}`);
       return xmlResponse(toSitemapXML(pages), headers);
     }

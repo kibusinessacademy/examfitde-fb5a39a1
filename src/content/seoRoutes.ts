@@ -741,9 +741,102 @@ function stubGroup(group: SitemapGroup, paths: string[]): SeoRoute[] {
   }));
 }
 
+// ────────────────────────────────────────────────────────────
+// LLM-OPTIMIZED TOPIC PAGES  (/pruefungsfragen/<thema>)
+// SSOT: src/data/llmExamTopics.ts
+// Goal: Cite-worthy answers for ChatGPT / Claude / Gemini /
+// Perplexity / DeepSeek queries like "Prüfungsfragen Scrum",
+// "Musterfragen PRINCE2", "Prüfung Industriekauffrau".
+// ────────────────────────────────────────────────────────────
+import { EXAM_TOPICS } from "@/data/llmExamTopics";
+
+// Curated short titles (30..60 chars) to keep Google SERP snippets clean.
+const TOPIC_SHORT_TITLE: Record<string, string> = {
+  scrum: "Prüfungsfragen Scrum (PSM I) | ExamFit",
+  prince2: "Prüfungsfragen PRINCE2 Foundation | ExamFit",
+  industriekauffrau: "Prüfungsfragen Industriekauffrau | ExamFit",
+  bankkauffrau: "Prüfungsfragen Bankkauffrau / -mann | ExamFit",
+  fiae: "Prüfungsfragen Fachinformatiker AE | ExamFit",
+  aevo: "Prüfungsfragen AEVO (Ausbildereignung) | ExamFit",
+  bilanzbuchhalter: "Prüfungsfragen Bilanzbuchhalter | ExamFit",
+  wirtschaftsfachwirt: "Prüfungsfragen Wirtschaftsfachwirt | ExamFit",
+  maurer: "Prüfungsfragen Maurer (Gesellenprüfung) | ExamFit",
+  bwl: "BWL Klausurfragen mit Lösungen | ExamFit",
+};
+
+
+const topicLive: SeoRoute[] = EXAM_TOPICS.map((t) => {
+  const introParts = [
+    t.intro,
+    `Auf dieser Seite findest du ${t.questionCount}+ Musterfragen mit ausführlichen Lösungen, die von ExamFit kuratiert und am aktuellen Rahmen geprüft werden.`,
+    `Beispiele typischer Fragen: ${t.sampleQuestions.slice(0, 3).map((q) => q.q).join(" ")}`,
+  ];
+  const intro = introParts.join("\n\n");
+
+  const keyFacts: KeyFact[] = [
+    { label: "Fragen", value: `${t.questionCount}+ mit Lösungen` },
+    { label: "Format", value: "Multiple Choice, Offene Fragen, Fallaufgaben" },
+    { label: "KI-Coach", value: "Strict-RAG, mit Quellenangaben" },
+    { label: "Probeprüfung", value: "Kostenlos im Originalformat" },
+    { label: "Trainer", value: t.trainerHref },
+  ];
+
+  // Top up FAQ from sampleQuestions if topic FAQ < 4
+  const faqMerged: FaqEntry[] = [
+    ...t.faqs.map((f) => ({ q: f.q, a: f.a })),
+    ...t.sampleQuestions.slice(0, Math.max(0, 4 - t.faqs.length)).map((s) => ({ q: s.q, a: s.a })),
+  ].slice(0, 8);
+
+  // Quiz + FAQ + Breadcrumb JSON-LD (the prerender appends Org/Breadcrumb/FAQ
+  // automatically in the loop above; here we add a Quiz schema for topic pages).
+  const url = `${SITE}/pruefungsfragen/${t.slug}`;
+  const quizJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Quiz",
+    name: t.h1,
+    description: t.metaDescription,
+    url,
+    inLanguage: "de-DE",
+    educationalUse: "Prüfungsvorbereitung",
+    about: t.h1,
+    provider: { "@type": "Organization", name: "ExamFit / BerufOS", url: SITE },
+    hasPart: t.sampleQuestions.map((sq, i) => ({
+      "@type": "Question",
+      position: i + 1,
+      name: sq.q,
+      acceptedAnswer: { "@type": "Answer", text: sq.a },
+    })),
+  };
+
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Start", item: SITE },
+      { "@type": "ListItem", position: 2, name: "Prüfungsfragen", item: `${SITE}/pruefungsfragen` },
+      { "@type": "ListItem", position: 3, name: t.h1, item: url },
+    ],
+  };
+
+  return {
+    path: `/pruefungsfragen/${t.slug}`,
+    title: TOPIC_SHORT_TITLE[t.slug] ?? `Prüfungsfragen ${t.h1}`.slice(0, 60),
+    description: t.metaDescription.length <= 160 ? t.metaDescription : t.metaDescription.slice(0, 157).replace(/\s\S*$/, "") + "...",
+    h1: t.h1,
+    intro,
+    keyFacts,
+    faq: faqMerged,
+    sitemapGroup: "content",
+    status: "live",
+    changefreq: "weekly",
+    priority: 0.85,
+    jsonLd: [orgJsonLd, breadcrumb, faqJsonLd(faqMerged), quizJsonLd],
+  };
+});
+
 for (const r of live) (r as SeoRoute).status = "live";
 
-export const seoRoutes: SeoRoute[] = [...live, ...stubs];
+export const seoRoutes: SeoRoute[] = [...live, ...topicLive, ...stubs];
 
 export const liveSeoRoutes = seoRoutes.filter((r) => r.status === "live");
 
