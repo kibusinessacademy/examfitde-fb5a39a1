@@ -89,6 +89,11 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
+      name: 'pdp-hero-visual',
+      testMatch: /pdp-hero-visual\.spec\.ts/,
+      timeout: 120_000,
+    },
+    {
       name: 'b2b-render',
       testMatch: /b2b-route-render\.spec\.ts/,
       timeout: 60_000,
