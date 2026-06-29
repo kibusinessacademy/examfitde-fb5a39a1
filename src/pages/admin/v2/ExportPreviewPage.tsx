@@ -186,14 +186,72 @@ function VirtualTree({
     overscan: 16,
   });
 
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // Preserve scroll position when filters/sort/tree mutate: reset only when
+  // the row identity actually changes (not on every render).
+  const rowSig = useMemo(
+    () => `${rows.length}:${rows.slice(0, 6).map((r) => (r.kind === "dir" ? `d:${r.node.path}` : `f:${r.file.path}`)).join("|")}`,
+    [rows],
+  );
+  const prevSigRef = useRef<string>(rowSig);
+  useEffect(() => {
+    if (prevSigRef.current !== rowSig) {
+      prevSigRef.current = rowSig;
+      setActiveIndex((i) => Math.min(i, Math.max(0, rows.length - 1)));
+    }
+  }, [rowSig, rows.length]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (rows.length === 0) return;
+    let next = activeIndex;
+    if (e.key === "ArrowDown") next = Math.min(rows.length - 1, activeIndex + 1);
+    else if (e.key === "ArrowUp") next = Math.max(0, activeIndex - 1);
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = rows.length - 1;
+    else if (e.key === "PageDown") next = Math.min(rows.length - 1, activeIndex + 12);
+    else if (e.key === "PageUp") next = Math.max(0, activeIndex - 12);
+    else if (e.key === " " || e.key === "Enter") {
+      const r = rows[activeIndex];
+      if (r?.kind === "dir") {
+        e.preventDefault();
+        onToggleOpen(r.node.path);
+      } else if (r?.kind === "file") {
+        e.preventDefault();
+        onPick(r.file);
+      }
+      return;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    setActiveIndex(next);
+    virtualizer.scrollToIndex(next, { align: "auto" });
+  }, [activeIndex, rows, onPick, onToggleOpen, virtualizer]);
+
   return (
-    <div ref={parentRef} className="h-[70vh] overflow-auto py-2">
+    <div
+      ref={parentRef}
+      className="h-[70vh] overflow-auto py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+      role="tree"
+      aria-label="Export-Dateibaum"
+      aria-activedescendant={rows.length ? `export-row-${activeIndex}` : undefined}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+    >
       <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
         {virtualizer.getVirtualItems().map((vi) => {
           const row = rows[vi.index];
+          const isActive = vi.index === activeIndex;
           return (
             <div
               key={vi.key}
+              id={`export-row-${vi.index}`}
+              role="treeitem"
+              aria-selected={row.kind === "file" ? pickedPath === row.file.path : undefined}
+              aria-expanded={row.kind === "dir" ? openDirs.has(row.node.path) : undefined}
+              aria-level={(row.depth ?? 0) + 1}
+              className={isActive ? "ring-1 ring-primary/40 rounded" : undefined}
               style={{
                 position: "absolute",
                 top: 0,
