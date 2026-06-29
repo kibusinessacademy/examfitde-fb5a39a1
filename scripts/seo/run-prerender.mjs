@@ -39,17 +39,27 @@ console.log(
 );
 console.log(`[seo-prerender-runner] Loading SSOT: ${ssotPath}`);
 
-// Load + transpile TS SSOT via esbuild → ESM data URL.
+// Load + bundle TS SSOT via esbuild → ESM data URL.
+// Must bundle so transitive imports (e.g. "@/lib/...", "../lib/...") resolve.
 let ssot;
 try {
   const esbuild = await import("esbuild");
-  const tsSource = readFileSync(ssotPath, "utf8");
-  const { code } = await esbuild.transform(tsSource, {
-    loader: "ts",
+  const result = await esbuild.build({
+    entryPoints: [ssotPath],
+    bundle: true,
+    write: false,
     format: "esm",
+    platform: "neutral",
     target: "es2022",
-    sourcefile: ssotPath,
+    mainFields: ["module", "main"],
+    conditions: ["import", "module", "default"],
+    external: [],
+    logLevel: "silent",
+    alias: {
+      "@": resolve(__dirname, "../../src"),
+    },
   });
+  const code = result.outputFiles[0].text;
   const dataUrl =
     "data:text/javascript;base64," + Buffer.from(code, "utf8").toString("base64");
   ssot = await import(dataUrl);
@@ -60,6 +70,7 @@ try {
   );
   process.exit(2);
 }
+
 
 if (!Array.isArray(ssot.seoRoutes)) {
   console.error(
