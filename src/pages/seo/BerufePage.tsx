@@ -179,7 +179,7 @@ export default function BerufePage() {
         })),
     [filteredCourses],
   );
-  const { imageBySlug, statusBySlug } = useBerufImages(visibleForImages);
+  const { imageBySlug, statusBySlug, altBySlug } = useBerufImages(visibleForImages);
   const structuredData = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -434,6 +434,9 @@ export default function BerufePage() {
                     const realImg = imageBySlug.get(slugKey);
                     const img = realImg || fallbackImg;
                     const imgStatus = realImg ? 'ready' : statusBySlug.get(slugKey);
+                    const imgAlt = altBySlug.get(slugKey)
+                      || `Berufsbild für ${entry.title}${entry.kammer ? ` (${entry.kammer})` : ''} – Auszubildende im Beruf.`;
+
                     if (entry.isPublished) {
                       const detailUrl =
                         entry.category && entry.category !== 'ausbildung'
@@ -449,7 +452,7 @@ export default function BerufePage() {
                             <div className="relative aspect-[16/10] overflow-hidden bg-muted">
                               <img
                                 src={img}
-                                alt=""
+                                alt={imgAlt}
                                 loading="lazy"
                                 width={768}
                                 height={512}
@@ -504,7 +507,7 @@ export default function BerufePage() {
                         <div className="relative aspect-[16/10] overflow-hidden bg-muted">
                           <img
                             src={img}
-                            alt=""
+                            alt={imgAlt}
                             loading="lazy"
                             width={768}
                             height={512}
