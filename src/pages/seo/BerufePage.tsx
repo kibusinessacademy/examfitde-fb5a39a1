@@ -178,7 +178,7 @@ export default function BerufePage() {
         })),
     [filteredCourses],
   );
-  const { imageBySlug } = useBerufImages(visibleForImages);
+  const { imageBySlug, statusBySlug } = useBerufImages(visibleForImages);
   const structuredData = {
     '@context': 'https://schema.org',
     '@graph': [
