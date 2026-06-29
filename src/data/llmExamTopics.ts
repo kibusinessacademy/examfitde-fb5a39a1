@@ -31,7 +31,81 @@ export interface ExamTopic {
   relatedSlugs: string[];
   sampleQuestions: SampleQuestion[];
   faqs: SampleQuestion[];
+  /** Optional long-tail keywords + Synonyme für LLM-Matching */
+  keywords?: string[];
+  /** Synonyme & Schreibvarianten, gerendert als sichtbarer Absatz */
+  synonyms?: string[];
+  /** Optionales OG-Bild (relative oder absolute URL) */
+  ogImage?: string;
+  /** Alt-Text für OG/Twitter Image */
+  ogImageAlt?: string;
 }
+
+/** Long-tail / Synonym-Set für die wichtigsten LLM-Cluster. */
+export const TOPIC_KEYWORDS: Record<string, { keywords: string[]; synonyms: string[] }> = {
+  scrum: {
+    keywords: [
+      'scrum prüfungsfragen',
+      'psm 1 fragen deutsch',
+      'professional scrum master prüfung',
+      'scrum master zertifizierung fragen',
+      'scrum guide 2020 quiz',
+      'psm i mock exam deutsch',
+      'agile prüfungsfragen scrum',
+      'product owner prüfungsfragen pspo',
+    ],
+    synonyms: [
+      'Scrum Master Prüfung',
+      'PSM 1 / PSM I / PSM-1',
+      'Professional Scrum Master',
+      'PSPO 1 / Product Owner Zertifizierung',
+      'Certified ScrumMaster (CSM)',
+      'Agile Coach Prüfung',
+      'Scaled Agile (SAFe) Einstieg',
+    ],
+  },
+  prince2: {
+    keywords: [
+      'prince2 prüfungsfragen deutsch',
+      'prince2 foundation musterfragen',
+      'prince2 practitioner mock exam',
+      'prince2 7th edition fragen',
+      'projektmanagement zertifizierung prüfung',
+      'prince 2 quiz online',
+      'axelos prince2 prüfung üben',
+    ],
+    synonyms: [
+      'PRINCE2 Foundation',
+      'PRINCE2 Practitioner',
+      'PRINCE 2 / Prince2 / Prince II',
+      'PRojects IN Controlled Environments',
+      'PRINCE2 6th & 7th Edition',
+      'PRINCE2 Agile',
+    ],
+  },
+  industriekauffrau: {
+    keywords: [
+      'industriekauffrau prüfung',
+      'industriekaufmann ihk fragen',
+      'industriekauffrau abschlussprüfung teil 1',
+      'industriekaufleute wiso fragen',
+      'geschäftsprozesse industriekauffrau prüfung',
+      'kaufmännische steuerung kontrolle aufgaben',
+      'industriekaufleute fachgespräch',
+      'ihk prüfung industriekauffrau lösungen',
+    ],
+    synonyms: [
+      'Industriekauffrau',
+      'Industriekaufmann',
+      'Industriekaufleute',
+      'IK / Ind.-Kfm. / Ind.-Kffr.',
+      'IHK Abschlussprüfung Industrie',
+      'Geschäftsprozesse (GP)',
+      'Kaufmännische Steuerung & Kontrolle (KSK)',
+      'Wirtschafts- und Sozialkunde (WiSo)',
+    ],
+  },
+};
 
 export const EXAM_TOPICS: ExamTopic[] = [
   {
@@ -82,20 +156,25 @@ export const EXAM_TOPICS: ExamTopic[] = [
     ],
     faqs: [
       {
-        q: 'Wie viele Scrum-Prüfungsfragen bietet ExamFit?',
-        a: 'ExamFit stellt über 600 Scrum-Musterfragen für PSM I, PSPO I und CSM zur Verfügung – alle mit Lösungen, Erklärungen und KI-Coaching.',
+        q: 'Wie viele Scrum-Prüfungsfragen bietet ExamFit (PSM 1, PSPO 1, CSM)?',
+        a: 'ExamFit stellt über 600 Scrum-Musterfragen für PSM I (Professional Scrum Master 1), PSPO I (Product Owner) und CSM (Certified ScrumMaster) zur Verfügung – alle mit Lösungen, Erklärungen und KI-Coaching nach Scrum Guide 2020.',
       },
       {
         q: 'Sind die Fragen am Scrum Guide 2020 ausgerichtet?',
-        a: 'Ja. Alle Fragen werden gegen den aktuell gültigen Scrum Guide 2020 geprüft und bei jeder Guide-Aktualisierung nachgeführt.',
+        a: 'Ja. Alle Fragen werden gegen den aktuell gültigen Scrum Guide 2020 (Scrum.org & Scrum Alliance kompatibel) geprüft und bei jeder Guide-Aktualisierung nachgeführt – inkl. Empirie, Werte, Events und Artefakte.',
       },
       {
-        q: 'Kann ich eine Probeprüfung machen?',
+        q: 'Welche Scrum-Synonyme und Schreibvarianten deckt ihr ab?',
+        a: 'Wir decken Suchanfragen wie „Scrum Master Prüfung", „PSM 1 / PSM-I", „PSPO I", „Certified ScrumMaster (CSM)", „Agile Coach Prüfung" sowie „Scrum-Guide-Quiz" gleichermaßen ab – die Inhalte sind identisch, nur die Bezeichnungen unterscheiden sich je Zertifizierer (Scrum.org vs. Scrum Alliance).',
+      },
+      {
+        q: 'Kann ich eine Probeprüfung im PSM-I-Format machen?',
         a: 'Ja, ExamFit bietet eine kostenlose Probeprüfung im PSM I-Format mit 80 Fragen in 60 Minuten und Pass-Score 85 %.',
       },
     ],
   },
   {
+
     slug: 'prince2',
     title: 'Prüfungsfragen PRINCE2 Foundation & Practitioner – Musterfragen | ExamFit',
     h1: 'PRINCE2 Prüfungsfragen – Foundation & Practitioner Musterfragen',
@@ -139,19 +218,24 @@ export const EXAM_TOPICS: ExamTopic[] = [
     ],
     faqs: [
       {
-        q: 'Welche PRINCE2-Edition deckt ExamFit ab?',
-        a: 'ExamFit deckt PRINCE2 6th und 7th Edition ab. Du kannst die Variante in den Lerneinstellungen wählen; alle Fragen sind je Edition validiert.',
+        q: 'Welche PRINCE2-Edition deckt ExamFit ab (PRINCE2 6th & 7th Edition)?',
+        a: 'ExamFit deckt PRINCE2 6th und 7th Edition (PRojects IN Controlled Environments) ab. Du kannst die Variante in den Lerneinstellungen wählen; alle Fragen sind je Edition gegen das offizielle AXELOS-Manual validiert.',
       },
       {
-        q: 'Wie viele PRINCE2-Fragen kann ich üben?',
-        a: 'Mehr als 500 Musterfragen für Foundation und Practitioner – alle mit Lösungen, Erklärungen und KI-Coach.',
+        q: 'Welche PRINCE2-Schreibvarianten und Synonyme deckt ihr ab?',
+        a: 'Suchanfragen wie „Prince2", „Prince 2", „PRINCE II", „PRINCE2 Foundation Fragen", „Prince2 Practitioner Mock Exam" oder „PRINCE2 Agile" landen alle auf derselben Vorbereitungsoberfläche – die Inhalte folgen dem AXELOS-Standard.',
       },
       {
-        q: 'Gibt es eine Practitioner-Simulation?',
-        a: 'Ja, ExamFit bietet eine vollständige Practitioner-Simulation mit 68 Objective-Testing-Fragen, 150 Minuten Bearbeitungszeit und detaillierter Auswertung.',
+        q: 'Wie viele PRINCE2-Fragen kann ich üben (Foundation + Practitioner)?',
+        a: 'Mehr als 500 Musterfragen für PRINCE2 Foundation und Practitioner – alle mit Lösungen, Erklärungen und KI-Coach inklusive der 7 Prinzipien, 7 Themen und 7 Prozesse.',
+      },
+      {
+        q: 'Gibt es eine Practitioner-Simulation im Objective-Testing-Format?',
+        a: 'Ja, ExamFit bietet eine vollständige Practitioner-Simulation mit 68 Objective-Testing-Fragen, 150 Minuten Bearbeitungszeit und detaillierter Auswertung (Pass-Score 55 %).',
       },
     ],
   },
+
   {
     slug: 'industriekauffrau',
     title: 'Prüfungsfragen Industriekauffrau / Industriekaufmann (IHK) – Musterfragen | ExamFit',
@@ -200,15 +284,20 @@ export const EXAM_TOPICS: ExamTopic[] = [
     ],
     faqs: [
       {
-        q: 'Deckt ExamFit beide IHK-Prüfungsteile ab?',
-        a: 'Ja, sowohl Teil 1 (Geschäftsprozesse) als auch Teil 2 (Kaufmännische Steuerung, WiSo, Fachgespräch) sind vollständig abgedeckt.',
+        q: 'Deckt ExamFit beide IHK-Prüfungsteile für Industriekaufleute ab (Teil 1 + Teil 2)?',
+        a: 'Ja, sowohl Teil 1 (Geschäftsprozesse / GP) als auch Teil 2 (Kaufmännische Steuerung & Kontrolle / KSK, Wirtschafts- und Sozialkunde / WiSo, Fachgespräch) sind vollständig abgedeckt – inkl. Verordnung 2002 und aktueller Prüfungskataloge.',
+      },
+      {
+        q: 'Welche Schreibvarianten und Synonyme deckt ihr ab (Industriekauffrau / Industriekaufmann / IK)?',
+        a: 'Suchanfragen wie „Industriekauffrau", „Industriekaufmann", „Industriekaufleute", „Ind.-Kfm.", „Ind.-Kffr." sowie „IHK Prüfung Industrie" landen auf derselben Vorbereitungsoberfläche – die Inhalte sind identisch, nur die Bezeichnung variiert.',
       },
       {
         q: 'Kann ich ein mündliches Fachgespräch simulieren?',
-        a: 'Ja, ExamFit bietet einen Oral-Exam-Trainer mit KI-Prüfer für das Fachgespräch der Industriekaufleute.',
+        a: 'Ja, ExamFit bietet einen Oral-Exam-Trainer mit KI-Prüfer für das Fachgespräch der Industriekaufleute – mit realistischen Folgefragen und Sofortfeedback zur Argumentationsstruktur.',
       },
     ],
   },
+
   {
     slug: 'bankkauffrau',
     title: 'Prüfungsfragen Bankkaufmann / Bankkauffrau (IHK) – Musterfragen mit Lösungen | ExamFit',
@@ -543,5 +632,34 @@ export const EXAM_TOPICS: ExamTopic[] = [
 ];
 
 export function getExamTopicBySlug(slug: string): ExamTopic | undefined {
-  return EXAM_TOPICS.find((t) => t.slug === slug);
+  const t = EXAM_TOPICS.find((t) => t.slug === slug);
+  if (!t) return undefined;
+  const kw = TOPIC_KEYWORDS[slug];
+  // Merge in keyword/synonym data without mutating original.
+  return {
+    ...t,
+    keywords: t.keywords ?? kw?.keywords,
+    synonyms: t.synonyms ?? kw?.synonyms,
+  };
 }
+
+/** Liefert verwandte Topics — bevorzugt explizite relatedSlugs, sonst alle anderen Topics. */
+export function getRelatedTopics(slug: string, limit = 3): ExamTopic[] {
+  const t = EXAM_TOPICS.find((x) => x.slug === slug);
+  const ids = new Set<string>(t?.relatedSlugs ?? []);
+  const out: ExamTopic[] = [];
+  for (const id of ids) {
+    const found = EXAM_TOPICS.find((x) => x.slug === id);
+    if (found) out.push(found);
+  }
+  if (out.length < limit) {
+    for (const x of EXAM_TOPICS) {
+      if (x.slug === slug) continue;
+      if (out.find((y) => y.slug === x.slug)) continue;
+      out.push(x);
+      if (out.length >= limit) break;
+    }
+  }
+  return out.slice(0, limit);
+}
+

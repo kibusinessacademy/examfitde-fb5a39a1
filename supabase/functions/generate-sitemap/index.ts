@@ -300,20 +300,37 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
       return xmlResponse(toSitemapXML(urls), headers);
     }
 
-    // ── Products ──
+    // ── Products (mit konsistenten Thumbnail-Bildern für Image-Sitemap) ──
     if (action === "products") {
       const urls: SitemapURL[] = [];
       const { data: products } = await sb.from("products")
-        .select("slug, updated_at, title").eq("status", "active").eq("visibility", "public").limit(500);
+        .select("slug, updated_at, title, image_url, hero_image_url, thumbnail_url")
+        .eq("status", "active").eq("visibility", "public").limit(500);
       for (const p of products || []) {
         if (!p.slug) continue;
-        urls.push({ loc: `${SITE_URL}/produkt/${p.slug}`, lastmod: (p.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.7 });
+        const rawImg = (p as any).image_url || (p as any).hero_image_url || (p as any).thumbnail_url;
+        const images = rawImg
+          ? [{
+              loc: String(rawImg).startsWith("http") ? rawImg : `${SITE_URL}${rawImg}`,
+              title: p.title || p.slug,
+              caption: `${p.title || p.slug} – ExamFit Kurspaket & Prüfungsvorbereitung`,
+            }]
+          : undefined;
+        urls.push({ loc: `${SITE_URL}/produkt/${p.slug}`, lastmod: (p.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.7, images });
       }
       const { data: cp } = await sb.from("curriculum_products")
-        .select("slug, updated_at").eq("is_published", true).not("slug", "is", null).limit(500);
+        .select("slug, updated_at, name, hero_image_url, cover_image_url").eq("is_published", true).not("slug", "is", null).limit(500);
       for (const c of cp || []) {
         if (!c.slug) continue;
-        urls.push({ loc: `${SITE_URL}/produkt/${c.slug}`, lastmod: (c.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.6 });
+        const rawImg = (c as any).hero_image_url || (c as any).cover_image_url;
+        const images = rawImg
+          ? [{
+              loc: String(rawImg).startsWith("http") ? rawImg : `${SITE_URL}${rawImg}`,
+              title: (c as any).name || c.slug,
+              caption: `${(c as any).name || c.slug} – Curriculum bei ExamFit`,
+            }]
+          : undefined;
+        urls.push({ loc: `${SITE_URL}/produkt/${c.slug}`, lastmod: (c.updated_at || "").split("T")[0] || today, changefreq: "weekly", priority: 0.6, images });
       }
       const { data: store } = await sb.from("store_products")
         .select("name, updated_at, image_url").eq("is_active", true).limit(500);
@@ -327,6 +344,7 @@ Sitemap: ${FUNCTIONS_URL_BASE}?type=index
       console.info(`[generate-sitemap] class=products count=${urls.length}`);
       return xmlResponse(toSitemapXML(urls), headers);
     }
+
 
     // ── Berufe + certifications + Paketseiten ──
     if (action === "berufe") {

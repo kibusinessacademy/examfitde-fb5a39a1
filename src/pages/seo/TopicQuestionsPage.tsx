@@ -1,5 +1,5 @@
 import { useParams, Link, Navigate } from 'react-router-dom';
-import { ArrowRight, CheckCircle, HelpCircle, BookOpen } from 'lucide-react';
+import { ArrowRight, CheckCircle, HelpCircle, BookOpen, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,18 +11,15 @@ import {
   generateOrganizationSchema,
   SITE_URL,
 } from '@/lib/seo';
-import { EXAM_TOPICS, getExamTopicBySlug } from '@/data/llmExamTopics';
+import { getExamTopicBySlug, getRelatedTopics } from '@/data/llmExamTopics';
 
 /**
  * LLM-optimized exam-questions landing page.
  *
  * Route: /pruefungsfragen/:thema
  *
- * Each topic page renders 6–10 sample Q&A as semantic HTML so that
- * AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended,
- * Bytespider, etc.) can index the answers and cite berufos.com.
- *
- * Also emits FAQPage + Quiz + BreadcrumbList JSON-LD.
+ * Emits Quiz + FAQPage + BreadcrumbList + LearningResource JSON-LD.
+ * Per-route canonical/OG/Twitter via SEOHead.
  */
 export default function TopicQuestionsPage() {
   const { thema } = useParams<{ thema: string }>();
@@ -33,22 +30,31 @@ export default function TopicQuestionsPage() {
   }
 
   const canonical = `${SITE_URL}/pruefungsfragen/${topic.slug}`;
+  const related = getRelatedTopics(topic.slug, 3);
 
   const breadcrumbs = [
     { name: 'Start', url: SITE_URL },
     { name: 'Prüfungsfragen', url: `${SITE_URL}/pruefungsfragen` },
-    { name: topic.h1 },
+    { name: topic.h1, url: canonical },
   ];
 
+  const allQA = [...topic.sampleQuestions, ...topic.faqs];
+
+  // Quiz schema (schema.org/Quiz). Use suggestedAnswer + acceptedAnswer for
+  // maximum compatibility with Google rich-results parser.
   const quizSchema = {
     '@context': 'https://schema.org',
     '@type': 'Quiz',
+    '@id': `${canonical}#quiz`,
     name: topic.h1,
     description: topic.metaDescription,
     url: canonical,
-    educationalUse: 'Prüfungsvorbereitung',
     inLanguage: 'de-DE',
-    about: topic.h1,
+    educationalUse: 'Prüfungsvorbereitung',
+    educationalLevel: 'Berufliche Weiterbildung',
+    learningResourceType: 'Quiz',
+    about: { '@type': 'Thing', name: topic.h1 },
+    keywords: (topic.keywords ?? []).join(', ') || undefined,
     provider: {
       '@type': 'Organization',
       name: 'ExamFit / BerufOS',
@@ -58,17 +64,36 @@ export default function TopicQuestionsPage() {
       '@type': 'Question',
       position: idx + 1,
       name: sq.q,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: sq.a,
-      },
+      text: sq.q,
+      eduQuestionType: 'Flashcard',
+      acceptedAnswer: { '@type': 'Answer', text: sq.a },
+      suggestedAnswer: [{ '@type': 'Answer', text: sq.a }],
     })),
+  };
+
+  // LearningResource — helps LLMs surface the page in education queries.
+  const learningResourceSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'LearningResource',
+    '@id': `${canonical}#learning`,
+    name: topic.h1,
+    description: topic.metaDescription,
+    url: canonical,
+    inLanguage: 'de-DE',
+    learningResourceType: 'Übungsaufgaben',
+    educationalLevel: 'Berufliche Weiterbildung',
+    teaches: topic.h1,
+    keywords: (topic.keywords ?? []).join(', ') || undefined,
+    isAccessibleForFree: true,
+    mainEntityOfPage: canonical,
+    provider: { '@type': 'Organization', name: 'ExamFit / BerufOS', url: SITE_URL },
   };
 
   const structuredData = [
     generateBreadcrumbSchema(breadcrumbs),
-    generateFAQSchema([...topic.sampleQuestions, ...topic.faqs].map((x) => ({ question: x.q, answer: x.a }))),
+    generateFAQSchema(allQA.map((x) => ({ question: x.q, answer: x.a }))),
     quizSchema,
+    learningResourceSchema,
     generateOrganizationSchema(),
   ];
 
@@ -78,6 +103,8 @@ export default function TopicQuestionsPage() {
         title={topic.title}
         description={topic.metaDescription}
         canonical={canonical}
+        image={topic.ogImage}
+        imageAlt={topic.ogImageAlt ?? topic.h1}
         structuredData={structuredData}
       />
 
@@ -105,6 +132,15 @@ export default function TopicQuestionsPage() {
             <p className="text-base text-muted-foreground max-w-3xl mb-6">
               {topic.intro}
             </p>
+
+            {/* Synonyme — sichtbar für LLM-Crawler & Nutzer */}
+            {topic.synonyms && topic.synonyms.length > 0 && (
+              <p className="text-sm text-muted-foreground/90 max-w-3xl mb-6">
+                <span className="font-semibold text-foreground/80">Auch bekannt als: </span>
+                {topic.synonyms.join(' · ')}
+              </p>
+            )}
+
             <div className="flex flex-wrap gap-3">
               <Button size="lg" className="gradient-primary text-primary-foreground shadow-glow" asChild>
                 <Link to={topic.trainerHref}>
@@ -118,7 +154,7 @@ export default function TopicQuestionsPage() {
           </div>
         </section>
 
-        {/* Sample Questions — primary LLM-indexable content */}
+        {/* Sample Questions */}
         <section className="py-12">
           <div className="container">
             <h2 className="text-2xl md:text-3xl font-display font-bold mb-2">
@@ -172,35 +208,55 @@ export default function TopicQuestionsPage() {
           </div>
         </section>
 
-        {/* Related Topics */}
+        {/* Long-tail Keywords (sichtbar für LLM-Crawler) */}
+        {topic.keywords && topic.keywords.length > 0 && (
+          <section className="py-8">
+            <div className="container max-w-4xl">
+              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <Tag className="h-4 w-4 text-primary" /> Verwandte Suchbegriffe
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {topic.keywords.map((kw) => (
+                  <Badge key={kw} variant="outline" className="text-xs">
+                    {kw}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Ähnliche Themen */}
         <section className="py-12">
           <div className="container">
-            <h2 className="text-2xl md:text-3xl font-display font-bold mb-6">
-              Weitere Prüfungsthemen
+            <h2 className="text-2xl md:text-3xl font-display font-bold mb-2">
+              Ähnliche Themen
             </h2>
+            <p className="text-muted-foreground mb-6 max-w-2xl">
+              Verwandte Prüfungen und Zertifizierungen, die häufig zusammen mit{' '}
+              <span className="font-medium text-foreground">{topic.h1}</span> trainiert werden.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl">
-              {topic.relatedSlugs
-                .map((s) => EXAM_TOPICS.find((t) => t.slug === s))
-                .filter((t): t is NonNullable<typeof t> => Boolean(t))
-                .map((rel) => (
-                  <Link
-                    key={rel.slug}
-                    to={`/pruefungsfragen/${rel.slug}`}
-                    className="group block"
-                  >
-                    <Card className="h-full transition-all hover:shadow-glow hover:border-primary/50">
-                      <CardHeader>
-                        <CardTitle className="text-base flex gap-2 items-start">
-                          <BookOpen className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                          <span className="group-hover:text-primary transition-colors">{rel.h1}</span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">{rel.tagline}</p>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
+              {related.map((rel) => (
+                <Link
+                  key={rel.slug}
+                  to={`/pruefungsfragen/${rel.slug}`}
+                  className="group block"
+                  aria-label={`Zu ${rel.h1}`}
+                >
+                  <Card className="h-full transition-all hover:shadow-glow hover:border-primary/50">
+                    <CardHeader>
+                      <CardTitle className="text-base flex gap-2 items-start">
+                        <BookOpen className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                        <span className="group-hover:text-primary transition-colors">{rel.h1}</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">{rel.tagline}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
             </div>
             <div className="mt-8">
               <Button variant="outline" asChild>
