@@ -109,7 +109,8 @@ export function CurriculumPicker({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Kategorien">
+      <div className="flex flex-wrap items-center gap-2 justify-between">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Kategorien">
         {CATEGORY_CHIPS.map((chip) => (
           <Button
             key={chip.key}
