@@ -26,10 +26,13 @@ export const PERSONA_SEO_CONFIGS: Record<SeoPersonaType, PersonaSeoConfig> = {
     persona: "azubi",
     routePrefix: "pruefungstraining-azubis",
     intentLabel: "Abschlussprüfung bestehen",
-    heroTemplate: (title, price) => ({
-      headline: `Bestehe deine Abschlussprüfung als ${title}`,
-      subline: `Trainiere mit echten Prüfungsaufgaben, Simulation und persönlichem KI-Prüfungscoach – für nur ${price} € einmalig.`,
-    }),
+    heroTemplate: (title, price) => {
+      const p = buildHeroPhrasing({ title, catalogType: "Ausbildung" });
+      return {
+        headline: p.plain.replace(/\s+– systematisch & sicher$/u, ""),
+        subline: `Trainiere mit echten Prüfungsaufgaben, Simulation und persönlichem KI-Prüfungscoach – für nur ${price} € einmalig.`,
+      };
+    },
     ctaPrimary: "Jetzt Prüfungstraining starten",
     ctaSecondary: "Kostenlosen Prüfungsreife-Check machen",
     keywords: (title) => [
