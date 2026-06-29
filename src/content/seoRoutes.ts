@@ -805,8 +805,15 @@ const topicLive: SeoRoute[] = EXAM_TOPICS.map((t) => {
 
   return {
     path: `/pruefungsfragen/${t.slug}`,
-    title: t.title.length <= 60 ? t.title : t.title.slice(0, 60),
-    description: t.metaDescription.slice(0, 160),
+    // Title must be 30..60 chars per quality-gate; brand suffix kept short.
+    title: (() => {
+      const base = `Prüfungsfragen ${t.slug === "bwl" ? "BWL Klausur" : t.h1.split(" – ")[0].replace(/Prüfungsfragen?\s*/i, "")}`.trim();
+      const candidate = `${base} | ExamFit`;
+      if (candidate.length >= 30 && candidate.length <= 60) return candidate;
+      if (candidate.length > 60) return candidate.slice(0, 60).replace(/\s\S*$/, "");
+      return `${candidate} – Musterfragen mit Lösungen`.slice(0, 60);
+    })(),
+    description: t.metaDescription.length <= 160 ? t.metaDescription : t.metaDescription.slice(0, 157).replace(/\s\S*$/, "") + "...",
     h1: t.h1,
     intro,
     keyFacts,
