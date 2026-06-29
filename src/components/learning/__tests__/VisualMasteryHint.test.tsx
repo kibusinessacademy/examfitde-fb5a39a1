@@ -46,7 +46,7 @@ describe("Cut 8 — VisualMasterySignalPanel (admin)", () => {
   it("28. contains supplemental note", () => {
     render(<VisualMasterySignalPanel projection={VLO_MASTERY_ADMIN_PROJECTION_FIXTURE} />);
     expect(screen.getByTestId("vlo-mastery-supplemental-note")).toBeTruthy();
-    expect(screen.getByText(/ergänzendes Signal/i)).toBeTruthy();
+    expect(screen.getAllByText(/ergänzendes Signal/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/keine alleinige Mastery-Entscheidung/i)).toBeTruthy();
   });
 });
