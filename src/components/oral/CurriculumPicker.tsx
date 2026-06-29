@@ -122,13 +122,13 @@ export function CurriculumPicker({
 
       {showQuickRows && recent.length > 0 && (
         <Section title="Zuletzt genutzt" icon={<Star className="h-4 w-4 text-amber-500" />}>
-          <CardRow items={recent} selectedId={selectedId} onSelect={onSelect} />
+          <CardRow items={recent} selectedId={selectedId} onSelect={onSelect} readinessMap={readinessMap} isLoggedIn={isLoggedIn} />
         </Section>
       )}
 
       {showQuickRows && popular.length > 0 && (
         <Section title="Beliebte Prüfungen" icon={<Sparkles className="h-4 w-4 text-primary" />}>
-          <CardRow items={popular} selectedId={selectedId} onSelect={onSelect} />
+          <CardRow items={popular} selectedId={selectedId} onSelect={onSelect} readinessMap={readinessMap} isLoggedIn={isLoggedIn} />
         </Section>
       )}
 
@@ -154,6 +154,8 @@ export function CurriculumPicker({
                 item={item}
                 selected={selectedId === item.id}
                 onSelect={onSelect}
+                readiness={readinessMap?.get(item.id)}
+                isLoggedIn={isLoggedIn}
               />
             ))}
           </div>
@@ -162,6 +164,7 @@ export function CurriculumPicker({
     </div>
   );
 }
+
 
 function Section({
   title,
