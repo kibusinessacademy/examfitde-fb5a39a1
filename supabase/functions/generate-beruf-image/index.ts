@@ -26,13 +26,19 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const PROMPT_VERSION = 2;
 
 type SceneSpec = {
+  /** Stable scene identifier for analytics (never reuse / never rename). */
+  id: string;
   /** Trade-specific subject + outfit, e.g. "young KFZ-Mechatroniker apprentice in dark blue overalls". */
   subject: string;
   /** Setting: where the apprentice works. */
   setting: string;
   /** Action / tool detail — what they are doing right now. */
   action: string;
+  /** Short German noun phrase used in the alt-text ("Maurer-Auszubildender auf einer Baustelle"). */
+  altRole: string;
+  altScene: string;
 };
+
 
 /**
  * Map a course / Beruf title to a richer, profession-specific scene. The
