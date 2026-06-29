@@ -250,7 +250,7 @@ const CertificationSEOPage = () => {
         </section>
 
         {/* Legacy internal links */}
-        {page.internal_links && page.internal_links.length > 0 && (
+        {page?.internal_links && page.internal_links.length > 0 && (
           <section className="py-16">
             <div className="container max-w-3xl">
               <h2 className="text-xl font-semibold mb-4">Verwandte Prüfungen</h2>
