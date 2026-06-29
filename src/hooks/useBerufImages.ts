@@ -93,5 +93,34 @@ export function useBerufImages(items: BerufImageItem[]) {
     return m;
   }, [data]);
 
-  return { imageBySlug };
+  /**
+   * Generation-Status pro Slug für UI-Badges.
+   * - `ready`     → echtes Bild geliefert (Badge i. d. R. nicht nötig)
+   * - `generating`/`pending` → läuft gerade, Fallback wird angezeigt
+   * - `queued`    → eingereiht, noch nicht gestartet (Edge-fn noch nicht geantwortet
+   *                 ODER Cache-Row fehlt aber wir haben Generation getriggert)
+   * - `failed`    → letzter Versuch fehlgeschlagen (Re-Queue beim nächsten Mount)
+   */
+  const statusBySlug = useMemo(() => {
+    const m = new Map<string, 'ready' | 'generating' | 'queued' | 'failed'>();
+    const known = new Map<string, CacheRow>(
+      ((data ?? []) as CacheRow[]).map((r) => [r.slug, r]),
+    );
+    for (const s of slugs) {
+      const row = known.get(s);
+      if (row?.status === 'ready' && row.image_url) {
+        m.set(s, 'ready');
+      } else if (row?.status === 'generating' || row?.status === 'pending') {
+        m.set(s, 'generating');
+      } else if (row?.status === 'failed') {
+        m.set(s, 'failed');
+      } else if (triggered.has(s) || row) {
+        // Row existiert ohne ready-URL → queued; oder Generierung wurde getriggert
+        m.set(s, 'queued');
+      }
+    }
+    return m;
+  }, [data, slugs, triggered]);
+
+  return { imageBySlug, statusBySlug };
 }

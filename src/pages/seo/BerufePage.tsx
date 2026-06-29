@@ -13,6 +13,7 @@ import { CourseInquiryDialog } from '@/components/catalog/CourseInquiryDialog';
 import publishedBerufeFallback from '@/data/publishedBerufeFallback.json';
 import { getBerufImage } from '@/lib/berufImage';
 import { useBerufImages } from '@/hooks/useBerufImages';
+import { BerufImageStatusBadge } from '@/components/berufe/BerufImageStatusBadge';
 import { useCatalogCacheSignal } from '@/hooks/useCatalogCacheSignal';
 
 
@@ -178,7 +179,7 @@ export default function BerufePage() {
         })),
     [filteredCourses],
   );
-  const { imageBySlug } = useBerufImages(visibleForImages);
+  const { imageBySlug, statusBySlug } = useBerufImages(visibleForImages);
   const structuredData = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -429,8 +430,10 @@ export default function BerufePage() {
                   {filteredCourses.map((entry) => {
                     const Icon = getCategoryIcon(entry);
                     const fallbackImg = getBerufImage(entry.title, entry.kammer);
-                    const realImg = imageBySlug.get(entry.publishedSlug || entry.slug);
+                    const slugKey = entry.publishedSlug || entry.slug;
+                    const realImg = imageBySlug.get(slugKey);
                     const img = realImg || fallbackImg;
+                    const imgStatus = realImg ? 'ready' : statusBySlug.get(slugKey);
                     if (entry.isPublished) {
                       const detailUrl =
                         entry.category && entry.category !== 'ausbildung'
@@ -452,6 +455,7 @@ export default function BerufePage() {
                                 height={512}
                                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                               />
+                              <BerufImageStatusBadge status={imgStatus} className="top-3 right-3" />
                               <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
                               <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                                 <Badge className="bg-primary text-primary-foreground border-0 text-[11px] shadow-sm">
@@ -506,6 +510,7 @@ export default function BerufePage() {
                             height={512}
                             className="h-full w-full object-cover opacity-50 grayscale"
                           />
+                          <BerufImageStatusBadge status={imgStatus} className="top-3 right-3" />
                           <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
                           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                             <Badge variant="outline" className="text-[11px] bg-background/90 text-muted-foreground backdrop-blur-sm">
