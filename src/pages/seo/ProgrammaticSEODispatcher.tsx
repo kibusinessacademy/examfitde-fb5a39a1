@@ -5,8 +5,11 @@ import { Loader2 } from 'lucide-react';
 const QualityScorePage = lazy(() => import('@/pages/seo/QualityScorePage'));
 const CertificationSEOPage = lazy(() => import('@/pages/seo/CertificationSEOPage'));
 
+// PDP.HERO.CLS.STABILIZE.1 — reserve PDP-typische Höhe, damit der Footer
+// während Chunk-Load NICHT in den Viewport rutscht und beim Mount des echten
+// Inhalts einen großen Layout-Shift (gemessen 0.65 desktop) auslöst.
 const LoadingFallback = () => (
-  <div className="flex items-center justify-center min-h-[60vh]">
+  <div className="flex items-start justify-center min-h-[1800px] pt-24">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
   </div>
 );
