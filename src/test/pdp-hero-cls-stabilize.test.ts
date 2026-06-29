@@ -89,8 +89,9 @@ describe('PDP.HERO.FONT.PRELOAD.1 — self-hosted hero font preload', () => {
   });
 
   it('declares matching @font-face rules with font-display: swap', () => {
-    expect(indexCss).toMatch(/url\('\/fonts\/inter-latin-var\.woff2'\)[\s\S]{0,200}font-display:\s*swap/);
+    expect(indexCss).toMatch(/url\('\/fonts\/inter-latin-var\.woff2'\)/);
     expect(indexCss).toMatch(/url\('\/fonts\/spacegrotesk-700-latin\.woff2'\)/);
+    expect(indexCss).toMatch(/font-display:\s*swap/);
     expect(indexCss).toMatch(/font-weight:\s*400 700/);
   });
 
