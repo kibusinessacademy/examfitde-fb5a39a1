@@ -20,6 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from '@/components/ui/accordion';
+import { buildHeroPhrasing, heroSeoTitle } from '@/lib/hero/heroPhrasing';
 import PruefungstrainingCategoryPage from './PruefungstrainingCategoryPage';
 
 const KNOWN_CATEGORIES = ['ausbildung', 'fachwirt', 'meister', 'betriebswirt', 'sachkunde', 'aevo'];
