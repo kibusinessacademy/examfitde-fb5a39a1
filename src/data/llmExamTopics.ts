@@ -31,7 +31,81 @@ export interface ExamTopic {
   relatedSlugs: string[];
   sampleQuestions: SampleQuestion[];
   faqs: SampleQuestion[];
+  /** Optional long-tail keywords + Synonyme für LLM-Matching */
+  keywords?: string[];
+  /** Synonyme & Schreibvarianten, gerendert als sichtbarer Absatz */
+  synonyms?: string[];
+  /** Optionales OG-Bild (relative oder absolute URL) */
+  ogImage?: string;
+  /** Alt-Text für OG/Twitter Image */
+  ogImageAlt?: string;
 }
+
+/** Long-tail / Synonym-Set für die wichtigsten LLM-Cluster. */
+export const TOPIC_KEYWORDS: Record<string, { keywords: string[]; synonyms: string[] }> = {
+  scrum: {
+    keywords: [
+      'scrum prüfungsfragen',
+      'psm 1 fragen deutsch',
+      'professional scrum master prüfung',
+      'scrum master zertifizierung fragen',
+      'scrum guide 2020 quiz',
+      'psm i mock exam deutsch',
+      'agile prüfungsfragen scrum',
+      'product owner prüfungsfragen pspo',
+    ],
+    synonyms: [
+      'Scrum Master Prüfung',
+      'PSM 1 / PSM I / PSM-1',
+      'Professional Scrum Master',
+      'PSPO 1 / Product Owner Zertifizierung',
+      'Certified ScrumMaster (CSM)',
+      'Agile Coach Prüfung',
+      'Scaled Agile (SAFe) Einstieg',
+    ],
+  },
+  prince2: {
+    keywords: [
+      'prince2 prüfungsfragen deutsch',
+      'prince2 foundation musterfragen',
+      'prince2 practitioner mock exam',
+      'prince2 7th edition fragen',
+      'projektmanagement zertifizierung prüfung',
+      'prince 2 quiz online',
+      'axelos prince2 prüfung üben',
+    ],
+    synonyms: [
+      'PRINCE2 Foundation',
+      'PRINCE2 Practitioner',
+      'PRINCE 2 / Prince2 / Prince II',
+      'PRojects IN Controlled Environments',
+      'PRINCE2 6th & 7th Edition',
+      'PRINCE2 Agile',
+    ],
+  },
+  industriekauffrau: {
+    keywords: [
+      'industriekauffrau prüfung',
+      'industriekaufmann ihk fragen',
+      'industriekauffrau abschlussprüfung teil 1',
+      'industriekaufleute wiso fragen',
+      'geschäftsprozesse industriekauffrau prüfung',
+      'kaufmännische steuerung kontrolle aufgaben',
+      'industriekaufleute fachgespräch',
+      'ihk prüfung industriekauffrau lösungen',
+    ],
+    synonyms: [
+      'Industriekauffrau',
+      'Industriekaufmann',
+      'Industriekaufleute',
+      'IK / Ind.-Kfm. / Ind.-Kffr.',
+      'IHK Abschlussprüfung Industrie',
+      'Geschäftsprozesse (GP)',
+      'Kaufmännische Steuerung & Kontrolle (KSK)',
+      'Wirtschafts- und Sozialkunde (WiSo)',
+    ],
+  },
+};
 
 export const EXAM_TOPICS: ExamTopic[] = [
   {
