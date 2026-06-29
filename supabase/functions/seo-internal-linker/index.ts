@@ -63,6 +63,22 @@ Deno.serve(async (req) => {
 
     const berufMap = new Map((berufe || []).map(b => [b.id, b.bezeichnung_kurz]));
 
+    // Load active backlink rules → preferred targets per beruf (priority asc)
+    const { data: backlinkRules } = await admin
+      .from("seo_beruf_backlink_rules")
+      .select("beruf_id, target_url, target_label, anchor_hint, priority, max_links_per_doc, link_type")
+      .eq("is_active", true)
+      .order("priority", { ascending: true })
+      .limit(500);
+
+    const rulesByBeruf = new Map<string, typeof backlinkRules>();
+    for (const r of backlinkRules ?? []) {
+      if (!r.beruf_id) continue;
+      const arr = rulesByBeruf.get(r.beruf_id) ?? [];
+      arr.push(r);
+      rulesByBeruf.set(r.beruf_id, arr);
+    }
+
     // URL mapping by doc_type
     const docTypeUrlMap: Record<string, string> = {
       blog: "/wissen",
