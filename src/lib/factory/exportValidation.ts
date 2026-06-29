@@ -121,6 +121,7 @@ export function validateExportCompleteness(
     let selectedCount = 0;
     let missing = 0;
     const blocked: string[] = [];
+    const missingForCat: string[] = [];
 
     for (const f of files) {
       if (!matchesPrefix(f.path, rule.prefixes)) continue;
@@ -135,6 +136,7 @@ export function validateExportCompleteness(
       } else {
         missing++;
         missingPaths.add(f.path);
+        missingForCat.push(f.path);
       }
     }
 
@@ -146,6 +148,7 @@ export function validateExportCompleteness(
       selected: selectedCount,
       missing,
       blocked,
+      missingPaths: missingForCat,
     });
   }
 
