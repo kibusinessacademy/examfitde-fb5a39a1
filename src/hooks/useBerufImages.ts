@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type BerufImageItem = { slug: string; title: string; kammer?: string | null };
 
-type CacheRow = { slug: string; status: string; image_url: string | null };
+type CacheRow = { slug: string; status: string; image_url: string | null; alt_text: string | null };
 
 /**
  * useBerufImages — Lazy per-slug image cache.
