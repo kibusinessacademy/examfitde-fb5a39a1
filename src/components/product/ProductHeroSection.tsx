@@ -95,8 +95,6 @@ export function ProductHeroSection({ product, onPrimaryClick, isLoading }: Props
                 className="absolute inset-0 h-full w-full object-cover"
                 loading="eager"
                 decoding="async"
-                // @ts-expect-error - fetchPriority ist gültiges HTML-Attribut, React-Types hinken nach
-                fetchpriority="high"
                 fetchPriority="high"
                 sizes={COURSE_HERO_SIZES}
                 // Intrinsische Größe matched Mobile-Box (4:3) — Desktop reskaliert via CSS.
