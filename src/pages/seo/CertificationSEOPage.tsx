@@ -195,9 +195,13 @@ const CertificationSEOPage = () => {
           </div>
         </section>
 
-        {/* Original content from DB */}
-        {page?.content_html && (
-          <section className="py-16">
+        {/* Original content from DB — Slot ist IMMER gerendert (min-h reserviert),
+            damit das Nachladen von content_html nachfolgende Sections nicht verschiebt. */}
+        <section
+          className="py-16 min-h-[420px] md:min-h-[520px]"
+          data-testid="pdp-content-slot"
+        >
+          {page?.content_html && (
             <article className="container max-w-4xl">
               <div
                 className="prose prose-lg max-w-none dark:prose-invert"
@@ -211,8 +215,8 @@ const CertificationSEOPage = () => {
                 }}
               />
             </article>
-          </section>
-        )}
+          )}
+        </section>
 
         {/* Vorbereitungs-Schritte */}
         <section className="py-16 bg-muted/30">
