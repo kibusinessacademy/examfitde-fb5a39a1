@@ -36,7 +36,7 @@ export function useBerufImages(items: BerufImageItem[]) {
     queryFn: async (): Promise<CacheRow[]> => {
       const { data, error } = await supabase
         .from('beruf_image_cache')
-        .select('slug,status,image_url,alt_text')
+        .select('slug,status,image_url,alt_text,error,title')
         .in('slug', slugs);
       if (error) throw error;
       return (data ?? []) as CacheRow[];
