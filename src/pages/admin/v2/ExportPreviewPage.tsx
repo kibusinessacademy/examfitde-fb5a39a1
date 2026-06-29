@@ -434,7 +434,8 @@ export default function ExportPreviewPage() {
             <Button
               size="sm"
               onClick={handleExport}
-              disabled={!data || exporting || selected.size === 0}
+              disabled={!data || exporting || selected.size === 0 || (validation?.blocking ?? false)}
+              aria-disabled={!data || exporting || (validation?.blocking ?? false)}
             >
               {exporting ? (
                 <Loader2 className="h-4 w-4 mr-1 animate-spin" />
