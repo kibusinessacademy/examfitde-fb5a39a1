@@ -55,11 +55,19 @@ async function submitToIndexNow(rawUrls: string[]): Promise<{ ok: boolean; statu
   };
 
   try {
-    const res = await fetch(INDEXNOW_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    await INDEXNOW_LIMITER.take();
+    const res = await retry(async () => {
+      const r = await fetch(INDEXNOW_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (r.status >= 500 || r.status === 429) {
+        throw new Error(`HTTP ${r.status} ${r.statusText}`);
+      }
+      return r;
+    }, { maxAttempts: 4, baseDelayMs: 800, maxDelayMs: 20_000,
+         onRetry: (e, a, w) => console.warn(`[indexnow.submit] retry attempt=${a} wait=${w}ms err=${(e as Error)?.message}`) });
     const body = await res.text().catch(() => "");
     return { ok: res.ok || res.status === 202, status: res.status, body, submitted_urls };
   } catch (e) {
@@ -204,7 +212,12 @@ async function drainPending(
 // ─── Backfill sitemap → pending rows ─────────────────────────────────
 async function fetchSitemapUrls(sitemapUrl: string): Promise<string[]> {
   try {
-    const res = await fetch(sitemapUrl, { headers: { "User-Agent": "ExamFit-IndexNow-Backfill/1.0" } });
+    await SITEMAP_FETCH_LIMITER.take();
+    const res = await retry(
+      () => fetch(sitemapUrl, { headers: { "User-Agent": "ExamFit-IndexNow-Backfill/1.0" } }),
+      { maxAttempts: 3, baseDelayMs: 400, maxDelayMs: 5_000,
+        onRetry: (e, a, w) => console.warn(`[indexnow.sitemap] retry ${sitemapUrl} attempt=${a} wait=${w}ms err=${(e as Error)?.message}`) },
+    );
     if (!res.ok) return [];
     const xml = await res.text();
     const matches = Array.from(xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)).map((m) => m[1]);
