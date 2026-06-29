@@ -911,6 +911,7 @@ const AppRoutes = () => {
           <Route path="governance/github-workflows" element={<GithubWorkflowsPage />} />
           <Route path="governance/ssot-guard" element={<SsotGuardPage />} />
           <Route path="governance/storage-reality" element={<StorageRealityPage />} />
+          <Route path="governance/beruf-images" element={<BerufImageAdminPage />} />
           <Route path="governance/catalog-diagnostics" element={<CatalogDiagnosticsPage />} />
           <Route path="governance/course-profitability" element={<CourseProfitabilityPage />} />
           <Route path="governance/pipeline-health" element={<PipelineHealthPage />} />
