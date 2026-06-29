@@ -494,6 +494,7 @@ export default function OralExamTrainer() {
       curricula_count: curricula?.length ?? 0,
     });
     if (!selectedCurriculum) return;
+    rememberRecentCurriculum(selectedCurriculum);
     await startSession();
     setPhase('question');
     setTimeRemaining(180);
