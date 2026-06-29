@@ -133,8 +133,8 @@ export interface OralVisualLearnerProjection {
   hints: OralVisualLearnerHint[];
   learner_visible: boolean;
   empty: boolean;
-  /** Klarstellung für Learner-UI. Niemals als Note interpretieren. */
-  note: string;
+  /** Klarstellung für Learner-UI. Strukturhinweise, kein Urteil. */
+  disclaimer: string;
 }
 
 export interface OralVisualAdminProjection {
