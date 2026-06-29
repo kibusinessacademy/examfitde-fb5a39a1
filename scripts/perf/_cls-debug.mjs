@@ -15,7 +15,7 @@ await page.addInitScript(`
     }
   }).observe({ type: 'layout-shift', buffered: true });
 `);
-await page.goto('http://localhost:8080/fiae-pruefungsvorbereitung', { waitUntil: 'networkidle' });
+await page.goto('http://localhost:8080/bilanzbuchhalter-pruefungsvorbereitung', { waitUntil: 'networkidle' });
 await page.waitForTimeout(2000);
 const shifts = await page.evaluate(() => window.__shifts);
 console.log(JSON.stringify(shifts, null, 2));
