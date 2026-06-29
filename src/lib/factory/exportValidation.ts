@@ -194,3 +194,64 @@ export function autoIncludeCriticalPaths(
   }
   return next;
 }
+
+/**
+ * Per-category one-click auto-fix. Re-adds every missing path for `category`,
+ * skipping blocked files. Used by the UI's "Auto-fix" buttons next to each
+ * category in the validation report.
+ */
+export function autoIncludeCategoryPaths(
+  files: ManifestFile[],
+  selected: Set<string> | ReadonlySet<string>,
+  category: ExportCategory,
+  rules: ExportCategoryRule[] = EXPORT_CATEGORY_RULES,
+): Set<string> {
+  const next = new Set<string>(selected);
+  const rule = rules.find((r) => r.category === category);
+  if (!rule) return next;
+  for (const f of files) {
+    if (f.kind === "blocked") continue;
+    if (!matchesPrefix(f.path, rule.prefixes)) continue;
+    next.add(f.path);
+  }
+  return next;
+}
+
+/**
+ * Produce a copyable Markdown summary of the validation report. Used by the
+ * admin UI's "Copy summary" button — pastes cleanly into Slack/Linear/PRs.
+ */
+export function toCopyableSummary(report: ExportValidationReport): string {
+  const lines: string[] = [];
+  lines.push(`# Export-Validierung — ${report.ok ? "OK ✅" : report.blocking ? "GESPERRT ❌" : "WARNUNG ⚠️"}`);
+  lines.push("");
+  lines.push(report.summary);
+  lines.push("");
+  for (const r of report.reports) {
+    const status =
+      r.blocked.length > 0 || (r.critical && r.total === 0)
+        ? "❌"
+        : r.missing > 0
+          ? "⚠️"
+          : "✅";
+    lines.push(
+      `- ${status} **${r.label}**${r.critical ? " (kritisch)" : ""} — ` +
+        `${r.selected}/${r.total} enthalten` +
+        (r.missing > 0 ? `, ${r.missing} fehlen` : "") +
+        (r.blocked.length > 0 ? `, ${r.blocked.length} blockiert` : ""),
+    );
+    if (r.missingPaths.length > 0) {
+      for (const p of r.missingPaths.slice(0, 50)) lines.push(`    • ${p}`);
+      if (r.missingPaths.length > 50) {
+        lines.push(`    • … (+${r.missingPaths.length - 50} weitere)`);
+      }
+    }
+    if (r.blocked.length > 0) {
+      for (const p of r.blocked.slice(0, 20)) lines.push(`    • [blockiert] ${p}`);
+      if (r.blocked.length > 20) {
+        lines.push(`    • … (+${r.blocked.length - 20} weitere blockiert)`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
