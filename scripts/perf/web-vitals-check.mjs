@@ -18,6 +18,21 @@
  * Exits non-zero if any route exceeds budget.
  */
 import { chromium } from 'playwright';
+import { existsSync } from 'node:fs';
+
+// Resolve a chromium binary even when node-playwright browsers aren't installed.
+function resolveChromiumExecutable() {
+  if (process.env.CHROMIUM_PATH && existsSync(process.env.CHROMIUM_PATH)) return process.env.CHROMIUM_PATH;
+  const candidates = [
+    '/chromium_headless_shell-1194/chrome-linux/headless_shell',
+    '/chromium-1194/chrome-linux/chrome',
+    '/bin/chromium',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/google-chrome',
+  ];
+  return candidates.find((p) => existsSync(p)) || undefined;
+}
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
@@ -121,7 +136,9 @@ async function measure(browser, route, deviceName) {
   console.log(`  devices: ${DEVICES.join(', ')}`);
   console.log(`  budget: LCP≤${BUDGET.LCP_MS}ms, CLS≤${BUDGET.CLS}`);
 
-  const browser = await chromium.launch({ headless: true });
+  const executablePath = resolveChromiumExecutable();
+  if (executablePath) console.log(`  chromium: ${executablePath}`);
+  const browser = await chromium.launch({ headless: true, executablePath });
   const results = [];
   for (const route of ROUTES) {
     for (const device of DEVICES) {
