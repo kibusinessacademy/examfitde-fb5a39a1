@@ -22,6 +22,14 @@ vi.mock("@/hooks/useOralStartability", () => ({
 
 import { CurriculumPicker } from "@/components/oral/CurriculumPicker";
 
+function makeCurricula(n: number) {
+  return Array.from({ length: n }, (_, i) => ({
+    id: `cur-${i}`,
+    title: `Fachinformatiker Anwendungsentwicklung #${i}`,
+  }));
+}
+
+
 // happy-dom has no layout engine, so @tanstack/react-virtual would render
 // zero virtual rows. Stub a non-zero viewport height + element rects so the
 // virtualizer materialises the first window of rows.
