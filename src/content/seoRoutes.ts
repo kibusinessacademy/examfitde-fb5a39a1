@@ -807,11 +807,14 @@ const topicLive: SeoRoute[] = EXAM_TOPICS.map((t) => {
     path: `/pruefungsfragen/${t.slug}`,
     // Title must be 30..60 chars per quality-gate; brand suffix kept short.
     title: (() => {
-      const base = `Prüfungsfragen ${t.slug === "bwl" ? "BWL Klausur" : t.h1.split(" – ")[0].replace(/Prüfungsfragen?\s*/i, "")}`.trim();
+      const base = `Prüfungsfragen ${t.slug === "bwl" ? "BWL Klausur" : t.h1.split(" – ")[0].replace(/Prüfungsfragen?\s*/i, "")}`.trim().replace(/[\s/|–-]+$/, "");
       const candidate = `${base} | ExamFit`;
       if (candidate.length >= 30 && candidate.length <= 60) return candidate;
-      if (candidate.length > 60) return candidate.slice(0, 60).replace(/\s\S*$/, "");
-      return `${candidate} – Musterfragen mit Lösungen`.slice(0, 60);
+      if (candidate.length > 60) {
+        const trimmed = base.slice(0, 60 - " | ExamFit".length).replace(/[\s/|–-]+$/, "");
+        return `${trimmed} | ExamFit`;
+      }
+      return `${candidate} – Musterfragen`.slice(0, 60);
     })(),
     description: t.metaDescription.length <= 160 ? t.metaDescription : t.metaDescription.slice(0, 157).replace(/\s\S*$/, "") + "...",
     h1: t.h1,
