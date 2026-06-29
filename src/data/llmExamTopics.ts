@@ -218,19 +218,24 @@ export const EXAM_TOPICS: ExamTopic[] = [
     ],
     faqs: [
       {
-        q: 'Welche PRINCE2-Edition deckt ExamFit ab?',
-        a: 'ExamFit deckt PRINCE2 6th und 7th Edition ab. Du kannst die Variante in den Lerneinstellungen wählen; alle Fragen sind je Edition validiert.',
+        q: 'Welche PRINCE2-Edition deckt ExamFit ab (PRINCE2 6th & 7th Edition)?',
+        a: 'ExamFit deckt PRINCE2 6th und 7th Edition (PRojects IN Controlled Environments) ab. Du kannst die Variante in den Lerneinstellungen wählen; alle Fragen sind je Edition gegen das offizielle AXELOS-Manual validiert.',
       },
       {
-        q: 'Wie viele PRINCE2-Fragen kann ich üben?',
-        a: 'Mehr als 500 Musterfragen für Foundation und Practitioner – alle mit Lösungen, Erklärungen und KI-Coach.',
+        q: 'Welche PRINCE2-Schreibvarianten und Synonyme deckt ihr ab?',
+        a: 'Suchanfragen wie „Prince2", „Prince 2", „PRINCE II", „PRINCE2 Foundation Fragen", „Prince2 Practitioner Mock Exam" oder „PRINCE2 Agile" landen alle auf derselben Vorbereitungsoberfläche – die Inhalte folgen dem AXELOS-Standard.',
       },
       {
-        q: 'Gibt es eine Practitioner-Simulation?',
-        a: 'Ja, ExamFit bietet eine vollständige Practitioner-Simulation mit 68 Objective-Testing-Fragen, 150 Minuten Bearbeitungszeit und detaillierter Auswertung.',
+        q: 'Wie viele PRINCE2-Fragen kann ich üben (Foundation + Practitioner)?',
+        a: 'Mehr als 500 Musterfragen für PRINCE2 Foundation und Practitioner – alle mit Lösungen, Erklärungen und KI-Coach inklusive der 7 Prinzipien, 7 Themen und 7 Prozesse.',
+      },
+      {
+        q: 'Gibt es eine Practitioner-Simulation im Objective-Testing-Format?',
+        a: 'Ja, ExamFit bietet eine vollständige Practitioner-Simulation mit 68 Objective-Testing-Fragen, 150 Minuten Bearbeitungszeit und detaillierter Auswertung (Pass-Score 55 %).',
       },
     ],
   },
+
   {
     slug: 'industriekauffrau',
     title: 'Prüfungsfragen Industriekauffrau / Industriekaufmann (IHK) – Musterfragen | ExamFit',
