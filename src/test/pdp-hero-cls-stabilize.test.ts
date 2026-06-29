@@ -53,3 +53,21 @@ describe('PDP.HERO.CLS.STABILIZE.1 — ProductHeroSection image stability', () =
     expect(heroSection).toMatch(/height=\{900\}/);
   });
 });
+
+describe('PDP.HERO.CLS.STABILIZE.1 — metric-adjusted font fallbacks', () => {
+  const indexCss = readFileSync(resolve(ROOT, 'src/index.css'), 'utf8');
+  const tw = readFileSync(resolve(ROOT, 'tailwind.config.ts'), 'utf8');
+
+  it('declares Inter + Space Grotesk metric-adjusted fallback @font-face', () => {
+    expect(indexCss).toMatch(/font-family:\s*'Inter Fallback'/);
+    expect(indexCss).toMatch(/font-family:\s*'Space Grotesk Fallback'/);
+    expect(indexCss).toMatch(/size-adjust:/);
+    expect(indexCss).toMatch(/ascent-override:/);
+  });
+
+  it('wires the fallbacks into Tailwind sans/display stacks before system-ui', () => {
+    expect(tw).toMatch(/"Inter",\s*"Inter Fallback",\s*"system-ui"/);
+    expect(tw).toMatch(/"Space Grotesk",\s*"Space Grotesk Fallback",\s*"system-ui"/);
+  });
+});
+
