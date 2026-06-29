@@ -45,6 +45,7 @@ export function CurriculumPicker({
 }: CurriculumPickerProps) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CurriculumCategory | 'all'>('all');
+  const [sort, setSort] = useState<CurriculumSort>('relevance');
   const { user } = useAuth();
 
   const index = useMemo(() => buildCurriculumIndex(curricula), [curricula]);
