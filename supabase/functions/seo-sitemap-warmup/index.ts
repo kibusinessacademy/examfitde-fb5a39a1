@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     action_type: "seo_sitemap_warmup",
     target_type: "sitemap",
     result_status: failCount === 0 ? "success" : okCount > 0 ? "partial" : "failed",
-    payload: {
+    metadata: {
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       dry_run: dryRun,

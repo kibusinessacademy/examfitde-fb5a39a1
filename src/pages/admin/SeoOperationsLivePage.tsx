@@ -13,7 +13,7 @@ type LogRow = {
   action_type: string;
   result_status: string | null;
   created_at: string;
-  payload: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
 };
 
 type FlowKey = "seo_sitemap_warmup" | "indexnow_drain_pending" | "indexnow_backfill_sitemap" | "seo_internal_linker_run";
@@ -66,7 +66,7 @@ export default function SeoOperationsLivePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("auto_heal_log")
-        .select("id, action_type, result_status, created_at, payload")
+        .select("id, action_type, result_status, created_at, metadata")
         .in("action_type", FLOWS.map((f) => f.key))
         .order("created_at", { ascending: false })
         .limit(60);
@@ -113,7 +113,7 @@ export default function SeoOperationsLivePage() {
       <div className="grid gap-4 md:grid-cols-2">
         {FLOWS.map((f) => {
           const last = latestByFlow.get(f.key);
-          const p = (last?.payload ?? {}) as any;
+          const p = (last?.metadata ?? {}) as any;
           const Icon = f.icon;
           return (
             <Card key={f.key}>
@@ -169,7 +169,7 @@ export default function SeoOperationsLivePage() {
               </TableHeader>
               <TableBody>
                 {events.map((e) => {
-                  const p = (e.payload ?? {}) as any;
+                  const p = (e.metadata ?? {}) as any;
                   const ok = p.success ?? p.succeeded ?? p.ok ?? p.suggestions_upserted ?? p.enqueued ?? "—";
                   const failed = p.failed ?? "—";
                   return (
