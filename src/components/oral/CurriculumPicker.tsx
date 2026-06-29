@@ -217,18 +217,13 @@ export function CurriculumPicker({
             )}
           </div>
         ) : (
-          <div className="grid gap-2" data-testid="oral-curriculum-grid">
-            {filtered.map((item) => (
-              <CurriculumRow
-                key={item.id}
-                item={item}
-                selected={selectedId === item.id}
-                onSelect={onSelect}
-                readiness={readinessMap?.get(item.id)}
-                isLoggedIn={isLoggedIn}
-              />
-            ))}
-          </div>
+          <VirtualizedCurriculumList
+            items={filtered}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            readinessMap={readinessMap}
+            isLoggedIn={isLoggedIn}
+          />
         )}
       </Section>
     </div>
