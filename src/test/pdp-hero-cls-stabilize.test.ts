@@ -71,3 +71,31 @@ describe('PDP.HERO.CLS.STABILIZE.1 — metric-adjusted font fallbacks', () => {
   });
 });
 
+
+describe('PDP.HERO.FONT.PRELOAD.1 — self-hosted hero font preload', () => {
+  const indexHtml = readFileSync(resolve(ROOT, 'index.html'), 'utf8');
+  const indexCss = readFileSync(resolve(ROOT, 'src/index.css'), 'utf8');
+
+  it('preloads Inter latin WOFF2 with crossorigin', () => {
+    expect(indexHtml).toMatch(
+      /rel="preload"[^>]*href="\/fonts\/inter-latin-var\.woff2"[^>]*as="font"[^>]*type="font\/woff2"[^>]*crossorigin/,
+    );
+  });
+
+  it('preloads Space Grotesk 700 latin WOFF2 with crossorigin + fetchpriority=high', () => {
+    expect(indexHtml).toMatch(
+      /rel="preload"[^>]*href="\/fonts\/spacegrotesk-700-latin\.woff2"[^>]*as="font"[^>]*crossorigin[^>]*fetchpriority="high"/,
+    );
+  });
+
+  it('declares matching @font-face rules with font-display: swap', () => {
+    expect(indexCss).toMatch(/url\('\/fonts\/inter-latin-var\.woff2'\)[\s\S]{0,200}font-display:\s*swap/);
+    expect(indexCss).toMatch(/url\('\/fonts\/spacegrotesk-700-latin\.woff2'\)/);
+    expect(indexCss).toMatch(/font-weight:\s*400 700/);
+  });
+
+  it('keeps unicode-range scoped to latin so Google CSS fills other subsets', () => {
+    expect(indexCss).toMatch(/unicode-range:\s*U\+0000-00FF/);
+    expect(indexCss).toMatch(/U\+0100-02BA/); // latin-ext
+  });
+});
