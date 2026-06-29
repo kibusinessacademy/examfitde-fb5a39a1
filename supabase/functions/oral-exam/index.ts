@@ -276,6 +276,28 @@ async function logTurn(sbAdmin: any, params: {
 async function startSession(sbUser: any, sbAdmin: any, userId: string, params: any) {
   const { curriculum_id, mode = "practice", total_questions = 5, topic_keys = [] } = params;
 
+  if (!curriculum_id || typeof curriculum_id !== "string") {
+    throw new Error(JSON.stringify({ error: "INVALID_CURRICULUM", message: "Bitte wähle einen Beruf/Studiengang aus." }));
+  }
+
+  // ── Server-side entitlement gate: oral trainer requires a paid package ──
+  const { data: hasAccess, error: accessError } = await sbAdmin.rpc("check_product_access_by_curriculum", {
+    p_user_id: userId,
+    p_curriculum_id: curriculum_id,
+    p_feature: "oral_trainer",
+  });
+  if (accessError) {
+    console.error("[OralExam] entitlement check failed:", accessError);
+    throw new Error(JSON.stringify({ error: "ENTITLEMENT_CHECK_FAILED", message: "Berechtigung konnte nicht geprüft werden. Bitte später erneut versuchen." }));
+  }
+  if (hasAccess !== true) {
+    throw new Error(JSON.stringify({
+      error: "NOT_ENTITLED",
+      message: "Für diesen Beruf ist kein Paket mit mündlicher Prüfung freigeschaltet. Bitte erwerbe den Kurs, um den Oral-Exam-Trainer zu nutzen.",
+      curriculum_id,
+    }));
+  }
+
   const topicFilter: string[] = Array.isArray(topic_keys)
     ? topic_keys.filter((k: any) => typeof k === "string" && k.length > 0)
     : [];
@@ -294,6 +316,7 @@ async function startSession(sbUser: any, sbAdmin: any, userId: string, params: a
     .single();
 
   if (error) throw error;
+
 
   const firstQuestion = await generateQuestionForSession(sbUser, sbAdmin, userId, session.id, curriculum_id, 0, mode, topicFilter);
 
