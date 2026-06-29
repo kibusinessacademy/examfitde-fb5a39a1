@@ -498,18 +498,29 @@ export default function OralExamTrainer() {
     reportEntryFallbackCtaClick('oral', 'oral_start', {
       has_selected_curriculum: !!selectedCurriculum,
       curricula_count: curricula?.length ?? 0,
+      startability_status: startability.status,
     });
     if (!selectedCurriculum) return;
+    if (startability.status !== 'ready') {
+      // UI gating: nicht erneut versuchen, wenn klar nicht startbar ist
+      return;
+    }
+    setLastStartError(null);
     rememberRecentCurriculum(selectedCurriculum);
-    await startSession();
-    setPhase('question');
-    setTimeRemaining(180);
-    setIsTimerActive(true);
-    setAnswer('');
-    setShowSampleAnswer(false);
-    setTurnMetrics([]);
-    sessionStartRef.current = Date.now();
+    try {
+      await startSession();
+      setPhase('question');
+      setTimeRemaining(180);
+      setIsTimerActive(true);
+      setAnswer('');
+      setShowSampleAnswer(false);
+      setTurnMetrics([]);
+      sessionStartRef.current = Date.now();
+    } catch (e: any) {
+      setLastStartError({ code: e?.code, message: e?.message });
+    }
   };
+
 
   // Oral Activation v2 — Auto-Start aus Kursbezug.
   // Wenn ?curriculum= gesetzt, Zugriff vorhanden und noch in setup-Phase:
