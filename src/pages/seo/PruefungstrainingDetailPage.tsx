@@ -509,7 +509,7 @@ const PruefungstrainingDetailPage = () => {
               <div className="absolute inset-0 gradient-hero opacity-10" />
               <div className="relative z-10">
                 <h2 className="text-2xl sm:text-3xl font-display font-bold mb-4">
-                  Bereit für die {chamber}-Prüfung {name}?
+                  Bereit für {heroPhrasing.possessiveChamberPhrase}?
                 </h2>
                 {isPublished ? (
                   <>
