@@ -12,7 +12,9 @@ import {
   getRecentCurriculumIds,
   type CurriculumCategory,
   type CurriculumDisplay,
+  type CurriculumSort,
 } from '@/lib/curriculumDisplay';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const CATEGORY_CHIPS: { key: CurriculumCategory | 'all'; label: string }[] = [
