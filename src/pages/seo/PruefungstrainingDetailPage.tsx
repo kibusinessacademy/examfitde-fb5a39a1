@@ -30,8 +30,9 @@ function generateFAQs(cert: any) {
   const name = cert.title;
   const chamber = cert.chamber_type || 'IHK';
   const questions = cert.min_question_target || 600;
+  const phrasing = buildHeroPhrasing({ title: name, catalogType: cert.catalog_type, chamberType: chamber });
   return [
-    { question: `Für welche Prüfung ist dieses Training gedacht?`, answer: `Dieses Prüfungstraining ist exakt auf die ${chamber}-Prüfung ${name} ausgerichtet – mit prüfungsrelevanten Aufgabentypen, realistischen Zeitvorgaben und berufsspezifischem Fokus.` },
+    { question: `Für welche Prüfung ist dieses Training gedacht?`, answer: `Dieses Prüfungstraining ist exakt auf die ${phrasing.chamberExamPhrase} ausgerichtet – mit prüfungsrelevanten Aufgabentypen, realistischen Zeitvorgaben und berufsspezifischem Fokus.` },
     { question: `Was ist im Preis enthalten?`, answer: `Du erhältst für ${PRICING.defaultPrice} einmalig ${PRICING.defaultAccess} Zugriff auf: ${questions}+ Prüfungsaufgaben, realistische Prüfungssimulation, KI-Prüfungscoach, mündliches Prüfungstraining, Schwächenanalyse und Prüfungsreife-Indikator.` },
     { question: `Ist das ein Abo?`, answer: `Nein. ${PRICING.noSubscription} – du zahlst einmalig und hast ${PRICING.defaultAccess} Zugriff. Keine automatische Verlängerung, keine versteckten Kosten.` },
     { question: `Kann ich schriftliche und mündliche Prüfung trainieren?`, answer: `Ja. ExamFit deckt beide Prüfungsteile ab: schriftliche Prüfungssimulation mit Zeitlimit und Auswertung sowie mündliches Fachgespräch-Training mit strukturiertem KI-Feedback.` },
