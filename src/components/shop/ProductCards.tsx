@@ -24,6 +24,7 @@ const ALL_FEATURES = [
 ];
 
 import { formatEur } from '@/lib/timezone';
+import { buildHeroPhrasing } from '@/lib/hero/heroPhrasing';
 const formatPrice = formatEur;
 
 export function ProductCards({ curriculumId }: ProductCardProps) {
