@@ -70,8 +70,9 @@ export function CurriculumPicker({
         query,
         category,
         recentIds: query ? [] : recentIds,
+        sort,
       }),
-    [index, query, category, recentIds],
+    [index, query, category, recentIds, sort],
   );
 
   const showQuickRows = !query && category === 'all';
