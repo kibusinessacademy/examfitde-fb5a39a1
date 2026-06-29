@@ -541,6 +541,17 @@ export default function LessonPlayer() {
           </CardContent>
         </Card>
 
+        {/* Cut 9 — Oral Visual Feedback Slot (learner-safe).
+            Gate: nur nach Antwortabgabe (MiniCheck submitted ODER Lektion
+            abgeschlossen). Liest ausschließlich aus bereits geladener
+            lesson.content — kein zusätzlicher DB-Read. */}
+        <LessonOralVisualSlot
+          content={lesson.content}
+          answerSubmitted={showFeedback || !!progress?.completed}
+          className="max-w-4xl mx-auto mb-8"
+        />
+
+
         {/* Humor Outro (after content, before navigation) */}
         {lesson.step !== 'mini_check' && progress?.completed && (
           <SurfaceHumorCard
