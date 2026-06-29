@@ -369,8 +369,31 @@ export default function ExportPreviewPage() {
     });
   };
 
+  // Offline export validation — computed live as selection mutates.
+  const validation: ExportValidationReport | null = useMemo(
+    () => (data ? validateExportCompleteness(data.files, selected) : null),
+    [data, selected],
+  );
+
+  const handleAutoFix = () => {
+    if (!data) return;
+    const next = autoIncludeCriticalPaths(data.files, selected);
+    setSelected(next);
+    toast.success("Fehlende kritische Inhalte automatisch wieder aufgenommen.");
+  };
+
   const handleExport = async () => {
     if (!data) return;
+    if (validation?.blocking) {
+      toast.error("Export gesperrt: kritische Inhalte fehlen oder sind blockiert.");
+      return;
+    }
+    if (validation && !validation.ok) {
+      const next = autoIncludeCriticalPaths(data.files, selected);
+      setSelected(next);
+      toast.message("Fehlende Dateien automatisch ergänzt — bitte erneut bestätigen.");
+      return;
+    }
     setExporting(true);
     try {
       const accepted = Array.from(selected);
