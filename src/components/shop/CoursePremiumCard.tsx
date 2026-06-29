@@ -113,27 +113,27 @@ export function CoursePremiumCard({
       )}
 
       {showFooter && (
-        <CardContent className="p-3 mt-auto flex items-stretch gap-2">
+        <CardContent className="p-2.5 sm:p-3.5 mt-auto flex items-stretch gap-1.5 sm:gap-2">
           {onPrimaryClick ? (
             <Button
               size="sm"
-              className="flex-1 min-w-0 gradient-primary text-primary-foreground shadow-glow h-10 px-3 text-sm"
+              className="flex-1 min-w-0 gradient-primary text-primary-foreground shadow-glow h-9 sm:h-10 px-2.5 sm:px-3 text-xs sm:text-sm"
               onClick={onPrimaryClick}
               disabled={primaryLoading}
             >
               {primaryLoading ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin shrink-0" />
+                <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 animate-spin shrink-0" />
               ) : (
-                <Icon className="h-4 w-4 mr-1 shrink-0" />
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 shrink-0" />
               )}
               <span className="truncate">
                 {primaryLoading ? 'Wird geladen…' : (primaryLabel ?? 'Mehr erfahren')}
               </span>
             </Button>
           ) : (
-            <Button asChild size="sm" className="flex-1 min-w-0 gradient-primary text-primary-foreground shadow-glow h-10 px-3 text-sm">
+            <Button asChild size="sm" className="flex-1 min-w-0 gradient-primary text-primary-foreground shadow-glow h-9 sm:h-10 px-2.5 sm:px-3 text-xs sm:text-sm">
               <Link to={href}>
-                <Icon className="h-4 w-4 mr-1 shrink-0" />
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 shrink-0" />
                 <span className="truncate">{primaryLabel ?? 'Mehr erfahren'}</span>
               </Link>
             </Button>
@@ -145,9 +145,9 @@ export function CoursePremiumCard({
               onClick={onSecondaryClick}
               aria-label={secondaryAriaLabel ?? `${title} – Vorschau`}
               title="Vorschau"
-              className="h-10 w-10 p-0 shrink-0"
+              className="h-9 w-9 sm:h-10 sm:w-10 p-0 shrink-0"
             >
-              <PlayCircle className="h-4 w-4" />
+              <PlayCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
           )}
         </CardContent>
