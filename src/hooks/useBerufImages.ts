@@ -95,16 +95,28 @@ export function useBerufImages(items: BerufImageItem[]) {
 
   /**
    * Alt-Text pro Slug — vom Edge-Generator gebaut (deutsch, Berufskontext,
-   * inkl. Auszubildende-Begriff). Konsumenten sollten diesen Wert in `<img alt>`
-   * verwenden, mit dem Berufstitel als Fallback.
+   * inkl. Auszubildende-Begriff). Falls die Edge-Function noch keinen
+   * Alt-Text geschrieben hat, fällt `resolveBerufAltText` deterministisch
+   * auf den Berufstitel zurück, damit `<img alt>` nie leer ist.
    */
   const altBySlug = useMemo(() => {
     const m = new Map<string, string>();
-    for (const r of (data ?? []) as CacheRow[]) {
-      if (r.alt_text) m.set(r.slug, r.alt_text);
+    const rows = new Map<string, CacheRow>(
+      ((data ?? []) as CacheRow[]).map((r) => [r.slug, r]),
+    );
+    for (const it of items) {
+      const row = rows.get(it.slug);
+      m.set(
+        it.slug,
+        resolveBerufAltText({
+          altText: row?.alt_text,
+          title: it.title,
+          kammer: it.kammer,
+        }),
+      );
     }
     return m;
-  }, [data]);
+  }, [data, items]);
 
   const statusBySlug = useMemo(() => {
     const m = new Map<string, 'ready' | 'generating' | 'queued' | 'failed'>();
