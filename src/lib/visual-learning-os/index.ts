@@ -45,5 +45,10 @@ export * from "./persistence";
 export * from "./mastery-signal-policy";
 export * from "./mastery-signals";
 
+// Cut 9 — Oral Visual Feedback (Strukturfeedback, keine finale Bewertung)
+export * from "./oral-visual-policy";
+export * from "./oral-visual-feedback";
+
+
 
 
