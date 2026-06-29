@@ -777,7 +777,7 @@ const topicLive: SeoRoute[] = EXAM_TOPICS.map((t) => {
     { label: "Fragen", value: `${t.questionCount}+ mit Lösungen` },
     { label: "Format", value: "Multiple Choice, Offene Fragen, Fallaufgaben" },
     { label: "KI-Coach", value: "Strict-RAG, mit Quellenangaben" },
-    { label: "Probeprüfung", value: "Kostenlos im Originalformat" },
+    { label: "Probeprüfung", value: "Kostenlos im realitätsnahen Prüfungsformat" },
     { label: "Trainer", value: t.trainerHref },
   ];
 
