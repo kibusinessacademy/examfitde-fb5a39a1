@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
-import { BookOpen, Search, Sparkles, Star, X } from 'lucide-react';
+import { BookOpen, CheckCircle2, Lock, Search, Sparkles, Star, X, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { useOralCurriculaReadinessBulk } from '@/hooks/useOralStartability';
 import {
   buildCurriculumIndex,
   filterCurricula,
@@ -11,6 +13,7 @@ import {
   type CurriculumCategory,
   type CurriculumDisplay,
 } from '@/lib/curriculumDisplay';
+
 
 const CATEGORY_CHIPS: { key: CurriculumCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'Alle' },
@@ -40,9 +43,13 @@ export function CurriculumPicker({
 }: CurriculumPickerProps) {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CurriculumCategory | 'all'>('all');
+  const { user } = useAuth();
 
   const index = useMemo(() => buildCurriculumIndex(curricula), [curricula]);
   const recentIds = useMemo(() => getRecentCurriculumIds(), []);
+
+  const allIds = useMemo(() => index.map((c) => c.id), [index]);
+  const readinessBulk = useOralCurriculaReadinessBulk(allIds);
 
   const recent = useMemo(
     () => recentIds.map((id) => index.find((c) => c.id === id)).filter(Boolean) as CurriculumDisplay[],
@@ -65,6 +72,9 @@ export function CurriculumPicker({
   );
 
   const showQuickRows = !query && category === 'all';
+  const readinessMap = readinessBulk.data;
+  const isLoggedIn = !!user;
+
 
   return (
     <div className="space-y-4">
@@ -112,13 +122,13 @@ export function CurriculumPicker({
 
       {showQuickRows && recent.length > 0 && (
         <Section title="Zuletzt genutzt" icon={<Star className="h-4 w-4 text-amber-500" />}>
-          <CardRow items={recent} selectedId={selectedId} onSelect={onSelect} />
+          <CardRow items={recent} selectedId={selectedId} onSelect={onSelect} readinessMap={readinessMap} isLoggedIn={isLoggedIn} />
         </Section>
       )}
 
       {showQuickRows && popular.length > 0 && (
         <Section title="Beliebte Prüfungen" icon={<Sparkles className="h-4 w-4 text-primary" />}>
-          <CardRow items={popular} selectedId={selectedId} onSelect={onSelect} />
+          <CardRow items={popular} selectedId={selectedId} onSelect={onSelect} readinessMap={readinessMap} isLoggedIn={isLoggedIn} />
         </Section>
       )}
 
@@ -144,6 +154,8 @@ export function CurriculumPicker({
                 item={item}
                 selected={selectedId === item.id}
                 onSelect={onSelect}
+                readiness={readinessMap?.get(item.id)}
+                isLoggedIn={isLoggedIn}
               />
             ))}
           </div>
@@ -152,6 +164,7 @@ export function CurriculumPicker({
     </div>
   );
 }
+
 
 function Section({
   title,
@@ -173,14 +186,20 @@ function Section({
   );
 }
 
+type ReadinessInfo = { hasBlueprints: boolean; blueprintCount: number } | undefined;
+
 function CardRow({
   items,
   selectedId,
   onSelect,
+  readinessMap,
+  isLoggedIn,
 }: {
   items: CurriculumDisplay[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  readinessMap?: Map<string, { hasBlueprints: boolean; blueprintCount: number }>;
+  isLoggedIn: boolean;
 }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
@@ -190,6 +209,8 @@ function CardRow({
           item={item}
           selected={selectedId === item.id}
           onSelect={onSelect}
+          readiness={readinessMap?.get(item.id)}
+          isLoggedIn={isLoggedIn}
           compact
         />
       ))}
@@ -197,23 +218,68 @@ function CardRow({
   );
 }
 
+function StartabilityBadge({ readiness, isLoggedIn }: { readiness: ReadinessInfo; isLoggedIn: boolean }) {
+  if (!readiness) {
+    return null;
+  }
+  if (!readiness.hasBlueprints) {
+    return (
+      <Badge
+        variant="outline"
+        className="h-5 px-1.5 text-[10px] border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300"
+        title="Für diesen Beruf sind noch keine mündlichen Prüfungsblueprints freigegeben."
+      >
+        <AlertTriangle className="h-3 w-3 mr-1" /> noch nicht verfügbar
+      </Badge>
+    );
+  }
+  if (!isLoggedIn) {
+    return (
+      <Badge
+        variant="outline"
+        className="h-5 px-1.5 text-[10px] border-sky-300 text-sky-700 bg-sky-50 dark:bg-sky-950/30 dark:text-sky-300"
+        title="Login erforderlich"
+      >
+        <Lock className="h-3 w-3 mr-1" /> Login
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      variant="outline"
+      className="h-5 px-1.5 text-[10px] border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300"
+      title={`${readiness.blueprintCount} mündliche Prüfungsfragen verfügbar`}
+    >
+      <CheckCircle2 className="h-3 w-3 mr-1" /> verfügbar
+    </Badge>
+  );
+}
+
 function CurriculumRow({
   item,
   selected,
   onSelect,
+  readiness,
+  isLoggedIn,
   compact = false,
 }: {
   item: CurriculumDisplay;
   selected: boolean;
   onSelect: (id: string) => void;
+  readiness?: { hasBlueprints: boolean; blueprintCount: number };
+  isLoggedIn: boolean;
   compact?: boolean;
 }) {
+  const unavailable = readiness && !readiness.hasBlueprints;
   return (
     <button
       type="button"
       onClick={() => onSelect(item.id)}
       aria-pressed={selected}
       data-testid="oral-curriculum-item"
+      data-oral-status={
+        !readiness ? 'unknown' : !readiness.hasBlueprints ? 'no_blueprints' : isLoggedIn ? 'ready' : 'login_required'
+      }
       className={cn(
         'group flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
         'hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
@@ -221,17 +287,19 @@ function CurriculumRow({
           ? 'border-primary bg-primary/10 ring-1 ring-primary'
           : 'border-border bg-surface',
         compact && 'py-2',
+        unavailable && 'opacity-70',
       )}
     >
       <BookOpen
         className={cn('h-4 w-4 mt-0.5 shrink-0', selected ? 'text-primary' : 'text-muted-foreground')}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="truncate text-sm font-medium">{item.display_name}</span>
           {item.popularity >= 900 && (
             <Badge variant="secondary" className="h-4 px-1 text-[10px]">beliebt</Badge>
           )}
+          <StartabilityBadge readiness={readiness} isLoggedIn={isLoggedIn} />
         </div>
         {item.subtitle && (
           <div className="truncate text-xs text-muted-foreground">{item.subtitle}</div>
@@ -240,3 +308,4 @@ function CurriculumRow({
     </button>
   );
 }
+

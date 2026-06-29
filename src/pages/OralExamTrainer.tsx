@@ -37,6 +37,8 @@ import { Paywall } from '@/components/shop/Paywall';
 import { cn } from '@/lib/utils';
 import { CurriculumPicker } from '@/components/oral/CurriculumPicker';
 import { rememberRecentCurriculum } from '@/lib/curriculumDisplay';
+import { useOralStartability } from '@/hooks/useOralStartability';
+import { OralStartabilityCard } from '@/components/oral/OralStartabilityCard';
 import { useToast } from '@/hooks/use-toast';
 import PageExplainer from '@/components/admin/PageExplainer';
 import { useTerminology } from '@/hooks/useProgramType';
@@ -297,6 +299,10 @@ export default function OralExamTrainer() {
   );
   const curriculumTitle = curricula?.find(c => c.id === selectedCurriculum)?.title;
 
+  // SSOT für Startfähigkeit: Auth + Entitlement + Blueprint-Verfügbarkeit
+  const startability = useOralStartability(selectedCurriculum);
+  const [lastStartError, setLastStartError] = useState<{ code?: string; message?: string } | null>(null);
+
   // Themen (Lernfelder) für aktives Curriculum
   const { data: topics } = useQuery({
     queryKey: ['oral-exam-topics', selectedCurriculum],
@@ -492,18 +498,29 @@ export default function OralExamTrainer() {
     reportEntryFallbackCtaClick('oral', 'oral_start', {
       has_selected_curriculum: !!selectedCurriculum,
       curricula_count: curricula?.length ?? 0,
+      startability_status: startability.status,
     });
     if (!selectedCurriculum) return;
+    if (startability.status !== 'ready') {
+      // UI gating: nicht erneut versuchen, wenn klar nicht startbar ist
+      return;
+    }
+    setLastStartError(null);
     rememberRecentCurriculum(selectedCurriculum);
-    await startSession();
-    setPhase('question');
-    setTimeRemaining(180);
-    setIsTimerActive(true);
-    setAnswer('');
-    setShowSampleAnswer(false);
-    setTurnMetrics([]);
-    sessionStartRef.current = Date.now();
+    try {
+      await startSession();
+      setPhase('question');
+      setTimeRemaining(180);
+      setIsTimerActive(true);
+      setAnswer('');
+      setShowSampleAnswer(false);
+      setTurnMetrics([]);
+      sessionStartRef.current = Date.now();
+    } catch (e: any) {
+      setLastStartError({ code: e?.code, message: e?.message });
+    }
   };
+
 
   // Oral Activation v2 — Auto-Start aus Kursbezug.
   // Wenn ?curriculum= gesetzt, Zugriff vorhanden und noch in setup-Phase:
@@ -847,15 +864,31 @@ export default function OralExamTrainer() {
               </ul>
             </div>
 
+            {selectedCurriculum && (
+              <OralStartabilityCard
+                startability={startability}
+                lastError={lastStartError}
+                curriculumId={selectedCurriculum}
+                curriculumTitle={curriculumTitle}
+                onRetry={() => { setLastStartError(null); handleStartExam(); }}
+              />
+            )}
+
             <Button
               size="lg"
               className="w-full"
-              disabled={!selectedCurriculum || isLoading}
+              disabled={
+                !selectedCurriculum ||
+                isLoading ||
+                startability.isLoading ||
+                startability.status !== 'ready'
+              }
               onClick={handleStartExam}
               data-testid="oral-start-cta"
               data-cta-location="oral_setup_start"
+              data-startability-status={startability.status}
             >
-              {isLoading ? (
+              {isLoading || startability.isLoading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Play className="h-4 w-4 mr-2" />
@@ -865,6 +898,7 @@ export default function OralExamTrainer() {
           </CardContent>
         </Card>
       )}
+
 
       {(phase === 'question' || phase === 'listening') && currentQuestion && (
         <Card className="glass-card">
