@@ -376,10 +376,7 @@ async function generateAndStore(
   }
 }
 
-      updated_at: new Date().toISOString(),
-    });
-  }
-}
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
