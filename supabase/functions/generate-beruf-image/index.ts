@@ -235,23 +235,27 @@ const SCENE_RULES: Array<[RegExp, SceneSpec]> = [
 
 function sceneFor(title: string, kammer: string | null): SceneSpec {
   for (const [re, spec] of SCENE_RULES) if (re.test(title)) return spec;
-  // Generic fallback — still apprentice-led
   if (kammer === "HWK") {
     return {
+      id: "fallback-hwk",
       subject: `young German Handwerks-Auszubildende(r) (training as "${title}") in trade-appropriate workwear`,
       setting: "authentic German workshop matching the trade, real tools and materials visible",
       action: "actively working on a real task while a Meister guides the next step",
+      altRole: `Handwerks-Auszubildende (${title})`,
+      altScene: "arbeitet in einer authentischen Handwerkswerkstatt",
     };
   }
   return {
+    id: "fallback-generic",
     subject: `young German Auszubildende(r) training as "${title}" in profession-appropriate workwear or uniform`,
     setting: "authentic German workplace that matches this specific occupation",
     action: "captured candidly mid-task with real tools, a senior colleague or Ausbilder nearby",
+    altRole: `Auszubildende (${title})`,
+    altScene: "arbeitet an einem realistischen Arbeitsplatz",
   };
 }
 
-function buildPrompt(_slug: string, title: string, kammer?: string | null): string {
-  const scene = sceneFor(title, kammer ?? null);
+function buildPrompt(scene: SceneSpec, kammer?: string | null): string {
   return [
     `Editorial documentary photograph for the German vocational training context.`,
     `Subject: ${scene.subject}.`,
@@ -262,6 +266,17 @@ function buildPrompt(_slug: string, title: string, kammer?: string | null): stri
     `Hyper-realistic, photojournalism style. No text, no logos, no watermarks, no collage, no stock-photo posing.`,
     kammer ? `Context: ${kammer} occupation in Germany.` : "",
   ].filter(Boolean).join(" ");
+}
+
+/**
+ * Build an SEO-friendly German alt-text used in <img alt="…">.
+ * Includes profession context + apprentice term so screen-reader users
+ * and search engines (Maurer-Prüfungsfragen, Bankkaufmann-Prüfungsvorbereitung, …)
+ * understand the scene without seeing it.
+ */
+function buildAltText(title: string, scene: SceneSpec, kammer: string | null): string {
+  const kammerSuffix = kammer ? ` (${kammer})` : "";
+  return `${scene.altRole} ${scene.altScene} – Berufsbild für ${title}${kammerSuffix}.`;
 }
 
 async function generateImageB64(prompt: string): Promise<string> {
@@ -300,8 +315,25 @@ async function generateAndStore(
   title: string,
   kammer: string | null,
 ) {
+  const scene = sceneFor(title, kammer);
+  const prompt = buildPrompt(scene, kammer);
+  const alt_text = buildAltText(title, scene, kammer);
+  const baseMeta = {
+    scene_id: scene.id,
+    scene_subject: scene.subject,
+    scene_setting: scene.setting,
+    scene_action: scene.action,
+    prompt_text: prompt,
+    alt_text,
+    model: MODEL,
+    meta: {
+      generator: "generate-beruf-image",
+      prompt_version: PROMPT_VERSION,
+      scene_id: scene.id,
+      kammer,
+    },
+  };
   try {
-    const prompt = buildPrompt(slug, title, kammer);
     const b64 = await generateImageB64(prompt);
     const bytes = b64ToBytes(b64);
     const path = `${slug}.png`;
@@ -315,22 +347,22 @@ async function generateAndStore(
       .from(BUCKET)
       .createSignedUrl(path, 60 * 60 * 24 * 365);
     if (signErr || !signed?.signedUrl) throw signErr ?? new Error("sign url failed");
-    const image_url = signed.signedUrl;
     await sb.from("beruf_image_cache").upsert({
       slug,
       title,
       kammer,
-      image_url,
+      image_url: signed.signedUrl,
       status: "ready",
       generated_at: new Date().toISOString(),
       error: null,
       prompt_version: PROMPT_VERSION,
       updated_at: new Date().toISOString(),
+      ...baseMeta,
     });
-    console.log(`[beruf-image] ready ${slug} v${PROMPT_VERSION}`);
+    console.log(`[beruf-image] ready ${slug} scene=${scene.id} v${PROMPT_VERSION}`);
   } catch (e) {
     const msg = (e as Error).message;
-    console.error(`[beruf-image] fail ${slug}: ${msg}`);
+    console.error(`[beruf-image] fail ${slug} scene=${scene.id}: ${msg}`);
     await sb.from("beruf_image_cache").upsert({
       slug,
       title,
@@ -338,6 +370,12 @@ async function generateAndStore(
       status: "failed",
       error: msg.slice(0, 500),
       prompt_version: PROMPT_VERSION,
+      updated_at: new Date().toISOString(),
+      ...baseMeta,
+    });
+  }
+}
+
       updated_at: new Date().toISOString(),
     });
   }
