@@ -53,14 +53,39 @@ export function PathAwareLoadingFallback() {
     return <div dangerouslySetInnerHTML={{ __html: renderBerufDetail(slug) }} />;
   }
 
+  // PDP.HERO.CLS.STABILIZE.1: SEO-Zertifikats-PDP (z. B. /fiae-pruefungsvorbereitung)
+  // bekommt eine tall shell, damit der Footer beim Lazy-Load-Swap nicht springt.
+  if (/-(pruefungsvorbereitung|pruefung|vorbereitung)$/.test(key)) {
+    const slug = key.replace(/^\//, '');
+    return <div dangerouslySetInnerHTML={{ __html: renderPruefungShell(slug) }} />;
+  }
+
   const html = SHELL[key];
   if (html) return <div dangerouslySetInnerHTML={{ __html: html }} />;
 
+  // Fallback: reserviere PDP-typische Höhe, damit Footer nicht in den Viewport
+  // klettert und beim Content-Swap einen großen Shift erzeugt.
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-start justify-center min-h-[1800px] pt-24">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   );
+}
+
+function renderPruefungShell(slug: string) {
+  let decoded = slug;
+  try { decoded = decodeURIComponent(slug); } catch { /* keep */ }
+  const safeRaw = decoded.replace(/[^a-zA-Z0-9äöüÄÖÜß \-_/]/g, '');
+  const title = escapeHtml(
+    safeRaw
+      .replace(/-(pruefungsvorbereitung|pruefung|vorbereitung)$/, '')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase()),
+  );
+  return `<div style="min-height:1800px;">${wrap(
+    'pruefung-pdp',
+    `<p style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 8px;">Prüfungsvorbereitung</p><h1 style="font-size:40px;line-height:1.1;margin:0 0 16px;min-height:120px;">${title}: Prüfung sicher bestehen</h1><p style="font-size:18px;color:#334155;margin:0 0 28px;max-width:680px;min-height:84px;">Strukturiertes Prüfungstraining mit prüfungsnahen Fragen, realistischer Simulation und persönlichem KI-Prüfungscoach.</p><p style="margin:0 0 48px;display:flex;gap:12px;flex-wrap:wrap;min-height:48px;"><a href="/berufe" data-cta-location="pruefung_loading_primary" style="${btnPrimary}">Jetzt Prüfung simulieren →</a><a href="/berufe" data-cta-location="pruefung_loading_switch" style="${btnSecondary}">Alle Berufe</a></p><div style="min-height:520px;"></div>`,
+  )}</div>`;
 }
 
 
