@@ -20,6 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from '@/components/ui/accordion';
+import { buildHeroPhrasing, heroSeoTitle } from '@/lib/hero/heroPhrasing';
 import PruefungstrainingCategoryPage from './PruefungstrainingCategoryPage';
 
 const KNOWN_CATEGORIES = ['ausbildung', 'fachwirt', 'meister', 'betriebswirt', 'sachkunde', 'aevo'];
@@ -110,6 +111,11 @@ const PruefungstrainingDetailPage = () => {
   const name = cert.title;
   const chamber = cert.chamber_type || 'IHK';
   const questions = cert.min_question_target || 600;
+  const heroPhrasing = buildHeroPhrasing({
+    title: name,
+    catalogType: cert.catalog_type,
+    chamberType: chamber,
+  });
 
   const breadcrumbItems = [
     { name: 'Start', url: SITE_URL },
@@ -131,7 +137,7 @@ const PruefungstrainingDetailPage = () => {
     generateCourseSchema({
       id: cert.id,
       name: `Prüfungstraining ${name}`,
-      description: `Bestehe deine ${chamber}-Prüfung ${name} sicher: ${questions}+ prüfungsnahe Aufgaben, Simulation & KI-Coach.`,
+      description: `${heroPhrasing.plain} ${questions}+ prüfungsnahe Aufgaben, Simulation & KI-Coach.`,
       url: `${SITE_URL}/pruefungstraining/${resolvedSlug}`,
       price: 24.90,
       currency: 'EUR',
@@ -149,8 +155,8 @@ const PruefungstrainingDetailPage = () => {
   return (
     <>
       <SEOHead
-        title={seoTitle(`${name} Prüfung bestehen – Prüfungstraining & Simulation`)}
-        description={`Bestehe deine ${chamber}-Prüfung ${name} sicher. Trainiere mit ${questions}+ Prüfungsaufgaben, realistischer Simulation und KI-Coach. Jetzt starten.`}
+        title={seoTitle(heroSeoTitle({ title: name, catalogType: cert.catalog_type, chamberType: chamber }))}
+        description={`${heroPhrasing.plain} Trainiere mit ${questions}+ Prüfungsaufgaben, realistischer Simulation und KI-Coach. Jetzt starten.`}
         canonical={`${SITE_URL}/pruefungstraining/${resolvedSlug}`}
         type="course"
         structuredData={structuredData}
@@ -178,13 +184,13 @@ const PruefungstrainingDetailPage = () => {
             )}
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mt-6 mb-4 leading-[1.1]">
-              Bestehe deine {chamber}-Abschlussprüfung als{' '}
-              <span className="text-gradient">{name}</span>
+              {heroPhrasing.prefix}{' '}
+              <span className="text-gradient">{heroPhrasing.highlight}</span>
+              {heroPhrasing.suffix ? <> {heroPhrasing.suffix}</> : null}
             </h1>
 
             <p className="text-lg sm:text-xl text-muted-foreground mb-6 max-w-3xl">
-              Trainiere schriftliche und mündliche Prüfungssituationen mit prüfungsnahen Aufgaben, Simulationen,
-              KI-Coach und klarer Schwächenanalyse.
+              {heroPhrasing.subline}
             </p>
 
             <div className="flex flex-wrap gap-3 mb-6">

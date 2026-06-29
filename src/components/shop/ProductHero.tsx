@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Shield, Sparkles, ArrowRight } from 'lucide-react';
 import { PRICING } from '@/config/pricing';
 import { Link } from 'react-router-dom';
+import { buildHeroPhrasing } from '@/lib/hero/heroPhrasing';
 
 interface Props {
   title: string;
@@ -14,9 +15,7 @@ interface Props {
 }
 
 export function ProductHero({ title, chamberType, catalogType, onBuyClick, isCheckoutLoading, priceDisplay }: Props) {
-  const cleanTitle = title
-    .replace(/^Rahmenlehrplan\s+/i, '')
-    .replace(/^Modulhandbuch\s+/i, '');
+  const phrasing = buildHeroPhrasing({ title, catalogType, chamberType });
 
   return (
     <section className="relative overflow-hidden py-12 md:py-20">
@@ -30,14 +29,13 @@ export function ProductHero({ title, chamberType, catalogType, onBuyClick, isChe
         </Badge>
 
         <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold leading-tight mb-4 md:mb-6">
-          Bestehe deine Abschlussprüfung als{' '}
-          <span className="text-gradient">{cleanTitle}</span>{' '}
-          – systematisch &amp; sicher
+          {phrasing.prefix}{' '}
+          <span className="text-gradient">{phrasing.highlight}</span>
+          {phrasing.suffix ? <> {phrasing.suffix}</> : null}
         </h1>
 
         <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-          Trainiere exakt das, was in der {chamberType}-Prüfung drankommt.
-          Mit echten Prüfungsaufgaben, Simulationen und persönlichem KI-Prüfungscoach.
+          {phrasing.subline}
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
