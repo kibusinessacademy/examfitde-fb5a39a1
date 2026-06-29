@@ -12,6 +12,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "seo:prerender": "node scripts/seo/run-prerender.mjs",
+    "seo:pipeline": "npm run build && npm run seo:prerender && node scripts/seo/verify-prerender-output.mjs",
     "pool:contract:check": "deno run -A scripts/check-pool-contract.ts",
     "pool:contract:update": "deno run -A scripts/update-pool-contract.ts",
     "ci:typecheck": "tsc --noEmit",
