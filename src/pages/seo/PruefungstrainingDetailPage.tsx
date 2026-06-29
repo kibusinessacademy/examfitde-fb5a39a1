@@ -111,6 +111,11 @@ const PruefungstrainingDetailPage = () => {
   const name = cert.title;
   const chamber = cert.chamber_type || 'IHK';
   const questions = cert.min_question_target || 600;
+  const heroPhrasing = buildHeroPhrasing({
+    title: name,
+    catalogType: cert.catalog_type,
+    chamberType: chamber,
+  });
 
   const breadcrumbItems = [
     { name: 'Start', url: SITE_URL },
@@ -132,7 +137,7 @@ const PruefungstrainingDetailPage = () => {
     generateCourseSchema({
       id: cert.id,
       name: `Prüfungstraining ${name}`,
-      description: `Bestehe deine ${chamber}-Prüfung ${name} sicher: ${questions}+ prüfungsnahe Aufgaben, Simulation & KI-Coach.`,
+      description: `${heroPhrasing.plain} ${questions}+ prüfungsnahe Aufgaben, Simulation & KI-Coach.`,
       url: `${SITE_URL}/pruefungstraining/${resolvedSlug}`,
       price: 24.90,
       currency: 'EUR',
