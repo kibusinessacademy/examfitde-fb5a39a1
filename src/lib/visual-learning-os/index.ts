@@ -41,4 +41,9 @@ export * from "./ai-draft-pipeline";
 export * from "./persistence-policy";
 export * from "./persistence";
 
+// Cut 8 — Visual Mastery Signals
+export * from "./mastery-signal-policy";
+export * from "./mastery-signals";
+
+
 
