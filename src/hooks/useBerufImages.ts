@@ -126,6 +126,37 @@ export function useBerufImages(items: BerufImageItem[]) {
     return m;
   }, [data, slugs, triggered]);
 
-  return { imageBySlug, statusBySlug, altBySlug };
+  /** Edge-Function-Fehlermeldung pro Slug (nur für `failed`-Status gefüllt). */
+  const errorBySlug = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of (data ?? []) as CacheRow[]) {
+      if (r.status === 'failed' && r.error) m.set(r.slug, r.error);
+    }
+    return m;
+  }, [data]);
+
+  /**
+   * Manuelles Re-Trigger der Generierung mit `force: true`. UI-Karten können
+   * diese Funktion an einen Retry-Button binden — die Edge Function loggt das
+   * Event als `retry_requested` und ersetzt das Cache-Bild deterministisch.
+   */
+  const retry = useMemo(() => async (slug: string) => {
+    const item = items.find((i) => i.slug === slug);
+    if (!item) return;
+    try {
+      await supabase.functions.invoke('generate-beruf-image', {
+        body: {
+          force: true,
+          items: [{ slug: item.slug, title: item.title, kammer: item.kammer ?? null }],
+        },
+      });
+    } catch (e) {
+      console.warn('[useBerufImages] retry failed', e);
+    } finally {
+      qc.invalidateQueries({ queryKey: ['beruf-image-cache', slugsKey] });
+    }
+  }, [items, qc, slugsKey]);
+
+  return { imageBySlug, statusBySlug, altBySlug, errorBySlug, retry };
 }
 
