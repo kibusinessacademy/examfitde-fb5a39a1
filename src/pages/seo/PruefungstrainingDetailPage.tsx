@@ -267,7 +267,7 @@ const PruefungstrainingDetailPage = () => {
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Kein Video-Marathon. Kein PDF-Dschungel. Sondern ein intelligentes Prüfungstrainings-System
-              für deine {chamber}-Abschlussprüfung als {name}.
+              für {heroPhrasing.possessiveChamberPhrase}.
             </p>
             <p className="mt-4 text-muted-foreground">
               Du trainierst nicht wahllos Inhalte, sondern genau die Aufgabenarten, Themen und
