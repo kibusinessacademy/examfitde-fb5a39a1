@@ -401,21 +401,13 @@ export default function ExportPreviewPage() {
               <CardTitle className="text-sm">Dateien</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[70vh]">
-                <div className="py-2">
-                  {tree.children.map((n) => (
-                    <TreeRow
-                      key={n.path}
-                      node={n}
-                      depth={0}
-                      selected={selected}
-                      toggle={toggle}
-                      onPick={setPicked}
-                      pickedPath={picked?.path ?? null}
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
+              <VirtualTree
+                tree={tree}
+                selected={selected}
+                toggle={toggle}
+                onPick={setPicked}
+                pickedPath={picked?.path ?? null}
+              />
             </CardContent>
           </Card>
           <Card className="overflow-hidden">
