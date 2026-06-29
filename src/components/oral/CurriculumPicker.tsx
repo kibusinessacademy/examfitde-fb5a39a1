@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { BookOpen, CheckCircle2, Lock, Search, Sparkles, Star, X, AlertTriangle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { BookOpen, CheckCircle2, Lock, RotateCcw, Search, Sparkles, Star, X, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
