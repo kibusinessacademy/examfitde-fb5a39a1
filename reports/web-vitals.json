@@ -1,6 +1,6 @@
 {
   "base_url": "http://localhost:8080",
-  "generated_at": "2026-06-29T05:56:22.918Z",
+  "generated_at": "2026-06-29T05:58:00.591Z",
   "budget": {
     "LCP_MS": 2500,
     "CLS": 0.1
@@ -13,8 +13,8 @@
       "route": "/berufe",
       "device": "mobile",
       "status": 200,
-      "loadMs": 7720,
-      "lcp_ms": 1072,
+      "loadMs": 8097,
+      "lcp_ms": 1028,
       "cls": 0,
       "lcp_element": "P",
       "budget": {
@@ -28,8 +28,8 @@
       "route": "/berufe",
       "device": "desktop",
       "status": 200,
-      "loadMs": 8011,
-      "lcp_ms": 1040,
+      "loadMs": 7936,
+      "lcp_ms": 1004,
       "cls": 0.0682,
       "lcp_element": "H1",
       "budget": {
@@ -43,8 +43,8 @@
       "route": "/fiae-pruefungsvorbereitung",
       "device": "mobile",
       "status": 200,
-      "loadMs": 3192,
-      "lcp_ms": 704,
+      "loadMs": 3236,
+      "lcp_ms": 772,
       "cls": 0.0039,
       "lcp_element": "H1",
       "budget": {
@@ -58,8 +58,8 @@
       "route": "/fiae-pruefungsvorbereitung",
       "device": "desktop",
       "status": 200,
-      "loadMs": 3869,
-      "lcp_ms": 692,
+      "loadMs": 3257,
+      "lcp_ms": 712,
       "cls": 0.6529,
       "lcp_element": "H1",
       "budget": {
@@ -75,8 +75,8 @@
       "route": "/bilanzbuchhalter-pruefungsvorbereitung",
       "device": "mobile",
       "status": 200,
-      "loadMs": 2831,
-      "lcp_ms": 756,
+      "loadMs": 2829,
+      "lcp_ms": 732,
       "cls": 0.0096,
       "lcp_element": "H1",
       "budget": {
@@ -90,8 +90,8 @@
       "route": "/bilanzbuchhalter-pruefungsvorbereitung",
       "device": "desktop",
       "status": 200,
-      "loadMs": 2789,
-      "lcp_ms": 728,
+      "loadMs": 2780,
+      "lcp_ms": 732,
       "cls": 0,
       "lcp_element": "H1",
       "budget": {
@@ -105,8 +105,8 @@
       "route": "/pruefungstraining-azubis",
       "device": "mobile",
       "status": 200,
-      "loadMs": 2701,
-      "lcp_ms": 1016,
+      "loadMs": 2624,
+      "lcp_ms": 952,
       "cls": 0.0151,
       "lcp_element": "H1",
       "budget": {
@@ -120,8 +120,8 @@
       "route": "/pruefungstraining-azubis",
       "device": "desktop",
       "status": 200,
-      "loadMs": 2723,
-      "lcp_ms": 1052,
+      "loadMs": 2629,
+      "lcp_ms": 980,
       "cls": 0.0293,
       "lcp_element": "H1",
       "budget": {
