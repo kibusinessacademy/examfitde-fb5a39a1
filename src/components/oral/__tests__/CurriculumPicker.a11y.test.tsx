@@ -75,6 +75,7 @@ describe("CurriculumPicker — keyboard + aria-activedescendant", () => {
     expect(listbox).toBeInTheDocument();
     const active = listbox.getAttribute("aria-activedescendant");
     expect(active).toMatch(/^oral-cur-row-cur-/);
+  });
 
   it("ArrowDown moves aria-activedescendant forward; Enter selects", async () => {
     const onSelect = vi.fn();
