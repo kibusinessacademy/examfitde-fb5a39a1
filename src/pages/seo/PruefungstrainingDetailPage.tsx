@@ -280,10 +280,10 @@ const PruefungstrainingDetailPage = () => {
         <section className="py-10 sm:py-14 px-3 sm:px-4 bg-muted/30">
           <div className="container mx-auto max-w-4xl">
             <h2 className="text-2xl sm:text-3xl font-display font-bold mb-3 text-center">
-              Was im Prüfungstraining für {name} <span className="text-gradient">enthalten ist</span>
+              Was im {heroPhrasing.productHeading} <span className="text-gradient">enthalten ist</span>
             </h2>
             <p className="text-muted-foreground text-center mb-8 max-w-2xl mx-auto">
-              Alle Werkzeuge für deine {chamber}-Prüfung – in einem Zugang.
+              Alle Werkzeuge für {heroPhrasing.possessiveChamberPhrase} – in einem Zugang.
             </p>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
