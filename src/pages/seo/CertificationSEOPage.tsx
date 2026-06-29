@@ -64,17 +64,12 @@ const CertificationSEOPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, mapping?.package_id]);
 
-  if (isLoading) {
+  // CLS-stable: kein spinner-only Fallback bei isLoading mehr — die Hero-Shell unten
+  // reserviert Höhe via min-h-Tokens (PDP.HERO.CLS.STABILIZE.1). Nur echte NotFound
+  // (geladen + leer) kürzt ab.
+  if (!isLoading && !page) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!page) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center min-h-[60vh]">
         <h1 className="text-3xl font-bold mb-4">Seite nicht gefunden</h1>
         <p className="text-muted-foreground mb-8">Die angeforderte Prüfungsseite wurde nicht gefunden.</p>
         <Link to="/" className="text-primary hover:underline">Zurück zur Startseite</Link>
