@@ -4,11 +4,9 @@ import { Breadcrumbs } from '@/components/seo/Breadcrumbs';
 import { generateBreadcrumbSchema, SITE_URL } from '@/lib/seo';
 import { useCertificationCatalog } from '@/hooks/useCertificationSEO';
 import { usePublishedCertifications } from '@/hooks/usePublishedCertifications';
-import { ArrowRight, Target, Clock } from 'lucide-react';
+import { Target, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+import { CoursePremiumCard } from '@/components/shop/CoursePremiumCard';
 
 const CATEGORY_META: Record<string, { title: string; h1: string; description: string; filterFn: (c: any) => boolean }> = {
   ausbildung: {
