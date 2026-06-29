@@ -355,7 +355,7 @@ export const ORAL_VISUAL_LEARNER_PROJECTION_FIXTURE: OralVisualLearnerProjection
   ],
   learner_visible: true,
   empty: false,
-  note: "Strukturhinweise zu deiner Antwort — keine mündliche Bewertung.",
+  disclaimer: "Strukturhinweise zu deiner Antwort — keine mündliche Bewertung.",
 };
 
 export const ORAL_VISUAL_ADMIN_PROJECTION_FIXTURE: OralVisualAdminProjection = {
