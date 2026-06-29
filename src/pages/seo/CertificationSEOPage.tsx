@@ -196,7 +196,7 @@ const CertificationSEOPage = () => {
         </section>
 
         {/* Original content from DB */}
-        {page.content_html && (
+        {page?.content_html && (
           <section className="py-16">
             <article className="container max-w-4xl">
               <div
