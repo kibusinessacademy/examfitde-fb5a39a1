@@ -614,5 +614,22 @@
       "learner": null,
       "pre_customer": null
     }
+  },
+  {
+    "ts": "2026-07-01T08:05:25.809Z",
+    "overall": "REVIEW",
+    "counts": {
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "total": 0
+    },
+    "fingerprints": [],
+    "new_fps": [],
+    "resolved_fps": [],
+    "runs": {
+      "learner": null,
+      "pre_customer": null
+    }
   }
 ]
